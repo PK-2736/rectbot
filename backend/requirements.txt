@@ -1,0 +1,7 @@
+stripe
+fastapi
+appwrite
+pyjwt
+requests
+uvicorn
+python-dotenv
