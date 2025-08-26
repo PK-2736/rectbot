@@ -1,0 +1,32 @@
+# yamllint disable rule:truthy
+# GitHub Actions workflow
+
+name: Deploy to OCI
+
+on:
+  push:
+    branches: [ "main" ]  # main ブランチに push されたら実行
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      HOST: ${{ secrets.OCI_HOST }}
+      USER: ${{ secrets.OCI_USER }}
+      KEY: ${{ secrets.OCI_SSH_KEY }}
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v0.1.6
+        with:
+          host: ${{ env.HOST }}
+          username: ${{ env.USER }}
+          key: ${{ env.KEY }}
+          script: |
+            cd /home/ubuntu/app   # git clone したディレクトリ
+            git pull origin main
+            docker compose pull
+            docker compose up -d --build

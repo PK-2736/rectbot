@@ -1,0 +1,7 @@
+# Caddyfile
+:80 {
+    reverse_proxy /api/* fastapi:8000
+    reverse_proxy /v1/* appwrite:80
+    reverse_proxy /console/* appwrite:80
+    reverse_proxy / appwrite:80
+}
