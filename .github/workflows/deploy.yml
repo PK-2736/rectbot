@@ -19,14 +19,18 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v3
 
+      - name: Set up SSH key (id_ed25519)
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.OCI_SSH_KEY }}" | base64 -d > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H ${{ secrets.OCI_HOST }} >> ~/.ssh/known_hosts
+
       - name: Deploy via SSH
-        uses: appleboy/ssh-action@v0.1.6
-        with:
-          host: ${{ env.HOST }}
-          username: ${{ env.USER }}
-          key: ${{ env.KEY }}
-          script: |
-            cd /home/ubuntu/app   # git clone したディレクトリ
+        run: |
+          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no ${{ secrets.OCI_USER }}@${{ secrets.OCI_HOST }} '
+            cd /home/ubuntu/app
             git pull origin main
             docker compose pull
             docker compose up -d --build
+          '
