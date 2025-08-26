@@ -1,5 +1,5 @@
 
-auch.pwy.rectbot.tech {
+auth.pwy.rectbot.tech {
     reverse_proxy appwrite:80
 }
 
