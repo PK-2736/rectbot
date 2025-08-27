@@ -31,8 +31,8 @@ services:
     environment:
       - _APP_ENV=development
       - _APP_OPENSSL_KEY_V1=your-secret-key
-      - _APP_DOMAIN=localhost
-      - _APP_DOMAIN_TARGET=localhost
+      - _APP_DOMAIN=auth.pwy.rectbot.tech
+      - _APP_DOMAIN_TARGET=auth.pwy.rectbot.tech
       - _APP_REDIS_HOST=appwrite-redis
       - _APP_DB_HOST=appwrite-mariadb
       - _APP_DB_USER=user
