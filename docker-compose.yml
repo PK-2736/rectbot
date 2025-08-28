@@ -71,14 +71,6 @@ services:
           cpus: '0.5'
           memory: 512M
     restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          cpus: '1.0'
-          memory: 1024M
-        reservations:
-          cpus: '0.5'
-          memory: 512M
 
   appwrite-redis:
     image: redis:7.0-alpine
