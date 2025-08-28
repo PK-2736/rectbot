@@ -29,7 +29,7 @@ services:
       - "8080:80"
     environment:
       - _APP_ENV=production
-      - _APP_OPENSSL_KEY_V1=your-secret-key
+      - _APP_OPENSSL_KEY_V1=2b7f8e1c9d4a5e6f7b8c0d1e2f3a4b5c
       - _APP_DOMAIN=auth.pwy.rectbot.tech
       - _APP_DOMAIN_TARGET=auth.pwy.rectbot.tech
       - _APP_REDIS_HOST=appwrite-redis
@@ -50,6 +50,7 @@ services:
         reservations:
           cpus: '1.0'
           memory: 2048M
+    restart: unless-stopped
 
   appwrite-mariadb:
     image: mariadb:10.7
@@ -61,12 +62,38 @@ services:
       - MYSQL_PASSWORD=password
     volumes:
       - appwrite-mariadb-data:/var/lib/mysql
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1024M
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1024M
+        reservations:
+          cpus: '0.5'
+          memory: 512M
 
   appwrite-redis:
     image: redis:7.0-alpine
     container_name: appwrite-redis
     volumes:
       - appwrite-redis-data:/data
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    restart: unless-stopped
 
 volumes:
   caddy_data:
