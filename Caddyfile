@@ -1,6 +1,9 @@
 
 auth.pwy.rectbot.tech {
-    reverse_proxy appwrite:80
+    reverse_proxy appwrite:80 {
+        header_up Host {host}
+        header_up X-Forwarded-Proto {scheme}
+    }
 }
 
 api.pwy.rectbot.tech {
