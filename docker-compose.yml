@@ -37,6 +37,8 @@ services:
       - _APP_DB_USER=user
       - _APP_DB_PASS=password
       - _APP_DB_SCHEMA=appwrite
+      - _APP_OPTIONS_ABUSE=enabled
+      - _APP_OPTIONS_REALTIME=enabled
     depends_on:
       - appwrite-mariadb
       - appwrite-redis
