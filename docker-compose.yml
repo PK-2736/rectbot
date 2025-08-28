@@ -28,7 +28,7 @@ services:
     ports:
       - "8080:80"
     environment:
-      - _APP_ENV=development
+      - _APP_ENV=production
       - _APP_OPENSSL_KEY_V1=your-secret-key
       - _APP_DOMAIN=auth.pwy.rectbot.tech
       - _APP_DOMAIN_TARGET=auth.pwy.rectbot.tech
