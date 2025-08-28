@@ -1,3 +1,5 @@
 # git管理対象外ファイル
 
 git-auto.sh
+oci_ssl_check.sh
+.env

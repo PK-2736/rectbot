@@ -40,6 +40,14 @@ services:
     depends_on:
       - appwrite-mariadb
       - appwrite-redis
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1024M
+        reservations:
+          cpus: '0.5'
+          memory: 512M
 
   appwrite-mariadb:
     image: mariadb:10.7
