@@ -45,7 +45,7 @@ services:
     depends_on:
       - appwrite-mariadb
       - appwrite-redis
-  restart: unless-stopped
+
 
   appwrite-mariadb:
     image: mariadb:10.7
