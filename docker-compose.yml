@@ -33,26 +33,19 @@ services:
       - _APP_DOMAIN=auth.pwy.rectbot.tech
       - _APP_DOMAIN_TARGET=auth.pwy.rectbot.tech
       - _APP_REDIS_HOST=appwrite-redis
+      - _APP_REDIS_PORT=6379
       - _APP_DB_HOST=appwrite-mariadb
       - _APP_DB_USER=user
       - _APP_DB_PASS=password
       - _APP_DB_SCHEMA=appwrite
-      - _APP_OPTIONS_ABUSE=enabled
       - _APP_OPTIONS_REALTIME=enabled
+      - _APP_CONSOLE_WHITELIST_ROOT=disabled
       - _APP_OPTIONS_REALTIME=enabled
       - _APP_CONSOLE_WHITELIST_ROOT=disabled
     depends_on:
       - appwrite-mariadb
       - appwrite-redis
-    deploy:
-      resources:
-        limits:
-          cpus: '2.0'
-          memory: 4096M
-        reservations:
-          cpus: '1.0'
-          memory: 2048M
-    restart: unless-stopped
+  restart: unless-stopped
 
   appwrite-mariadb:
     image: mariadb:10.7
@@ -64,14 +57,6 @@ services:
       - MYSQL_PASSWORD=password
     volumes:
       - appwrite-mariadb-data:/var/lib/mysql
-    deploy:
-      resources:
-        limits:
-          cpus: '1.0'
-          memory: 1024M
-        reservations:
-          cpus: '0.5'
-          memory: 512M
     restart: unless-stopped
 
   appwrite-redis:
@@ -79,14 +64,6 @@ services:
     container_name: appwrite-redis
     volumes:
       - appwrite-redis-data:/data
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 512M
-        reservations:
-          cpus: '0.25'
-          memory: 256M
     restart: unless-stopped
 
 volumes:

@@ -3,3 +3,4 @@
 git-auto.sh
 oci_ssl_check.sh
 .env
+backend/.env
