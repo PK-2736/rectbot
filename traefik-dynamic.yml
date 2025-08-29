@@ -1,0 +1,13 @@
+http:
+  routers:
+    frontend:
+      rule: "Host(`pwy.rectbot.tech`)"
+      service: frontend-external
+      entrypoints:
+        - web
+        - websecure
+  services:
+    frontend-external:
+      loadBalancer:
+        servers:
+          - url: "https://<外部フロントエンドのURL>"

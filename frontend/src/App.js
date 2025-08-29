@@ -1,7 +1,6 @@
-
-
 import './App.css';
 import { useEffect, useState } from 'react';
+import { useAppwriteRealtime } from './useAppwriteRealtime';
 
 function App() {
   const [token, setToken] = useState(null);
@@ -27,6 +26,12 @@ function App() {
     const url = API_BASE ? `${API_BASE}/auth/discord/login` : '/auth/discord/login';
     window.location.href = url;
   };
+
+  // 例: plansコレクションのRealtime購読
+  useAppwriteRealtime('collections.plans.documents', (event) => {
+    console.log('Realtime event:', event);
+    // 必要に応じてstate更新や通知処理を追加
+  });
 
   return (
     <div className="container" style={{maxWidth:700,margin:'40px auto',background:'#2c2f33',borderRadius:10,boxShadow:'0 2px 8px #0005',padding:32,color:'#fff',fontFamily:'Segoe UI,sans-serif'}}>
