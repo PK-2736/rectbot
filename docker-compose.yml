@@ -1,17 +1,24 @@
+
 services:
-  caddy:
-    image: caddy:2-alpine
-    container_name: caddy
+  traefik:
+    image: traefik:v2.11
+    container_name: traefik
+    command:
+      - --api.insecure=true
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --providers.file.directory=/etc/traefik/dynamic/
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
     ports:
       - "80:80"
       - "443:443"
+      - "8081:8080" # Traefik dashboard
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile
-      - caddy_data:/data
-      - caddy_config:/config
-    depends_on:
-      - fastapi
-      - appwrite
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./traefik-dynamic.yml:/etc/traefik/dynamic/traefik-dynamic.yml
+  # --- 外部フロントエンドへのプロキシ設定 ---
+# traefik-dynamic.yml をプロジェクトルートに新規作成してください
 
   fastapi:
     build: ./backend
@@ -21,6 +28,10 @@ services:
     volumes:
       - ./backend/src:/app/src
     command: uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.fastapi.rule=Host(`api.pwy.rectbot.tech`)"
+      - "traefik.http.services.fastapi.loadbalancer.server.port=8000"
 
   appwrite:
     image: appwrite/appwrite:1.5.6
@@ -37,14 +48,99 @@ services:
       - _APP_DB_HOST=appwrite-mariadb
       - _APP_DB_USER=user
       - _APP_DB_PASS=password
-
       - _APP_DB_SCHEMA=appwrite
       - _APP_OPTIONS_REALTIME=enabled
       - _APP_CONSOLE_WHITELIST_ROOT=disabled
     depends_on:
       - appwrite-mariadb
       - appwrite-redis
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.appwrite.rule=Host(`auth.pwy.rectbot.tech`)"
+      - "traefik.http.services.appwrite.loadbalancer.server.port=80"
 
+  appwrite-functions:
+    image: appwrite/functions:1.5.6
+    container_name: appwrite-functions
+    environment:
+      - _APP_ENV=production
+      - _APP_REDIS_HOST=appwrite-redis
+      - _APP_REDIS_PORT=6379
+      - _APP_DB_HOST=appwrite-mariadb
+      - _APP_DB_USER=user
+      - _APP_DB_PASS=password
+      - _APP_DB_SCHEMA=appwrite
+    depends_on:
+      - appwrite-mariadb
+      - appwrite-redis
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2048M
+        reservations:
+          cpus: '1.0'
+          memory: 1024M
+
+  appwrite-executor:
+    image: appwrite/executor:1.5.6
+    container_name: appwrite-executor
+    environment:
+      - _APP_ENV=production
+      - _APP_REDIS_HOST=appwrite-redis
+      - _APP_REDIS_PORT=6379
+    depends_on:
+      - appwrite-redis
+
+  appwrite-usage:
+    image: appwrite/usage:1.5.6
+    container_name: appwrite-usage
+    environment:
+      - _APP_ENV=production
+      - _APP_REDIS_HOST=appwrite-redis
+      - _APP_REDIS_PORT=6379
+    depends_on:
+      - appwrite-redis
+
+  appwrite-queue:
+    image: appwrite/queue:1.5.6
+    container_name: appwrite-queue
+    environment:
+      - _APP_ENV=production
+      - _APP_REDIS_HOST=appwrite-redis
+      - _APP_REDIS_PORT=6379
+    depends_on:
+      - appwrite-redis
+
+  appwrite-realtime:
+    image: appwrite/realtime:1.5.6
+    container_name: appwrite-realtime
+    environment:
+      - _APP_ENV=production
+      - _APP_REDIS_HOST=appwrite-redis
+      - _APP_REDIS_PORT=6379
+    depends_on:
+      - appwrite-redis
+
+  appwrite-worker:
+    image: appwrite/worker:1.5.6
+    container_name: appwrite-worker
+    environment:
+      - _APP_ENV=production
+      - _APP_REDIS_HOST=appwrite-redis
+      - _APP_REDIS_PORT=6379
+    depends_on:
+      - appwrite-redis
+
+  appwrite-storage:
+    image: appwrite/storage:1.5.6
+    container_name: appwrite-storage
+    environment:
+      - _APP_ENV=production
+      - _APP_REDIS_HOST=appwrite-redis
+      - _APP_REDIS_PORT=6379
+    depends_on:
+      - appwrite-redis
 
   appwrite-mariadb:
     image: mariadb:10.7
@@ -66,7 +162,5 @@ services:
     restart: unless-stopped
 
 volumes:
-  caddy_data:
-  caddy_config:
   appwrite-mariadb-data:
   appwrite-redis-data:
