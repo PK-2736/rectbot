@@ -37,9 +37,8 @@ services:
       - _APP_DB_HOST=appwrite-mariadb
       - _APP_DB_USER=user
       - _APP_DB_PASS=password
+
       - _APP_DB_SCHEMA=appwrite
-      - _APP_OPTIONS_REALTIME=enabled
-      - _APP_CONSOLE_WHITELIST_ROOT=disabled
       - _APP_OPTIONS_REALTIME=enabled
       - _APP_CONSOLE_WHITELIST_ROOT=disabled
     depends_on:
