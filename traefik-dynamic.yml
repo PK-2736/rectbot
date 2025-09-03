@@ -4,13 +4,13 @@ http:
       rule: "Host(`pwy.rectbot.tech`)"
       service: frontend-external
       entrypoints:
-        - web
         - websecure
+      tls:
+        certResolver: default
     appwrite-console:
-      rule: Host(`auth.pwy.rectbot.tech`)
+      rule: Host(`auth.pwy.rectbot.tech`)"
       service: appwrite
       entryPoints:
-        - web
         - websecure
       tls:
         certResolver: default
