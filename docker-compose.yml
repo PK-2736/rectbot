@@ -66,6 +66,8 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.appwrite.rule=Host(`auth.pwy.rectbot.tech`)"
       - "traefik.http.services.appwrite.loadbalancer.server.port=80"
+    volumes:
+      - ./appwrite-patch/http.php:/usr/src/code/app/http.php
 
 
   appwrite-mariadb:
