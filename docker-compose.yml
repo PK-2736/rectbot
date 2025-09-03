@@ -35,7 +35,7 @@ services:
 
 
   appwrite:
-    image: appwrite/appwrite:1.5.6
+    image: appwrite/appwrite:latest
     container_name: appwrite
     ports:
       - "8080:80"
