@@ -90,5 +90,3 @@ services:
 volumes:
   appwrite-mariadb-data:
   appwrite-redis-data:
-  appwrite-mariadb-data:
-  appwrite-redis-data:
