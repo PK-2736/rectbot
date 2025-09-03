@@ -85,7 +85,7 @@ services:
     container_name: appwrite-redis
     volumes:
       - appwrite-redis-data:/data
-    restart: unless-stopped
+    restart: always
 
 volumes:
   appwrite-mariadb-data:
