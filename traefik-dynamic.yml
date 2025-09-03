@@ -6,8 +6,29 @@ http:
       entrypoints:
         - web
         - websecure
+    appwrite-console:
+      rule: Host(`auth.pwy.rectbot.tech`)
+      service: appwrite
+      entryPoints:
+        - web
+        - websecure
+      tls:
+        certResolver: default
+      middlewares:
+        - appwrite-console-stripprefix
+
+  middlewares:
+    appwrite-console-stripprefix:
+      stripPrefix:
+        prefixes:
+          - /console
+
   services:
     frontend-external:
       loadBalancer:
         servers:
           - url: "https://<外部フロントエンドのURL>"
+    appwrite:
+      loadBalancer:
+        servers:
+          - url: "http://appwrite:80"
