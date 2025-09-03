@@ -16,7 +16,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./traefik-dynamic.yml:/etc/traefik/dynamic/traefik-dynamic.yml
-  # --- 外部フロントエンドへのプロキシ設定 ---
+# --- 外部フロントエンドへのプロキシ設定 ---
 # traefik-dynamic.yml をプロジェクトルートに新規作成してください
 
   fastapi:
