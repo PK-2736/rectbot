@@ -12,7 +12,7 @@ http:
     appwrite:
       loadBalancer:
         servers:
-          - url: "http://appwrite:80"
+          - url: "http://appwrite:8080"
     frontend-external:
       loadBalancer:
         servers:
