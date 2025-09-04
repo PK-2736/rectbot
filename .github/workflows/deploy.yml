@@ -51,5 +51,5 @@ jobs:
             cd /home/ubuntu/rectbot
             git pull origin main
             docker compose pull
-            docker compose up -d --build
+            docker compose up -d --build  # 既存サービスも再構築・再起動されます
           '
