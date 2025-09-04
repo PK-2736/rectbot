@@ -1,3 +1,5 @@
+<?php
+
 // ...既存のコード...
 // 101行目付近
 if (!is_null($needle) && str_ends_with($haystack, $needle)) {
