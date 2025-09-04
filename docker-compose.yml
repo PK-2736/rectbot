@@ -9,6 +9,9 @@ services:
       - --providers.file.directory=/etc/traefik/dynamic/
       - --entrypoints.web.address=:80
       - --entrypoints.websecure.address=:443
+      - --certificatesresolvers.letsencrypt.acme.email=ogawa.teppei0409@icloud.com
+      - --certificatesresolvers.letsencrypt.acme.storage=/acme.json
+      - --certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web
     ports:
       - "80:80"
       - "443:443"
