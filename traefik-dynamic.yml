@@ -8,14 +8,6 @@ http:
       tls:
         certResolver: letsencrypt
 
-  services:
-    appwrite:
-      loadBalancer:
-        servers:
-          - url: "http://appwrite:80"
-        certResolver: letsencrypt
-
-  services:
     frontend-external:
       loadBalancer:
         servers:
