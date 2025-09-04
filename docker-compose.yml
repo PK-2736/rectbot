@@ -47,6 +47,7 @@ services:
       - _APP_ENV=production
       - _APP_OPENSSL_KEY_V1=2b7f8e1c9d4a5e6f7b8c0d1e2f3a4b5c
       - _APP_DOMAIN=auth.pwy.rectbot.tech
+      - _APPWRITE_API_ENDPOINT=https://auth.pwy.rectbot.tech/v1
       - _APP_DOMAIN_TARGET=auth.pwy.rectbot.tech
       - _APP_REDIS_HOST=appwrite-redis
       - _APP_DB_HOST=appwrite-mariadb
