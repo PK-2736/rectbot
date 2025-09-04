@@ -1,18 +1,18 @@
 http:
   routers:
-    frontend:
-      rule: "Host(`pwy.rectbot.tech`)"
-      service: frontend-external
-      entrypoints:
-        - websecure
-      tls:
-        certResolver: letsencrypt
     appwrite-console:
       rule: "Host(`auth.pwy.rectbot.tech`)"
       service: appwrite
       entryPoints:
         - websecure
       tls:
+        certResolver: letsencrypt
+
+  services:
+    appwrite:
+      loadBalancer:
+        servers:
+          - url: "http://appwrite:80"
         certResolver: letsencrypt
 
   services:
