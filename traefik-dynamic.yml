@@ -24,11 +24,3 @@ http:
       loadBalancer:
         servers:
           - url: "http://appwrite:80"
-    frontend-external:
-      loadBalancer:
-        servers:
-          - url: "https://<外部フロントエンドのURL>"
-    appwrite:
-      loadBalancer:
-        servers:
-          - url: "http://appwrite:80"
