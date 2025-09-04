@@ -19,7 +19,7 @@ http:
     frontend-external:
       loadBalancer:
         servers:
-          - url: "https://<外部フロントエンドのURL>"
+          - url: "https://orange-broccoli-p5jpx4qv95wh7jq7-3000.app.github.dev/"
     appwrite:
       loadBalancer:
         servers:
