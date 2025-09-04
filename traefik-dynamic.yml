@@ -6,14 +6,14 @@ http:
       entrypoints:
         - websecure
       tls:
-        certResolver: default
+        certResolver: letsencrypt
     appwrite-console:
-      rule: Host(`auth.pwy.rectbot.tech`)
+      rule: "Host(`auth.pwy.rectbot.tech`)"
       service: appwrite
       entryPoints:
         - websecure
       tls:
-        certResolver: default
+        certResolver: letsencrypt
 
   services:
     frontend-external:
