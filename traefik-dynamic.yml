@@ -5,8 +5,6 @@ http:
       service: appwrite
       entryPoints:
         - websecure
-      tls:
-        certResolver: letsencrypt
 
   services:
     appwrite:
