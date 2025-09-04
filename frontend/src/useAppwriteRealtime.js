@@ -14,4 +14,4 @@ export function useAppwriteRealtime(channel, onEvent) {
     return () => unsubscribe();
   }, [channel, onEvent]);
 }
-}
+
