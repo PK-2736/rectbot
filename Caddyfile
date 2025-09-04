@@ -1,4 +1,3 @@
-
 auth.pwy.rectbot.tech {
     reverse_proxy appwrite:80 {
         header_up Host {host}
@@ -8,4 +7,5 @@ auth.pwy.rectbot.tech {
 
 api.pwy.rectbot.tech {
     reverse_proxy fastapi:8000
+}
 }
