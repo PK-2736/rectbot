@@ -8,11 +8,12 @@ http:
       tls:
         certResolver: letsencrypt
 
-    frontend-external:
-      loadBalancer:
-        servers:
-          - url: "https://orange-broccoli-p5jpx4qv95wh7jq7-3000.app.github.dev/"
+  services:
     appwrite:
       loadBalancer:
         servers:
           - url: "http://appwrite:80"
+    frontend-external:
+      loadBalancer:
+        servers:
+          - url: "https://orange-broccoli-p5jpx4qv95wh7jq7-3000.app.github.dev/"
