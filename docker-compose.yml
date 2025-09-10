@@ -1,15 +1,7 @@
-x-logging: &x-logging
-  logging:
-    driver: 'json-file'
-    options:
-      max-file: '5'
-      max-size: '10m'
-
 services:
   caddy:
     image: caddy:2-alpine
     container_name: caddy
-    <<: *x-logging
     ports:
       - "80:80"
       - "443:443"
@@ -17,8 +9,6 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile
       - caddy_data:/data
       - caddy_config:/config
-    networks:
-      - gateway
     depends_on:
       - fastapi
       - appwrite
@@ -26,90 +16,13 @@ services:
   fastapi:
     build: ./backend
     container_name: fastapi
-    <<: *x-logging
     ports:
       - "8000:8000"
     volumes:
       - ./backend/src:/app/src
     command: uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
-    networks:
-      - gateway
 
-  appwrite:
-    image: appwrite/appwrite:1.7.4
-    container_name: appwrite
-    <<: *x-logging
-    restart: unless-stopped
-    networks:
-      - appwrite
-      - gateway
-    environment:
-      - _APP_ENV=production
-      - _APP_OPENSSL_KEY_V1=2b7f8e1c9d4a5e6f7b8c0d1e2f3a4b5c
-      - _APP_DOMAIN=auth.pwy.rectbot.tech
-      - _APPWRITE_API_ENDPOINT=https://auth.pwy.rectbot.tech/v1
-      - _APP_DOMAIN_TARGET=auth.pwy.rectbot.tech
-      - _APP_REDIS_HOST=appwrite-redis
-      - _APP_DB_HOST=appwrite-mariadb
-      - _APP_DB_USER=user
-      - _APP_DB_PASS=password
-      - _APP_DB_SCHEMA=appwrite
-      - _APP_OPTIONS_ABUSE=enabled
-      - _APP_OPTIONS_REALTIME=enabled
-    depends_on:
-      - appwrite-mariadb
-      - appwrite-redis
-    volumes:
-      - appwrite-uploads:/storage/uploads:rw
-      - appwrite-imports:/storage/imports:rw
-      - appwrite-cache:/storage/cache:rw
-      - appwrite-config:/storage/config:rw
-      - appwrite-certificates:/storage/certificates:rw
-      - appwrite-functions:/storage/functions:rw
-      - appwrite-sites:/storage/sites:rw
-      - appwrite-builds:/storage/builds:rw
-
-  appwrite-mariadb:
-    image: mariadb:10.7
-    <<: *x-logging
-    container_name: appwrite-mariadb
-    environment:
-      - MYSQL_ROOT_PASSWORD=password
-      - MYSQL_DATABASE=appwrite
-      - MYSQL_USER=user
-      - MYSQL_PASSWORD=password
-    volumes:
-      - appwrite-mariadb-data:/var/lib/mysql
-    networks:
-      - appwrite
-    restart: unless-stopped
-
-  appwrite-redis:
-    image: redis:7.0-alpine
-    <<: *x-logging
-    container_name: appwrite-redis
-    volumes:
-      - appwrite-redis-data:/data
-    networks:
-      - appwrite
-    restart: unless-stopped
-
-networks:
-  gateway:
-    name: gateway
-  appwrite:
-    name: appwrite
 
 volumes:
   caddy_data:
   caddy_config:
-  appwrite-mariadb-data:
-  appwrite-redis-data:
-  appwrite-cache:
-  appwrite-uploads:
-  appwrite-imports:
-  appwrite-certificates:
-  appwrite-functions:
-  appwrite-sites:
-  appwrite-builds:
-  appwrite-config:

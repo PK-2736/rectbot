@@ -71,6 +71,7 @@ if STRIPE_API_KEY:
     stripe.api_key = STRIPE_API_KEY
 
 
+from backend.src.auth_discord import router as discord_router
 app = FastAPI(title="Discord Bot API", version="1.1.0")
 
 # CORS
@@ -83,6 +84,7 @@ app.add_middleware(
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"]
 )
+app.include_router(discord_router)
 
 
 def create_appwrite_client():
@@ -134,7 +136,7 @@ def _verify_state(signed: str) -> bool:
 def discord_login():
     # Re-read in case fallback loaded later
     missing = []
-    cid = os.environ.get("DISCORD_CLIENT_ID")
+    """
     redirect_uri = os.environ.get("DISCORD_REDIRECT_URI")
     if not cid:
         missing.append("DISCORD_CLIENT_ID")
