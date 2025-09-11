@@ -1,5 +1,7 @@
 name = "rectbot-backend"
 account_id = "74749d85b9c280c0daa93e12ea5d5a14"
+zone_id = "a9110e6087d89b91cc59b2640e7641ae"
+route = "https://api.rectbot.tech/*"
 main = "index.js"
 compatibility_date = "2025-09-11"
 workers_dev = true
