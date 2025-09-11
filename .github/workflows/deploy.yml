@@ -17,9 +17,10 @@ jobs:
 
     steps:
       - name: Checkout repo
-        - name: Install Wrangler
-          run: npm install -g wrangler
         uses: actions/checkout@v3
+        
+      - name: Install Wrangler
+        run: npm install -g wrangler
 
       - name: Create .env from secret
         run: echo "$GITHUB_ENV_CONTENTS" > .env
