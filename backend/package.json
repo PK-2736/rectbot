@@ -1,0 +1,10 @@
+{
+  "name": "rectbot-backend",
+  "version": "0.1.0",
+  "private": true,
+  "main": "index.js",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.0.0",
+    "stripe": "^12.0.0"
+  }
+}
