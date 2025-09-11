@@ -41,27 +41,29 @@ export default {
       }
       // Discordユーザー情報取得
       const user = await getDiscordUser(tokenData.access_token);
-      // 必要ならSupabaseに保存
-      // await supabase.from('users').upsert({ discord_id: user.id, username: user.username, email: user.email });
+      // Supabase REST APIでユーザー情報保存
+      await fetch(env.SUPABASE_URL + '/rest/v1/users', {
+        method: 'POST',
+        headers: {
+          'apikey': env.SUPABASE_SERVICE_ROLE_KEY,
+          'Authorization': `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ discord_id: user.id, username: user.username, email: user.email })
+      });
       return new Response(JSON.stringify({ user }), { status: 200 });
     }
-    if (request.method === 'POST' && url.pathname === '/webhook') {
-      const sig = request.headers.get('stripe-signature');
-      const body = await request.text();
-      try {
-        const event = stripe.webhooks.constructEvent(body, sig, env.STRIPE_WEBHOOK_SECRET);
-        // ここでevent.typeやevent.data.objectを使ってSupabaseにサブスク情報を保存
-        // 例: await supabase.from('subscriptions').upsert({ ... });
-        return new Response('Webhook received', { status: 200 });
-      } catch (err) {
-        return new Response('Webhook Error', { status: 400 });
-      }
-    }
+  // Stripe Webhook部分はWorkers用に要修正（公式SDKは使えません）
+  // if (request.method === 'POST' && url.pathname === '/webhook') {
+  //   const sig = request.headers.get('stripe-signature');
+  //   const body = await request.text();
+  //   // ここでbodyとsigを使って署名検証・イベント処理
+  //   // Supabase REST APIでサブスク情報保存
+  //   return new Response('Webhook received', { status: 200 });
+  // }
     return new Response('OK');
   }
 }
-import { createClient } from '@supabase/supabase-js';
-import Stripe from 'stripe';
 
 const supabase = createClient(
   'https://your-supabase-url.supabase.co',
