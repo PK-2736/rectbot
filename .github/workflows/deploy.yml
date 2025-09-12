@@ -23,11 +23,11 @@ jobs:
           cd backend
           bun install
       - name: Install Wrangler
-        run: npm install -g wrangler
+        run: cd backend && npm install wrangler
       - name: Deploy to Cloudflare Workers
         run: |
           cd backend
-          wrangler deploy
+          npx wrangler deploy
 # OCIデプロイジョブは一時的にコメントアウト
 # name: Deploy to OCI
 # on:
