@@ -1,0 +1,53 @@
+name: Deploy to OCI
+on:
+  push:
+    branches:
+      - "main"
+    paths:
+      - "bot/**"
+      
+  workflow_dispatch:
+
+jobs:
+  oci-deploy:
+    runs-on: ubuntu-latest
+    env:
+      HOST: ${{ secrets.OCI_HOST }}
+      USER: ${{ secrets.OCI_USER }}
+      KEY: ${{ secrets.OCI_SSH_KEY }}
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+      - name: Create .env from secret
+        run: echo "$GITHUB_ENV_CONTENTS" > .env
+        env:
+          GITHUB_ENV_CONTENTS: ${{ secrets.ENV_CONTENTS }}
+      - name: Create git-auto.sh from secret
+        run: |
+          echo "$GITHUB_GIT_AUTO_SH" > git-auto.sh
+          chmod +x git-auto.sh
+        env:
+          GITHUB_GIT_AUTO_SH: ${{ secrets.GIT_AUTO_SH }}
+      - name: Create oci_ssl_check.sh from secret
+        run: |
+          echo "$GITHUB_OCI_SSL_CHECK_SH" > oci_ssl_check.sh
+          chmod +x oci_ssl_check.sh
+        env:
+          GITHUB_OCI_SSL_CHECK_SH: ${{ secrets.OCI_SSL_CHECK_SH }}
+      - name: Set up SSH key (id_ed25519)
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.OCI_SSH_KEY }}" | base64 -d > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H ${{ secrets.OCI_HOST }} >> ~/.ssh/known_hosts
+      - name: Deploy via SSH
+        run: |
+          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no ${{ secrets.OCI_USER }}@${{ secrets.OCI_HOST }} '
+            cd /home/ubuntu/rectbot
+            git pull origin main
+            docker compose pull
+            docker compose up -d --build
+            cd bot
+            npm install
+            npm run start
+          '

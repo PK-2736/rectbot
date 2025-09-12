@@ -1,6 +1,7 @@
 # git管理対象外ファイル
-
-git-auto.sh
-oci_ssl_check.sh
 .env
+git-auto.sh
 backend/.env
+forntend/node_modules/
+bot/node_modules
+bot/.env
