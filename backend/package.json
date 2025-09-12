@@ -8,8 +8,8 @@
     "stripe": "^12.0.0"
   },
   "scripts": {
-    "build": "echo 'No build step required for Workers'",
-    "deploy": "wrangler deploy"
+  "build": "echo 'No build step required for Workers'",
+  "deploy": "npx wrangler deploy"
   }
 
 }
