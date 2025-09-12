@@ -65,8 +65,4 @@ export default {
   }
 }
 
-const supabase = createClient(
-  'https://your-supabase-url.supabase.co',
-  'your-service-role-key'
-);
-const stripe = new Stripe('sk_test_your_stripe_key');
+
