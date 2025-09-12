@@ -8,4 +8,4 @@ Docker/Caddyでローカル開発環境構築
 GitHub ActionsでCI/CD自動化
 セキュリティ（.env管理、JWT認証、SSL/TLS設定）
 Stripe課金・サブスク管理の実装
-バックアップ・監視（Sentry/Supabase Audit Log）test
+バックアップ・監視（Sentry/Supabase Audit Log）
