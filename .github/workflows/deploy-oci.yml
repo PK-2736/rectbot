@@ -43,6 +43,7 @@ jobs:
       - name: Deploy via SSH
         run: |
           ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no ${{ secrets.OCI_USER }}@${{ secrets.OCI_HOST }} '
+          source ~/.bashrc 
           cd ~/rectbot
           git pull origin main
           cd bot/src
