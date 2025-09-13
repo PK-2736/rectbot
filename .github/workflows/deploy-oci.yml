@@ -55,7 +55,7 @@ jobs:
               else
                git pull origin main
                fi
-               cd bot
+               cd bot/src
                pm2 start index.js --name rectbot
           '
 
