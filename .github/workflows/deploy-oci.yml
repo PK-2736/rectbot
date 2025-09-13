@@ -55,6 +55,7 @@ jobs:
               git pull origin main
               cd bot/src
               pm2 start index.js --name rectbot
+            fi
           EOF
 
 
