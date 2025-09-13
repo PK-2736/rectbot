@@ -44,10 +44,10 @@ jobs:
         run: |
           ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no ${{ secrets.OCI_USER }}@${{ secrets.OCI_HOST }} '
             cd ~/rectbot
-            git pull origin main
-            cd bot/src
-            pm2 restart rectbot || pm2 start index.js --name rectbot
-          '
+          git pull origin main
+          cd bot/src
+          pm2 restart rectbot || pm2 start index.js --name rectbot
+       '
 
 
     
