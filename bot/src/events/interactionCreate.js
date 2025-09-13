@@ -123,10 +123,27 @@ async function handleClose(interaction, recruitment, user, client) {
 async function updateRecruitmentEmbed(interaction, recruitment) {
   const { EmbedBuilder } = require('discord.js');
   
-  // 参加者リストをメンション形式で作成
-  const participantList = recruitment.participants.length > 0 
-    ? recruitment.participants.map(p => `<@${p.id}>`).join('\n')
-    : '参加者なし';
+  // 参加者リストをメンション形式で作成（文字数制限対応）
+  let participantList = '参加者なし';
+  if (recruitment.participants.length > 0) {
+    const mentions = recruitment.participants.map(p => `<@${p.id}>`);
+    participantList = mentions.join('\n');
+    
+    // 1024文字制限を超える場合は切り詰める
+    if (participantList.length > 1000) {
+      const truncatedMentions = [];
+      let currentLength = 0;
+      for (const mention of mentions) {
+        if (currentLength + mention.length + 1 > 1000) {
+          truncatedMentions.push('...(他にも参加者がいます)');
+          break;
+        }
+        truncatedMentions.push(mention);
+        currentLength += mention.length + 1;
+      }
+      participantList = truncatedMentions.join('\n');
+    }
+  }
   
   const statusEmoji = recruitment.status === 'CLOSED' ? '🔒' : '🎮';
   const statusText = recruitment.status === 'CLOSED' ? '【締切】' : '';
@@ -134,17 +151,14 @@ async function updateRecruitmentEmbed(interaction, recruitment) {
   const embed = new EmbedBuilder()
     .setTitle(`${statusEmoji} ${statusText}ゲーム募集`)
     .setDescription('**参加者募集中！**\n下のボタンで参加・取り消し・締めができます。')
-    .addFields(
-      {
-        name: `参加者 (${recruitment.participants.length}人)`,
-        value: participantList,
-        inline: false
-      }
-    )
-    .setThumbnail('attachment://logo.png')
+    .addFields({
+      name: `参加者 (${recruitment.participants.length}人)`,
+      value: participantList,
+      inline: false
+    })
     .setColor(recruitment.status === 'CLOSED' ? 0x808080 : 0x5865f2);
   
-  // 元のメッセージを編集
+  // 元のメッセージを編集（embedのみ更新）
   await interaction.message.edit({
     embeds: [embed]
   });
