@@ -5,7 +5,7 @@ on:
       - "main"
     paths:
       - "bot/**"
-      
+
   workflow_dispatch:
 
 jobs:
@@ -45,9 +45,7 @@ jobs:
           ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no ${{ secrets.OCI_USER }}@${{ secrets.OCI_HOST }} '
             cd /home/ubuntu/rectbot
             git pull origin main
-            docker compose pull
-            docker compose up -d --build
             cd bot
-            npm install
-            npm run start
-          '
+            sudo systemctl start rectbot
+
+    
