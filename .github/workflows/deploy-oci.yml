@@ -43,20 +43,19 @@ jobs:
       - name: Deploy via SSH
         run: |
           ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no ${{ secrets.OCI_USER }}@${{ secrets.OCI_HOST }} '
-          
-              mkdir -p ~/rectbot
-              cd ~/rectbot
-              if [ ! -d .git ]; then
-               git init
-               git remote add origin https://github.com/PK-2736/rectbot
-               git sparse-checkout init --cone
-               git sparse-checkout set bot
-               git pull origin main
-              else
-               git pull origin main
-               fi
-               cd bot/src
-               pm2 start index.js --name rectbot
+            mkdir -p ~/rectbot
+            cd ~/rectbot
+            if [ ! -d .git ]; then
+              git init
+              git remote add origin https://github.com/PK-2736/rectbot
+              git sparse-checkout init --cone
+              git sparse-checkout set bot
+              git pull origin main
+            else
+              git pull origin main
+              cd bot/src
+              pm2 start index.js --name rectbot
+            fi
           '
 
 
