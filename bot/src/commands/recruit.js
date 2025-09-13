@@ -111,6 +111,13 @@ module.exports = {
       const embed = new EmbedBuilder()
         .setTitle('🎮 ゲーム募集')
         .setDescription('**参加者募集中！**\n下のボタンで参加・取り消し・締めができます。')
+        .addFields(
+          {
+            name: '参加者 (0人)',
+            value: '参加者なし',
+            inline: false
+          }
+        )
         .setThumbnail('attachment://logo.png')
         .setColor(0x5865f2);
 
