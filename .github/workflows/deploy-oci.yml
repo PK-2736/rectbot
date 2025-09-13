@@ -48,6 +48,7 @@ jobs:
           cd ~/rectbot
           git pull origin main
           cd bot
+          node src/deploy-commands.js
           pm2 restart rectbot || pm2 start src/index.js --name rectbot
           '
 
