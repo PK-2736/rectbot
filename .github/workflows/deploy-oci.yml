@@ -42,7 +42,7 @@ jobs:
           ssh-keyscan -H ${{ secrets.OCI_HOST }} >> ~/.ssh/known_hosts
       - name: Deploy via SSH
         run: |
-          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no ${{ secrets.OCI_USER }}@${{ secrets.OCI_HOST }} ""
+          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no ${{ secrets.OCI_USER }}@${{ secrets.OCI_HOST }} '
             mkdir -p ~/rectbot
             cd ~/rectbot
             if [ ! -d .git ]; then
@@ -56,7 +56,7 @@ jobs:
               cd bot/src
               pm2 start index.js --name rectbot
             fi
-          ""
+          '
 
 
     
