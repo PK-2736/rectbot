@@ -46,8 +46,9 @@ jobs:
           source ~/.bashrc 
           cd ~/rectbot
           git pull origin main
-          cd bot/src
-          pm2 restart rectbot || pm2 start index.js --name rectbot
+          cd bot
+          npm install
+          pm2 restart rectbot || pm2 start src/index.js --name rectbot
           '
 
 
