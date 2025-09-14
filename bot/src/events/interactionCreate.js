@@ -124,7 +124,7 @@ async function handleClose(interaction, recruitment, user) {
 
 // embed更新処理
 async function updateRecruitmentEmbed(interaction, recruitment) {
-  const { EmbedBuilder, ContainerBuilder, SectionBuilder, TextDisplayBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder, MessageFlags } = require('discord.js');
+  const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
   
   // 参加者リストを作成
   let participantList = '参加者なし';
@@ -136,93 +136,38 @@ async function updateRecruitmentEmbed(interaction, recruitment) {
   const statusEmoji = recruitment.status === 'CLOSED' ? '🔒' : '🎮';
   const statusText = recruitment.status === 'CLOSED' ? '【締切】' : '';
   
-  // Components v2 の利用可能性をチェック
-  const hasComponentsV2 = typeof ContainerBuilder !== 'undefined' && 
-                         typeof SectionBuilder !== 'undefined' &&
-                         typeof TextDisplayBuilder !== 'undefined';
-
-  if (hasComponentsV2) {
-    // Components v2 を使用して更新
-    const container = new ContainerBuilder()
-      .addSectionComponents(
-        new SectionBuilder()
-          .addTextDisplayComponents([
-            new TextDisplayBuilder({
-              content: `# ${statusEmoji} ${statusText}ゲーム募集`
-            }),
-            new TextDisplayBuilder({
-              content: '参加ボタンを押して募集に参加してください。'
-            })
-          ])
-      )
-      .addSectionComponents(
-        new SectionBuilder()
-          .addTextDisplayComponents([
-            new TextDisplayBuilder({
-              content: `**参加者 (${recruitment.participants.length}人)**\n${participantList}`
-            })
-          ])
-          .setButtonAccessory(
-            new ButtonBuilder()
-              .setCustomId('join')
-              .setLabel('参加')
-              .setStyle(ButtonStyle.Success)
-              .setDisabled(recruitment.status === 'CLOSED')
-          )
-      )
-      .addActionRowComponents(
-        new ActionRowBuilder().addComponents(
-          new ButtonBuilder()
-            .setCustomId('cancel')
-            .setLabel('取り消し')
-            .setStyle(ButtonStyle.Secondary)
-            .setDisabled(recruitment.status === 'CLOSED'),
-          new ButtonBuilder()
-            .setCustomId('close')
-            .setLabel('締め')
-            .setStyle(ButtonStyle.Danger)
-        )
-      )
-      .setAccentColor(recruitment.status === 'CLOSED' ? 0x808080 : 0x5865f2);
-
-    await interaction.message.edit({
-      components: [container],
-      flags: MessageFlags.IsComponentsV2
-    });
-  } else {
-    // フォールバック：従来のEmbed
-    const embed = new EmbedBuilder()
-      .setTitle(`${statusEmoji} ${statusText}ゲーム募集`)
-      .setDescription('参加ボタンを押して募集に参加してください。')
-      .addFields({
-        name: `参加者 (${recruitment.participants.length}人)`,
-        value: participantList,
-        inline: false
-      })
-      .setColor(recruitment.status === 'CLOSED' ? 0x808080 : 0x5865f2);
-    
-    const row = new ActionRowBuilder()
-      .addComponents(
-        new ButtonBuilder()
-          .setCustomId('join')
-          .setLabel('参加')
-          .setStyle(ButtonStyle.Success)
-          .setDisabled(recruitment.status === 'CLOSED'),
-        new ButtonBuilder()
-          .setCustomId('cancel')
-          .setLabel('取り消し')
-          .setStyle(ButtonStyle.Secondary)
-          .setDisabled(recruitment.status === 'CLOSED'),
-        new ButtonBuilder()
-          .setCustomId('close')
-          .setLabel('締め')
-          .setStyle(ButtonStyle.Danger)
-      );
-    
-    // 元のメッセージを編集
-    await interaction.message.edit({
-      embeds: [embed],
-      components: [row]
-    });
-  }
+  // 従来のEmbed + Buttons（安定版）
+  const embed = new EmbedBuilder()
+    .setTitle(`${statusEmoji} ${statusText}ゲーム募集`)
+    .setDescription('参加ボタンを押して募集に参加してください。')
+    .addFields({
+      name: `参加者 (${recruitment.participants.length}人)`,
+      value: participantList,
+      inline: false
+    })
+    .setColor(recruitment.status === 'CLOSED' ? 0x808080 : 0x5865f2);
+  
+  const row = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('join')
+        .setLabel('参加')
+        .setStyle(ButtonStyle.Success)
+        .setDisabled(recruitment.status === 'CLOSED'),
+      new ButtonBuilder()
+        .setCustomId('cancel')
+        .setLabel('取り消し')
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(recruitment.status === 'CLOSED'),
+      new ButtonBuilder()
+        .setCustomId('close')
+        .setLabel('締め')
+        .setStyle(ButtonStyle.Danger)
+    );
+  
+  // 元のメッセージを編集
+  await interaction.message.edit({
+    embeds: [embed],
+    components: [row]
+  });
 }
