@@ -10,7 +10,7 @@ module.exports = {
       } catch (error) {
         console.error(error);
         if (!interaction.replied) {
-          await interaction.reply({ content: 'コマンド実行中にエラーが発生しました。', ephemeral: true });
+          await interaction.reply({ content: 'コマンド実行中にエラーが発生しました。', flags: require('discord.js').MessageFlags.Ephemeral });
         }
       }
       return;
@@ -49,12 +49,12 @@ module.exports = {
             await handleClose(interaction, recruitment, user);
             break;
           default:
-            await interaction.reply({ content: '不明なボタンです。', ephemeral: true });
+            await interaction.reply({ content: '不明なボタンです。', flags: require('discord.js').MessageFlags.Ephemeral });
         }
       } catch (error) {
         console.error('ボタンインタラクション処理中にエラーが発生しました:', error);
         if (!interaction.replied) {
-          await interaction.reply({ content: 'エラーが発生しました。', ephemeral: true });
+          await interaction.reply({ content: 'エラーが発生しました。', flags: require('discord.js').MessageFlags.Ephemeral });
         }
       }
     }
@@ -64,13 +64,13 @@ module.exports = {
 // 参加処理
 async function handleJoin(interaction, recruitment, user) {
   if (recruitment.status === 'CLOSED') {
-    await interaction.reply({ content: '募集は締め切られています。', ephemeral: true });
+  await interaction.reply({ content: '募集は締め切られています。', flags: require('discord.js').MessageFlags.Ephemeral });
     return;
   }
   
   // 既に参加しているかチェック
   if (recruitment.participants.some(p => p.id === user.id)) {
-    await interaction.reply({ content: '既に参加済みです。', ephemeral: true });
+  await interaction.reply({ content: '既に参加済みです。', flags: require('discord.js').MessageFlags.Ephemeral });
     return;
   }
   
@@ -84,7 +84,7 @@ async function handleJoin(interaction, recruitment, user) {
   // embedを更新
   await updateRecruitmentEmbed(interaction, recruitment);
   
-  await interaction.reply({ content: '参加しました！', ephemeral: true });
+  await interaction.reply({ content: '参加しました！', flags: require('discord.js').MessageFlags.Ephemeral });
 }
 
 // 取り消し処理
@@ -92,7 +92,7 @@ async function handleCancel(interaction, recruitment, user) {
   const index = recruitment.participants.findIndex(p => p.id === user.id);
   
   if (index === -1) {
-    await interaction.reply({ content: '参加していません。', ephemeral: true });
+  await interaction.reply({ content: '参加していません。', flags: require('discord.js').MessageFlags.Ephemeral });
     return;
   }
   
@@ -102,7 +102,7 @@ async function handleCancel(interaction, recruitment, user) {
   // embedを更新
   await updateRecruitmentEmbed(interaction, recruitment);
   
-  await interaction.reply({ content: '参加を取り消しました。', ephemeral: true });
+  await interaction.reply({ content: '参加を取り消しました。', flags: require('discord.js').MessageFlags.Ephemeral });
 }
 
 // 締め処理
@@ -110,7 +110,7 @@ async function handleClose(interaction, recruitment, user) {
   // 募集者またはサーバー管理者のみ締めることができる（簡易実装）
   const member = await interaction.guild.members.fetch(user.id);
   if (!member.permissions.has('ManageMessages')) {
-    await interaction.reply({ content: '募集を締める権限がありません。', ephemeral: true });
+  await interaction.reply({ content: '募集を締める権限がありません。', flags: require('discord.js').MessageFlags.Ephemeral });
     return;
   }
   
@@ -119,7 +119,7 @@ async function handleClose(interaction, recruitment, user) {
   // embedを更新
   await updateRecruitmentEmbed(interaction, recruitment);
   
-  await interaction.reply({ content: '募集を締め切りました。', ephemeral: true });
+  await interaction.reply({ content: '募集を締め切りました。', flags: require('discord.js').MessageFlags.Ephemeral });
 }
 
 // embed更新処理（Components v2対応）

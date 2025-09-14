@@ -37,8 +37,8 @@ module.exports = {
         )
       );
 
-    // 画像ファイルのパス（ファイル名は適宜変更してください）
-    const imagePath = path.join(__dirname, '../../images/boshu.png');
+  // 画像ファイルのパス（リポジトリ直下のimagesフォルダを参照）
+  const imagePath = path.join(__dirname, '../../../images/boshu.png');
     const attachment = new AttachmentBuilder(imagePath);
 
     const embed = new EmbedBuilder()
@@ -58,13 +58,13 @@ module.exports = {
   async handleButton(interaction) {
     switch (interaction.customId) {
       case "join":
-        await interaction.reply({ content: "✅ 参加しました！", ephemeral: true });
+        await interaction.reply({ content: "✅ 参加しました！", flags: MessageFlags.Ephemeral });
         break;
       case "cancel":
-        await interaction.reply({ content: "❌ 取り消しました。", ephemeral: true });
+        await interaction.reply({ content: "❌ 取り消しました。", flags: MessageFlags.Ephemeral });
         break;
       case "close":
-        await interaction.reply({ content: "🔒 締め切りました。", ephemeral: true });
+        await interaction.reply({ content: "🔒 締め切りました。", flags: MessageFlags.Ephemeral });
         break;
     }
   }
