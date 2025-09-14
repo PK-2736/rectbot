@@ -28,5 +28,5 @@
 0|rectbot  |     at MessagePayload.resolveBody (/home/ubuntu/rectbot/bot/node_modules/discord.js/src/structures/MessagePayload.js:150:49)
 0|rectbot  |     at ChatInputCommandInteraction.reply (/home/ubuntu/rectbot/bot/node_modules/discord.js/src/structures/interfaces/InteractionResponses.js:198:56)
 0|rectbot  | Using fallback Embed + Buttons
-0|rectbot  | (node:1037276) Warning: Supplying "ephemeral" for interaction response options is deprecated. Utilize flags instead.
+0|rectbot  | (node:1037778) Warning: Supplying "ephemeral" for interaction response options is deprecated. Utilize flags instead.
 0|rectbot  | (Use `node --trace-warnings ...` to show where the warning was created)
