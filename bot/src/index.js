@@ -37,10 +37,14 @@ client.on('interactionCreate', async interaction => {
       await command.execute(interaction);
     } catch (error) {
       console.error(error);
-      if (interaction.replied || interaction.deferred) {
-  await interaction.followUp({ content: 'There was an error while executing this command!', flags: require('discord.js').MessageFlags.Ephemeral });
-      } else {
-  await interaction.reply({ content: 'There was an error while executing this command!', flags: require('discord.js').MessageFlags.Ephemeral });
+      try {
+        if (interaction.replied || interaction.deferred) {
+          await interaction.followUp({ content: 'There was an error while executing this command!', flags: require('discord.js').MessageFlags.Ephemeral });
+        } else {
+          await interaction.reply({ content: 'There was an error while executing this command!', flags: require('discord.js').MessageFlags.Ephemeral });
+        }
+      } catch (e) {
+        console.error('Failed to send error response:', e);
       }
     }
   } else if (interaction.isButton()) {

@@ -3,8 +3,7 @@ const {
   ContainerBuilder, TextDisplayBuilder,
   SeparatorBuilder, SeparatorSpacingSize,
   ActionRowBuilder, ButtonBuilder, ButtonStyle,
-  MessageFlags,
-  EmbedBuilder, AttachmentBuilder
+  MessageFlags
 } = require('discord.js');
 const path = require('path');
 
@@ -37,19 +36,13 @@ module.exports = {
         )
       );
 
-  // 画像ファイルのパス（リポジトリ直下のimagesフォルダを参照）
-  const imagePath = path.join(__dirname, '../../../images/boshu.png');
-    const attachment = new AttachmentBuilder(imagePath);
-
-    const embed = new EmbedBuilder()
-      .setTitle('ゲーム募集')
-      .setDescription('以下の操作を選択してください。')
-      .setImage('attachment://boshu.png');
+    // 画像ファイルのパス（例: bot/src/assets/game.png）
+    const imagePath = path.join(__dirname, '../../images/boshu.png');
 
     await interaction.reply({
+      content: ' ',
+      files: [{ attachment: imagePath, name: 'boshu.png' }],
       components: [container],
-      embeds: [embed],
-      files: [attachment],
       flags: MessageFlags.IsComponentsV2
     });
   },
@@ -58,13 +51,13 @@ module.exports = {
   async handleButton(interaction) {
     switch (interaction.customId) {
       case "join":
-        await interaction.reply({ content: "✅ 参加しました！", flags: MessageFlags.Ephemeral });
+        await interaction.reply({ content: "✅ 参加しました！", ephemeral: true });
         break;
       case "cancel":
-        await interaction.reply({ content: "❌ 取り消しました。", flags: MessageFlags.Ephemeral });
+        await interaction.reply({ content: "❌ 取り消しました。", ephemeral: true });
         break;
       case "close":
-        await interaction.reply({ content: "🔒 締め切りました。", flags: MessageFlags.Ephemeral });
+        await interaction.reply({ content: "🔒 締め切りました。", ephemeral: true });
         break;
     }
   }
