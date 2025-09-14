@@ -3,8 +3,10 @@ const {
   ContainerBuilder, TextDisplayBuilder,
   SeparatorBuilder, SeparatorSpacingSize,
   ActionRowBuilder, ButtonBuilder, ButtonStyle,
-  MessageFlags
+  MessageFlags,
+  EmbedBuilder, AttachmentBuilder
 } = require('discord.js');
+const path = require('path');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -35,8 +37,19 @@ module.exports = {
         )
       );
 
+    // 画像ファイルのパス（ファイル名は適宜変更してください）
+    const imagePath = path.join(__dirname, '../../images/boshu.png');
+    const attachment = new AttachmentBuilder(imagePath);
+
+    const embed = new EmbedBuilder()
+      .setTitle('ゲーム募集')
+      .setDescription('以下の操作を選択してください。')
+      .setImage('attachment://boshu.png');
+
     await interaction.reply({
       components: [container],
+      embeds: [embed],
+      files: [attachment],
       flags: MessageFlags.IsComponentsV2
     });
   },
