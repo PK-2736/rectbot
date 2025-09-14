@@ -114,7 +114,7 @@ module.exports = {
         .addFields(
           {
             name: '参加者 (0人)',
-            value: '参加者なし',
+            value: '参加者なし' || '　', // valueが空の場合はスペース
             inline: false
           }
         )
@@ -138,7 +138,7 @@ module.exports = {
         );
 
       await interaction.reply({
-        embeds: [embed],
+        embeds: [embed.toJSON()],
         components: [row],
         files: [logoAttachment]
       });
