@@ -9,7 +9,9 @@ module.exports = {
         await command.execute(interaction);
       } catch (error) {
         console.error(error);
-        await interaction.reply({ content: 'コマンド実行中にエラーが発生しました。', ephemeral: true });
+        if (!interaction.replied) {
+          await interaction.reply({ content: 'コマンド実行中にエラーが発生しました。', ephemeral: true });
+        }
       }
       return;
     }
@@ -38,27 +40,29 @@ module.exports = {
         
         switch (customId) {
           case 'join':
-            await handleJoin(interaction, recruitment, user, client);
+            await handleJoin(interaction, recruitment, user);
             break;
           case 'cancel':
-            await handleCancel(interaction, recruitment, user, client);
+            await handleCancel(interaction, recruitment, user);
             break;
           case 'close':
-            await handleClose(interaction, recruitment, user, client);
+            await handleClose(interaction, recruitment, user);
             break;
           default:
             await interaction.reply({ content: '不明なボタンです。', ephemeral: true });
         }
       } catch (error) {
         console.error('ボタンインタラクション処理中にエラーが発生しました:', error);
-        await interaction.reply({ content: 'エラーが発生しました。', ephemeral: true });
+        if (!interaction.replied) {
+          await interaction.reply({ content: 'エラーが発生しました。', ephemeral: true });
+        }
       }
     }
   },
 };
 
 // 参加処理
-async function handleJoin(interaction, recruitment, user, client) {
+async function handleJoin(interaction, recruitment, user) {
   if (recruitment.status === 'CLOSED') {
     await interaction.reply({ content: '募集は締め切られています。', ephemeral: true });
     return;
@@ -84,7 +88,7 @@ async function handleJoin(interaction, recruitment, user, client) {
 }
 
 // 取り消し処理
-async function handleCancel(interaction, recruitment, user, client) {
+async function handleCancel(interaction, recruitment, user) {
   const index = recruitment.participants.findIndex(p => p.id === user.id);
   
   if (index === -1) {
@@ -102,11 +106,10 @@ async function handleCancel(interaction, recruitment, user, client) {
 }
 
 // 締め処理
-async function handleClose(interaction, recruitment, user, client) {
+async function handleClose(interaction, recruitment, user) {
   // 募集者またはサーバー管理者のみ締めることができる（簡易実装）
   const member = await interaction.guild.members.fetch(user.id);
   if (!member.permissions.has('ManageMessages')) {
-    // 募集者チェックも本来は必要だが、今回は権限チェックで代用
     await interaction.reply({ content: '募集を締める権限がありません。', ephemeral: true });
     return;
   }
@@ -123,20 +126,11 @@ async function handleClose(interaction, recruitment, user, client) {
 async function updateRecruitmentEmbed(interaction, recruitment) {
   const { EmbedBuilder } = require('discord.js');
   
-  // 参加者リストをメンション形式で作成（文字数制限対応）
-  // 参加者全員をリスト表示。いなければ「参加者なし」
+  // 参加者リストを作成
   let participantList = '参加者なし';
   if (recruitment.participants.length > 0) {
     const mentions = recruitment.participants.map(p => `<@${p.id}>`);
     participantList = mentions.join('\n');
-    // 1024文字制限を超える場合は切り詰める
-    if (participantList.length > 1000) {
-      participantList = participantList.slice(0, 1000) + '\n...(他にも参加者がいます)';
-    }
-  }
-  // valueが絶対に空にならないよう保証
-  if (!participantList || participantList.trim() === '') {
-    participantList = '参加者なし';
   }
   
   const statusEmoji = recruitment.status === 'CLOSED' ? '🔒' : '🎮';
@@ -144,14 +138,15 @@ async function updateRecruitmentEmbed(interaction, recruitment) {
   
   const embed = new EmbedBuilder()
     .setTitle(`${statusEmoji} ${statusText}ゲーム募集`)
-    .setDescription('**参加者募集中！**\n下のボタンで参加・取り消し・締めができます。')
+    .setDescription('参加ボタンを押して募集に参加してください。')
     .addFields({
       name: `参加者 (${recruitment.participants.length}人)`,
       value: participantList,
       inline: false
     })
     .setColor(recruitment.status === 'CLOSED' ? 0x808080 : 0x5865f2);
-  // 元のメッセージを編集（embedのみ更新）
+  
+  // 元のメッセージを編集
   await interaction.message.edit({
     embeds: [embed]
   });
