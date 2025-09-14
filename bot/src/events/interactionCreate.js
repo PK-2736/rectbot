@@ -134,8 +134,10 @@ async function updateRecruitmentEmbed(interaction, recruitment) {
       participantList = participantList.slice(0, 1000) + '\n...(他にも参加者がいます)';
     }
   }
-  // valueが空の場合は全角スペース
-  if (!participantList || participantList.trim() === '') participantList = '　';
+  // valueが絶対に空にならないよう保証
+  if (!participantList || participantList.trim() === '') {
+    participantList = '参加者なし';
+  }
   
   const statusEmoji = recruitment.status === 'CLOSED' ? '🔒' : '🎮';
   const statusText = recruitment.status === 'CLOSED' ? '【締切】' : '';
@@ -151,6 +153,6 @@ async function updateRecruitmentEmbed(interaction, recruitment) {
     .setColor(recruitment.status === 'CLOSED' ? 0x808080 : 0x5865f2);
   // 元のメッセージを編集（embedのみ更新）
   await interaction.message.edit({
-    embeds: [embed.toJSON()]
+    embeds: [embed]
   });
 }
