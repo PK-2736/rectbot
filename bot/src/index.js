@@ -1,7 +1,7 @@
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '../.env') });
 const { Client, GatewayIntentBits, Partials, Collection } = require('discord.js');
 const fs = require('fs');
-const path = require('path');
 const config = require('./config');
 
 const client = new Client({
@@ -35,5 +35,9 @@ for (const file of eventFiles) {
     client.on(event.name, (...args) => event.execute(...args, client));
   }
 }
+
+// デバッグ：環境変数の確認
+console.log('DISCORD_BOT_TOKEN length:', config.DISCORD_BOT_TOKEN ? config.DISCORD_BOT_TOKEN.length : 'undefined');
+console.log('Token first 10 chars:', config.DISCORD_BOT_TOKEN ? config.DISCORD_BOT_TOKEN.substring(0, 10) : 'undefined');
 
 client.login(config.DISCORD_BOT_TOKEN);

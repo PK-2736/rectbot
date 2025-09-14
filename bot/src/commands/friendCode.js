@@ -1,7 +1,7 @@
-const { SlashCommandBuilder } = require('discord.js');
+const { ChatInputCommandBuilder } = require('discord.js');
 
 module.exports = {
-  data: new SlashCommandBuilder()
+  data: new ChatInputCommandBuilder()
     .setName('friendcode')
     .setDescription('フレンドコードを保存・表示します'),
   async execute(interaction) {

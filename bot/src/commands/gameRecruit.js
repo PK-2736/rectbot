@@ -1,7 +1,7 @@
-const { SlashCommandBuilder } = require('discord.js');
+const { ChatInputCommandBuilder } = require('discord.js');
 
 module.exports = {
-  data: new SlashCommandBuilder()
+  data: new ChatInputCommandBuilder()
     .setName('gamerecruit')
     .setDescription('ゲーム募集を作成します'),
   async execute(interaction) {

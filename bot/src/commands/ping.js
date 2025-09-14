@@ -1,7 +1,7 @@
-const { SlashCommandBuilder } = require('discord.js');
+const { ChatInputCommandBuilder } = require('discord.js');
 
 module.exports = {
-  data: new SlashCommandBuilder()
+  data: new ChatInputCommandBuilder()
     .setName('ping')
     .setDescription('Botの応答確認'),
   async execute(interaction) {
