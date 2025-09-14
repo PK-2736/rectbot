@@ -1,5 +1,5 @@
 const {
-  ChatInputCommandBuilder,
+  SlashCommandBuilder,
   ContainerBuilder, TextDisplayBuilder,
   SeparatorBuilder, SeparatorSpacingSize,
   ActionRowBuilder, ButtonBuilder, ButtonStyle,
@@ -7,7 +7,7 @@ const {
 } = require('discord.js');
 
 module.exports = {
-  data: new ChatInputCommandBuilder()
+  data: new SlashCommandBuilder()
     .setName('gamerecruit')
     .setDescription('ゲーム募集を作成します'),
   async execute(interaction) {
