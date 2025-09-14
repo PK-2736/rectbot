@@ -138,6 +138,8 @@ async function updateRecruitmentEmbed(interaction, recruitment) {
       participantList = participantList.slice(0, 1000) + '\n...(他にも参加者がいます)';
     }
   }
+  // valueが空の場合は全角スペース
+  if (!participantList || participantList.trim() === '') participantList = '　';
   
   const statusEmoji = recruitment.status === 'CLOSED' ? '🔒' : '🎮';
   const statusText = recruitment.status === 'CLOSED' ? '【締切】' : '';
