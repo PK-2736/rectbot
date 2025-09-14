@@ -108,13 +108,14 @@ module.exports = {
       // フォールバック：従来のEmbed + Buttons
       const { EmbedBuilder } = require('discord.js');
       
+      // 初期embedで参加者リスト欄を必ず表示
       const embed = new EmbedBuilder()
         .setTitle('🎮 ゲーム募集')
         .setDescription('**参加者募集中！**\n下のボタンで参加・取り消し・締めができます。')
         .addFields(
           {
             name: '参加者 (0人)',
-            value: '参加者なし' || '　', // valueが空の場合はスペース
+            value: '参加者なし',
             inline: false
           }
         )
