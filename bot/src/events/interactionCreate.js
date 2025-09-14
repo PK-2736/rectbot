@@ -124,15 +124,11 @@ async function updateRecruitmentEmbed(interaction, recruitment) {
   const { EmbedBuilder } = require('discord.js');
   
   // 参加者リストをメンション形式で作成（文字数制限対応）
-  // 参加者リストを上に、直近参加者を下に表示
+  // 参加者全員をリスト表示。いなければ「参加者なし」
   let participantList = '参加者なし';
   if (recruitment.participants.length > 0) {
     const mentions = recruitment.participants.map(p => `<@${p.id}>`);
-    // 既存リスト（上）
-    let listText = mentions.slice(0, -1).join('\n');
-    // 新参加者（下）
-    let newText = mentions.length > 1 ? `\n---\n新規参加: ${mentions[mentions.length-1]}` : '';
-    participantList = (listText ? listText + newText : mentions[0]) || '参加者なし';
+    participantList = mentions.join('\n');
     // 1024文字制限を超える場合は切り詰める
     if (participantList.length > 1000) {
       participantList = participantList.slice(0, 1000) + '\n...(他にも参加者がいます)';
