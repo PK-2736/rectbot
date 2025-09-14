@@ -124,11 +124,10 @@ async function updateRecruitmentEmbed(interaction, recruitment) {
   const { EmbedBuilder } = require('discord.js');
   
   // 参加者リストをメンション形式で作成（文字数制限対応）
-  let participantList = '参加者なし';
+  let participantList = '　'; // 空の場合はスペース
   if (recruitment.participants.length > 0) {
     const mentions = recruitment.participants.map(p => `<@${p.id}>`);
     participantList = mentions.join('\n');
-    
     // 1024文字制限を超える場合は切り詰める
     if (participantList.length > 1000) {
       const truncatedMentions = [];
@@ -143,6 +142,8 @@ async function updateRecruitmentEmbed(interaction, recruitment) {
       }
       participantList = truncatedMentions.join('\n');
     }
+    // valueが空の場合はスペース
+    if (!participantList || participantList.trim() === '') participantList = '　';
   }
   
   const statusEmoji = recruitment.status === 'CLOSED' ? '🔒' : '🎮';
@@ -157,9 +158,8 @@ async function updateRecruitmentEmbed(interaction, recruitment) {
       inline: false
     })
     .setColor(recruitment.status === 'CLOSED' ? 0x808080 : 0x5865f2);
-  
   // 元のメッセージを編集（embedのみ更新）
   await interaction.message.edit({
-    embeds: [embed]
+    embeds: [embed.toJSON()]
   });
 }
