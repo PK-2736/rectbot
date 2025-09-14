@@ -139,7 +139,7 @@ module.exports = {
         );
 
       await interaction.reply({
-        embeds: [embed.toJSON()],
+        embeds: [embed],
         components: [row],
         files: [logoAttachment]
       });
