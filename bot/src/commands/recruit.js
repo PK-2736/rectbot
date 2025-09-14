@@ -41,7 +41,7 @@ module.exports = {
 
     if (ComponentsV2Available) {
       try {
-        // Components v2実装（実験的）
+        // Components v2実装（正しいAPIメソッドを使用）
         const textDisplay1 = new TextDisplayBuilder()
           .setContent('🎮 ゲーム募集');
 
@@ -56,11 +56,13 @@ module.exports = {
           .setLabel('参加')
           .setStyle(ButtonStyle.Success);
 
+        // SectionBuilderの正しいメソッドを使用
         const section1 = new SectionBuilder()
-          .addComponents(textDisplay1, textDisplay2);
+          .setTextDisplayComponents([textDisplay1, textDisplay2]);
 
         const section2 = new SectionBuilder()
-          .addComponents(textDisplay3, joinButton);
+          .setTextDisplayComponents([textDisplay3])
+          .setButtonAccessory(joinButton);
 
         const actionRow = new ActionRowBuilder()
           .addComponents(
@@ -74,8 +76,10 @@ module.exports = {
               .setStyle(ButtonStyle.Danger)
           );
 
+        // ContainerBuilderの正しいメソッドを使用
         const container = new ContainerBuilder()
-          .addComponents(section1, section2, actionRow);
+          .setSectionComponents([section1, section2])
+          .setActionRowComponents([actionRow]);
 
         await interaction.reply({
           components: [container],
