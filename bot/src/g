@@ -1,6 +1,22 @@
+0|rectbot  | Components v2 failed: Received one or more errors
+0|rectbot  | Full error: CombinedError (2)
+0|rectbot  |   Received one or more errors
+0|rectbot  |   1 ExpectedValidationError > s.instance(V)
+0|rectbot  |   |   Expected
+0|rectbot  |   | 
+0|rectbot  |   |   Expected:
+0|rectbot  |   |   | [Function: ButtonBuilder]
+0|rectbot  |   | 
 0|rectbot  |   |   Received:
 0|rectbot  |   |   | undefined
-0|rectbot  | 
+0|rectbot  |   2 ExpectedValidationError > s.instance(V)
+0|rectbot  |   |   Expected
+0|rectbot  |   | 
+0|rectbot  |   |   Expected:
+0|rectbot  |   |   | [Function: ThumbnailBuilder]
+0|rectbot  |   | 
+0|rectbot  |   |   Received:
+0|rectbot  |   |   | undefined
 0|rectbot  |     at _UnionValidator.handle (/home/ubuntu/rectbot/bot/node_modules/@sapphire/shapeshift/dist/cjs/index.cjs:1965:23)
 0|rectbot  |     at _UnionValidator.parse (/home/ubuntu/rectbot/bot/node_modules/@sapphire/shapeshift/dist/cjs/index.cjs:972:90)
 0|rectbot  |     at SectionBuilder.toJSON (/home/ubuntu/rectbot/bot/node_modules/@discordjs/builders/dist/index.js:2169:37)
@@ -11,5 +27,6 @@
 0|rectbot  |     at Array.map (<anonymous>)
 0|rectbot  |     at MessagePayload.resolveBody (/home/ubuntu/rectbot/bot/node_modules/discord.js/src/structures/MessagePayload.js:150:49)
 0|rectbot  |     at ChatInputCommandInteraction.reply (/home/ubuntu/rectbot/bot/node_modules/discord.js/src/structures/interfaces/InteractionResponses.js:198:56)
-0|rectbot  | (node:1031749) Warning: Supplying "ephemeral" for interaction response options is deprecated. Utilize flags instead.
+0|rectbot  | Using fallback Embed + Buttons
+0|rectbot  | (node:1037276) Warning: Supplying "ephemeral" for interaction response options is deprecated. Utilize flags instead.
 0|rectbot  | (Use `node --trace-warnings ...` to show where the warning was created)
