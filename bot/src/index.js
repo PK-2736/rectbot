@@ -1,43 +1,62 @@
-const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '../.env') });
-const { Client, GatewayIntentBits, Partials, Collection } = require('discord.js');
+require("dotenv").config();
+const TOKEN = process.env.DISCORD_BOT_TOKEN;
+
+const { Client, GatewayIntentBits } = require("discord.js");
 const fs = require('fs');
-const config = require('./config');
+const path = require('path');
 
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent,
-    GatewayIntentBits.GuildMembers,
-    GatewayIntentBits.GuildPresences,
-    GatewayIntentBits.GuildMessageReactions
-  ],
-  partials: [Partials.Message, Partials.Channel, Partials.Reaction]
+    GatewayIntentBits.MessageContent
+  ]
 });
 
-client.commands = new Collection();
-
-// コマンドのロード
+// コマンドの読み込み
+client.commands = new Map();
 const commandFiles = fs.readdirSync(path.join(__dirname, 'commands')).filter(file => file.endsWith('.js'));
 for (const file of commandFiles) {
   const command = require(`./commands/${file}`);
-  client.commands.set(command.data.name, command);
-}
-
-// イベントのロード
-const eventFiles = fs.readdirSync(path.join(__dirname, 'events')).filter(file => file.endsWith('.js'));
-for (const file of eventFiles) {
-  const event = require(`./events/${file}`);
-  if (event.once) {
-    client.once(event.name, (...args) => event.execute(...args, client));
-  } else {
-    client.on(event.name, (...args) => event.execute(...args, client));
+  if ('data' in command && 'execute' in command) {
+    client.commands.set(command.data.name, command);
   }
 }
 
-// デバッグ：環境変数の確認
-console.log('DISCORD_BOT_TOKEN length:', config.DISCORD_BOT_TOKEN ? config.DISCORD_BOT_TOKEN.length : 'undefined');
-console.log('Token first 10 chars:', config.DISCORD_BOT_TOKEN ? config.DISCORD_BOT_TOKEN.substring(0, 10) : 'undefined');
+// コマンドの実行をハンドリング
+client.on('interactionCreate', async interaction => {
+  if (interaction.isChatInputCommand()) {
+    const command = interaction.client.commands.get(interaction.commandName);
 
-client.login(config.DISCORD_BOT_TOKEN);
+    if (!command) {
+      console.error(`No command matching ${interaction.commandName} was found.`);
+      return;
+    }
+
+    try {
+      await command.execute(interaction);
+    } catch (error) {
+      console.error(error);
+      if (interaction.replied || interaction.deferred) {
+        await interaction.followUp({ content: 'There was an error while executing this command!', ephemeral: true });
+      } else {
+        await interaction.reply({ content: 'There was an error while executing this command!', ephemeral: true });
+      }
+    }
+  } else if (interaction.isButton()) {
+    // ボタンインタラクションの処理
+    const command = interaction.client.commands.get('gamerecruit'); // 仮にgamerecruitコマンドのボタンとして処理
+    if (command && command.handleButton) {
+      try {
+        await command.handleButton(interaction);
+      } catch (error) {
+        console.error(error);
+        if (!interaction.replied && !interaction.deferred) {
+          await interaction.reply({ content: 'There was an error while handling the button!', ephemeral: true });
+        }
+      }
+    }
+  }
+});
+
+client.login(TOKEN);
