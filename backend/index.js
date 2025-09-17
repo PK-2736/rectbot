@@ -122,6 +122,55 @@ export default {
   //   // Supabase REST APIでサブスク情報保存
   //   return new Response('Webhook received', { status: 200 });
   // }
+    // Supabaseからギルド設定を取得するAPI
+    if (url.pathname === '/api/guild-config' && request.method === 'GET') {
+      const guildId = url.searchParams.get('guild_id');
+      if (!guildId) {
+        return new Response(JSON.stringify({ error: 'guild_id missing' }), { status: 400 });
+      }
+      // Supabase REST APIでguildsテーブルから取得
+      const supaRes = await fetch(env.SUPABASE_URL + `/rest/v1/guilds?guild_id=eq.${guildId}`, {
+        method: 'GET',
+        headers: {
+          'apikey': env.SUPABASE_SERVICE_ROLE_KEY,
+          'Authorization': `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      const data = await supaRes.json();
+      if (!Array.isArray(data) || data.length === 0) {
+        return new Response(JSON.stringify({ error: 'not found' }), { status: 404 });
+      }
+      return new Response(JSON.stringify(data[0]), { status: 200 });
+    }
+    // 管理者向け: 全ギルドの募集状況・設定をまとめて取得
+    if (url.pathname === '/api/admin/guilds' && request.method === 'GET') {
+      // Supabaseから全ギルド設定を取得
+      const supaRes = await fetch(env.SUPABASE_URL + '/rest/v1/guilds', {
+        method: 'GET',
+        headers: {
+          'apikey': env.SUPABASE_SERVICE_ROLE_KEY,
+          'Authorization': `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      const guilds = await supaRes.json();
+      // KVから全recruit情報を取得
+      const keys = await env.RECRUIT_KV.list();
+      const recruitKeys = keys.keys.filter(k => k.name.startsWith('recruit:')).map(k => k.name);
+      const recruits = {};
+      for (const key of recruitKeys) {
+        const val = await env.RECRUIT_KV.get(key);
+        if (val) {
+          try {
+            const data = JSON.parse(val);
+            recruits[data.serverId] = data;
+          } catch {}
+        }
+      }
+      // guildsとrecruitsをまとめて返す
+      return new Response(JSON.stringify({ guilds, recruits }), { status: 200 });
+    }
     return new Response('OK');
   }
 }
