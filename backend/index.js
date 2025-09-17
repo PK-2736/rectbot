@@ -26,6 +26,67 @@ async function getDiscordUser(accessToken) {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    // KVストアへの保存
+    async function saveToKV(key, value) {
+      await env.RECRUIT_KV.put(key, JSON.stringify(value));
+    }
+
+    // KVストアから取得
+    async function getFromKV(key) {
+      const val = await env.RECRUIT_KV.get(key);
+      return val ? JSON.parse(val) : null;
+    }
+
+    // KVストアから全てのキーを取得
+    async function listAllKV() {
+      // Workers KVのlistは最大1000件まで
+      const list = await env.RECRUIT_KV.list();
+      return list.keys.map(k => k.name);
+    }
+    // 募集状況保存API
+    if (url.pathname === '/api/recruit-status' && request.method === 'POST') {
+      const body = await request.json();
+      const { serverId, channelId, messageId, startTime } = body;
+      if (!serverId || !channelId || !messageId) {
+        return new Response(JSON.stringify({ error: 'missing params' }), { status: 400 });
+      }
+      await saveToKV(`recruit:${serverId}`, { serverId, channelId, messageId, startTime });
+      return new Response(JSON.stringify({ result: 'saved' }), { status: 200 });
+    }
+
+    // 募集状況削除API
+    if (url.pathname === '/api/recruit-status' && request.method === 'DELETE') {
+      const serverId = url.searchParams.get('serverId');
+      if (!serverId) return new Response(JSON.stringify({ error: 'missing serverId' }), { status: 400 });
+      await env.RECRUIT_KV.delete(`recruit:${serverId}`);
+      return new Response(JSON.stringify({ result: 'deleted' }), { status: 200 });
+    }
+
+    // 現在の募集状況一覧API
+    if (url.pathname === '/api/active-recruits' && request.method === 'GET') {
+      const keys = await listAllKV();
+      const recruitKeys = keys.filter(k => k.startsWith('recruit:'));
+      const results = {};
+      for (const key of recruitKeys) {
+        const data = await getFromKV(key);
+        if (data) results[data.serverId] = data;
+      }
+      return new Response(JSON.stringify(results), { status: 200 });
+    }
+
+    // KVテスト用API: /api/kv-test?key=xxx&value=yyy
+    if (url.pathname === '/api/kv-test' && request.method === 'GET') {
+      const key = url.searchParams.get('key');
+      const value = url.searchParams.get('value');
+      if (!key) return new Response(JSON.stringify({ error: 'key missing' }), { status: 400 });
+      if (value) {
+        await saveToKV(key, { value });
+        return new Response(JSON.stringify({ result: 'saved', key, value }), { status: 200 });
+      } else {
+        const data = await getFromKV(key);
+        return new Response(JSON.stringify({ result: 'fetched', key, value: data }), { status: 200 });
+      }
+    }
     // Discord OAuthコールバックAPI
     if (request.method === 'POST' && url.pathname === '/api/discord/callback') {
       const { code } = await request.json();
