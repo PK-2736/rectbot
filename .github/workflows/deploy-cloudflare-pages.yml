@@ -12,6 +12,9 @@ on:
 jobs:
   cloudflare-pages-deploy:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
     steps:
@@ -41,13 +44,13 @@ jobs:
           cd frontend/dashboard
           npm run build
       - name: Deploy Dashboard to Cloudflare Pages
-        uses: cloudflare/pages-action@v1
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName: rectbot
-          directory: frontend/dashboard/out
-          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          cd frontend/dashboard
+          echo "Deploying to Pages..."
+          wrangler pages deploy ./out --project-name=rectbot
       - name: Install Bun for Astro
         run: curl -fsSL https://bun.sh/install | bash
         shell: bash
