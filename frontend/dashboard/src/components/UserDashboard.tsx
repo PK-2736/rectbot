@@ -10,34 +10,23 @@ interface UserDashboardProps {
 }
 
 export default function UserDashboard({ initialData }: UserDashboardProps) {
-  const [subscriptions, setSubscriptions] = useState<UserSubscription[]>(initialData);
-  const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
-  const [isLoading, setIsLoading] = useState(false);
-
   // リアルタイム更新
   useEffect(() => {
     const interval = setInterval(async () => {
-      setIsLoading(true);
       try {
-        const response = await fetch('/api/dashboard/user');
-        if (response.ok) {
-          const data = await response.json();
-          setSubscriptions(data.userSubscriptions);
-          setLastUpdate(new Date());
-        }
+        // TODO: ユーザー向けAPIエンドポイントを実装
+        console.log('User dashboard update check');
       } catch (error) {
         console.error('Failed to fetch user dashboard data:', error);
-      } finally {
-        setIsLoading(false);
       }
     }, 5000);
 
     return () => clearInterval(interval);
   }, []);
 
-  const totalGuilds = subscriptions.length;
-  const subscribedGuilds = subscriptions.filter(s => s.is_subscribed).length;
-  const codeAppliedGuilds = subscriptions.filter(s => s.sub_code_applied).length;
+  const totalGuilds = initialData.length;
+  const subscribedGuilds = initialData.filter(s => s.is_subscribed).length;
+  const codeAppliedGuilds = initialData.filter(s => s.sub_code_applied).length;
 
   return (
     <div className="min-h-screen bg-slate-950 p-6">
@@ -98,7 +87,7 @@ export default function UserDashboard({ initialData }: UserDashboardProps) {
         </div>
 
         <div className="space-y-4">
-          {subscriptions.map((subscription) => (
+          {initialData.map((subscription) => (
             <div key={subscription.guild_id} className="bg-slate-800 rounded-lg p-6 border border-slate-700">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-4">
@@ -198,7 +187,7 @@ export default function UserDashboard({ initialData }: UserDashboardProps) {
           ))}
         </div>
 
-        {subscriptions.length === 0 && (
+        {initialData.length === 0 && (
           <div className="text-center py-12">
             <Server className="w-12 h-12 text-slate-600 mx-auto mb-4" />
             <p className="text-slate-400 mb-4">

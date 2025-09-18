@@ -14,7 +14,7 @@ export const DISCORD_CONFIG = {
 
 // API エンドポイント
 export const API_ENDPOINTS = {
-  dashboard: process.env.DASHBOARD_API_URL || '/api/dashboard',
+  recruitment: process.env.RECRUITMENT_API_URL || '/api/recruitment',
   guilds: process.env.GUILDS_API_URL || '/api/guilds',
 };
 

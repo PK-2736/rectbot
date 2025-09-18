@@ -10,7 +10,7 @@ const handler = NextAuth({
   ],
   secret: process.env.NEXTAUTH_SECRET || process.env.DISCORD_CLIENT_SECRET,
   callbacks: {
-    async session({ session, token, user }) {
+    async session({ session, token }) {
       // 管理者IDリスト（必要に応じて追加・外部化可能）
       const adminIds = [
         "1048950201974542477", // 例: あなたのDiscordユーザーID

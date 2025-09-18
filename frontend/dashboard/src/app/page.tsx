@@ -1,45 +1,60 @@
 "use client";
 
-import Image from "next/image";
-import styles from "./page.module.css";
-import { useSession, signIn, signOut } from "next-auth/react";
+import { useAuth } from "@/components/AuthProvider";
 import AdminDashboard from "../components/AdminDashboard";
 
 export default function Home() {
-  const { data: session, status } = useSession();
+  const { user, isAdmin, login, logout, isLoading } = useAuth();
 
-  return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-24">
-      <div className="mb-8">
-        {status === "loading" && <p>認証状態を確認中...</p>}
-        {status === "unauthenticated" && (
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <div className="text-white text-xl">読み込み中...</div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <div className="bg-gray-800 p-8 rounded-lg border border-gray-700 text-center">
+          <h1 className="text-2xl font-bold text-white mb-4">
+            管理者ダッシュボード
+          </h1>
+          <p className="text-gray-400 mb-6">
+            このページにアクセスするにはDiscordでログインしてください
+          </p>
           <button
-            className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
-            onClick={() => signIn("discord")}
+            onClick={login}
+            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200"
           >
             Discordでログイン
           </button>
-        )}
-        {status === "authenticated" && session.user && (
-          <div className="flex flex-col items-center gap-4">
-            <p>ログイン中: {session.user.name} ({session.user.email ?? "ID取得不可"})</p>
-            <button
-              className="px-4 py-2 bg-gray-400 text-white rounded hover:bg-gray-500"
-              onClick={() => signOut()}
-            >
-              ログアウト
-            </button>
-            {session.user.isAdmin ? (
-              <div className="mt-8 w-full max-w-2xl">
-                <AdminDashboard initialData={[]} />
-              </div>
-            ) : (
-              <p className="mt-8 text-red-500">管理者権限がありません</p>
-            )}
-          </div>
-        )}
+        </div>
       </div>
-      {/* ここにダッシュボードや他のコンテンツを追加 */}
-    </main>
-  );
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <div className="bg-gray-800 p-8 rounded-lg border border-gray-700 text-center">
+          <h1 className="text-2xl font-bold text-white mb-4">
+            アクセス拒否
+          </h1>
+          <p className="text-gray-400 mb-6">
+            管理者権限がありません。
+          </p>
+          <button
+            onClick={logout}
+            className="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200"
+          >
+            ログアウト
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return <AdminDashboard initialData={[]} />;
 }

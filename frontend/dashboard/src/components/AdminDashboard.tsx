@@ -2,8 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { DashboardGuild } from '@/types/dashboard';
-import { formatDateTime, formatDuration } from '@/lib/utils';
-import { getProgressColor, STATUS_COLORS } from '@/lib/config';
+import { formatDateTime } from '@/lib/utils';
 import { Users, Clock, Server, Activity } from 'lucide-react';
 
 // 募集データの型定義
@@ -27,7 +26,6 @@ interface AdminDashboardProps {
 }
 
 export default function AdminDashboard({ initialData }: AdminDashboardProps) {
-  const [guilds, setGuilds] = useState<DashboardGuild[]>(initialData);
   const [recruitments, setRecruitments] = useState<RecruitmentData[]>([]);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const [isLoading, setIsLoading] = useState(false);
@@ -35,18 +33,19 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps) {
   // 募集データを取得する関数
   const fetchRecruitments = async () => {
     try {
-      const response = await fetch('/api/recruitment'); // プロキシ経由でbackendのAPIを呼び出し
+      // バックエンドAPIに直接アクセス
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'https://rectbot-backend.rectbot-owner.workers.dev';
+      const response = await fetch(`${backendUrl}/api/recruitment`);
       if (response.ok) {
         const data = await response.json();
-        setRecruitments(data);
-        setLastUpdate(new Date());
+        setRecruitments(Array.isArray(data) ? data : []);
+      } else {
+        console.error('Failed to fetch recruitments:', response.statusText);
       }
     } catch (error) {
-      console.error('Failed to fetch recruitment data:', error);
+      console.error('Error fetching recruitments:', error);
     }
-  };
-
-  // リアルタイム更新
+  };  // リアルタイム更新
   useEffect(() => {
     // 初回データ取得
     fetchRecruitments();
@@ -55,14 +54,8 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps) {
       setIsLoading(true);
       try {
         await fetchRecruitments();
-        // 既存のダッシュボードデータも更新
-        const response = await fetch('/api/dashboard');
-        if (response.ok) {
-          const data = await response.json();
-          setGuilds(data.guilds);
-        }
       } catch (error) {
-        console.error('Failed to fetch dashboard data:', error);
+        console.error('Failed to fetch recruitment data:', error);
       } finally {
         setIsLoading(false);
       }
@@ -71,7 +64,6 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps) {
     return () => clearInterval(interval);
   }, []);
 
-  const totalGuilds = guilds.length;
   const activeRecruitments = recruitments.filter(r => r.status === 'recruiting').length;
   const totalRecruitments = recruitments.length;
 
@@ -125,8 +117,8 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps) {
               <Clock className="w-6 h-6 text-white" />
             </div>
             <div className="ml-4">
-              <p className="text-gray-400 text-sm">導入サーバー数</p>
-              <p className="text-2xl font-bold text-white">{totalGuilds}</p>
+              <p className="text-gray-400 text-sm">総募集数</p>
+              <p className="text-2xl font-bold text-white">{totalRecruitments}</p>
             </div>
           </div>
         </div>
