@@ -1,0 +1,42 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+---
+<BaseLayout title="プライバシーポリシー - rectbot">
+  <section class="section-padding bg-slate-800">
+    <div class="container max-w-4xl mx-auto">
+      <h1 class="text-4xl font-bold mb-8 gradient-text">プライバシーポリシー</h1>
+      
+      <div class="prose prose-invert max-w-none">
+        <h2 class="text-2xl font-semibold text-white mb-4">1. 収集する情報</h2>
+        <p class="text-slate-300 mb-6">
+          rectbotは、サービス提供に必要な最小限の情報のみを収集します：
+        </p>
+        <ul class="text-slate-300 mb-6 list-disc ml-6">
+          <li>Discord ユーザーID</li>
+          <li>サーバー情報（サーバーID、チャンネル情報）</li>
+          <li>ボット使用ログ（機能使用状況）</li>
+        </ul>
+
+        <h2 class="text-2xl font-semibold text-white mb-4">2. 情報の使用目的</h2>
+        <p class="text-slate-300 mb-6">
+          収集した情報は以下の目的でのみ使用されます：
+        </p>
+        <ul class="text-slate-300 mb-6 list-disc ml-6">
+          <li>ボット機能の提供</li>
+          <li>サービス改善のための分析</li>
+          <li>サポート対応</li>
+        </ul>
+
+        <h2 class="text-2xl font-semibold text-white mb-4">3. 情報の共有</h2>
+        <p class="text-slate-300 mb-6">
+          お客様の個人情報を第三者と共有することはありません（法的要請がある場合を除く）。
+        </p>
+
+        <h2 class="text-2xl font-semibold text-white mb-4">4. お問い合わせ</h2>
+        <p class="text-slate-300">
+          プライバシーに関するご質問は、<a href="mailto:privacy@rectbot.dev" class="text-blue-400 hover:text-blue-300">privacy@rectbot.dev</a>までお問い合わせください。
+        </p>
+      </div>
+    </div>
+  </section>
+</BaseLayout>

@@ -18,7 +18,7 @@ const recruitParticipants = new Map();
 const recruitData = new Map();
 
 // 募集状況API
-const { saveRecruitStatus, deleteRecruitStatus } = require('../utils/db');
+const { saveRecruitStatus, deleteRecruitStatus, saveRecruitmentData } = require('../utils/db');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -197,6 +197,23 @@ module.exports = {
           actualMessageId,
           new Date().toISOString()
         );
+
+        // === 新しい募集データAPIに保存 ===
+        try {
+          const guild = interaction.guild;
+          const channel = interaction.channel;
+          await saveRecruitmentData(
+            interaction.guildId,
+            interaction.channelId,
+            actualMessageId,
+            guild ? guild.name : 'Unknown Guild',
+            channel ? channel.name : 'Unknown Channel',
+            recruitDataObj
+          );
+          console.log('募集データをAPIに保存しました');
+        } catch (error) {
+          console.error('募集データAPIへの保存に失敗:', error);
+        }
       } catch (error) {
         console.error('メッセージ取得エラー:', error);
       }

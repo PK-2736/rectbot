@@ -2,9 +2,202 @@
 import BaseLayout from "../layouts/BaseLayout.astro";
 ---
 <BaseLayout>
-  <main class="max-w-2xl mx-auto p-8">
-    <h1 class="text-4xl font-bold mb-4">rectbot へようこそ！</h1>
-    <p class="mb-2">botの紹介・機能説明・サブスク案内・招待リンク・サポートリンクなどをここに記載してください。</p>
-    <a href="#" class="text-blue-600 underline">招待リンク</a> / <a href="#" class="text-blue-600 underline">サポートリンク</a>
-  </main>
+  <!-- Hero Section -->
+  <section class="section-padding bg-slate-900">
+    <div class="container">
+      <div class="text-center max-w-4xl mx-auto">
+        <div class="mb-12">
+          <h1 class="text-4xl md:text-6xl font-bold mb-6">
+            あなたの<span class="text-blue-400">Discord</span>サーバーを<br>
+            <span class="text-blue-400">次のレベル</span>へ
+          </h1>
+          <p class="text-lg md:text-xl text-slate-300 mb-8 leading-relaxed">
+            rectbotは、ゲーミングコミュニティのためのDiscordボット。<br>
+            募集機能、フレンドコード管理、サーバー統計など豊富な機能でサーバー運営をサポートします。
+          </p>
+        </div>
+        
+        <div class="flex flex-col sm:flex-row gap-4 justify-center">
+          <a href="#invite" class="btn-primary text-lg px-8 py-4">
+            今すぐサーバーに招待
+          </a>
+          <a href="#features" class="btn-secondary text-lg px-8 py-4">
+            機能を詳しく見る
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features Section -->
+  <section id="features" class="section-padding bg-slate-800">
+    <div class="container">
+      <div class="text-center mb-16">
+        <h2 class="text-3xl md:text-4xl font-bold mb-6">
+          <span class="text-blue-400">豊富な機能</span>でサーバー運営を効率化
+        </h2>
+        <p class="text-lg text-slate-400 max-w-3xl mx-auto">
+          rectbotは、ゲーミングコミュニティに必要な機能を一つのボットで提供します。
+        </p>
+      </div>
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div class="card">
+          <div class="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center mb-4">
+            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+            </svg>
+          </div>
+          <h3 class="text-xl font-semibold mb-3 text-white">ゲーム募集機能</h3>
+          <p class="text-slate-400">
+            美しいカード形式でゲーム募集を投稿。参加者管理も簡単で、コミュニティの活発化に貢献します。
+          </p>
+        </div>
+        
+        <div class="card">
+          <div class="w-12 h-12 bg-purple-600 rounded-lg flex items-center justify-center mb-4">
+            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V4a2 2 0 118 0v2m-4 0a2 2 0 104 0m-4 0a2 2 0 014 0z"></path>
+            </svg>
+          </div>
+          <h3 class="text-xl font-semibold mb-3 text-white">フレンドコード管理</h3>
+          <p class="text-slate-400">
+            各プラットフォームのフレンドコードを一元管理。メンバー同士の繋がりをサポートします。
+          </p>
+        </div>
+        
+        <div class="card">
+          <div class="w-12 h-12 bg-green-600 rounded-lg flex items-center justify-center mb-4">
+            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+            </svg>
+          </div>
+          <h3 class="text-xl font-semibold mb-3 text-white">サーバー統計</h3>
+          <p class="text-slate-400">
+            詳細なサーバー分析でコミュニティの成長を可視化。データに基づいた運営をサポートします。
+          </p>
+        </div>
+        
+        <div class="card">
+          <div class="w-12 h-12 bg-red-600 rounded-lg flex items-center justify-center mb-4">
+            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+            </svg>
+          </div>
+          <h3 class="text-xl font-semibold mb-3 text-white">モデレーション</h3>
+          <p class="text-slate-400">
+            自動的なスパム検出、警告システム、メンバー管理でサーバーの秩序を維持します。
+          </p>
+        </div>
+        
+        <div class="card">
+          <div class="w-12 h-12 bg-yellow-600 rounded-lg flex items-center justify-center mb-4">
+            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 4V2a1 1 0 011-1h8a1 1 0 011 1v2h4a1 1 0 110 2h-1v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6H3a1 1 0 010-2h4z"></path>
+            </svg>
+          </div>
+          <h3 class="text-xl font-semibold mb-3 text-white">カスタムコマンド</h3>
+          <p class="text-slate-400">
+            サーバーに合わせたオリジナルコマンドを作成。独自の機能でコミュニティを個性化できます。
+          </p>
+        </div>
+        
+        <div class="card">
+          <div class="w-12 h-12 bg-indigo-600 rounded-lg flex items-center justify-center mb-4">
+            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+            </svg>
+          </div>
+          <h3 class="text-xl font-semibold mb-3 text-white">高速レスポンス</h3>
+          <p class="text-slate-400">
+            最新の技術スタックで構築された高速なボット。ストレスのない快適な操作を実現します。
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA Section -->
+  <section id="invite" class="section-padding bg-slate-900">
+    <div class="container">
+      <div class="text-center max-w-3xl mx-auto">
+        <h2 class="text-3xl md:text-4xl font-bold mb-6 text-white">
+          今すぐrectbotを<br>
+          あなたのサーバーに招待しよう
+        </h2>
+        <p class="text-lg text-slate-300 mb-8">
+          簡単なセットアップで、すぐにサーバーを次のレベルへ。
+        </p>
+        <div class="flex flex-col sm:flex-row gap-4 justify-center">
+          <a href="#" class="btn-primary py-4 px-8 text-lg">
+            Discordサーバーに招待
+          </a>
+          <a href="/dashboard" class="btn-secondary py-4 px-8 text-lg">
+            ダッシュボードを見る
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Support Section -->
+  <section id="support" class="section-padding bg-slate-800">
+    <div class="container">
+      <div class="text-center mb-12">
+        <h2 class="text-3xl md:text-4xl font-bold mb-6">
+          <span class="text-blue-400">サポート</span>
+        </h2>
+        <p class="text-lg text-slate-400 max-w-2xl mx-auto">
+          困ったときはいつでもサポートチームがお手伝いします。
+        </p>
+      </div>
+      
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div class="card text-center">
+          <div class="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center mb-4 mx-auto">
+            <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
+            </svg>
+          </div>
+          <h3 class="text-xl font-semibold mb-3 text-white">Discordサーバー</h3>
+          <p class="text-slate-400 mb-4">
+            コミュニティでの質問や情報交換はこちら
+          </p>
+          <a href="#" class="text-blue-400 hover:text-blue-300 transition-colors">
+            サーバーに参加 →
+          </a>
+        </div>
+        
+        <div class="card text-center">
+          <div class="w-12 h-12 bg-green-600 rounded-lg flex items-center justify-center mb-4 mx-auto">
+            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+            </svg>
+          </div>
+          <h3 class="text-xl font-semibold mb-3 text-white">メールサポート</h3>
+          <p class="text-slate-400 mb-4">
+            個別の問題やご要望はメールでお問い合わせ
+          </p>
+          <a href="mailto:support@rectbot.dev" class="text-blue-400 hover:text-blue-300 transition-colors">
+            メールを送る →
+          </a>
+        </div>
+        
+        <div class="card text-center">
+          <div class="w-12 h-12 bg-purple-600 rounded-lg flex items-center justify-center mb-4 mx-auto">
+            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+            </svg>
+          </div>
+          <h3 class="text-xl font-semibold mb-3 text-white">ヘルプセンター</h3>
+          <p class="text-slate-400 mb-4">
+            よくある質問やガイドをチェック
+          </p>
+          <a href="#" class="text-blue-400 hover:text-blue-300 transition-colors">
+            ヘルプを見る →
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
 </BaseLayout>

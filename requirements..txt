@@ -10,3 +10,8 @@ GitHub ActionsでCI/CD自動化
 Stripe課金・サブスク管理の実装
 バックアップ・監視（Sentry/Supabase Audit Log）
 abc123def456ghi789jkl012mno345pq
+
+統計データを実際の数値に変更
+実際の招待リンクとサポートURLを設定
+自社の連絡先情報に更新
+Discordのブランドガイドライン確認

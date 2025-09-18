@@ -6,6 +6,6 @@ compatibility_date = "2025-09-11"
 workers_dev = false
 
 kv_namespaces = [
-    
-      {binding = "RECRUIT_KV",id = "6b9a6fefa35c44a2ab35f32b1b667fb9"}
-  ]
+    {binding = "RECRUIT_KV", id = "6b9a6fefa35c44a2ab35f32b1b667fb9"},
+    {binding = "RECRUITMENTS", id = "6b9a6fefa35c44a2ab35f32b1b667fb9"}
+]

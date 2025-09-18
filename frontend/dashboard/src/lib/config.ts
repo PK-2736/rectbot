@@ -1,0 +1,39 @@
+// 管理者判定
+const ADMIN_IDS = process.env.ADMIN_IDS?.split(',') || [];
+
+export function isAdmin(userId: string): boolean {
+  return ADMIN_IDS.includes(userId);
+}
+
+// Discord OAuth2 設定
+export const DISCORD_CONFIG = {
+  clientId: process.env.DISCORD_CLIENT_ID!,
+  clientSecret: process.env.DISCORD_CLIENT_SECRET!,
+  redirectUri: process.env.DISCORD_REDIRECT_URI!,
+};
+
+// API エンドポイント
+export const API_ENDPOINTS = {
+  dashboard: process.env.DASHBOARD_API_URL || '/api/dashboard',
+  guilds: process.env.GUILDS_API_URL || '/api/guilds',
+};
+
+// リアルタイム更新間隔（ミリ秒）
+export const REALTIME_INTERVAL = 5000; // 5秒
+
+// ステータス色の定義
+export const STATUS_COLORS = {
+  recruiting: 'bg-green-500',
+  ended: 'bg-gray-500',
+  cancelled: 'bg-red-500',
+  idle: 'bg-blue-500',
+} as const;
+
+// プログレスバーの色分け
+export function getProgressColor(current: number, limit: number): string {
+  const percentage = (current / limit) * 100;
+  
+  if (percentage >= 90) return 'bg-red-500';
+  if (percentage >= 70) return 'bg-yellow-500';
+  return 'bg-green-500';
+}

@@ -17,23 +17,49 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
-      - name: Install Bun
+      - name: Install Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+      - name: Install dependencies for Dashboard
+        run: |
+          cd frontend/dashboard
+          npm install
+      - name: Build Dashboard
+        env:
+          DISCORD_CLIENT_ID: ${{ secrets.DISCORD_CLIENT_ID }}
+          DISCORD_CLIENT_SECRET: ${{ secrets.DISCORD_CLIENT_SECRET }}
+          NEXTAUTH_URL: ${{ secrets.NEXTAUTH_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          BACKEND_API_URL: ${{ secrets.BACKEND_API_URL }}
+        run: |
+          cd frontend/dashboard
+          npm run build
+      - name: Deploy Dashboard to Cloudflare Pages
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ env.CLOUDFLARE_API_TOKEN }}
+        run: |
+          cd frontend/dashboard
+          npx wrangler pages deploy ./out --project-name=rectbot-dashboard
+      - name: Install Bun for Astro
         run: curl -fsSL https://bun.sh/install | bash
         shell: bash
       - name: Add Bun to PATH
         run: echo "$HOME/.bun/bin" >> $GITHUB_PATH
         shell: bash
-      - name: Install dependencies
+      - name: Install dependencies for Astro
         run: |
-          cd frontend
+          cd frontend/astro
           bun install
-      - name: Build frontend
+      - name: Build Astro frontend
         run: |
-          cd frontend
+          cd frontend/astro
           bun run build
-      - name: Deploy to Cloudflare Pages
+      - name: Deploy Astro to Cloudflare Pages
         env:
           CLOUDFLARE_API_TOKEN: ${{ env.CLOUDFLARE_API_TOKEN }}
         run: |
-          cd frontend
-          npx wrangler pages deploy ./build --project-name=rectbot-frontend
+          cd frontend/astro
+          npx wrangler pages deploy ./dist --project-name=rectbot-frontend

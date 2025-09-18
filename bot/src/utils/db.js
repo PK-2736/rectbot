@@ -13,6 +13,39 @@ async function saveRecruitStatus(serverId, channelId, messageId, startTime) {
 	return res.json();
 }
 
+// 新しい募集データをAPIに保存
+async function saveRecruitmentData(guildId, channelId, messageId, guildName, channelName, recruitData) {
+	const data = {
+		guild_id: guildId,
+		channel_id: channelId,
+		message_id: messageId,
+		guild_name: guildName,
+		channel_name: channelName,
+		status: 'recruiting',
+		start_time: new Date().toISOString(),
+		content: recruitData.content,
+		participants_count: parseInt(recruitData.participants),
+		start_game_time: recruitData.startTime,
+		vc: recruitData.vc,
+		note: recruitData.note
+	};
+
+	try {
+		const res = await fetch(`${config.BACKEND_API_URL}/api/recruitment`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(data)
+		});
+		if (!res.ok) {
+			throw new Error(`API error: ${res.status}`);
+		}
+		return await res.json();
+	} catch (error) {
+		console.error('募集データの保存に失敗:', error);
+		throw error;
+	}
+}
+
 // 募集状況を削除
 async function deleteRecruitStatus(serverId) {
 	const res = await fetch(`${config.BACKEND_API_URL}/api/recruit-status?serverId=${serverId}`, {
@@ -31,5 +64,6 @@ module.exports = {
 	supabase,
 	saveRecruitStatus,
 	deleteRecruitStatus,
-	getActiveRecruits
+	getActiveRecruits,
+	saveRecruitmentData
 };

@@ -25,14 +25,6 @@ frontend/public/
 backend/dist/
 backend/.wrangler/
 backend/.cache/
-infra/.env
-infra/.docker/
-infra/.caddy/
-infra/.cache/
-infra/.certs/
-infra/.logs/
-infra/.tmp/
-infra/.DS_Store
 
 # OS/エディタ系
 .DS_Store
@@ -56,3 +48,4 @@ pnpm-debug.log*
 *.bak
 *.tmp
 *.lock
+.requirements.txt

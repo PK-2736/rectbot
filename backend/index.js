@@ -24,8 +24,20 @@ async function getDiscordUser(accessToken) {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
+    
+    // CORS設定
+    const corsHeaders = {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    };
+
+    // OPTIONS リクエスト（プリフライト）の処理
+    if (request.method === 'OPTIONS') {
+      return new Response(null, { status: 200, headers: corsHeaders });
+    }
     // KVストアへの保存
     async function saveToKV(key, value) {
       await env.RECRUIT_KV.put(key, JSON.stringify(value));
@@ -43,6 +55,37 @@ export default {
       const list = await env.RECRUIT_KV.list();
       return list.keys.map(k => k.name);
     }
+    // 募集データ保存API
+    if (url.pathname === "/api/recruitment") {
+      if (request.method === "POST") {
+        // 募集データ保存
+        const data = await request.json();
+        const key = `${data.guild_id}:${data.channel_id}`;
+        await env.RECRUITMENTS.put(key, JSON.stringify(data));
+        return new Response(JSON.stringify({ ok: true }), { 
+          status: 200, 
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      }
+      if (request.method === "GET") {
+        // 募集データ一覧取得
+        const list = await env.RECRUITMENTS.list();
+        const results = [];
+        for (const entry of list.keys) {
+          const value = await env.RECRUITMENTS.get(entry.name);
+          if (value) results.push(JSON.parse(value));
+        }
+        return new Response(JSON.stringify(results), {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      return new Response("Method Not Allowed", { 
+        status: 405, 
+        headers: corsHeaders 
+      });
+    }
+      return new Response("Not Found", { status: 404 });
     // 募集状況保存API
     if (url.pathname === '/api/recruit-status' && request.method === 'POST') {
       const body = await request.json();
