@@ -18,7 +18,7 @@ jobs:
       CLOUDFLARE_API_TOKEN_KV: ${{ secrets.CLOUDFLARE_API_TOKEN_KV }}
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Install Bun
         run: curl -fsSL https://bun.sh/install | bash
         shell: bash
