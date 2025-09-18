@@ -1,0 +1,47 @@
+name: Deploy to Cloudflare Workers
+on:
+  push:
+    branches:
+      - "main"
+    paths:
+      - "backend/**"
+    # frontend配下の変更ではこのworkflowはトリガーされません
+      
+  workflow_dispatch:
+
+jobs:
+  cloudflare-deploy:
+    runs-on: ubuntu-latest
+    # Worker用とKV用でAPIトークンを分離
+    env:
+      CLOUDFLARE_API_TOKEN_WORKER: ${{ secrets.CLOUDFLARE_API_TOKEN_WORKER }}
+      CLOUDFLARE_API_TOKEN_KV: ${{ secrets.CLOUDFLARE_API_TOKEN_KV }}
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+      - name: Install Bun
+        run: curl -fsSL https://bun.sh/install | bash
+        shell: bash
+      - name: Add Bun to PATH
+        run: echo "$HOME/.bun/bin" >> $GITHUB_PATH
+        shell: bash
+      - name: Install dependencies
+        run: |
+          cd backend
+          bun install
+      - name: Install Wrangler
+        run: cd backend && npm install wrangler
+      - name: Deploy to Cloudflare Workers
+        # Worker用トークンでデプロイ
+        env:
+          CF_API_TOKEN: ${{ env.CLOUDFLARE_API_TOKEN_WORKER }}
+        run: |
+          cd backend
+          npx wrangler deploy
+      # KV操作が必要な場合は、下記のようにKV用トークンを利用してください
+      # - name: KV操作サンプル
+      #   env:
+      #     CF_API_TOKEN: ${{ env.CLOUDFLARE_API_TOKEN_KV }}
+      #   run: |
+      #     cd backend
+      #     node kv-script.js
