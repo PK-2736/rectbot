@@ -1,6 +1,7 @@
+"use client";
+
 import Image from "next/image";
 import styles from "./page.module.css";
-"use client";
 import { useSession, signIn, signOut } from "next-auth/react";
 import AdminDashboard from "../components/AdminDashboard";
 
