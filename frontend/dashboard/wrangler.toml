@@ -1,6 +1,6 @@
 name = "rectbot-dashboard"
 compatibility_date = "2024-09-18"
-pages_build_output_dir = "./out"
+pages_build_output_dir = "out"
 
 [env.production]
 compatibility_date = "2024-09-18"

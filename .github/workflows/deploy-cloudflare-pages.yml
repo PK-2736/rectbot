@@ -45,12 +45,13 @@ jobs:
           cd frontend/dashboard
           npm run build
       - name: Deploy Dashboard to Cloudflare Pages
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: |
-          cd frontend/dashboard
-          wrangler pages deploy ./out --project-name=rectbot-dashboard --compatibility-date=2024-09-18
+        uses: cloudflare/pages-action@v1
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          projectName: rectbot-dashboard
+          directory: frontend/dashboard/out
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
       - name: Install Bun for Astro
         run: curl -fsSL https://bun.sh/install | bash
         shell: bash
