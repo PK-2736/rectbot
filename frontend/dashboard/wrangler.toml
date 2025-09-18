@@ -1,4 +1,4 @@
-name = "rectbot-dashboard"
+name = "rectbot"
 compatibility_date = "2024-09-18"
 pages_build_output_dir = "out"
 

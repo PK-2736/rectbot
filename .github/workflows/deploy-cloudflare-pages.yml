@@ -50,13 +50,9 @@ jobs:
           echo "Checking existing projects..."
           wrangler pages project list || echo "Failed to list projects"
           
-          # プロジェクトを作成（存在しない場合のみ）
-          echo "Creating project if it doesn't exist..."
-          wrangler pages project create rectbot-dashboard --production-branch=main --compatibility-date=2024-09-18 2>/dev/null || echo "Project already exists or creation failed"
-          
-          # デプロイ実行
+          # デプロイ実行（既存のrectbotプロジェクトを使用）
           echo "Deploying to Pages..."
-          wrangler pages deploy ./out --project-name=rectbot-dashboard
+          wrangler pages deploy ./out --project-name=rectbot
       - name: Install Bun for Astro
         run: curl -fsSL https://bun.sh/install | bash
         shell: bash
