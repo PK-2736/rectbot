@@ -50,7 +50,7 @@ jobs:
         run: |
           cd frontend/dashboard
           echo "Deploying to Pages..."
-          wrangler pages deploy ./out --project-name=rect-dashboard
+          wrangler pages deploy ./out --project-name=rectbot-dashboard
       - name: Install Bun for Astro
         run: curl -fsSL https://bun.sh/install | bash
         shell: bash

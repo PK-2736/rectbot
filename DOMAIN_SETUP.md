@@ -5,7 +5,7 @@
 ### dash.rectbot.tech の設定手順
 
 1. **Cloudflare Pagesでカスタムドメインを追加**
-   - Cloudflareダッシュボードで `rect-dashboard` プロジェクトを開く
+   - Cloudflareダッシュボードで `rectbot-dashboard` プロジェクトを開く
    - 「Custom domains」タブに移動
    - 「Set up a custom domain」をクリック
    - `dash.rectbot.tech` を入力
@@ -15,7 +15,7 @@
    ```
    Type: CNAME
    Name: dash
-   Target: rect-dashboard.pages.dev
+   Target: rectbot-dashboard.pages.dev
    Proxy status: プロキシ済み (オレンジ雲)
    ```
 
