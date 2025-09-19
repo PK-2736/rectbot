@@ -130,6 +130,19 @@ export default {
         return new Response(JSON.stringify({ result: 'fetched', key, value: data }), { status: 200 });
       }
     }
+    // デバッグ用テストエンドポイント
+    if (url.pathname === '/api/test' && request.method === 'GET') {
+      return new Response(JSON.stringify({ 
+        message: 'Backend is working!', 
+        timestamp: new Date().toISOString(),
+        path: url.pathname,
+        method: request.method
+      }), { 
+        status: 200, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
     // Discord OAuthコールバックAPI (POST)
     if (request.method === 'POST' && url.pathname === '/api/discord/callback') {
       const { code } = await request.json();
