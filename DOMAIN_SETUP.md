@@ -39,7 +39,7 @@ Discord Developer Portalで以下のリダイレクトURLを追加：
 ## デプロイ構成
 
 - **公開サイト**: `rectbot` プロジェクト → `rectbot.tech`
-- **管理画面**: `rect-dashboard` プロジェクト → `dash.rectbot.tech`
+- **管理画面**: `rectbot-dashboard` プロジェクト → `dash.rectbot.tech`
 
 ## 注意事項
 
