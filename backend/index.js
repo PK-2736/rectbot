@@ -85,7 +85,7 @@ export default {
         headers: corsHeaders 
       });
     }
-      return new Response("Not Found", { status: 404 });
+    
     // 募集状況保存API
     if (url.pathname === '/api/recruit-status' && request.method === 'POST') {
       const body = await request.json();
@@ -289,7 +289,12 @@ export default {
       // guildsとrecruitsをまとめて返す
       return new Response(JSON.stringify({ guilds, recruits }), { status: 200 });
     }
-    return new Response('OK');
+
+    // すべてのルートにマッチしなかった場合の404レスポンス
+    return new Response("Not Found", { 
+      status: 404, 
+      headers: corsHeaders 
+    });
   }
 }
 
