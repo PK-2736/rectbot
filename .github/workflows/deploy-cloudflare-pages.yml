@@ -50,7 +50,7 @@ jobs:
         run: |
           cd frontend/dashboard
           echo "Deploying to Pages..."
-          wrangler pages deploy ./out --project-name=rectbot
+          wrangler pages deploy ./out --project-name=rect-dashboard
       - name: Install Bun for Astro
         run: curl -fsSL https://bun.sh/install | bash
         shell: bash
@@ -73,8 +73,8 @@ jobs:
           cd frontend/astro
           # プロジェクトを作成（存在しない場合のみ）
           echo "Creating Astro project if it doesn't exist..."
-          wrangler pages project create rectbot-frontend --production-branch=main --compatibility-date=2024-09-18 2>/dev/null || echo "Project already exists or creation failed"
+          wrangler pages project create rectbot --production-branch=main --compatibility-date=2024-09-18 2>/dev/null || echo "Project already exists or creation failed"
           
           # デプロイ実行
           echo "Deploying Astro to Pages..."
-          wrangler pages deploy ./dist --project-name=rectbot-frontend
+          wrangler pages deploy ./dist --project-name=rectbot

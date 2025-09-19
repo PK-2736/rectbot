@@ -1,24 +1,50 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# rectbot Dashboard
 
-## Getting Started
+Discord Botの管理画面アプリケーション
 
-First, run the development server:
+## 環境変数設定
+
+以下の環境変数を設定してください：
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# Discord OAuth2 設定
+NEXT_PUBLIC_DISCORD_CLIENT_ID=your_discord_client_id
+DISCORD_CLIENT_SECRET=your_discord_client_secret
+NEXT_PUBLIC_DISCORD_REDIRECT_URI=https://dash.rectbot.tech/auth/callback
+
+# Backend API
+NEXT_PUBLIC_BACKEND_API_URL=https://your-backend-api.workers.dev
+
+# 管理者ID（カンマ区切り）
+ADMIN_IDS=user_id_1,user_id_2,user_id_3
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 開発環境での実行
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm install
+npm run dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+[http://localhost:3000](http://localhost:3000) でアプリケーションが起動します。
+
+## ビルド
+
+```bash
+npm run build
+```
+
+静的サイトとして `out/` ディレクトリに出力されます。
+
+## デプロイ
+
+Cloudflare Pagesにデプロイされます。カスタムドメイン `dash.rectbot.tech` で利用可能です。
+
+### Discord アプリケーション設定
+
+Discord Developer Portalで以下のリダイレクトURLを設定してください：
+- 開発環境: `http://localhost:3000/auth/callback`
+- 本番環境: `https://dash.rectbot.tech/auth/callback`
 
 ## Learn More
 
