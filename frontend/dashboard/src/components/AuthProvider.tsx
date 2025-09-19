@@ -50,6 +50,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           email: "" // 必要に応じてバックエンドから受け取る
         };
         
+        console.log('Authenticated user:', authUser);
         setUser(authUser);
         discordAuth.storeUser(authUser);
         
@@ -70,6 +71,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             email: "admin@example.com"
           };
           
+          console.log('Demo user logged in:', demoUser);
           setUser(demoUser);
           discordAuth.storeUser(demoUser);
           

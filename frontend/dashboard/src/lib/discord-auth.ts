@@ -11,6 +11,7 @@ export class DiscordAuth {
   private redirectUri: string;
   private adminIds: string[] = [
     "1048950201974542477", // 管理者のDiscordユーザーID
+    // 開発用: 一時的に全てのユーザーを管理者として扱う（本番では削除）
   ];
 
   constructor() {
@@ -44,6 +45,15 @@ export class DiscordAuth {
   }
 
   isAdmin(userId: string): boolean {
+    // 開発モード: 環境変数でデバッグモードを有効にする
+    if (process.env.NODE_ENV === 'development' || process.env.NEXT_PUBLIC_DEBUG_MODE === 'true') {
+      console.log('Debug mode: User ID:', userId);
+      console.log('Admin IDs:', this.adminIds);
+      
+      // デバッグモードでは一時的に全ユーザーを管理者として扱う
+      return true;
+    }
+    
     return this.adminIds.includes(userId);
   }
 

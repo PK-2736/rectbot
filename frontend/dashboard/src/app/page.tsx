@@ -6,6 +6,11 @@ import AdminDashboard from "../components/AdminDashboard";
 export default function Home() {
   const { user, isAdmin, login, logout, isLoading } = useAuth();
 
+  // デバッグ情報をログ出力
+  console.log('Current user:', user);
+  console.log('Is admin:', isAdmin);
+  console.log('Is loading:', isLoading);
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
