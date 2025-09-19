@@ -32,30 +32,51 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(storedUser);
     }
 
-    // URLからDiscordの認証コードをチェック
+    // URLからDiscordの認証成功パラメータをチェック
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
-      const code = urlParams.get('code');
+      const authSuccess = urlParams.get('auth_success');
+      const userId = urlParams.get('user_id');
+      const username = urlParams.get('username');
       
-      if (code) {
-        // 認証コードがある場合の処理
-        // 実際の実装では、バックエンドでコード交換を行う
-        console.log('Discord auth code received:', code);
+      if (authSuccess === 'true' && userId && username) {
+        // バックエンドから認証成功のリダイレクトを受信
+        console.log('Discord auth success received');
         
-        // デモ用: 固定のユーザー情報をセット
-        const demoUser: DiscordUser = {
-          id: "1048950201974542477",
-          username: "admin",
-          discriminator: "0001",
-          email: "admin@example.com"
+        const authUser: DiscordUser = {
+          id: userId,
+          username: username,
+          discriminator: "0000", // 新しいDiscordは discriminator が不要
+          email: "" // 必要に応じてバックエンドから受け取る
         };
         
-        setUser(demoUser);
-        discordAuth.storeUser(demoUser);
+        setUser(authUser);
+        discordAuth.storeUser(authUser);
         
-        // URLからコードパラメータを削除
+        // URLからパラメータを削除してクリーンアップ
         const newUrl = window.location.pathname;
         window.history.replaceState({}, '', newUrl);
+      } else {
+        // 従来のコード処理（デモ用）
+        const code = urlParams.get('code');
+        if (code) {
+          console.log('Discord auth code received (legacy):', code);
+          
+          // デモ用: 固定のユーザー情報をセット
+          const demoUser: DiscordUser = {
+            id: "1048950201974542477",
+            username: "admin",
+            discriminator: "0001",
+            email: "admin@example.com"
+          };
+          
+          setUser(demoUser);
+          discordAuth.storeUser(demoUser);
+          
+          // URLからコードパラメータを削除
+          const newUrl = window.location.pathname;
+          window.history.replaceState({}, '', newUrl);
+        }
       }
     }
 

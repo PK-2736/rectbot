@@ -130,7 +130,7 @@ export default {
         return new Response(JSON.stringify({ result: 'fetched', key, value: data }), { status: 200 });
       }
     }
-    // Discord OAuthコールバックAPI
+    // Discord OAuthコールバックAPI (POST)
     if (request.method === 'POST' && url.pathname === '/api/discord/callback') {
       const { code } = await request.json();
       if (!code) return new Response(JSON.stringify({ error: 'code missing' }), { status: 400 });
@@ -156,6 +156,68 @@ export default {
         body: JSON.stringify({ discord_id: user.id, username: user.username, email: user.email })
       });
       return new Response(JSON.stringify({ user }), { status: 200 });
+    }
+
+    // Discord OAuthコールバックAPI (GET) - DiscordからのリダイレクトURL処理
+    if (request.method === 'GET' && url.pathname === '/api/discord/callback') {
+      const code = url.searchParams.get('code');
+      if (!code) {
+        return new Response('<!DOCTYPE html><html><body><h1>認証エラー</h1><p>認証コードが見つかりません</p></body></html>', {
+          status: 400,
+          headers: { 'Content-Type': 'text/html; charset=utf-8' }
+        });
+      }
+      
+      try {
+        // 環境変数からDiscord情報取得
+        const clientId = env.REACT_APP_DISCORD_CLIENT_ID;
+        const clientSecret = env.DISCORD_CLIENT_SECRET;
+        const redirectUri = env.REACT_APP_DISCORD_REDIRECT_URI;
+        
+        // Discordトークン取得
+        const tokenData = await getDiscordToken(code, redirectUri, clientId, clientSecret);
+        if (!tokenData.access_token) {
+          return new Response('<!DOCTYPE html><html><body><h1>認証エラー</h1><p>Discordトークンの取得に失敗しました</p></body></html>', {
+            status: 400,
+            headers: { 'Content-Type': 'text/html; charset=utf-8' }
+          });
+        }
+        
+        // Discordユーザー情報取得
+        const user = await getDiscordUser(tokenData.access_token);
+        
+        // Supabase REST APIでユーザー情報保存
+        await fetch(env.SUPABASE_URL + '/rest/v1/users', {
+          method: 'POST',
+          headers: {
+            'apikey': env.SUPABASE_SERVICE_ROLE_KEY,
+            'Authorization': `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ discord_id: user.id, username: user.username, email: user.email })
+        });
+        
+        // ダッシュボードにリダイレクト（ユーザー情報をクエリパラメータで渡す）
+        const dashboardUrl = new URL('https://dash.rectbot.tech/');
+        dashboardUrl.searchParams.set('auth_success', 'true');
+        dashboardUrl.searchParams.set('user_id', user.id);
+        dashboardUrl.searchParams.set('username', user.username);
+        
+        return new Response('', {
+          status: 302,
+          headers: {
+            'Location': dashboardUrl.toString(),
+            ...corsHeaders
+          }
+        });
+        
+      } catch (error) {
+        console.error('Discord OAuth error:', error);
+        return new Response('<!DOCTYPE html><html><body><h1>認証エラー</h1><p>認証処理中にエラーが発生しました</p></body></html>', {
+          status: 500,
+          headers: { 'Content-Type': 'text/html; charset=utf-8' }
+        });
+      }
     }
   // Stripe Webhook部分はWorkers用に要修正（公式SDKは使えません）
   // if (request.method === 'POST' && url.pathname === '/webhook') {
