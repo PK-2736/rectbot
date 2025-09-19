@@ -9,15 +9,18 @@ export interface DiscordUser {
 export class DiscordAuth {
   private clientId: string;
   private redirectUri: string;
-  private adminIds: string[] = [
-    "1048950201974542477", // 管理者のDiscordユーザーID
-    // 開発用: 一時的に全てのユーザーを管理者として扱う（本番では削除）
-  ];
+  private adminIds: string[];
 
   constructor() {
     this.clientId = process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID || '';
     this.redirectUri = process.env.NEXT_PUBLIC_DISCORD_REDIRECT_URI || 
       (typeof window !== 'undefined' ? `${window.location.origin}/` : 'http://localhost:3000/');
+    
+    // 環境変数から管理者IDを取得（カンマ区切りで複数指定可能）
+    const adminIdsEnv = process.env.NEXT_PUBLIC_ADMIN_IDS || process.env.ADMIN_IDS || '';
+    this.adminIds = adminIdsEnv 
+      ? adminIdsEnv.split(',').map(id => id.trim()).filter(id => id.length > 0)
+      : ["1048950201974542477", "726195003780628621"]; // デフォルトで両方のIDを含める
   }
 
   getAuthUrl(): string {
