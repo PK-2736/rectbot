@@ -31,17 +31,30 @@ jobs:
           bun install
       - name: Install Wrangler
         run: cd backend && npm install wrangler
-      - name: Deploy to Cloudflare Workers
-        # Worker用トークンでデプロイ
+      - name: Set environment variables in wrangler.toml
+        run: |
+          cd backend
+          # [vars]セクションに環境変数を動的に追加
+          cat >> wrangler.toml << 'EOF'
+          
+          # GitHub Actionsから設定される環境変数
+          REACT_APP_DISCORD_CLIENT_ID = "${{ secrets.REACT_APP_DISCORD_CLIENT_ID }}"
+          REACT_APP_DISCORD_REDIRECT_URI = "${{ secrets.REACT_APP_DISCORD_REDIRECT_URI }}"
+          SUPABASE_URL = "${{ secrets.SUPABASE_URL }}"
+          EOF
+          
+      - name: Set Cloudflare Workers secrets
         env:
-          CF_API_TOKEN: ${{ env.CLOUDFLARE_API_TOKEN_WORKER }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          cd backend
+          # 機密情報をCloudflare Workersのシークレットストアに設定
+          echo "${{ secrets.DISCORD_CLIENT_SECRET }}" | npx wrangler secret put DISCORD_CLIENT_SECRET
+          echo "${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" | npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY
+          
+      - name: Deploy to Cloudflare Workers
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: |
           cd backend
           npx wrangler deploy
-      # KV操作が必要な場合は、下記のようにKV用トークンを利用してください
-      # - name: KV操作サンプル
-      #   env:
-      #     CF_API_TOKEN: ${{ env.CLOUDFLARE_API_TOKEN_KV }}
-      #   run: |
-      #     cd backend
-      #     node kv-script.js

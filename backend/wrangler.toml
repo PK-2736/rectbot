@@ -9,3 +9,14 @@ kv_namespaces = [
     {binding = "RECRUIT_KV", id = "6b9a6fefa35c44a2ab35f32b1b667fb9"},
     {binding = "RECRUITMENTS", id = "6b9a6fefa35c44a2ab35f32b1b667fb9"}
 ]
+
+# 環境変数は GitHub Actions で動的に設定されます
+[vars]
+# GitHub Actions が自動で以下の環境変数を追加します:
+# - REACT_APP_DISCORD_CLIENT_ID
+# - REACT_APP_DISCORD_REDIRECT_URI  
+# - SUPABASE_URL
+#
+# シークレットは wrangler secret put コマンドで設定されます:
+# - DISCORD_CLIENT_SECRET
+# - SUPABASE_SERVICE_ROLE_KEY
