@@ -43,13 +43,18 @@ jobs:
         run: |
           cd frontend/dashboard
           npm run build
-      - name: Deploy Dashboard to Cloudflare Pages
+      - name: Create or Deploy Dashboard to Cloudflare Pages
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           cd frontend/dashboard
-          echo "Deploying to Pages..."
+          # プロジェクトを作成（存在しない場合のみ）
+          echo "Creating Dashboard project if it doesn't exist..."
+          wrangler pages project create rectbot-dashboard --production-branch=main --compatibility-date=2024-09-18 2>/dev/null || echo "Project already exists or creation failed"
+          
+          # デプロイ実行
+          echo "Deploying Dashboard to Pages..."
           wrangler pages deploy ./out --project-name=rectbot-dashboard
       - name: Install Bun for Astro
         run: curl -fsSL https://bun.sh/install | bash
