@@ -4,7 +4,7 @@ const {
   SeparatorBuilder, SeparatorSpacingSize,
   ActionRowBuilder, ButtonBuilder, ButtonStyle,
   MessageFlags, MediaGalleryBuilder, MediaGalleryItemBuilder,
-  AttachmentBuilder, SectionBuilder
+  AttachmentBuilder, SectionBuilder, EmbedBuilder
 } = require('discord.js');
 // Components v2 で画像をインライン表示するためのビルダー
 const { ThumbnailBuilder } = require('@discordjs/builders');
@@ -105,6 +105,7 @@ module.exports = {
         participants: participantsNum,
         startTime: interaction.fields.getTextInputValue('startTime'),
         vc: interaction.fields.getTextInputValue('vc'),
+        recruiterId: interaction.user.id // 募集主のIDを追加
       };
 
       // 募集データを保存（メッセージIDとして使用するIDを統一）
@@ -271,29 +272,89 @@ module.exports = {
           participants.push(interaction.user.id);
           recruitParticipants.set(messageId, participants);
           console.log('参加者追加:', interaction.user.id, '現在の参加者:', participants);
+          
+          // 募集データを取得して募集主に通知
+          const savedRecruitData = recruitData.get(messageId);
+          if (savedRecruitData && savedRecruitData.recruiterId) {
+            const joinEmbed = new EmbedBuilder()
+              .setColor(0x00FF00)
+              .setTitle('🎮 新しい参加者がいます！')
+              .setDescription(`<@${interaction.user.id}> が募集に参加しました！`)
+              .addFields(
+                { name: '募集タイトル', value: savedRecruitData.title, inline: false },
+                { name: '現在の参加者数', value: `${participants.length}/${savedRecruitData.participants}人`, inline: true }
+              )
+              .setTimestamp();
+
+            await interaction.reply({
+              content: `<@${savedRecruitData.recruiterId}>`,
+              embeds: [joinEmbed],
+              allowedMentions: { users: [savedRecruitData.recruiterId] }
+            });
+          } else {
+            // フォールバック
+            await interaction.reply({ 
+              content: "✅ 参加しました！", 
+              flags: MessageFlags.Ephemeral,
+              allowedMentions: { roles: [], users: [] }
+            });
+          }
         } else {
           console.log('既に参加済み:', interaction.user.id);
+          await interaction.reply({ 
+            content: "❌ 既に参加済みです。", 
+            flags: MessageFlags.Ephemeral,
+            allowedMentions: { roles: [], users: [] }
+          });
         }
         await updateParticipantList(interaction, participants);
-        await interaction.reply({ 
-          content: "✅ 参加しました！", 
-          flags: MessageFlags.Ephemeral,
-          allowedMentions: { roles: [], users: [] }
-        });
         break;
       }
       case "cancel": {
         // 参加者から削除
         const beforeLength = participants.length;
         participants = participants.filter(id => id !== interaction.user.id);
-        recruitParticipants.set(messageId, participants);
-        console.log('参加者削除:', interaction.user.id, '削除前:', beforeLength, '削除後:', participants.length);
+        
+        if (beforeLength > participants.length) {
+          // 実際に削除された場合
+          recruitParticipants.set(messageId, participants);
+          console.log('参加者削除:', interaction.user.id, '削除前:', beforeLength, '削除後:', participants.length);
+          
+          // 募集データを取得して募集主に通知
+          const savedRecruitData = recruitData.get(messageId);
+          if (savedRecruitData && savedRecruitData.recruiterId) {
+            const cancelEmbed = new EmbedBuilder()
+              .setColor(0xFF6B35)
+              .setTitle('📤 参加者がキャンセルしました')
+              .setDescription(`<@${interaction.user.id}> が募集から離脱しました。`)
+              .addFields(
+                { name: '募集タイトル', value: savedRecruitData.title, inline: false },
+                { name: '現在の参加者数', value: `${participants.length}/${savedRecruitData.participants}人`, inline: true }
+              )
+              .setTimestamp();
+
+            await interaction.reply({
+              content: `<@${savedRecruitData.recruiterId}>`,
+              embeds: [cancelEmbed],
+              allowedMentions: { users: [savedRecruitData.recruiterId] }
+            });
+          } else {
+            // フォールバック
+            await interaction.reply({ 
+              content: "❌ 取り消しました。", 
+              flags: MessageFlags.Ephemeral,
+              allowedMentions: { roles: [], users: [] }
+            });
+          }
+        } else {
+          // 元々参加していない場合
+          await interaction.reply({ 
+            content: "❌ 参加していないため、取り消せません。", 
+            flags: MessageFlags.Ephemeral,
+            allowedMentions: { roles: [], users: [] }
+          });
+        }
         await updateParticipantList(interaction, participants);
-        await interaction.reply({ 
-          content: "❌ 取り消しました。", 
-          flags: MessageFlags.Ephemeral,
-          allowedMentions: { roles: [], users: [] }
-        });
         break;
       }
       case "close": {
@@ -356,12 +417,34 @@ module.exports = {
           allowedMentions: { roles: [], users: [] }
         });
 
-        // 締め切りメッセージを送信
-        await interaction.reply({ 
-          content: "🔒 募集を締め切りました。", 
-          flags: MessageFlags.Ephemeral,
-          allowedMentions: { roles: [], users: [] }
-        });
+        // 締め切りメッセージをembedで送信
+        const savedRecruitData = recruitData.get(messageId);
+        if (savedRecruitData && savedRecruitData.recruiterId) {
+          const finalParticipants = recruitParticipants.get(messageId) || [];
+          const closeEmbed = new EmbedBuilder()
+            .setColor(0x808080)
+            .setTitle('🔒 募集が締め切られました')
+            .setDescription('募集が正式に締め切られました。')
+            .addFields(
+              { name: '募集タイトル', value: savedRecruitData.title, inline: false },
+              { name: '最終参加者数', value: `${finalParticipants.length}/${savedRecruitData.participants}人`, inline: true },
+              { name: '開始予定時間', value: savedRecruitData.startTime, inline: true }
+            )
+            .setTimestamp();
+
+          await interaction.reply({
+            content: `<@${savedRecruitData.recruiterId}>`,
+            embeds: [closeEmbed],
+            allowedMentions: { users: [savedRecruitData.recruiterId] }
+          });
+        } else {
+          // フォールバック
+          await interaction.reply({ 
+            content: "🔒 募集を締め切りました。", 
+            flags: MessageFlags.Ephemeral,
+            allowedMentions: { roles: [], users: [] }
+          });
+        }
         break;
       }
     }
