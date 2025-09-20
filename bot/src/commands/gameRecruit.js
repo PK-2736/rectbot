@@ -132,6 +132,7 @@ module.exports = {
       // 少し待ってから募集パネルを送信
       setTimeout(async () => {
         try {
+          console.log('募集パネル送信開始');
           // ボタン付きメッセージを投稿（バッファから直接送信）
           const image = new AttachmentBuilder(buffer, { name: 'recruit-card.png' });
           const participantText = "🎯✨ 参加リスト ✨🎯\n✨（まだ参加者はいません）✨";
@@ -184,11 +185,12 @@ module.exports = {
               new TextDisplayBuilder().setContent(`募集ID：\`${interaction.id.slice(-8)}\` | powered by **rectbot**`)
             );
           
-          const followUpMessage = await interaction.followUp({
+          // followUpの代わりにchannel.sendを使用
+          const followUpMessage = await interaction.channel.send({
             files: [image],
-            components: [container],
-            flags: MessageFlags.IsComponentsV2
+            components: [container]
           });
+          console.log('募集パネル送信完了:', followUpMessage.id);
 
           // メッセージが投稿された後、実際のメッセージを取得してIDで募集データを再保存
           try {
