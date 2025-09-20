@@ -44,6 +44,30 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
   ctx.lineWidth = 5;
   ctx.strokeRect(0, 0, width, height);
 
+  // タイトル表示（一番上）
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 8px CorporateRounded';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  
+  const title = recruitData.title || 'ゲーム募集';
+  const titleMaxWidth = width - 16; // 左右のマージン
+  let titleText = title;
+  
+  // タイトルが長すぎる場合は省略
+  if (ctx.measureText(titleText).width > titleMaxWidth) {
+    while (ctx.measureText(titleText + '...').width > titleMaxWidth && titleText.length > 1) {
+      titleText = titleText.substring(0, titleText.length - 1);
+    }
+    titleText += '...';
+  }
+  
+  ctx.fillText(titleText, width / 2, 8);
+  
+  // テキストアライメントをリセット
+  ctx.textAlign = 'start';
+  ctx.textBaseline = 'top';
+
   // 掲示板風ピン装飾（控えめ）
   function drawPin(x, y, color) {
     // ピンの影（薄く）
@@ -65,15 +89,15 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
     ctx.fill();
   }
   
-  // 募集内容用の枠（左下から中央まで）
+  // 募集内容用の枠（タイトル分を考慮して下に移動）
   const boxX = 8;
-  const boxY = height * 0.32; // 画像の32%の位置から開始（上に広げる）
-  const boxWidth = width * 0.5; // 画像幅の50%（55%から縮小）
-  const boxHeight = height * 0.6; // 画像高さの60%（下端はそのまま、上端を広げる）
+  const boxY = height * 0.42; // 画像の42%の位置から開始（32%から下に移動）
+  const boxWidth = width * 0.5; // 画像幅の50%
+  const boxHeight = height * 0.5; // 画像高さの50%（60%から縮小）
   
-  // 上側のピンのみ配置（アバターと被らないように斜め上に移動）
-  drawPin(6, 6, 'rgba(255, 71, 87, 0.7)');   // 左上 - 淡い赤（15, 6に変更）
-  drawPin(width - 6, 6, 'rgba(46, 213, 115, 0.7)');   // 右上 - 淡い緑（width - 15, 6に変更）
+  // 上側のピンのみ配置（タイトルと被らないように下に移動）
+  drawPin(6, 18, 'rgba(255, 71, 87, 0.7)');   // 左上 - 淡い赤
+  drawPin(width - 6, 18, 'rgba(46, 213, 115, 0.7)');   // 右上 - 淡い緑
   
   // 角丸矩形を描画する関数
   function drawRoundedRect(x, y, width, height, radius, fill = true, stroke = false) {
@@ -102,11 +126,11 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
   ctx.lineWidth = 1;
   drawRoundedRect(boxX, boxY, boxWidth, boxHeight, 6, false, true);
   
-  // 参加者円の描画（募集内容の上、少し下に移動）
+  // 参加者円の描画（タイトル分を考慮して下に移動）
   const participantCount = recruitData.participants || 4;
   const circleRadius = 6.5; // 8から6.5に縮小
   const circleSpacing = 20;
-  const participantAreaY = boxY - 12; // 募集内容枠の上（少し下に移動）
+  const participantAreaY = boxY - 8; // 募集内容枠の上（タイトル分を考慮）
   const participantAreaX = boxX + 5;
   
   // アバター描画のヘルパー関数
@@ -246,12 +270,12 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
     ctx.fillText(wrappedLines[i], boxX + 4, boxY + 15 + i * lineHeight);
   }
   
-  // 右上から縦に並べて表示（人数、時間、通話）
+  // 右上から縦に並べて表示（タイトル分を考慮して下に移動）
   const rightX = width - 56; // 右上の位置
-  const startY = 28; // 上から開始（少し下に移動）
-  const itemSpacing = 20; // 各項目の間隔（15から25に拡大）
+  const startY = 35; // タイトル分を考慮して下に移動（28から35に）
+  const itemSpacing = 20; // 各項目の間隔
   const infoBoxWidth = 50; // 各情報ボックスの幅
-  const infoBoxHeight = 15; // 各情報ボックスの高さ（12から15に拡大）
+  const infoBoxHeight = 15; // 各情報ボックスの高さ
   
   // 情報配列
   const infoItems = [

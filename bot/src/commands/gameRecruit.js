@@ -32,6 +32,11 @@ module.exports = {
         .setCustomId('recruitModal')
         .setTitle('🎮 募集内容入力');
 
+      const titleInput = new TextInputBuilder()
+        .setCustomId('title')
+        .setLabel('タイトル（例: スプラトゥーン3 ガチマッチ募集）')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true);
       const contentInput = new TextInputBuilder()
         .setCustomId('content')
         .setLabel('募集内容（例: ガチエリア / 初心者歓迎 / 2時間）')
@@ -55,18 +60,13 @@ module.exports = {
         .setLabel('VCの有無（あり / なし）')
         .setStyle(TextInputStyle.Short)
         .setRequired(true);
-      const noteInput = new TextInputBuilder()
-        .setCustomId('note')
-        .setLabel('補足条件（自由記述）')
-        .setStyle(TextInputStyle.Paragraph)
-        .setRequired(false);
 
       modal.addComponents(
+        new ActionRowBuilder().addComponents(titleInput),
         new ActionRowBuilder().addComponents(contentInput),
         new ActionRowBuilder().addComponents(participantsInput),
         new ActionRowBuilder().addComponents(timeInput),
-        new ActionRowBuilder().addComponents(vcInput),
-        new ActionRowBuilder().addComponents(noteInput)
+        new ActionRowBuilder().addComponents(vcInput)
       );
 
       await interaction.showModal(modal);
@@ -95,11 +95,11 @@ module.exports = {
       }
 
       const recruitDataObj = {
+        title: interaction.fields.getTextInputValue('title'),
         content: interaction.fields.getTextInputValue('content'),
         participants: participantsNum,
         startTime: interaction.fields.getTextInputValue('startTime'),
         vc: interaction.fields.getTextInputValue('vc'),
-        note: interaction.fields.getTextInputValue('note'),
       };
 
       // 募集データを保存（メッセージIDとして使用するIDを統一）
@@ -123,7 +123,7 @@ module.exports = {
       container.addSectionComponents(
         new SectionBuilder()
           .addTextDisplayComponents(
-            new TextDisplayBuilder().setContent(`# 🎮️ **ゲーム募集** \n **${user.username}さんの募集**<@&1416797165769986161>`)
+            new TextDisplayBuilder().setContent(`# ${recruitDataObj.title} \n **${user.username}さんの募集**<@&1416797165769986161>`)
           )
           .setThumbnailAccessory(
             new ThumbnailBuilder({
@@ -306,7 +306,7 @@ async function updateParticipantList(interaction, participants) {
   newContainer.addSectionComponents(
         new SectionBuilder()
           .addTextDisplayComponents(
-            new TextDisplayBuilder().setContent(`# 🎮️ **ゲーム募集** \n**${user.username}さんの募集**<@&1416797165769986161>`)
+            new TextDisplayBuilder().setContent(`# ${savedRecruitData.title} \n**${user.username}さんの募集**<@&1416797165769986161>`)
           )
           .setThumbnailAccessory(
             new ThumbnailBuilder({
