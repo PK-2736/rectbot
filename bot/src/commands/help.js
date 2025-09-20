@@ -16,7 +16,8 @@ module.exports = {
         )
     ),
   async execute(interaction) {
-    const specificCommand = interaction.options.getString('command');
+    // ボタンインタラクションの場合はoptionsが存在しないため、スラッシュコマンド以外では全体ヘルプを表示
+    const specificCommand = interaction.isChatInputCommand() ? interaction.options.getString('command') : null;
     
     if (specificCommand) {
       // 特定のコマンドの詳細表示
