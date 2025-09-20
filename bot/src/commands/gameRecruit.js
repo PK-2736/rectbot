@@ -207,6 +207,19 @@ module.exports = {
         console.log('保存された募集データ:', recruitDataObj);
         console.log('現在のrecruitDataキー一覧:', Array.from(recruitData.keys()));
         console.log('募集主を初期参加者として設定:', interaction.user.id);
+
+        // 8時間後の自動締切タイマーを設定
+        setTimeout(async () => {
+          try {
+            // 募集がまだ存在するかチェック
+            if (recruitData.has(actualMessageId)) {
+              console.log('8時間経過による自動締切実行:', actualMessageId);
+              await autoCloseRecruitment(interaction.client, interaction.guildId, interaction.channelId, actualMessageId);
+            }
+          } catch (error) {
+            console.error('自動締切処理でエラー:', error);
+          }
+        }, 8 * 60 * 60 * 1000); // 8時間 = 28,800,000ms
         
         // 元のinteraction IDのデータがあれば削除
         if (recruitData.has(messageKey)) {
@@ -473,6 +486,11 @@ module.exports = {
             embeds: [closeEmbed],
             allowedMentions: { users: [savedRecruitData.recruiterId] }
           });
+
+          // メモリからデータを削除（自動締切タイマーもクリア）
+          recruitData.delete(messageId);
+          recruitParticipants.delete(messageId);
+          console.log('手動締切完了、メモリからデータを削除:', messageId);
         } else {
           // フォールバック
           await interaction.reply({ 
@@ -581,4 +599,100 @@ newContainer.addActionRowComponents(
     allowedMentions: { roles: [], users: participants }
   });
   console.log('メッセージ編集完了');
+}
+
+// 自動締切処理関数
+async function autoCloseRecruitment(client, guildId, channelId, messageId) {
+  try {
+    console.log('自動締切処理開始:', messageId);
+    
+    const guild = await client.guilds.fetch(guildId);
+    const channel = await guild.channels.fetch(channelId);
+    const message = await channel.messages.fetch(messageId);
+    
+    const savedRecruitData = recruitData.get(messageId);
+    if (!savedRecruitData) {
+      console.log('募集データが見つからないため自動締切をスキップ:', messageId);
+      return;
+    }
+
+    // === API経由で削除 ===
+    await deleteRecruitStatus(guildId);
+    
+    // === 管理ページからも募集データを削除 ===
+    try {
+      await deleteRecruitmentData(messageId);
+      console.log('管理ページから募集データを削除しました(自動):', messageId);
+    } catch (error) {
+      console.error('管理ページからの募集データ削除に失敗(自動):', error);
+    }
+
+    // ボタンを無効化したコンテナを作成
+    const disabledContainer = new ContainerBuilder();
+    disabledContainer.setAccentColor(0x808080); // グレー色
+
+    disabledContainer.addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(`🎮✨ **募集締め切り済み（自動）** ✨🎮`)
+    );
+
+    disabledContainer.addSeparatorComponents(
+      new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+    );
+
+    // 元の画像を維持
+    disabledContainer.addMediaGalleryComponents(
+      new MediaGalleryBuilder().addItems(
+        new MediaGalleryItemBuilder().setURL(message.attachments.first()?.url || 'attachment://recruit-card.png')
+      )
+    )
+
+    disabledContainer.addSeparatorComponents(
+      new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+    )
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent("🔒 **この募集は自動で締め切られました（8時間経過）** 🔒")
+    );
+
+    const footerMessageId = messageId;
+    disabledContainer.addSeparatorComponents(
+      new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+    )
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(`募集ID：\`${footerMessageId.slice(-8)}\` | powered by **rectbot**`)
+    );
+
+    // メッセージを更新（ボタンなし）
+    await message.edit({
+      components: [disabledContainer],
+      flags: MessageFlags.IsComponentsV2,
+      allowedMentions: { roles: [], users: [] }
+    });
+
+    // 自動締切通知を送信
+    const finalParticipants = recruitParticipants.get(messageId) || [];
+    const autoCloseEmbed = new EmbedBuilder()
+      .setColor(0xFF4444)
+      .setTitle('⏰ 募集が自動で締め切られました')
+      .setDescription('募集開始から8時間が経過したため、自動で募集を締め切ります。')
+      .addFields(
+        { name: '募集タイトル', value: savedRecruitData.title, inline: false },
+        { name: '最終参加者数', value: `${finalParticipants.length}/${savedRecruitData.participants}人`, inline: true },
+        { name: '経過時間', value: '8時間', inline: true }
+      )
+      .setTimestamp();
+
+    await channel.send({
+      content: `<@${savedRecruitData.recruiterId}>`,
+      embeds: [autoCloseEmbed],
+      allowedMentions: { users: [savedRecruitData.recruiterId] }
+    });
+
+    // メモリからデータを削除
+    recruitData.delete(messageId);
+    recruitParticipants.delete(messageId);
+    console.log('自動締切完了:', messageId);
+
+  } catch (error) {
+    console.error('自動締切処理でエラーが発生:', error);
+  }
 }
