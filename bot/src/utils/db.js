@@ -54,6 +54,23 @@ async function deleteRecruitStatus(serverId) {
 	return res.json();
 }
 
+// 管理ページ用の募集データを削除
+async function deleteRecruitmentData(messageId) {
+	try {
+		const res = await fetch(`${config.BACKEND_API_URL}/api/recruitment/${messageId}`, {
+			method: 'DELETE',
+			headers: { 'Content-Type': 'application/json' }
+		});
+		if (!res.ok) {
+			throw new Error(`API error: ${res.status}`);
+		}
+		return await res.json();
+	} catch (error) {
+		console.error('募集データの削除に失敗:', error);
+		throw error;
+	}
+}
+
 // 現在の募集状況一覧を取得
 async function getActiveRecruits() {
 	const res = await fetch(`${config.BACKEND_API_URL}/api/active-recruits`);
@@ -65,5 +82,6 @@ module.exports = {
 	saveRecruitStatus,
 	deleteRecruitStatus,
 	getActiveRecruits,
-	saveRecruitmentData
+	saveRecruitmentData,
+	deleteRecruitmentData
 };

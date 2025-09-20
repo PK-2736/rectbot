@@ -18,7 +18,7 @@ const recruitParticipants = new Map();
 const recruitData = new Map();
 
 // 募集状況API
-const { saveRecruitStatus, deleteRecruitStatus, saveRecruitmentData } = require('../utils/db');
+const { saveRecruitStatus, deleteRecruitStatus, saveRecruitmentData, deleteRecruitmentData } = require('../utils/db');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -297,8 +297,18 @@ module.exports = {
         break;
       }
       case "close": {
+        const messageId = interaction.message.id;
+        
         // === 募集状況をAPI経由で削除 ===
         await deleteRecruitStatus(interaction.guildId);
+        
+        // === 管理ページからも募集データを削除 ===
+        try {
+          await deleteRecruitmentData(messageId);
+          console.log('管理ページから募集データを削除しました:', messageId);
+        } catch (error) {
+          console.error('管理ページからの募集データ削除に失敗:', error);
+        }
         
         // ボタンを無効化
         const disabledContainer = new ContainerBuilder()
