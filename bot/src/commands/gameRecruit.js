@@ -111,11 +111,15 @@ module.exports = {
       // 募集データを保存（メッセージIDとして使用するIDを統一）
       const messageKey = interaction.id;
       recruitData.set(messageKey, recruitDataObj);
+      // 募集主を初めから参加者として追加
+      recruitParticipants.set(messageKey, [interaction.user.id]);
       console.log('募集データを保存しました。ID:', messageKey);
+      console.log('募集主を初期参加者として追加:', interaction.user.id);
 
       // Canvas画像生成（参加者リストとDiscordクライアントも渡す）
       const { generateRecruitCard } = require('../utils/canvasRecruit');
-      const currentParticipants = recruitParticipants.get(messageKey) || [];
+      // 募集主を初期参加者として含める
+      const currentParticipants = [interaction.user.id];
       const buffer = await generateRecruitCard(recruitDataObj, currentParticipants, interaction.client);
       const user = interaction.targetUser || interaction.user;
 
@@ -131,7 +135,8 @@ module.exports = {
 
       // ボタン付きメッセージを投稿（バッファから直接送信）
       const image = new AttachmentBuilder(buffer, { name: 'recruit-card.png' });
-      const participantText = "🎯✨ 参加リスト ✨🎯\n✨（まだ参加者はいません）✨";
+      // 初期の参加リスト表示を修正（募集主が参加済み）
+      const participantText = `🎯✨ 参加リスト ✨🎯\n🎮 <@${interaction.user.id}>`;
       const container = new ContainerBuilder();
       container.setAccentColor(0xFF69B4);
 
@@ -196,10 +201,12 @@ module.exports = {
         const actualMessage = await interaction.fetchReply();
         const actualMessageId = actualMessage.id;
         recruitData.set(actualMessageId, recruitDataObj);
-        recruitParticipants.set(actualMessageId, []);
+        // 募集主を初期参加者として設定
+        recruitParticipants.set(actualMessageId, [interaction.user.id]);
         console.log('実際のメッセージIDで募集データを保存:', actualMessageId);
         console.log('保存された募集データ:', recruitDataObj);
         console.log('現在のrecruitDataキー一覧:', Array.from(recruitData.keys()));
+        console.log('募集主を初期参加者として設定:', interaction.user.id);
         
         // 元のinteraction IDのデータがあれば削除
         if (recruitData.has(messageKey)) {
@@ -286,11 +293,20 @@ module.exports = {
               )
               .setTimestamp();
 
-            await interaction.reply({
+            const notificationMessage = await interaction.reply({
               content: `<@${savedRecruitData.recruiterId}>`,
               embeds: [joinEmbed],
               allowedMentions: { users: [savedRecruitData.recruiterId] }
             });
+
+            // 3分後に通知メッセージを削除
+            setTimeout(async () => {
+              try {
+                await notificationMessage.delete();
+              } catch (error) {
+                console.log('通知メッセージの削除に失敗:', error.message);
+              }
+            }, 3 * 60 * 1000); // 3分 = 180,000ms
           } else {
             // フォールバック
             await interaction.reply({ 
@@ -313,6 +329,18 @@ module.exports = {
       case "cancel": {
         // 参加者から削除
         const beforeLength = participants.length;
+        const savedRecruitData = recruitData.get(messageId);
+        
+        // 募集主の場合は特別な処理
+        if (savedRecruitData && savedRecruitData.recruiterId === interaction.user.id) {
+          await interaction.reply({ 
+            content: "❌ 募集主は参加をキャンセルできません。募集を締め切る場合は「締め」ボタンを使用してください。", 
+            flags: MessageFlags.Ephemeral,
+            allowedMentions: { roles: [], users: [] }
+          });
+          return;
+        }
+        
         participants = participants.filter(id => id !== interaction.user.id);
         
         if (beforeLength > participants.length) {
@@ -321,7 +349,6 @@ module.exports = {
           console.log('参加者削除:', interaction.user.id, '削除前:', beforeLength, '削除後:', participants.length);
           
           // 募集データを取得して募集主に通知
-          const savedRecruitData = recruitData.get(messageId);
           if (savedRecruitData && savedRecruitData.recruiterId) {
             const cancelEmbed = new EmbedBuilder()
               .setColor(0xFF6B35)
@@ -333,11 +360,20 @@ module.exports = {
               )
               .setTimestamp();
 
-            await interaction.reply({
+            const notificationMessage = await interaction.reply({
               content: `<@${savedRecruitData.recruiterId}>`,
               embeds: [cancelEmbed],
               allowedMentions: { users: [savedRecruitData.recruiterId] }
             });
+
+            // 3分後に通知メッセージを削除
+            setTimeout(async () => {
+              try {
+                await notificationMessage.delete();
+              } catch (error) {
+                console.log('通知メッセージの削除に失敗:', error.message);
+              }
+            }, 3 * 60 * 1000); // 3分 = 180,000ms
           } else {
             // フォールバック
             await interaction.reply({ 
