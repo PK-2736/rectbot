@@ -231,7 +231,14 @@ module.exports = {
             console.error('メッセージ取得エラー:', error);
           }
         } catch (error) {
-          console.error('followUp error:', error);
+          console.error('募集パネル送信エラー:', error);
+          console.error('エラースタック:', error.stack);
+          // チャンネルにエラーメッセージを送信
+          try {
+            await interaction.channel.send('募集パネルの作成中にエラーが発生しました。');
+          } catch (sendError) {
+            console.error('エラーメッセージ送信失敗:', sendError);
+          }
         }
       }, 1000); // 1秒待機
     } catch (error) {
