@@ -188,7 +188,8 @@ module.exports = {
           // followUpの代わりにchannel.sendを使用
           const followUpMessage = await interaction.channel.send({
             files: [image],
-            components: [container]
+            components: [container],
+            allowedMentions: { parse: [] }
           });
           console.log('募集パネル送信完了:', followUpMessage.id);
 
