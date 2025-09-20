@@ -120,9 +120,7 @@ module.exports = {
       // 募集パネル送信前にロール通知メッセージを通常メッセージとして送信
       const notifyMessage = await interaction.channel.send({
         content: '新しい募集が取付けられました。<@&1416797165769986161>',
-        allowedMentions: {
-          roles: ['1416797165769986161']
-        }
+        allowedMentions: { roles: ['1416797165769986161'] }
       });
       console.log('ロールメンション送信完了');
 
