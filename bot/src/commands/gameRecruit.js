@@ -189,16 +189,23 @@ module.exports = {
         allowedMentions: { roles: [], users: [] }
       });
 
-      // メッセージが投稿された後、実際のメッセージを取得してIDで募集データを再保存
+      // interaction.reply()の場合、メッセージIDの取得方法が異なる
+      // fetchReply()を使用して実際のメッセージを取得
       try {
-        const actualMessageId = followUpMessage.id;
+        const actualMessage = await interaction.fetchReply();
+        const actualMessageId = actualMessage.id;
         recruitData.set(actualMessageId, recruitDataObj);
         recruitParticipants.set(actualMessageId, []);
-        console.log('実際のメッセージIDで募集データを再保存:', actualMessageId);
-        // 元のinteraction IDのデータは削除
-        recruitData.delete(messageKey);
-        recruitParticipants.delete(messageKey);
-        console.log('元のinteraction IDのデータを削除:', messageKey);
+        console.log('実際のメッセージIDで募集データを保存:', actualMessageId);
+        console.log('保存された募集データ:', recruitDataObj);
+        console.log('現在のrecruitDataキー一覧:', Array.from(recruitData.keys()));
+        
+        // 元のinteraction IDのデータがあれば削除
+        if (recruitData.has(messageKey)) {
+          recruitData.delete(messageKey);
+          recruitParticipants.delete(messageKey);
+          console.log('元のinteraction IDのデータを削除:', messageKey);
+        }
 
         // === 募集状況をAPI経由で保存 ===
         await saveRecruitStatus(
@@ -248,10 +255,14 @@ module.exports = {
   async handleButton(interaction) {
     // 実際のメッセージIDを使用
     const messageId = interaction.message.id;
+    console.log('=== ボタンクリック処理開始 ===');
     console.log('ボタンクリック - メッセージID:', messageId);
+    console.log('ボタンクリック - ボタンID:', interaction.customId);
     console.log('保存されている募集データのキー:', Array.from(recruitData.keys()));
+    console.log('保存されている参加者データのキー:', Array.from(recruitParticipants.keys()));
     
     let participants = recruitParticipants.get(messageId) || [];
+    console.log('現在の参加者リスト:', participants);
 
     switch (interaction.customId) {
       case "join": {
