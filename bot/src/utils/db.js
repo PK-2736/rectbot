@@ -111,6 +111,48 @@ async function updateRecruitmentStatus(messageId, status, endTime = null) {
 	}
 }
 
+// 募集データの内容を更新
+async function updateRecruitmentData(messageId, recruitData) {
+	try {
+		console.log(`[updateRecruitmentData] 開始: messageId=${messageId}`);
+		
+		const updateData = {
+			content: recruitData.content,
+			participants_count: parseInt(recruitData.participants),
+			start_game_time: recruitData.startTime,
+			vc: recruitData.vc,
+			note: recruitData.note || null
+		};
+		
+		console.log(`[updateRecruitmentData] 送信データ:`, updateData);
+		
+		const url = `${config.BACKEND_API_URL}/api/recruitment/${messageId}`;
+		console.log(`[updateRecruitmentData] リクエストURL: ${url}`);
+		
+		const res = await fetch(url, {
+			method: 'PATCH',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(updateData)
+		});
+		
+		console.log(`[updateRecruitmentData] レスポンス: status=${res.status}, ok=${res.ok}`);
+		
+		if (!res.ok) {
+			const errorText = await res.text();
+			console.error(`[updateRecruitmentData] APIエラー詳細: ${errorText}`);
+			throw new Error(`API error: ${res.status} - ${errorText}`);
+		}
+		
+		const result = await res.json();
+		console.log(`[updateRecruitmentData] 成功:`, result);
+		return result;
+	} catch (error) {
+		console.error('[updateRecruitmentData] 募集データの更新に失敗:', error);
+		console.error('[updateRecruitmentData] エラーの詳細:', error.stack);
+		throw error;
+	}
+}
+
 // 現在の募集状況一覧を取得
 async function getActiveRecruits() {
 	const res = await fetch(`${config.BACKEND_API_URL}/api/active-recruits`);
@@ -124,5 +166,6 @@ module.exports = {
 	getActiveRecruits,
 	saveRecruitmentData,
 	deleteRecruitmentData,
-	updateRecruitmentStatus
+	updateRecruitmentStatus,
+	updateRecruitmentData
 };

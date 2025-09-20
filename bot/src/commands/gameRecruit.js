@@ -692,3 +692,16 @@ async function autoCloseRecruitment(client, guildId, channelId, messageId) {
     console.error('自動締切処理でエラーが発生:', error);
   }
 }
+
+// 募集データ操作用のメソッドを追加
+module.exports.getRecruitData = function(messageId) {
+  return recruitData.get(messageId);
+};
+
+module.exports.updateRecruitData = function(messageId, newData) {
+  recruitData.set(messageId, newData);
+};
+
+module.exports.getParticipants = function(messageId) {
+  return recruitParticipants.get(messageId);
+};

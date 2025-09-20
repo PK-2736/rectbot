@@ -66,6 +66,21 @@ module.exports = {
 
     // モーダル送信(type=5)の処理
     if ((interaction.isModalSubmit && interaction.isModalSubmit()) || interaction.type === 5) {
+      // editRecruitコマンドのモーダル処理
+      if (interaction.customId.startsWith('editRecruitModal_')) {
+        const editRecruit = client.commands.get('editrecruit');
+        if (editRecruit && typeof editRecruit.handleEditModalSubmit === 'function') {
+          try {
+            await editRecruit.handleEditModalSubmit(interaction);
+          } catch (error) {
+            console.error('編集モーダル送信処理中にエラー:', error);
+            if (error && error.stack) console.error(error.stack);
+            await safeRespond({ content: `編集モーダル送信処理でエラー: ${error.message || error}`, flags: require('discord.js').MessageFlags.Ephemeral }).catch(()=>{});
+          }
+        }
+        return;
+      }
+
       // gameRecruitコマンドのモーダルのみ処理
       const gameRecruit = client.commands.get('gamerecruit');
       if (gameRecruit && typeof gameRecruit.handleModalSubmit === 'function') {
