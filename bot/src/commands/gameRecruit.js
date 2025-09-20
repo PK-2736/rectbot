@@ -180,7 +180,8 @@ module.exports = {
       const followUpMessage = await interaction.reply({
         files: [image],
         components: [container],
-        flags: MessageFlags.IsComponentsV2
+        flags: MessageFlags.IsComponentsV2,
+        allowedMentions: { roles: [], users: [] }
       });
 
       // メッセージが投稿された後、実際のメッセージを取得してIDで募集データを再保存
