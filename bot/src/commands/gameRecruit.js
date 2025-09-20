@@ -705,3 +705,16 @@ module.exports.updateRecruitData = function(messageId, newData) {
 module.exports.getParticipants = function(messageId) {
   return recruitParticipants.get(messageId);
 };
+
+// デバッグ用: すべての募集データを取得
+module.exports.getAllRecruitData = function() {
+  const allData = {};
+  for (const [messageId, data] of recruitData.entries()) {
+    allData[messageId] = {
+      ...data,
+      recruitId: messageId.slice(-8),
+      participants: recruitParticipants.get(messageId) || []
+    };
+  }
+  return allData;
+};

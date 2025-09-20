@@ -25,13 +25,46 @@ module.exports = {
   async execute(interaction) {
     try {
       const recruitId = interaction.options.getString('募集id');
+      console.log(`[editRecruit] 編集要求: recruitId=${recruitId}, user=${interaction.user.id}`);
+      
+      // デバッグ: 現在のメモリ上の募集データを確認
+      const allRecruitData = gameRecruit.getAllRecruitData ? gameRecruit.getAllRecruitData() : 'getAllRecruitData method not available';
+      console.log(`[editRecruit] 現在のメモリ上の募集データ:`, allRecruitData);
       
       // 募集IDから実際のメッセージIDを見つける
       const messageId = await findMessageIdByRecruitId(interaction, recruitId);
       
       if (!messageId) {
+        // メッセージが見つからない場合、メモリ上のデータから直接検索を試行
+        console.log(`[editRecruit] メッセージ検索失敗、メモリから直接検索を試行`);
+        const allRecruitData = gameRecruit.getAllRecruitData();
+        
+        let foundMessageId = null;
+        for (const [msgId, data] of Object.entries(allRecruitData)) {
+          if (data.recruitId === recruitId) {
+            foundMessageId = msgId;
+            console.log(`[editRecruit] メモリから発見: messageId=${msgId}, recruitId=${data.recruitId}`);
+            break;
+          }
+        }
+        
+        if (foundMessageId) {
+          // メモリから見つかった場合、そのIDを使用
+          const recruitData = gameRecruit.getRecruitData(foundMessageId);
+          if (recruitData && recruitData.recruiterId === interaction.user.id) {
+            await showEditModal(interaction, recruitData, foundMessageId);
+            return;
+          } else if (recruitData && recruitData.recruiterId !== interaction.user.id) {
+            await interaction.reply({
+              content: `❌ この募集の編集権限がありません。募集は募集主のみが編集できます。`,
+              flags: MessageFlags.Ephemeral
+            });
+            return;
+          }
+        }
+        
         await interaction.reply({
-          content: `❌ 募集ID \`${recruitId}\` に対応する募集が見つかりませんでした。`,
+          content: `❌ 募集ID \`${recruitId}\` に対応する募集が見つかりませんでした。\n\n**利用可能な募集一覧:**\n${Object.entries(allRecruitData).map(([msgId, data]) => `• ID: \`${data.recruitId}\` - ${data.title || '無題'}`).join('\n') || '現在アクティブな募集はありません'}`,
           flags: MessageFlags.Ephemeral
         });
         return;
@@ -141,18 +174,51 @@ module.exports = {
 async function findMessageIdByRecruitId(interaction, recruitId) {
   // 現在のチャンネルで最近のメッセージを検索
   try {
+    console.log(`[findMessageIdByRecruitId] 検索開始: recruitId=${recruitId}`);
+    
+    // まずメモリから直接検索
+    const allRecruitData = gameRecruit.getAllRecruitData();
+    for (const [messageId, data] of Object.entries(allRecruitData)) {
+      if (data.recruitId === recruitId) {
+        console.log(`[findMessageIdByRecruitId] メモリから発見: messageId=${messageId}`);
+        return messageId;
+      }
+    }
+    
+    // メモリになければメッセージを検索
     const messages = await interaction.channel.messages.fetch({ limit: 100 });
+    console.log(`[findMessageIdByRecruitId] 取得したメッセージ数: ${messages.size}`);
+    
+    const botMessages = [];
     
     for (const [messageId, message] of messages) {
-      // メッセージIDの下8桁が募集IDと一致するかチェック
-      if (messageId.slice(-8) === recruitId) {
-        // botのメッセージで募集パネルかどうかチェック
-        if (message.author.id === interaction.client.user.id && 
-            message.components && message.components.length > 0) {
-          return messageId;
+      // botのメッセージのみチェック
+      if (message.author.id === interaction.client.user.id) {
+        const messageRecruitId = String(messageId).slice(-8);
+        console.log(`[findMessageIdByRecruitId] Bot message found: messageId=${messageId}, recruitId=${messageRecruitId}, hasComponents=${message.components && message.components.length > 0}`);
+        
+        botMessages.push({
+          messageId,
+          recruitId: messageRecruitId,
+          hasComponents: message.components && message.components.length > 0,
+          content: message.content ? message.content.substring(0, 50) + '...' : 'No content'
+        });
+        
+        // メッセージIDの下8桁が募集IDと一致するかチェック（文字列として比較）
+        if (messageRecruitId === String(recruitId)) {
+          // botのメッセージで募集パネルかどうかチェック
+          if (message.components && message.components.length > 0) {
+            console.log(`[findMessageIdByRecruitId] 一致する募集を発見: messageId=${messageId}`);
+            return messageId;
+          } else {
+            console.log(`[findMessageIdByRecruitId] IDは一致するがコンポーネントなし: messageId=${messageId}`);
+          }
         }
       }
     }
+    
+    console.log(`[findMessageIdByRecruitId] 全てのbotメッセージ:`, botMessages);
+    console.log(`[findMessageIdByRecruitId] 募集ID ${recruitId} に一致するメッセージが見つかりませんでした`);
     return null;
   } catch (error) {
     console.error('findMessageIdByRecruitId error:', error);
