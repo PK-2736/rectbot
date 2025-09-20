@@ -20,8 +20,8 @@ const client = new Client({
 });
 
 // 同一インタラクションの重複処理を防ぐための簡易デデュープ
-const processedInteractions = new Set();
-const DEDUPE_TTL_MS = 60_000; // 60秒後に削除
+client.processedInteractions = new Set();
+client.DEDUPE_TTL_MS = 60_000; // 60秒後に削除
 
 client.on('warn', (m) => console.warn('[discord.js][warn]', m));
 client.on('error', (e) => console.error('[discord.js][error]', e));
@@ -39,80 +39,20 @@ for (const file of commandFiles) {
 }
 console.log(`[commands] Loaded ${client.commands.size} command(s): ${[...client.commands.keys()].join(', ')}`);
 
+// イベントの読み込み
+const eventFiles = fs.readdirSync(path.join(__dirname, 'events')).filter(file => file.endsWith('.js'));
+for (const file of eventFiles) {
+  const event = require(`./events/${file}`);
+  if (event.once) {
+    client.once(event.name, (...args) => event.execute(...args, client));
+  } else {
+    client.on(event.name, (...args) => event.execute(...args, client));
+  }
+}
+console.log(`[events] Loaded ${eventFiles.length} event(s): ${eventFiles.map(f => f.replace('.js', '')).join(', ')}`);
+
 client.once('clientReady', () => {
   console.log(`[ready] Logged in as ${client.user.tag} (id: ${client.user.id})`);
-});
-
-// コマンドの実行をハンドリング
-client.on('interactionCreate', async interaction => {
-  try {
-    console.log(`[interaction] received: type=${interaction.type}${interaction.isChatInputCommand() ? ` command=${interaction.commandName}` : ''}${interaction.isButton() ? ` button=${interaction.customId}` : ''}`);
-  } catch (_) {}
-
-  // デデュープ: すでに処理済みのインタラクションIDなら無視
-  if (processedInteractions.has(interaction.id)) {
-    return;
-  }
-  processedInteractions.add(interaction.id);
-  setTimeout(() => processedInteractions.delete(interaction.id), DEDUPE_TTL_MS);
-  // 二重応答(40060)を避けるための安全な返信関数
-  const safeRespond = async (payload) => {
-    try {
-      if (interaction.deferred || interaction.replied) {
-        return await interaction.followUp(payload);
-      }
-      return await interaction.reply(payload);
-    } catch (e) {
-      // 既に応答済み (40060) か、初回 reply が失敗した場合は followUp を試す
-      if (e && (e.code === 40060 || e.status === 400)) {
-        try {
-          return await interaction.followUp(payload);
-        } catch (_) {
-          // それでも失敗したら黙って無視（ログは上位で出す）
-        }
-      }
-      throw e;
-    }
-  };
-  if (interaction.isChatInputCommand()) {
-    const command = interaction.client.commands.get(interaction.commandName);
-
-    if (!command) {
-      console.error(`No command matching ${interaction.commandName} was found.`);
-      return;
-    }
-
-    try {
-      await command.execute(interaction);
-    } catch (error) {
-      console.error(error);
-      await safeRespond({ content: 'There was an error while executing this command!', flags: require('discord.js').MessageFlags.Ephemeral }).catch((e)=>{
-        console.error('Failed to send error response:', e);
-      });
-    }
-  } else if (interaction.isModalSubmit && interaction.isModalSubmit()) {
-    // モーダル送信(type=5)の処理
-    const command = interaction.client.commands.get('gamerecruit');
-    if (command && command.handleModalSubmit) {
-      try {
-        await command.handleModalSubmit(interaction);
-      } catch (error) {
-        console.error(error);
-        await safeRespond({ content: 'There was an error while handling the modal!', flags: require('discord.js').MessageFlags.Ephemeral }).catch(()=>{});
-      }
-    }
-  } else if (interaction.isButton()) {
-    // ボタンインタラクションの処理
-    const command = interaction.client.commands.get('gamerecruit'); // 仮にgamerecruitコマンドのボタンとして処理
-    if (command && command.handleButton) {
-      try {
-        await command.handleButton(interaction);
-      } catch (error) {
-        console.error(error);
-        await safeRespond({ content: 'There was an error while handling the button!', flags: require('discord.js').MessageFlags.Ephemeral }).catch(()=>{});
-      }
-    }
-  }
 });
 
 client.login(TOKEN);

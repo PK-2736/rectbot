@@ -1,6 +1,36 @@
 module.exports = {
   name: 'interactionCreate',
   async execute(interaction, client) {
+    try {
+      console.log(`[interaction] received: type=${interaction.type}${interaction.isChatInputCommand() ? ` command=${interaction.commandName}` : ''}${interaction.isButton() ? ` button=${interaction.customId}` : ''}${interaction.isStringSelectMenu() ? ` select=${interaction.customId}` : ''}`);
+    } catch (_) {}
+
+    // デデュープ: すでに処理済みのインタラクションIDなら無視
+    if (client.processedInteractions.has(interaction.id)) {
+      return;
+    }
+    client.processedInteractions.add(interaction.id);
+    setTimeout(() => client.processedInteractions.delete(interaction.id), client.DEDUPE_TTL_MS);
+
+    // 二重応答(40060)を避けるための安全な返信関数
+    const safeRespond = async (payload) => {
+      try {
+        if (interaction.deferred || interaction.replied) {
+          return await interaction.followUp(payload);
+        }
+        return await interaction.reply(payload);
+      } catch (e) {
+        // 既に応答済み (40060) か、初回 reply が失敗した場合は followUp を試す
+        if (e && (e.code === 40060 || e.status === 400)) {
+          try {
+            return await interaction.followUp(payload);
+          } catch (_) {
+            // それでも失敗したら黙って無視（ログは上位で出す）
+          }
+        }
+        throw e;
+      }
+    };
     // スラッシュコマンドの処理
     if (interaction.isChatInputCommand()) {
       const command = client.commands.get(interaction.commandName);
@@ -9,9 +39,9 @@ module.exports = {
         await command.execute(interaction);
       } catch (error) {
         console.error(error);
-        if (!interaction.replied) {
-          await interaction.reply({ content: 'コマンド実行中にエラーが発生しました。', flags: require('discord.js').MessageFlags.Ephemeral });
-        }
+        await safeRespond({ content: 'コマンド実行中にエラーが発生しました。', flags: require('discord.js').MessageFlags.Ephemeral }).catch((e)=>{
+          console.error('Failed to send error response:', e);
+        });
       }
       return;
     }
@@ -26,9 +56,8 @@ module.exports = {
             await helpCommand.handleSelectMenu(interaction);
           } catch (error) {
             console.error('ヘルプセレクトメニュー処理中にエラー:', error);
-            if (!interaction.replied) {
-              await interaction.reply({ content: 'メニュー処理でエラーが発生しました。', flags: require('discord.js').MessageFlags.Ephemeral });
-            }
+            console.error('エラーの詳細:', error.stack);
+            await safeRespond({ content: 'メニュー処理でエラーが発生しました。', flags: require('discord.js').MessageFlags.Ephemeral }).catch(()=>{});
           }
         }
       }
@@ -45,9 +74,7 @@ module.exports = {
         } catch (error) {
           console.error('モーダル送信処理中にエラー:', error);
           if (error && error.stack) console.error(error.stack);
-          if (!interaction.replied) {
-            await interaction.reply({ content: `モーダル送信処理でエラー: ${error.message || error}`, flags: require('discord.js').MessageFlags.Ephemeral });
-          }
+          await safeRespond({ content: `モーダル送信処理でエラー: ${error.message || error}`, flags: require('discord.js').MessageFlags.Ephemeral }).catch(()=>{});
         }
       }
       return;
@@ -63,9 +90,8 @@ module.exports = {
             await helpCommand.handleButton(interaction);
           } catch (error) {
             console.error('ヘルプボタン処理中にエラー:', error);
-            if (!interaction.replied) {
-              await interaction.reply({ content: 'ボタン処理でエラーが発生しました。', flags: require('discord.js').MessageFlags.Ephemeral });
-            }
+            console.error('エラーの詳細:', error.stack);
+            await safeRespond({ content: 'ボタン処理でエラーが発生しました。', flags: require('discord.js').MessageFlags.Ephemeral }).catch(()=>{});
           }
         }
         return;
@@ -79,9 +105,7 @@ module.exports = {
         } catch (error) {
           console.error('ボタン処理中にエラー:', error);
           if (error && error.stack) console.error(error.stack);
-          if (!interaction.replied) {
-            await interaction.reply({ content: `ボタン処理でエラー: ${error.message || error}`, flags: require('discord.js').MessageFlags.Ephemeral });
-          }
+          await safeRespond({ content: `ボタン処理でエラー: ${error.message || error}`, flags: require('discord.js').MessageFlags.Ephemeral }).catch(()=>{});
         }
       }
       return;

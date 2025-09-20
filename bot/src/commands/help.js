@@ -109,12 +109,14 @@ async function showGeneralHelp(interaction) {
   const buttonRow = new ActionRowBuilder().addComponents(homeButton);
 
   // 応答方法を判定（reply or update）
-  if (interaction.replied || interaction.deferred) {
-    await interaction.editReply({
+  if (interaction.isButton()) {
+    // ボタンからの操作の場合はupdate
+    await interaction.update({
       embeds: [helpEmbed],
       components: [selectRow, buttonRow]
     });
   } else {
+    // 最初のコマンド実行の場合はreply
     await interaction.reply({
       embeds: [helpEmbed],
       components: [selectRow, buttonRow],
@@ -208,12 +210,14 @@ async function showCommandDetails(interaction, commandName) {
   const buttonRow = new ActionRowBuilder().addComponents(backButton, homeButton);
 
   // 応答方法を判定（reply or update）
-  if (interaction.replied || interaction.deferred) {
-    await interaction.editReply({
+  if (interaction.isStringSelectMenu() || interaction.isButton()) {
+    // セレクトメニューやボタンからの操作の場合はupdate
+    await interaction.update({
       embeds: [detailEmbed],
       components: [buttonRow]
     });
   } else {
+    // 最初のコマンド実行の場合はreply
     await interaction.reply({
       embeds: [detailEmbed],
       components: [buttonRow],
