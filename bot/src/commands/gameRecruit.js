@@ -73,7 +73,11 @@ module.exports = {
     } catch (error) {
       console.error('Modal display error:', error);
       if (!interaction.replied && !interaction.deferred) {
-        await interaction.reply({ content: 'モーダル表示エラーが発生しました。', flags: MessageFlags.Ephemeral });
+        await interaction.reply({ 
+          content: 'モーダル表示エラーが発生しました。', 
+          flags: MessageFlags.Ephemeral,
+          allowedMentions: { roles: [], users: [] }
+        });
       }
     }
   },
@@ -89,7 +93,8 @@ module.exports = {
       if (isNaN(participantsNum) || participantsNum < 1 || participantsNum > 99) {
         await interaction.reply({
           content: '❌ 参加人数は1〜99の数字で入力してください。',
-          flags: MessageFlags.Ephemeral
+          flags: MessageFlags.Ephemeral,
+          allowedMentions: { roles: [], users: [] }
         });
         return;
       }
@@ -227,7 +232,11 @@ module.exports = {
       if (error && error.stack) console.error(error.stack);
       // 2重返信防止: replied/deferred両方判定
       if (!interaction.replied && !interaction.deferred) {
-        await interaction.reply({ content: `モーダル送信エラー: ${error.message || error}`, flags: MessageFlags.Ephemeral });
+        await interaction.reply({ 
+          content: `モーダル送信エラー: ${error.message || error}`, 
+          flags: MessageFlags.Ephemeral,
+          allowedMentions: { roles: [], users: [] }
+        });
       } else {
         // 既に返信済みならeditReplyでエラー表示
         await interaction.editReply({ content: `モーダル送信エラー: ${error.message || error}` });
@@ -252,7 +261,11 @@ module.exports = {
           recruitParticipants.set(messageId, participants);
         }
         await updateParticipantList(interaction, participants);
-        await interaction.reply({ content: "✅ 参加しました！", flags: MessageFlags.Ephemeral });
+        await interaction.reply({ 
+          content: "✅ 参加しました！", 
+          flags: MessageFlags.Ephemeral,
+          allowedMentions: { roles: [], users: [] }
+        });
         break;
       }
       case "cancel": {
@@ -260,13 +273,21 @@ module.exports = {
         participants = participants.filter(id => id !== interaction.user.id);
         recruitParticipants.set(messageId, participants);
         await updateParticipantList(interaction, participants);
-        await interaction.reply({ content: "❌ 取り消しました。", flags: MessageFlags.Ephemeral });
+        await interaction.reply({ 
+          content: "❌ 取り消しました。", 
+          flags: MessageFlags.Ephemeral,
+          allowedMentions: { roles: [], users: [] }
+        });
         break;
       }
       case "close": {
         // === 募集状況をAPI経由で削除 ===
         await deleteRecruitStatus(interaction.guildId);
-        await interaction.reply({ content: "🔒 締め切りました。", flags: MessageFlags.Ephemeral });
+        await interaction.reply({ 
+          content: "🔒 締め切りました。", 
+          flags: MessageFlags.Ephemeral,
+          allowedMentions: { roles: [], users: [] }
+        });
         break;
       }
     }
