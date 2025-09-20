@@ -11,7 +11,7 @@ registerFont(__dirname + '/../../data/Corporate-Logo-Rounded-Bold-ver3.otf', { f
  */
 async function generateRecruitCard(recruitData, participantIds = [], client = null) {
   const width = 140;
-  const height = 90;
+  const height = 100; // 90から100に拡大（上に10ピクセル拡張）
   const scale = 5; // 高解像度で生成（5倍スケール - 3倍から向上）
   const canvas = createCanvas(width * scale, height * scale);
   const ctx = canvas.getContext('2d');
@@ -44,7 +44,7 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
   ctx.lineWidth = 5;
   ctx.strokeRect(0, 0, width, height);
 
-  // タイトル表示（一番上）
+  // タイトル表示（一番上、より上に配置）
   ctx.fillStyle = '#fff';
   ctx.font = 'bold 8px CorporateRounded';
   ctx.textAlign = 'center';
@@ -62,7 +62,7 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
     titleText += '...';
   }
   
-  ctx.fillText(titleText, width / 2, 8);
+  ctx.fillText(titleText, width / 2, 5); // 8から5に上移動
   
   // テキストアライメントをリセット
   ctx.textAlign = 'start';
@@ -89,15 +89,15 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
     ctx.fill();
   }
   
-  // 募集内容用の枠（タイトルと適切な間隔を保って配置）
+  // 募集内容用の枠（高さ拡張を活用してより適切に配置）
   const boxX = 8;
-  const boxY = height * 0.35; // 35%の位置（42%から上に調整）
+  const boxY = height * 0.32; // 35%から32%に上移動（高さ拡張により余裕ができた）
   const boxWidth = width * 0.5; // 画像幅の50%
-  const boxHeight = height * 0.55; // 画像高さの55%（50%から拡大）
+  const boxHeight = height * 0.58; // 55%から58%に拡大（高さ拡張を活用）
   
-  // 上側のピンのみ配置（タイトルと被らないように下に移動）
-  drawPin(6, 18, 'rgba(255, 71, 87, 0.7)');   // 左上 - 淡い赤
-  drawPin(width - 6, 18, 'rgba(46, 213, 115, 0.7)');   // 右上 - 淡い緑
+  // 上側のピンのみ配置（タイトルと適切な間隔を保つ）
+  drawPin(6, 16, 'rgba(255, 71, 87, 0.7)');   // 左上 - 淡い赤（18から16に調整）
+  drawPin(width - 6, 16, 'rgba(46, 213, 115, 0.7)');   // 右上 - 淡い緑
   
   // 角丸矩形を描画する関数
   function drawRoundedRect(x, y, width, height, radius, fill = true, stroke = false) {
@@ -126,7 +126,7 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
   ctx.lineWidth = 1;
   drawRoundedRect(boxX, boxY, boxWidth, boxHeight, 6, false, true);
   
-  // 参加者円の描画（タイトルと募集内容枠の間に適切に配置）
+  // 参加者円の描画（高さ拡張により適切なバランスで配置）
   const participantCount = recruitData.participants || 4;
   const circleRadius = 6.5; // 8から6.5に縮小
   const circleSpacing = 20;
@@ -270,10 +270,10 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
     ctx.fillText(wrappedLines[i], boxX + 4, boxY + 15 + i * lineHeight);
   }
   
-  // 右上から縦に並べて表示（タイトルとバランスを取って配置）
+  // 右上から縦に並べて表示（高さ拡張によりバランス良く配置）
   const rightX = width - 56; // 右上の位置
-  const startY = 30; // タイトルとのバランスを考慮（35から30に調整）
-  const itemSpacing = 18; // 各項目の間隔（20から18に縮小してコンパクトに）
+  const startY = 28; // 高さ拡張により適切な位置（30から28に調整）
+  const itemSpacing = 19; // 各項目の間隔（18から19に微調整）
   const infoBoxWidth = 50; // 各情報ボックスの幅
   const infoBoxHeight = 15; // 各情報ボックスの高さ
   

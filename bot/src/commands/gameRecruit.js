@@ -119,9 +119,9 @@ module.exports = {
       const container = new ContainerBuilder();
       container.setAccentColor(0xFF69B4);
 
-      // ユーザー名表示
+      // ユーザー名表示（フォントサイズを大きく）
       container.addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(`**${user.username}さんの募集** <@&1416797165769986161>`)
+        new TextDisplayBuilder().setContent(`## **${user.username}さんの募集** <@&1416797165769986161>`)
       );
 
       container.addSeparatorComponents(
@@ -297,9 +297,9 @@ async function updateParticipantList(interaction, participants) {
   const user = interaction.targetUser || interaction.user;
   newContainer.setAccentColor(0xFF69B4);
 
-  // ユーザー名表示
+  // ユーザー名表示（フォントサイズを大きく）
   newContainer.addTextDisplayComponents(
-    new TextDisplayBuilder().setContent(`**${user.username}さんの募集** <@&1416797165769986161>`)
+    new TextDisplayBuilder().setContent(`## **${user.username}さんの募集** <@&1416797165769986161>`)
   );
 
   newContainer.addSeparatorComponents(
