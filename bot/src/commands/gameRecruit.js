@@ -123,16 +123,16 @@ module.exports = {
         allowedMentions: { parse: [] }
       });
 
-      // 募集パネル送信前にロール通知メッセージを通常メッセージとして送信
-      await interaction.channel.send({
-        content: '新しい募集が取付けられました。<@&1416797165769986161>',
-        allowedMentions: { roles: ['1416797165769986161'] }
-      });
-      console.log('ロールメンション送信完了');
-
       // 少し待ってから募集パネルを送信
       setTimeout(async () => {
         try {
+          // 募集パネル送信前にロール通知メッセージを通常メッセージとして送信
+          await interaction.channel.send({
+            content: '新しい募集が取付けられました。<@&1416797165769986161>',
+            allowedMentions: { roles: ['1416797165769986161'] }
+          });
+          console.log('ロールメンション送信完了');
+
           // ボタン付きメッセージを投稿（バッファから直接送信）
           const image = new AttachmentBuilder(buffer, { name: 'recruit-card.png' });
           const participantText = "🎯✨ 参加リスト ✨🎯\n✨（まだ参加者はいません）✨";
@@ -187,7 +187,7 @@ module.exports = {
           
           const followUpMessage = await interaction.channel.send({
             files: [image],
-            components: container,
+            components: [container],
             flags: MessageFlags.IsComponentsV2
           });
 
@@ -371,6 +371,7 @@ newContainer.addActionRowComponents(
   // メッセージ編集（新しい画像も含める）
   await interaction.message.edit({ 
     files: [newImage],
-    components: newContainer 
+    components: [newContainer],
+    flags: MessageFlags.IsComponentsV2
   });
 }
