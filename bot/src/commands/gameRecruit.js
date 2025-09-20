@@ -187,8 +187,8 @@ module.exports = {
           
           const followUpMessage = await interaction.channel.send({
             files: [image],
-            components: [container],
-            allowedMentions: { parse: [] }
+            components: container,
+            flags: MessageFlags.IsComponentsV2
           });
 
           // メッセージが投稿された後、実際のメッセージを取得してIDで募集データを再保存
@@ -371,6 +371,6 @@ newContainer.addActionRowComponents(
   // メッセージ編集（新しい画像も含める）
   await interaction.message.edit({ 
     files: [newImage],
-    components: [newContainer] 
+    components: newContainer 
   });
 }
