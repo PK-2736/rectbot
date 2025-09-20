@@ -1,11 +1,9 @@
 #!/bin/bash
-# 使い方: ./git-auto.sh "コミットメッセージ"
+# 使い方: ./git.sh [コミットメッセージ]
+# 引数がない場合は自動的に "test" を使用
 
-if [ -z "$1" ]; then
-  echo "コミットメッセージを入力してください"
-  exit 1
-fi
+COMMIT_MESSAGE="${1:-test}"
 
 git add .
-git commit -m "$1"
+git commit -m "$COMMIT_MESSAGE"
 git push origin main

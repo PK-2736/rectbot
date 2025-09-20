@@ -380,6 +380,7 @@ newContainer.addActionRowComponents(
   await interaction.message.edit({ 
     files: [newImage],
     components: [newContainer],
-    flags: MessageFlags.IsComponentsV2
+    flags: MessageFlags.IsComponentsV2,
+    allowedMentions: { roles: [], users: participants }
   });
 }
