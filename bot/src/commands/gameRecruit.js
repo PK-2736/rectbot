@@ -116,123 +116,111 @@ module.exports = {
       // 募集パネル送信前に通知メッセージを送信
       console.log('ロールメンション送信中: 1416797165769986161');
       
-      // まず一時的にEphemeralで受付完了を返す（ユーザー体験用）
-      await interaction.reply({ 
-        content: '募集を作成中です…', 
-        flags: MessageFlags.Ephemeral,
-        allowedMentions: { parse: [] }
+      // 1. メンション通知
+      await interaction.channel.send({
+        content: '新しい募集が取付けられました。<@&1416797165769986161>',
+        allowedMentions: { roles: ['1416797165769986161'] }
+      });
+      console.log('ロールメンション送信完了');
+
+      // ボタン付きメッセージを投稿（バッファから直接送信）
+      const image = new AttachmentBuilder(buffer, { name: 'recruit-card.png' });
+      const participantText = "🎯✨ 参加リスト ✨🎯\n✨（まだ参加者はいません）✨";
+      const container = new ContainerBuilder();
+      container.setAccentColor(0xFF69B4);
+
+      // ユーザー名表示（絵文字で豪華に装飾）
+      container.addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(`🎮✨ **${user.username}さんの募集** ✨🎮`)
+      );
+
+      container.addSeparatorComponents(
+        new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+      );
+
+      container.addMediaGalleryComponents(
+        new MediaGalleryBuilder().addItems(
+            new MediaGalleryItemBuilder().setURL('attachment://recruit-card.png')
+          )
+        )
+      container.addSeparatorComponents(
+          new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+        )
+        .addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(participantText)
+        )
+
+      container.addActionRowComponents(
+          new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+              .setCustomId("join")
+              .setLabel("参加")
+              .setEmoji('✅')
+              .setStyle(ButtonStyle.Success),
+            new ButtonBuilder()
+              .setCustomId("cancel")
+              .setLabel("取り消し")
+              .setEmoji('✖️')
+              .setStyle(ButtonStyle.Danger),
+            new ButtonBuilder()
+              .setCustomId("close")
+              .setLabel("締め")
+              .setStyle(ButtonStyle.Secondary)
+          )
+        )
+        .addSeparatorComponents(
+          new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+        )
+        .addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(`募集ID：\`${interaction.id.slice(-8)}\` | powered by **rectbot**`)
+        );
+      
+      // 2. Components v2 のパネル送信
+      // 2. Components v2 のパネル送信
+      const followUpMessage = await interaction.reply({
+        files: [image],
+        components: [container],
+        flags: MessageFlags.IsComponentsV2
       });
 
-      // 少し待ってから募集パネルを送信
-      setTimeout(async () => {
+      // メッセージが投稿された後、実際のメッセージを取得してIDで募集データを再保存
+      try {
+        const actualMessageId = followUpMessage.id;
+        recruitData.set(actualMessageId, recruitDataObj);
+        recruitParticipants.set(actualMessageId, []);
+        console.log('実際のメッセージIDで募集データを再保存:', actualMessageId);
+        // 元のinteraction IDのデータは削除
+        recruitData.delete(messageKey);
+        recruitParticipants.delete(messageKey);
+        console.log('元のinteraction IDのデータを削除:', messageKey);
+
+        // === 募集状況をAPI経由で保存 ===
+        await saveRecruitStatus(
+          interaction.guildId,
+          interaction.channelId,
+          actualMessageId,
+          new Date().toISOString()
+        );
+
+        // === 新しい募集データAPIに保存 ===
         try {
-          // 募集パネル送信前にロール通知メッセージを通常メッセージとして送信
-          await interaction.channel.send({
-            content: '新しい募集が取付けられました。<@&1416797165769986161>',
-            allowedMentions: { roles: ['1416797165769986161'] }
-          });
-          console.log('ロールメンション送信完了');
-
-          // ボタン付きメッセージを投稿（バッファから直接送信）
-          const image = new AttachmentBuilder(buffer, { name: 'recruit-card.png' });
-          const participantText = "🎯✨ 参加リスト ✨🎯\n✨（まだ参加者はいません）✨";
-          const container = new ContainerBuilder();
-          container.setAccentColor(0xFF69B4);
-
-          // ユーザー名表示（絵文字で豪華に装飾）
-          container.addTextDisplayComponents(
-            new TextDisplayBuilder().setContent(`🎮✨ **${user.username}さんの募集** ✨🎮`)
+          const guild = interaction.guild;
+          const channel = interaction.channel;
+          await saveRecruitmentData(
+            interaction.guildId,
+            interaction.channelId,
+            actualMessageId,
+            guild ? guild.name : 'Unknown Guild',
+            channel ? channel.name : 'Unknown Channel',
+            recruitDataObj
           );
-
-          container.addSeparatorComponents(
-            new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
-          );
-
-          container.addMediaGalleryComponents(
-            new MediaGalleryBuilder().addItems(
-                new MediaGalleryItemBuilder().setURL('attachment://recruit-card.png')
-              )
-            )
-          container.addSeparatorComponents(
-              new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
-            )
-            .addTextDisplayComponents(
-              new TextDisplayBuilder().setContent(participantText)
-            )
-
-          container.addActionRowComponents(
-              new ActionRowBuilder().addComponents(
-                new ButtonBuilder()
-                  .setCustomId("join")
-                  .setLabel("参加")
-                  .setEmoji('✅')
-                  .setStyle(ButtonStyle.Success),
-                new ButtonBuilder()
-                  .setCustomId("cancel")
-                  .setLabel("取り消し")
-                  .setEmoji('✖️')
-                  .setStyle(ButtonStyle.Danger),
-                new ButtonBuilder()
-                  .setCustomId("close")
-                  .setLabel("締め")
-                  .setStyle(ButtonStyle.Secondary)
-              )
-            )
-            .addSeparatorComponents(
-              new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
-            )
-            .addTextDisplayComponents(
-              new TextDisplayBuilder().setContent(`募集ID：\`${interaction.id.slice(-8)}\` | powered by **rectbot**`)
-            );
-          
-          const followUpMessage = await interaction.channel.send({
-            files: [image],
-            components: [container],
-            flags: MessageFlags.IsComponentsV2
-          });
-
-          // メッセージが投稿された後、実際のメッセージを取得してIDで募集データを再保存
-          try {
-            const actualMessageId = followUpMessage.id;
-            recruitData.set(actualMessageId, recruitDataObj);
-            recruitParticipants.set(actualMessageId, []);
-            console.log('実際のメッセージIDで募集データを再保存:', actualMessageId);
-            // 元のinteraction IDのデータは削除
-            recruitData.delete(messageKey);
-            recruitParticipants.delete(messageKey);
-            console.log('元のinteraction IDのデータを削除:', messageKey);
-
-            // === 募集状況をAPI経由で保存 ===
-            await saveRecruitStatus(
-              interaction.guildId,
-              interaction.channelId,
-              actualMessageId,
-              new Date().toISOString()
-            );
-
-            // === 新しい募集データAPIに保存 ===
-            try {
-              const guild = interaction.guild;
-              const channel = interaction.channel;
-              await saveRecruitmentData(
-                interaction.guildId,
-                interaction.channelId,
-                actualMessageId,
-                guild ? guild.name : 'Unknown Guild',
-                channel ? channel.name : 'Unknown Channel',
-                recruitDataObj
-              );
-              console.log('募集データをAPIに保存しました');
-            } catch (error) {
-              console.error('募集データAPIへの保存に失敗:', error);
-            }
-          } catch (error) {
-            console.error('メッセージ取得エラー:', error);
-          }
+          console.log('募集データをAPIに保存しました');
         } catch (error) {
-          console.error('followUp error:', error);
+          console.error('募集データAPIへの保存に失敗:', error);
         }
-      }, 1000); // 1秒待機
+      } catch (error) {
+        console.error('メッセージ取得エラー:', error);
+      }
     } catch (error) {
       console.error('handleModalSubmit error:', error);
       if (error && error.stack) console.error(error.stack);
@@ -244,9 +232,7 @@ module.exports = {
         await interaction.editReply({ content: `モーダル送信エラー: ${error.message || error}` });
       }
     }
-  },
-
-  // （重複部分削除済み）
+  },  // （重複部分削除済み）
 
   // ボタンインタラクションの処理
   async handleButton(interaction) {
