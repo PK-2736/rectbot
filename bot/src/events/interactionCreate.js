@@ -55,6 +55,22 @@ module.exports = {
 
     // ボタンインタラクションの処理
     if (interaction.isButton()) {
+      // helpコマンドのボタン処理
+      if (interaction.customId === 'help_back') {
+        const helpCommand = client.commands.get('help');
+        if (helpCommand && typeof helpCommand.handleButton === 'function') {
+          try {
+            await helpCommand.handleButton(interaction);
+          } catch (error) {
+            console.error('ヘルプボタン処理中にエラー:', error);
+            if (!interaction.replied) {
+              await interaction.reply({ content: 'ボタン処理でエラーが発生しました。', flags: require('discord.js').MessageFlags.Ephemeral });
+            }
+          }
+        }
+        return;
+      }
+
       // gameRecruitコマンドのボタンのみ処理（参加者管理・UI更新はgameRecruit.jsに一元化）
       const gameRecruit = client.commands.get('gamerecruit');
       if (gameRecruit && typeof gameRecruit.handleButton === 'function') {

@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, ButtonBuilder, ButtonStyle, MessageFlags } = require('discord.js');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -33,6 +33,13 @@ module.exports = {
     
     const selectedCommand = interaction.values[0];
     await showCommandDetails(interaction, selectedCommand);
+  },
+
+  // ボタンのハンドラー
+  async handleButton(interaction) {
+    if (interaction.customId !== 'help_back') return;
+    
+    await showGeneralHelp(interaction);
   }
 };
 
@@ -92,13 +99,28 @@ async function showGeneralHelp(interaction) {
         .setEmoji('❓')
     ]);
 
-  const row = new ActionRowBuilder().addComponents(selectMenu);
+  // ホームページへのボタン
+  const homeButton = new ButtonBuilder()
+    .setLabel('🏠 ホームページ')
+    .setStyle(ButtonStyle.Link)
+    .setURL('https://rectbot.tech');
 
-  await interaction.reply({
-    embeds: [helpEmbed],
-    components: [row],
-    ephemeral: true
-  });
+  const selectRow = new ActionRowBuilder().addComponents(selectMenu);
+  const buttonRow = new ActionRowBuilder().addComponents(homeButton);
+
+  // 応答方法を判定（reply or update）
+  if (interaction.replied || interaction.deferred) {
+    await interaction.editReply({
+      embeds: [helpEmbed],
+      components: [selectRow, buttonRow]
+    });
+  } else {
+    await interaction.reply({
+      embeds: [helpEmbed],
+      components: [selectRow, buttonRow],
+      flags: MessageFlags.Ephemeral
+    });
+  }
 }
 
 // 特定のコマンドの詳細を表示
@@ -151,7 +173,7 @@ async function showCommandDetails(interaction, commandName) {
   if (!command) {
     await interaction.reply({
       content: '❌ 指定されたコマンドが見つかりません。',
-      ephemeral: true
+      flags: MessageFlags.Ephemeral
     });
     return;
   }
@@ -172,16 +194,30 @@ async function showCommandDetails(interaction, commandName) {
     })
     .setTimestamp();
 
+  // 戻るボタンとホームページボタン
+  const backButton = new ButtonBuilder()
+    .setCustomId('help_back')
+    .setLabel('⬅️ 戻る')
+    .setStyle(ButtonStyle.Secondary);
+
+  const homeButton = new ButtonBuilder()
+    .setLabel('🏠 ホームページ')
+    .setStyle(ButtonStyle.Link)
+    .setURL('https://rectbot.tech');
+
+  const buttonRow = new ActionRowBuilder().addComponents(backButton, homeButton);
+
   // 応答方法を判定（reply or update）
   if (interaction.replied || interaction.deferred) {
     await interaction.editReply({
       embeds: [detailEmbed],
-      components: []
+      components: [buttonRow]
     });
   } else {
     await interaction.reply({
       embeds: [detailEmbed],
-      ephemeral: true
+      components: [buttonRow],
+      flags: MessageFlags.Ephemeral
     });
   }
 }
