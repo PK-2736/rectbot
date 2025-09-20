@@ -40,8 +40,10 @@ module.exports = {
       const contentInput = new TextInputBuilder()
         .setCustomId('content')
         .setLabel('募集内容（例: ガチエリア / 初心者歓迎 / 2時間）')
-        .setStyle(TextInputStyle.Short)
-        .setRequired(true);
+        .setStyle(TextInputStyle.Paragraph)
+        .setRequired(true)
+        .setMaxLength(1000)
+        .setPlaceholder('詳細な募集内容を入力してください...\n例:\n・ガチエリア中心\n・初心者歓迎\n・約2時間程度\n・楽しく遊びましょう！');
       const participantsInput = new TextInputBuilder()
         .setCustomId('participants')
         .setLabel('参加人数（例: 4）')
