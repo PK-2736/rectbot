@@ -121,11 +121,11 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
     ctx.fill();
   }
   
-  // 募集内容用の枠（少し下にずらしてバランス改善）
+  // 募集内容用の枠（下のスペースを拡張）
   const boxX = 8;
-  const boxY = height * 0.41; // 38%から41%に下移動
-  const boxWidth = width * 0.48; // 画像幅の48%（50%から少し縮小）
-  const boxHeight = height * 0.45; // 48%から45%に縮小（下移動による調整）
+  const boxY = height * 0.39; // 41%から39%に上移動
+  const boxWidth = width * 0.48; // 画像幅の48%
+  const boxHeight = height * 0.50; // 45%から50%に拡張（下のスペースを増加）
   
   // 上側のピンのみ配置（上端の適切な位置に配置）
   drawPin(8, 8, 'rgba(255, 71, 87, 0.7)');   // 左上 - 淡い赤（端っこに配置）
@@ -158,11 +158,11 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
   ctx.lineWidth = 1;
   drawRoundedRect(boxX, boxY, boxWidth, boxHeight, 6, false, true);
   
-  // 参加者円の描画（タイトル以外を下にずらして配置）
+  // 参加者円の描画（アバターを上に移動し、間隔を狭く）
   const participantCount = recruitData.participants || 4;
   const circleRadius = 6.5; // 8から6.5に縮小
-  const circleSpacing = 20;
-  const participantAreaY = boxY - 10; // 募集内容枠の上に適切な間隔
+  const circleSpacing = 16; // 20から16に縮小（間隔を狭く）
+  const participantAreaY = boxY - 14; // -10から-14に変更（より上に移動）
   const participantAreaX = boxX + 5;
   
   // アバター描画のヘルパー関数
