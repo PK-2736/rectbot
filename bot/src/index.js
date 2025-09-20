@@ -18,9 +18,10 @@ const client = new Client({
     GatewayIntentBits.MessageContent
   ],
   allowedMentions: {
-    roles: true,
-    users: true,
-    everyone: false
+    parse: ['roles', 'users'],
+    users: [],
+    roles: [],
+    repliedUser: false
   }
 });
 

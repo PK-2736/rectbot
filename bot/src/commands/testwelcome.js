@@ -1,4 +1,4 @@
-const { SlashCommandBuilder } = require('discord.js');
+const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -12,13 +12,13 @@ module.exports = {
     if (!allowedUsers.includes(interaction.user.id)) {
       await interaction.reply({ 
         content: '❌ このコマンドは開発者のみ使用できます。', 
-        ephemeral: true 
+        flags: MessageFlags.Ephemeral 
       });
       return;
     }
 
     try {
-      await interaction.deferReply({ ephemeral: true });
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
       
       // guildCreateイベントハンドラーを手動実行
       const guildCreateHandler = require('../events/guildCreate.js');
