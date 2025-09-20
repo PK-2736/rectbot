@@ -158,12 +158,14 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
   ctx.lineWidth = 1;
   drawRoundedRect(boxX, boxY, boxWidth, boxHeight, 6, false, true);
   
-  // 参加者円の描画（アバターを上に移動し、間隔を狭く）
-  const participantCount = recruitData.participants || 4;
-  const circleRadius = 6.5; // 8から6.5に縮小
-  const circleSpacing = 16; // 20から16に縮小（間隔を狭く）
-  const participantAreaY = boxY - 14; // -10から-14に変更（より上に移動）
+  // 参加者円の描画（2列表示で最大16人対応）
+  const participantCount = Math.min(recruitData.participants || 4, 16); // 最大16人に制限
+  const circleRadius = 6.5;
+  const circleSpacing = 16; // 横間隔
+  const rowSpacing = 15; // 縦間隔（行間）
+  const participantAreaY = boxY - 18; // 2列分のスペースを確保するため少し上に移動
   const participantAreaX = boxX + 5;
+  const maxPerRow = 8; // 1行あたりの最大人数
   
   // アバター描画のヘルパー関数
   async function drawParticipantAvatar(x, y, userId) {
@@ -236,13 +238,15 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
     ctx.textBaseline = 'top';
   }
   
-  // 各参加者円を描画
+  // 各参加者円を描画（2列表示）
   for (let i = 0; i < participantCount; i++) {
-    const circleX = participantAreaX + i * circleSpacing;
-    const circleY = participantAreaY;
+    const row = Math.floor(i / maxPerRow); // 行番号（0または1）
+    const col = i % maxPerRow; // 列番号（0-7）
+    const circleX = participantAreaX + col * circleSpacing;
+    const circleY = participantAreaY + row * rowSpacing;
     
     if (i < participantIds.length) {
-      // 参加者がいる場合はアバターを描画（引数の順序を修正）
+      // 参加者がいる場合はアバターを描画
       await drawParticipantAvatar(circleX, circleY, participantIds[i]);
     } else {
       // 空の場合は薄い+マークを表示

@@ -49,7 +49,7 @@ module.exports = {
         .setRequired(true)
         .setMinLength(1)
         .setMaxLength(2)
-        .setPlaceholder('1-99の数字を入力してください');
+        .setPlaceholder('1-16の数字を入力してください');
       const timeInput = new TextInputBuilder()
         .setCustomId('startTime')
         .setLabel('開始時間（例: 21:00）')
@@ -90,9 +90,9 @@ module.exports = {
       const participantsInput = interaction.fields.getTextInputValue('participants');
       const participantsNum = parseInt(participantsInput);
       
-      if (isNaN(participantsNum) || participantsNum < 1 || participantsNum > 99) {
+      if (isNaN(participantsNum) || participantsNum < 1 || participantsNum > 16) {
         await interaction.reply({
-          content: '❌ 参加人数は1〜99の数字で入力してください。',
+          content: '❌ 参加人数は1〜16の数字で入力してください。',
           flags: MessageFlags.Ephemeral,
           allowedMentions: { roles: [], users: [] }
         });
