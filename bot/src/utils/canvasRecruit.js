@@ -3,7 +3,16 @@ const { createCanvas, registerFont, loadImage } = require('canvas');
 registerFont(__dirname + '/../../data/Corporate-Logo-Rounded-Bold-ver3.otf', { family: 'CorporateRounded' });
 
 /**
- * 募集カード画像を生成（スプラ風レイアウト）
+       // フォールバック：デフォルトアバターまたは文字表示
+      ctx.fillStyle = '#5865F2';
+      ctx.beginPath();
+      ctx.arc(x, y, circleRadius, 0, 2 * Math.PI);
+      ctx.fill();
+      
+      ctx.fillStyle = 'white';
+      ctx.font = `${is2Rows ? '4px' : '8px'} Arial`; // サイズを大幅に調整
+      ctx.textAlign = 'center';
+      ctx.fillText('?', x, y + (is2Rows ? 1.5 : 3));生成（スプラ風レイアウト）
  * @param {Object} recruitData 募集内容データ
  * @param {Array} participantIds 参加者のDiscord IDリスト
  * @param {Client} client Discordクライアント
@@ -160,10 +169,13 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
   
   // 参加者円の描画（2列表示で最大16人対応）
   const participantCount = Math.min(recruitData.participants || 4, 16); // 最大16人に制限
-  const circleRadius = 6.5;
-  const circleSpacing = 16; // 横間隔
-  const rowSpacing = 15; // 縦間隔（行間）
-  const participantAreaY = boxY - 18; // 2列分のスペースを確保するため少し上に移動
+  
+  // 参加者数に応じてアバターサイズを動的調整
+  const is2Rows = participantCount > 8;
+  const circleRadius = is2Rows ? 3.25 : 6.5; // 9人以上: 3.25px（8人以下の半径が直径になる）
+  const circleSpacing = is2Rows ? 10 : 16; // 9人以上の場合は間隔をかなり狭く
+  const rowSpacing = is2Rows ? 9 : 15; // 9人以上の場合は行間も狭く
+  const participantAreaY = is2Rows ? boxY - 22 : boxY - 14; // 8人以下は元の位置、9人以上は上に移動
   const participantAreaX = boxX + 5;
   const maxPerRow = 8; // 1行あたりの最大人数
   
@@ -179,9 +191,9 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
       ctx.fill();
       
       ctx.fillStyle = 'white';
-      ctx.font = '8px Arial';
+      ctx.font = `${is2Rows ? '4px' : '8px'} Arial`; // サイズを大幅に調整
       ctx.textAlign = 'center';
-      ctx.fillText('?', x, y + 3);
+      ctx.fillText('?', x, y + (is2Rows ? 1.5 : 3));
       return;
     }
 
@@ -209,9 +221,9 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
       ctx.fill();
       
       ctx.fillStyle = 'white';
-      ctx.font = '8px Arial';
+      ctx.font = `${is2Rows ? '6px' : '8px'} Arial`; // サイズを動的調整
       ctx.textAlign = 'center';
-      ctx.fillText('?', x, y + 3);
+      ctx.fillText('?', x, y + (is2Rows ? 2 : 3));
     }
   }
   
@@ -261,14 +273,15 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
       ctx.arc(circleX, circleY, circleRadius, 0, Math.PI * 2);
       ctx.stroke();
       
-      // +マーク
+      // +マーク（サイズを動的調整）
+      const plusSize = is2Rows ? 2 : 4; // 9人以上の場合はかなり小さく
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
       ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.moveTo(circleX - 4, circleY);
-      ctx.lineTo(circleX + 4, circleY);
-      ctx.moveTo(circleX, circleY - 4);
-      ctx.lineTo(circleX, circleY + 4);
+      ctx.moveTo(circleX - plusSize, circleY);
+      ctx.lineTo(circleX + plusSize, circleY);
+      ctx.moveTo(circleX, circleY - plusSize);
+      ctx.lineTo(circleX, circleY + plusSize);
       ctx.stroke();
     }
   }
