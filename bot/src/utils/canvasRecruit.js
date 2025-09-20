@@ -10,9 +10,9 @@ registerFont(__dirname + '/../../data/Corporate-Logo-Rounded-Bold-ver3.otf', { f
       ctx.fill();
       
       ctx.fillStyle = 'white';
-      ctx.font = `${is2Rows ? '4px' : '8px'} Arial`; // サイズを大幅に調整
+      ctx.font = `${is2Rows ? '5px' : '8px'} Arial`; // サイズを調整（4pxから5pxに）
       ctx.textAlign = 'center';
-      ctx.fillText('?', x, y + (is2Rows ? 1.5 : 3));生成（スプラ風レイアウト）
+      ctx.fillText('?', x, y + (is2Rows ? 2 : 3));生成（スプラ風レイアウト）
  * @param {Object} recruitData 募集内容データ
  * @param {Array} participantIds 参加者のDiscord IDリスト
  * @param {Client} client Discordクライアント
@@ -172,10 +172,10 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
   
   // 参加者数に応じてアバターサイズを動的調整
   const is2Rows = participantCount > 8;
-  const circleRadius = is2Rows ? 3.25 : 6.5; // 9人以上: 3.25px（8人以下の半径が直径になる）
-  const circleSpacing = is2Rows ? 10 : 16; // 9人以上の場合は間隔をかなり狭く
-  const rowSpacing = is2Rows ? 9 : 15; // 9人以上の場合は行間も狭く
-  const participantAreaY = is2Rows ? boxY - 22 : boxY - 14; // 8人以下は元の位置、9人以上は上に移動
+  const circleRadius = is2Rows ? 4.0 : 6.5; // 9人以上: 3.25pxから4.0pxに拡大
+  const circleSpacing = is2Rows ? 11 : 16; // 9人以上の間隔も少し広く
+  const rowSpacing = is2Rows ? 10 : 15; // 9人以上の行間も少し広く
+  const participantAreaY = is2Rows ? boxY - 18 : boxY - 14; // 9人以上を少し下に移動（-22から-18）
   const participantAreaX = boxX + 5;
   const maxPerRow = 8; // 1行あたりの最大人数
   
@@ -191,9 +191,9 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
       ctx.fill();
       
       ctx.fillStyle = 'white';
-      ctx.font = `${is2Rows ? '4px' : '8px'} Arial`; // サイズを大幅に調整
+      ctx.font = `${is2Rows ? '5px' : '8px'} Arial`; // サイズを調整（4pxから5pxに）
       ctx.textAlign = 'center';
-      ctx.fillText('?', x, y + (is2Rows ? 1.5 : 3));
+      ctx.fillText('?', x, y + (is2Rows ? 2 : 3));
       return;
     }
 
@@ -274,7 +274,7 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
       ctx.stroke();
       
       // +マーク（サイズを動的調整）
-      const plusSize = is2Rows ? 2 : 4; // 9人以上の場合はかなり小さく
+      const plusSize = is2Rows ? 2.5 : 4; // 9人以上の場合も少し大きく
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
       ctx.lineWidth = 1;
       ctx.beginPath();
