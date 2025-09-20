@@ -115,25 +115,9 @@ module.exports = {
 
       // ボタン付きメッセージを投稿（バッファから直接送信）
       const image = new AttachmentBuilder(buffer, { name: 'recruit-card.png' });
-      recruitParticipants.set(messageKey, []);
       const participantText = "### 👥 参加リスト\n（まだ参加者はいません）";
       const container = new ContainerBuilder();
       container.setAccentColor(0xFF69B4);
-
-      container.addSectionComponents(
-        new SectionBuilder()
-          .addTextDisplayComponents(
-            new TextDisplayBuilder().setContent(`# ${recruitDataObj.title} \n **${user.username}さんの募集**<@&1416797165769986161>`)
-          )
-          .setThumbnailAccessory(
-            new ThumbnailBuilder({
-                media: { url: user.displayAvatarURL() }
-            })
-          )
-      );
-      container.addSeparatorComponents(
-        new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
-      );
 
       container.addMediaGalleryComponents(
         new MediaGalleryBuilder().addItems(
@@ -303,29 +287,14 @@ async function updateParticipantList(interaction, participants) {
   const newContainer = new ContainerBuilder()
   const user = interaction.targetUser || interaction.user;
   newContainer.setAccentColor(0xFF69B4);
-  newContainer.addSectionComponents(
-        new SectionBuilder()
-          .addTextDisplayComponents(
-            new TextDisplayBuilder().setContent(`# ${savedRecruitData.title} \n**${user.username}さんの募集**<@&1416797165769986161>`)
-          )
-          .setThumbnailAccessory(
-            new ThumbnailBuilder({
-                media: { url: user.displayAvatarURL() }
-            })
-          )
-      );
 
-  newContainer.addSeparatorComponents(
-        new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
-      );
-
-newContainer.addMediaGalleryComponents(
+  newContainer.addMediaGalleryComponents(
       new MediaGalleryBuilder().addItems(
         new MediaGalleryItemBuilder().setURL('attachment://recruit-card.png')
       )
     )
     // 参加リストの上に区切り線を追加
-newContainer.addSeparatorComponents(
+  newContainer.addSeparatorComponents(
       new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
       )
       .addTextDisplayComponents(
