@@ -89,11 +89,11 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
     ctx.fill();
   }
   
-  // 募集内容用の枠（高さ拡張を活用してより適切に配置）
+  // 募集内容用の枠（画像拡大に合わせて適切なサイズに調整）
   const boxX = 8;
-  const boxY = height * 0.32; // 35%から32%に上移動（高さ拡張により余裕ができた）
-  const boxWidth = width * 0.5; // 画像幅の50%
-  const boxHeight = height * 0.58; // 55%から58%に拡大（高さ拡張を活用）
+  const boxY = height * 0.34; // 32%から34%に微調整（画像拡大による余裕を活用）
+  const boxWidth = width * 0.48; // 画像幅の48%（50%から少し縮小）
+  const boxHeight = height * 0.52; // 58%から52%に縮小（バランス改善）
   
   // 上側のピンのみ配置（タイトルと適切な間隔を保つ）
   drawPin(6, 16, 'rgba(255, 71, 87, 0.7)');   // 左上 - 淡い赤（18から16に調整）
@@ -270,11 +270,11 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
     ctx.fillText(wrappedLines[i], boxX + 4, boxY + 15 + i * lineHeight);
   }
   
-  // 右上から縦に並べて表示（高さ拡張によりバランス良く配置）
-  const rightX = width - 56; // 右上の位置
-  const startY = 28; // 高さ拡張により適切な位置（30から28に調整）
-  const itemSpacing = 19; // 各項目の間隔（18から19に微調整）
-  const infoBoxWidth = 50; // 各情報ボックスの幅
+  // 右上から縦に並べて表示（画像拡大とバランスを考慮して配置）
+  const rightX = width - 54; // 右上の位置（56から54に左移動で余裕を持たせる）
+  const startY = 32; // 画像拡大によりバランス良く配置（28から32に調整）
+  const itemSpacing = 20; // 各項目の間隔（19から20に拡大）
+  const infoBoxWidth = 48; // 各情報ボックスの幅（50から48に縮小）
   const infoBoxHeight = 15; // 各情報ボックスの高さ
   
   // 情報配列
@@ -306,15 +306,15 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
     ctx.fillStyle = '#fff';
     ctx.font = '4px CorporateRounded';
     let value = item.value;
-    // テキストが長すぎる場合は省略
-    const maxWidth = infoBoxWidth - 25; // ラベル分を除いた幅
+    // テキストが長すぎる場合は省略（新しいボックス幅に対応）
+    const maxWidth = infoBoxWidth - 23; // ラベル分を除いた幅（25から23に調整）
     if (ctx.measureText(value).width > maxWidth) {
       while (ctx.measureText(value + '...').width > maxWidth && value.length > 1) {
         value = value.substring(0, value.length - 1);
       }
       value += '...';
     }
-    ctx.fillText(value, rightX + 22, itemY + 6);
+    ctx.fillText(value, rightX + 20, itemY + 6); // 22から20に左移動
   });
 
   // 紙が少し浮いているような影効果

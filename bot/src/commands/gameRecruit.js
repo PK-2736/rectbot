@@ -121,7 +121,7 @@ module.exports = {
 
       // ユーザー名表示（フォントサイズを大きく）
       container.addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(`## **${user.username}さんの募集** <@&1416797165769986161>`)
+        new TextDisplayBuilder().setContent(`## ${user.username}さんの募集`)
       );
 
       container.addSeparatorComponents(
@@ -299,7 +299,7 @@ async function updateParticipantList(interaction, participants) {
 
   // ユーザー名表示（フォントサイズを大きく）
   newContainer.addTextDisplayComponents(
-    new TextDisplayBuilder().setContent(`## **${user.username}さんの募集** <@&1416797165769986161>`)
+    new TextDisplayBuilder().setContent(`## ${user.username}さんの募集`)
   );
 
   newContainer.addSeparatorComponents(
