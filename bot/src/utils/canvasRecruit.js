@@ -89,11 +89,11 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
     ctx.fill();
   }
   
-  // 募集内容用の枠（タイトル分を考慮して下に移動）
+  // 募集内容用の枠（タイトルと適切な間隔を保って配置）
   const boxX = 8;
-  const boxY = height * 0.42; // 画像の42%の位置から開始（32%から下に移動）
+  const boxY = height * 0.35; // 35%の位置（42%から上に調整）
   const boxWidth = width * 0.5; // 画像幅の50%
-  const boxHeight = height * 0.5; // 画像高さの50%（60%から縮小）
+  const boxHeight = height * 0.55; // 画像高さの55%（50%から拡大）
   
   // 上側のピンのみ配置（タイトルと被らないように下に移動）
   drawPin(6, 18, 'rgba(255, 71, 87, 0.7)');   // 左上 - 淡い赤
@@ -126,11 +126,11 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
   ctx.lineWidth = 1;
   drawRoundedRect(boxX, boxY, boxWidth, boxHeight, 6, false, true);
   
-  // 参加者円の描画（タイトル分を考慮して下に移動）
+  // 参加者円の描画（タイトルと募集内容枠の間に適切に配置）
   const participantCount = recruitData.participants || 4;
   const circleRadius = 6.5; // 8から6.5に縮小
   const circleSpacing = 20;
-  const participantAreaY = boxY - 8; // 募集内容枠の上（タイトル分を考慮）
+  const participantAreaY = boxY - 10; // 募集内容枠の上に適切な間隔
   const participantAreaX = boxX + 5;
   
   // アバター描画のヘルパー関数
@@ -252,7 +252,7 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
   ctx.fillStyle = '#fff';
   const content = recruitData.content || 'ガチエリア / 初心者歓迎';
   const lineHeight = 6; // 13から10に縮小（上下間隔を狭く）
-  const maxLines = Math.floor((boxHeight - 20) / lineHeight); // ラベル分を除く
+  const maxLines = Math.floor((boxHeight - 20) / lineHeight); // ラベル分を除く（拡大した枠に対応）
   // 枠幅に合わせて自動改行
   let wrappedLines = [];
   content.split(/\r?\n/).forEach(rawLine => {
@@ -270,10 +270,10 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
     ctx.fillText(wrappedLines[i], boxX + 4, boxY + 15 + i * lineHeight);
   }
   
-  // 右上から縦に並べて表示（タイトル分を考慮して下に移動）
+  // 右上から縦に並べて表示（タイトルとバランスを取って配置）
   const rightX = width - 56; // 右上の位置
-  const startY = 35; // タイトル分を考慮して下に移動（28から35に）
-  const itemSpacing = 20; // 各項目の間隔
+  const startY = 30; // タイトルとのバランスを考慮（35から30に調整）
+  const itemSpacing = 18; // 各項目の間隔（20から18に縮小してコンパクトに）
   const infoBoxWidth = 50; // 各情報ボックスの幅
   const infoBoxHeight = 15; // 各情報ボックスの高さ
   

@@ -119,6 +119,15 @@ module.exports = {
       const container = new ContainerBuilder();
       container.setAccentColor(0xFF69B4);
 
+      // ユーザー名表示
+      container.addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(`**${user.username}さんの募集** <@&1416797165769986161>`)
+      );
+
+      container.addSeparatorComponents(
+        new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+      );
+
       container.addMediaGalleryComponents(
         new MediaGalleryBuilder().addItems(
             new MediaGalleryItemBuilder().setURL('attachment://recruit-card.png')
@@ -287,6 +296,15 @@ async function updateParticipantList(interaction, participants) {
   const newContainer = new ContainerBuilder()
   const user = interaction.targetUser || interaction.user;
   newContainer.setAccentColor(0xFF69B4);
+
+  // ユーザー名表示
+  newContainer.addTextDisplayComponents(
+    new TextDisplayBuilder().setContent(`**${user.username}さんの募集** <@&1416797165769986161>`)
+  );
+
+  newContainer.addSeparatorComponents(
+    new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+  );
 
   newContainer.addMediaGalleryComponents(
       new MediaGalleryBuilder().addItems(
