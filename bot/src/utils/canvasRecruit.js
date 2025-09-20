@@ -44,7 +44,7 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
   ctx.lineWidth = 5;
   ctx.strokeRect(0, 0, width, height);
 
-  // タイトル表示（一番上、より上に配置）
+  // タイトル表示（装飾付きで一番上に配置）
   ctx.fillStyle = '#fff';
   ctx.font = 'bold 8px CorporateRounded';
   ctx.textAlign = 'center';
@@ -62,7 +62,39 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
     titleText += '...';
   }
   
-  ctx.fillText(titleText, width / 2, 5); // 8から5に上移動
+  // タイトル背景の装飾（半透明の背景）
+  const titleWidth = ctx.measureText(titleText).width;
+  const titleBgX = (width - titleWidth) / 2 - 6;
+  const titleBgY = 3;
+  const titleBgWidth = titleWidth + 12;
+  const titleBgHeight = 12;
+  
+  // グラデーション背景
+  const titleGradient = ctx.createLinearGradient(titleBgX, titleBgY, titleBgX + titleBgWidth, titleBgY + titleBgHeight);
+  titleGradient.addColorStop(0, 'rgba(255, 107, 157, 0.3)');    // ピンク
+  titleGradient.addColorStop(1, 'rgba(120, 111, 166, 0.3)');    // 紫
+  
+  ctx.fillStyle = titleGradient;
+  ctx.fillRect(titleBgX, titleBgY, titleBgWidth, titleBgHeight);
+  
+  // タイトルの縁取り効果
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
+  ctx.lineWidth = 1;
+  ctx.strokeText(titleText, width / 2, 5);
+  
+  // タイトル本体
+  ctx.fillStyle = '#fff';
+  ctx.fillText(titleText, width / 2, 5);
+  
+  // タイトル周りの装飾線（左右）
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(8, 9);
+  ctx.lineTo(titleBgX - 4, 9);
+  ctx.moveTo(titleBgX + titleBgWidth + 4, 9);
+  ctx.lineTo(width - 8, 9);
+  ctx.stroke();
   
   // テキストアライメントをリセット
   ctx.textAlign = 'start';
@@ -89,15 +121,15 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
     ctx.fill();
   }
   
-  // 募集内容用の枠（画像拡大に合わせて適切なサイズに調整）
+  // 募集内容用の枠（タイトル以外を下にずらして配置）
   const boxX = 8;
-  const boxY = height * 0.34; // 32%から34%に微調整（画像拡大による余裕を活用）
+  const boxY = height * 0.38; // 34%から38%に下移動
   const boxWidth = width * 0.48; // 画像幅の48%（50%から少し縮小）
-  const boxHeight = height * 0.52; // 58%から52%に縮小（バランス改善）
+  const boxHeight = height * 0.48; // 52%から48%に縮小（下移動による調整）
   
-  // 上側のピンのみ配置（タイトルと適切な間隔を保つ）
-  drawPin(6, 16, 'rgba(255, 71, 87, 0.7)');   // 左上 - 淡い赤（18から16に調整）
-  drawPin(width - 6, 16, 'rgba(46, 213, 115, 0.7)');   // 右上 - 淡い緑
+  // 上側のピンのみ配置（上端の適切な位置に配置）
+  drawPin(8, 8, 'rgba(255, 71, 87, 0.7)');   // 左上 - 淡い赤（端っこに配置）
+  drawPin(width - 8, 8, 'rgba(46, 213, 115, 0.7)');   // 右上 - 淡い緑（端っこに配置）
   
   // 角丸矩形を描画する関数
   function drawRoundedRect(x, y, width, height, radius, fill = true, stroke = false) {
@@ -126,7 +158,7 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
   ctx.lineWidth = 1;
   drawRoundedRect(boxX, boxY, boxWidth, boxHeight, 6, false, true);
   
-  // 参加者円の描画（高さ拡張により適切なバランスで配置）
+  // 参加者円の描画（タイトル以外を下にずらして配置）
   const participantCount = recruitData.participants || 4;
   const circleRadius = 6.5; // 8から6.5に縮小
   const circleSpacing = 20;
@@ -270,9 +302,9 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
     ctx.fillText(wrappedLines[i], boxX + 4, boxY + 15 + i * lineHeight);
   }
   
-  // 右上から縦に並べて表示（画像拡大とバランスを考慮して配置）
+  // 右上から縦に並べて表示（タイトル以外を下にずらして配置）
   const rightX = width - 54; // 右上の位置（56から54に左移動で余裕を持たせる）
-  const startY = 32; // 画像拡大によりバランス良く配置（28から32に調整）
+  const startY = 36; // タイトル以外を下にずらす（32から36に移動）
   const itemSpacing = 20; // 各項目の間隔（19から20に拡大）
   const infoBoxWidth = 48; // 各情報ボックスの幅（50から48に縮小）
   const infoBoxHeight = 15; // 各情報ボックスの高さ

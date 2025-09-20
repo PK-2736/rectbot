@@ -121,7 +121,7 @@ module.exports = {
 
       // ユーザー名表示（フォントサイズを大きく）
       container.addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(`## ${user.username}さんの募集`)
+        new TextDisplayBuilder().setContent(`### ${user.username}さんの募集`)
       );
 
       container.addSeparatorComponents(
@@ -286,7 +286,7 @@ async function updateParticipantList(interaction, participants) {
   // メンションリスト生成
   let participantText = "### 👥 参加リスト\n";
   if (participants.length === 0) {
-    participantText += "> まだ参加者はいません";
+    participantText += "まだ参加者はいません";
   } else {
     participantText += participants.map(id => `<@${id}>`).join();
   }
@@ -299,7 +299,7 @@ async function updateParticipantList(interaction, participants) {
 
   // ユーザー名表示（フォントサイズを大きく）
   newContainer.addTextDisplayComponents(
-    new TextDisplayBuilder().setContent(`## ${user.username}さんの募集`)
+    new TextDisplayBuilder().setContent(`### ${user.username}さんの募集`)
   );
 
   newContainer.addSeparatorComponents(
