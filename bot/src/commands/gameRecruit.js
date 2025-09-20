@@ -115,13 +115,14 @@ module.exports = {
 
       // ボタン付きメッセージを投稿（バッファから直接送信）
       const image = new AttachmentBuilder(buffer, { name: 'recruit-card.png' });
-      const participantText = "### 👥 参加リスト\n（まだ参加者はいません）";
+      const participantText = "### 🎯✨ 参加リスト ✨🎯\n✨（まだ参加者はいません）✨";
       const container = new ContainerBuilder();
       container.setAccentColor(0xFF69B4);
 
       // ユーザー名表示（フォントサイズを大きく）
+      // ユーザー名表示（絵文字で豪華に装飾）
       container.addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(`### ${user.username}さんの募集`)
+        new TextDisplayBuilder().setContent(`## 🎮✨ **${user.username}さんの募集** ✨🎮 <@&1416797165769986161>`)
       );
 
       container.addSeparatorComponents(
@@ -284,11 +285,11 @@ async function updateParticipantList(interaction, participants) {
   }
 
   // メンションリスト生成
-  let participantText = "### 👥 参加リスト\n";
+  let participantText = "### 🎯✨ 参加リスト ✨🎯\n";
   if (participants.length === 0) {
-    participantText += "まだ参加者はいません";
+    participantText += "> ✨（まだ参加者はいません）✨";
   } else {
-    participantText += participants.map(id => `<@${id}>`).join();
+    participantText += "🎮 " + participants.map(id => `<@${id}>`).join(" 🎮 ");
   }
 
   // メッセージのコンポーネントを再構築
@@ -297,9 +298,9 @@ async function updateParticipantList(interaction, participants) {
   const user = interaction.targetUser || interaction.user;
   newContainer.setAccentColor(0xFF69B4);
 
-  // ユーザー名表示（フォントサイズを大きく）
+  // ユーザー名表示（絵文字で豪華に装飾）
   newContainer.addTextDisplayComponents(
-    new TextDisplayBuilder().setContent(`### ${user.username}さんの募集`)
+    new TextDisplayBuilder().setContent(`## 🎮✨ **${user.username}さんの募集** ✨🎮 <@&1416797165769986161>`)
   );
 
   newContainer.addSeparatorComponents(

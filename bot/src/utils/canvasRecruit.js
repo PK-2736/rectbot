@@ -121,11 +121,11 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
     ctx.fill();
   }
   
-  // 募集内容用の枠（タイトル以外を下にずらして配置）
+  // 募集内容用の枠（少し下にずらしてバランス改善）
   const boxX = 8;
-  const boxY = height * 0.38; // 34%から38%に下移動
+  const boxY = height * 0.41; // 38%から41%に下移動
   const boxWidth = width * 0.48; // 画像幅の48%（50%から少し縮小）
-  const boxHeight = height * 0.48; // 52%から48%に縮小（下移動による調整）
+  const boxHeight = height * 0.45; // 48%から45%に縮小（下移動による調整）
   
   // 上側のピンのみ配置（上端の適切な位置に配置）
   drawPin(8, 8, 'rgba(255, 71, 87, 0.7)');   // 左上 - 淡い赤（端っこに配置）
