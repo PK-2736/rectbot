@@ -121,7 +121,7 @@ module.exports = {
       const notifyRoleId = '1416797165769986161';
       const notifyMessage = await interaction.channel.send({
         content: `新しい募集が取付けられました。<@&${notifyRoleId}>`,
-        allowedMentions: { roles: Array.isArray(notifyRoleId) ? notifyRoleId : [notifyRoleId] }
+        allowedMentions: { roles: [notifyRoleId] }
       });
       console.log('ロールメンション送信完了');
 
