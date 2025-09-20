@@ -1,50 +1,37 @@
-const { 
-  ContainerBuilder, 
-  TextDisplayBuilder, 
-  SeparatorBuilder, 
-  SeparatorSpacingSize,
-  ActionRowBuilder, 
-  ButtonBuilder, 
-  ButtonStyle,
-  SectionBuilder 
-} = require('discord.js');
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
 
 module.exports = {
   name: 'guildCreate',
   async execute(guild) {
     try {
-      console.log(`新しいサーバーに参加しました: ${guild.name} (ID: ${guild.id})`);
+      console.log(`[guildCreate] 新しいサーバーに参加: ${guild.name} (ID: ${guild.id})`);
       
-      // サーバーのシステムチャンネルまたは最初のテキストチャンネルを取得
-      const channel = guild.systemChannel || 
-                     guild.channels.cache.find(ch => 
-                       ch.type === 0 && // GUILD_TEXT
-                       ch.permissionsFor(guild.members.me).has(['SendMessages', 'ViewChannel'])
-                     );
+      // 送信可能なチャンネルを探す
+      let channel = guild.systemChannel;
       
       if (!channel) {
-        console.log('ウェルカムメッセージを送信できるチャンネルが見つかりませんでした:', guild.name);
+        channel = guild.channels.cache.find(ch => 
+          ch.type === 0 && // GUILD_TEXT
+          ch.permissionsFor(guild.members.me)?.has(['SendMessages', 'ViewChannel'])
+        );
+      }
+      
+      if (!channel) {
+        console.log(`[guildCreate] 送信可能なチャンネルが見つかりません: ${guild.name}`);
         return;
       }
 
-      // Components v2でウェルカムメッセージを作成
-      const welcomeContainer = new ContainerBuilder()
-        .addComponents(
-          new SectionBuilder()
-            .addComponents(
-              new TextDisplayBuilder()
-                .setText('🎉 **RecruitBot（りくるぼ）** を導入いただきありがとうございます！')
-                .setStyle('heading'),
-              new SeparatorBuilder()
-                .setSpacing(SeparatorSpacingSize.Small),
-              new TextDisplayBuilder()
-                .setText('ゲーム募集を簡単に作成・管理できるDiscordボットです。\n早速使い始めてみましょう！')
-                .setStyle('paragraph')
-            )
-        );
+      console.log(`[guildCreate] 送信先: ${channel.name}`);
 
-      // ボタン行を作成
-      const buttonRow = new ActionRowBuilder()
+      // ウェルカムメッセージを作成
+      const embed = new EmbedBuilder()
+        .setColor(0x5865F2)
+        .setTitle('🎉 RecruitBot（りくるぼ）を導入いただきありがとうございます！')
+        .setDescription('ゲーム募集を簡単に作成・管理できるDiscordボットです。\n早速使い始めてみましょう！')
+        .addFields({ name: '使い方', value: '下のボタンからヘルプを確認できます', inline: false })
+        .setTimestamp();
+
+      const buttons = new ActionRowBuilder()
         .addComponents(
           new ButtonBuilder()
             .setCustomId('welcome_help')
@@ -57,14 +44,14 @@ module.exports = {
         );
 
       await channel.send({
-        components: [welcomeContainer, buttonRow],
-        allowedMentions: { roles: [], users: [] }
+        embeds: [embed],
+        components: [buttons]
       });
 
-      console.log(`ウェルカムメッセージを送信しました: ${channel.name} in ${guild.name}`);
+      console.log(`[guildCreate] ウェルカムメッセージ送信完了: ${guild.name}`);
 
     } catch (error) {
-      console.error('ウェルカムメッセージの送信に失敗:', error);
+      console.error('[guildCreate] エラー:', error);
     }
   },
 };

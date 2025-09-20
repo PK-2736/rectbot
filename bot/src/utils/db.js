@@ -74,22 +74,39 @@ async function deleteRecruitmentData(messageId) {
 // 管理ページ用の募集データのステータスを更新
 async function updateRecruitmentStatus(messageId, status, endTime = null) {
 	try {
+		console.log(`[updateRecruitmentStatus] 開始: messageId=${messageId}, status=${status}, endTime=${endTime}`);
+		console.log(`[updateRecruitmentStatus] Backend URL: ${config.BACKEND_API_URL}`);
+		
 		const updateData = { 
 			status: status,
 			...(endTime && { end_time: endTime })
 		};
 		
-		const res = await fetch(`${config.BACKEND_API_URL}/api/recruitment/${messageId}`, {
+		console.log(`[updateRecruitmentStatus] 送信データ:`, updateData);
+		
+		const url = `${config.BACKEND_API_URL}/api/recruitment/${messageId}`;
+		console.log(`[updateRecruitmentStatus] リクエストURL: ${url}`);
+		
+		const res = await fetch(url, {
 			method: 'PATCH',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify(updateData)
 		});
+		
+		console.log(`[updateRecruitmentStatus] レスポンス: status=${res.status}, ok=${res.ok}`);
+		
 		if (!res.ok) {
-			throw new Error(`API error: ${res.status}`);
+			const errorText = await res.text();
+			console.error(`[updateRecruitmentStatus] APIエラー詳細: ${errorText}`);
+			throw new Error(`API error: ${res.status} - ${errorText}`);
 		}
-		return await res.json();
+		
+		const result = await res.json();
+		console.log(`[updateRecruitmentStatus] 成功:`, result);
+		return result;
 	} catch (error) {
-		console.error('募集ステータスの更新に失敗:', error);
+		console.error('[updateRecruitmentStatus] 募集ステータスの更新に失敗:', error);
+		console.error('[updateRecruitmentStatus] エラーの詳細:', error.stack);
 		throw error;
 	}
 }
