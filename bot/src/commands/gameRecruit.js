@@ -474,14 +474,11 @@ module.exports = {
           const finalParticipants = recruitParticipants.get(messageId) || [];
           const closeEmbed = new EmbedBuilder()
             .setColor(0x808080)
-            .setTitle('🔒 募集が締め切られました')
-            .setDescription('募集が正式に締め切られました。')
+            .setTitle('🔒 募集締切')
+            .setDescription(`**${savedRecruitData.title}** の募集を締め切りました。`)
             .addFields(
-              { name: '募集タイトル', value: savedRecruitData.title, inline: false },
-              { name: '最終参加者数', value: `${finalParticipants.length}/${savedRecruitData.participants}人`, inline: true },
-              { name: '開始予定時間', value: savedRecruitData.startTime, inline: true }
-            )
-            .setTimestamp();
+              { name: '最終参加者数', value: `${finalParticipants.length}/${savedRecruitData.participants}人`, inline: false }
+            );
 
           await interaction.reply({
             content: `<@${savedRecruitData.recruiterId}>`,
@@ -674,14 +671,11 @@ async function autoCloseRecruitment(client, guildId, channelId, messageId) {
     const finalParticipants = recruitParticipants.get(messageId) || [];
     const autoCloseEmbed = new EmbedBuilder()
       .setColor(0xFF4444)
-      .setTitle('⏰ 募集が自動で締め切られました')
-      .setDescription('募集開始から8時間が経過したため、自動で募集を締め切ります。')
+      .setTitle('⏰ 自動締切')
+      .setDescription(`**${savedRecruitData.title}** の募集を自動で締め切りました。`)
       .addFields(
-        { name: '募集タイトル', value: savedRecruitData.title, inline: false },
-        { name: '最終参加者数', value: `${finalParticipants.length}/${savedRecruitData.participants}人`, inline: true },
-        { name: '経過時間', value: '8時間', inline: true }
-      )
-      .setTimestamp();
+        { name: '最終参加者数', value: `${finalParticipants.length}/${savedRecruitData.participants}人`, inline: false }
+      );
 
     await channel.send({
       content: `<@${savedRecruitData.recruiterId}>`,
