@@ -113,7 +113,9 @@ module.exports = {
       const buffer = await generateRecruitCard(recruitDataObj, currentParticipants, interaction.client);
       const user = interaction.targetUser || interaction.user;
 
-
+      // 募集パネル送信前に通知メッセージを送信
+      console.log('ロールメンション送信中: 1416797165769986161');
+      
       // まず一時的にEphemeralで受付完了を返す（ユーザー体験用）
       await interaction.reply({ 
         content: '募集を作成中です…', 
@@ -122,17 +124,15 @@ module.exports = {
       });
 
       // 募集パネル送信前にロール通知メッセージを通常メッセージとして送信
-      const notifyRoleId = '1416797165769986161';
-      const notifyMessage = await interaction.channel.send({
-        content: `新しい募集が取付けられました。<@&${notifyRoleId}>`,
-        allowedMentions: { roles: [notifyRoleId] }
+      await interaction.channel.send({
+        content: '新しい募集が取付けられました。<@&1416797165769986161>',
+        allowedMentions: { roles: ['1416797165769986161'] }
       });
       console.log('ロールメンション送信完了');
 
       // 少し待ってから募集パネルを送信
       setTimeout(async () => {
         try {
-          console.log('募集パネル送信開始');
           // ボタン付きメッセージを投稿（バッファから直接送信）
           const image = new AttachmentBuilder(buffer, { name: 'recruit-card.png' });
           const participantText = "🎯✨ 参加リスト ✨🎯\n✨（まだ参加者はいません）✨";
@@ -185,13 +185,11 @@ module.exports = {
               new TextDisplayBuilder().setContent(`募集ID：\`${interaction.id.slice(-8)}\` | powered by **rectbot**`)
             );
           
-          // followUpの代わりにchannel.sendを使用
           const followUpMessage = await interaction.channel.send({
             files: [image],
             components: [container],
             allowedMentions: { parse: [] }
           });
-          console.log('募集パネル送信完了:', followUpMessage.id);
 
           // メッセージが投稿された後、実際のメッセージを取得してIDで募集データを再保存
           try {
@@ -232,14 +230,7 @@ module.exports = {
             console.error('メッセージ取得エラー:', error);
           }
         } catch (error) {
-          console.error('募集パネル送信エラー:', error);
-          console.error('エラースタック:', error.stack);
-          // チャンネルにエラーメッセージを送信
-          try {
-            await interaction.channel.send('募集パネルの作成中にエラーが発生しました。');
-          } catch (sendError) {
-            console.error('エラーメッセージ送信失敗:', sendError);
-          }
+          console.error('followUp error:', error);
         }
       }, 1000); // 1秒待機
     } catch (error) {
