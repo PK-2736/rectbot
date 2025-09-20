@@ -115,7 +115,11 @@ module.exports = {
 
 
       // まず一時的にEphemeralで受付完了を返す（ユーザー体験用）
-      await interaction.reply({ content: '募集を作成中です…', flags: MessageFlags.Ephemeral });
+      await interaction.reply({ 
+        content: '募集を作成中です…', 
+        flags: MessageFlags.Ephemeral,
+        allowedMentions: { parse: [] }
+      });
 
       // 募集パネル送信前にロール通知メッセージを通常メッセージとして送信
       const notifyRoleId = '1416797165769986161';
