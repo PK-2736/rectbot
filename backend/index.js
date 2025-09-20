@@ -290,6 +290,49 @@ export default {
       return new Response(JSON.stringify({ guilds, recruits }), { status: 200 });
     }
 
+    // ギルド数を取得するエンドポイント
+    if (url.pathname === '/api/guild-count' && request.method === 'GET') {
+      try {
+        // Supabaseから全ギルド数を取得
+        const supaRes = await fetch(env.SUPABASE_URL + '/rest/v1/guilds?select=count', {
+          method: 'GET',
+          headers: {
+            'apikey': env.SUPABASE_SERVICE_ROLE_KEY,
+            'Authorization': `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'count=exact'
+          },
+        });
+        
+        if (supaRes.ok) {
+          const countHeader = supaRes.headers.get('content-range');
+          let count = 0;
+          if (countHeader) {
+            // content-range: 0-4/5 の形式から総数を抽出
+            const match = countHeader.match(/\/(\d+)$/);
+            if (match) {
+              count = parseInt(match[1]);
+            }
+          }
+          return new Response(JSON.stringify({ count }), { 
+            status: 200, 
+            headers: corsHeaders 
+          });
+        } else {
+          return new Response(JSON.stringify({ error: 'Failed to fetch guild count', count: 0 }), { 
+            status: 500, 
+            headers: corsHeaders 
+          });
+        }
+      } catch (error) {
+        console.error('Guild count fetch error:', error);
+        return new Response(JSON.stringify({ error: 'Internal server error', count: 0 }), { 
+          status: 500, 
+          headers: corsHeaders 
+        });
+      }
+    }
+
     // すべてのルートにマッチしなかった場合の404レスポンス
     return new Response("Not Found", { 
       status: 404, 

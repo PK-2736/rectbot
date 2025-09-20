@@ -27,6 +27,7 @@ interface AdminDashboardProps {
 
 export default function AdminDashboard({ initialData }: AdminDashboardProps) {
   const [recruitments, setRecruitments] = useState<RecruitmentData[]>([]);
+  const [guildCount, setGuildCount] = useState<number>(0);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const [isLoading, setIsLoading] = useState(false);
 
@@ -45,17 +46,34 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps) {
     } catch (error) {
       console.error('Error fetching recruitments:', error);
     }
+  };
+
+  // ギルド数を取得する関数
+  const fetchGuildCount = async () => {
+    try {
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'https://rectbot-backend.rectbot-owner.workers.dev';
+      const response = await fetch(`${backendUrl}/api/guild-count`);
+      if (response.ok) {
+        const data = await response.json();
+        setGuildCount(data.count || 0);
+      } else {
+        console.error('Failed to fetch guild count:', response.statusText);
+      }
+    } catch (error) {
+      console.error('Error fetching guild count:', error);
+    }
   };  // リアルタイム更新
   useEffect(() => {
     // 初回データ取得
     fetchRecruitments();
+    fetchGuildCount();
 
     const interval = setInterval(async () => {
       setIsLoading(true);
       try {
-        await fetchRecruitments();
+        await Promise.all([fetchRecruitments(), fetchGuildCount()]);
       } catch (error) {
-        console.error('Failed to fetch recruitment data:', error);
+        console.error('Failed to fetch data:', error);
       } finally {
         setIsLoading(false);
       }
@@ -99,11 +117,23 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps) {
       </div>
 
       {/* 統計カード */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="bg-gray-800 rounded-lg p-6">
+          <div className="flex items-center">
+            <div className="p-3 bg-indigo-600 rounded-lg">
+              <Server className="w-6 h-6 text-white" />
+            </div>
+            <div className="ml-4">
+              <p className="text-gray-400 text-sm">導入サーバー数</p>
+              <p className="text-2xl font-bold text-white">{guildCount}</p>
+            </div>
+          </div>
+        </div>
+
         <div className="bg-gray-800 rounded-lg p-6">
           <div className="flex items-center">
             <div className="p-3 bg-blue-600 rounded-lg">
-              <Server className="w-6 h-6 text-white" />
+              <Activity className="w-6 h-6 text-white" />
             </div>
             <div className="ml-4">
               <p className="text-gray-400 text-sm">総募集数</p>
