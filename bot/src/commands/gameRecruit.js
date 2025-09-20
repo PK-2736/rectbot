@@ -113,10 +113,18 @@ module.exports = {
       const buffer = await generateRecruitCard(recruitDataObj, currentParticipants, interaction.client);
       const user = interaction.targetUser || interaction.user;
 
-      // 募集パネル送信前に通知メッセージを送信
-      await interaction.reply({
-        content: '新しい募集が取付けられました。<@&1416797165769986161>'
+
+      // まず一時的にEphemeralで受付完了を返す（ユーザー体験用）
+      await interaction.reply({ content: '募集を作成中です…', flags: MessageFlags.Ephemeral });
+
+      // 募集パネル送信前にロール通知メッセージを通常メッセージとして送信
+      const notifyMessage = await interaction.channel.send({
+        content: '新しい募集が取付けられました。<@&1416797165769986161>',
+        allowedMentions: {
+          roles: ['1416797165769986161']
+        }
       });
+      console.log('ロールメンション送信完了');
 
       // 少し待ってから募集パネルを送信
       setTimeout(async () => {

@@ -16,7 +16,12 @@ const client = new Client({
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent
-  ]
+  ],
+  allowedMentions: {
+    roles: true,
+    users: true,
+    everyone: false
+  }
 });
 
 // 同一インタラクションの重複処理を防ぐための簡易デデュープ

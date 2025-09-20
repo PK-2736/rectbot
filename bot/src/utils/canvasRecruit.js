@@ -161,8 +161,8 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
   // 参加者円の描画（タイトル以外を下にずらして配置）
   const participantCount = recruitData.participants || 4;
   const circleRadius = 6.5; // 8から6.5に縮小
-  const circleSpacing = 20;
-  const participantAreaY = boxY - 10; // 募集内容枠の上に適切な間隔
+  const circleSpacing = 18; // 20から18に変更し間隔を狭く
+  const participantAreaY = boxY - 16; // 6px上に移動（-10→-16）
   const participantAreaX = boxX + 5;
   
   // アバター描画のヘルパー関数
@@ -299,7 +299,7 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
     if (line) wrappedLines.push(line);
   });
   for (let i = 0; i < Math.min(wrappedLines.length, maxLines); i++) {
-    ctx.fillText(wrappedLines[i], boxX + 4, boxY + 15 + i * lineHeight);
+    ctx.fillText(wrappedLines[i], boxX + 4, boxY + 18 + i * lineHeight); // 15→18で少し下に
   }
   
   // 右上から縦に並べて表示（タイトル以外を下にずらして配置）
