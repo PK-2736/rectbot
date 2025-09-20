@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { DashboardGuild } from '@/types/dashboard';
-import { formatDateTime } from '@/lib/utils';
+import { formatDateTime, formatDuration } from '@/lib/utils';
 import { Users, Clock, Server, Activity } from 'lucide-react';
 
 // 募集データの型定義
@@ -66,6 +66,19 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps) {
 
   const activeRecruitments = recruitments.filter(r => r.status === 'recruiting').length;
   const totalRecruitments = recruitments.length;
+  
+  // 平均経過時間を計算
+  const averageElapsedTime = () => {
+    const activeRecs = recruitments.filter(r => r.status === 'recruiting');
+    if (activeRecs.length === 0) return 0;
+    
+    const totalMinutes = activeRecs.reduce((sum, rec) => {
+      const elapsed = new Date().getTime() - new Date(rec.start_time).getTime();
+      return sum + Math.floor(elapsed / (1000 * 60));
+    }, 0);
+    
+    return Math.floor(totalMinutes / activeRecs.length);
+  };
 
   return (
     <div className="min-h-screen bg-gray-900 p-6">
@@ -117,8 +130,13 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps) {
               <Clock className="w-6 h-6 text-white" />
             </div>
             <div className="ml-4">
-              <p className="text-gray-400 text-sm">総募集数</p>
-              <p className="text-2xl font-bold text-white">{totalRecruitments}</p>
+              <p className="text-gray-400 text-sm">平均経過時間</p>
+              <p className="text-2xl font-bold text-white">
+                {averageElapsedTime() > 60 
+                  ? `${Math.floor(averageElapsedTime() / 60)}時間${averageElapsedTime() % 60}分`
+                  : `${averageElapsedTime()}分`
+                }
+              </p>
             </div>
           </div>
         </div>
@@ -142,6 +160,7 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps) {
                 <th className="px-4 py-3 text-left font-semibold text-gray-200">募集内容</th>
                 <th className="px-4 py-3 text-center font-semibold text-gray-200">人数</th>
                 <th className="px-4 py-3 text-center font-semibold text-gray-200">開始時間</th>
+                <th className="px-4 py-3 text-center font-semibold text-gray-200">経過時間</th>
                 <th className="px-4 py-3 text-center font-semibold text-gray-200">ステータス</th>
                 <th className="px-4 py-3 text-center font-semibold text-gray-200">作成日時</th>
               </tr>
@@ -173,6 +192,22 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps) {
                     <span className="text-white">{recruitment.start_game_time}</span>
                   </td>
                   <td className="px-4 py-3 text-center">
+                    <div className="flex flex-col items-center">
+                      <span className={`text-sm font-medium ${
+                        recruitment.status === 'recruiting' 
+                          ? 'text-blue-400' 
+                          : 'text-gray-400'
+                      }`}>
+                        {formatDuration(recruitment.start_time)}
+                      </span>
+                      {recruitment.status === 'recruiting' && (
+                        <span className="text-xs text-gray-500 mt-1">
+                          残り{Math.max(0, 8 - Math.floor((new Date().getTime() - new Date(recruitment.start_time).getTime()) / (1000 * 60 * 60)))}時間
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-center">
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                       recruitment.status === 'recruiting' 
                         ? 'bg-green-600 text-white' 
@@ -193,7 +228,7 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps) {
               ))}
               {recruitments.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-gray-400">
+                  <td colSpan={8} className="px-4 py-8 text-center text-gray-400">
                     募集データがありません
                   </td>
                 </tr>
