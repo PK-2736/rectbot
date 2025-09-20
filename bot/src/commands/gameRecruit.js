@@ -259,6 +259,9 @@ module.exports = {
         if (!participants.includes(interaction.user.id)) {
           participants.push(interaction.user.id);
           recruitParticipants.set(messageId, participants);
+          console.log('参加者追加:', interaction.user.id, '現在の参加者:', participants);
+        } else {
+          console.log('既に参加済み:', interaction.user.id);
         }
         await updateParticipantList(interaction, participants);
         await interaction.reply({ 
@@ -270,8 +273,10 @@ module.exports = {
       }
       case "cancel": {
         // 参加者から削除
+        const beforeLength = participants.length;
         participants = participants.filter(id => id !== interaction.user.id);
         recruitParticipants.set(messageId, participants);
+        console.log('参加者削除:', interaction.user.id, '削除前:', beforeLength, '削除後:', participants.length);
         await updateParticipantList(interaction, participants);
         await interaction.reply({ 
           content: "❌ 取り消しました。", 
@@ -283,8 +288,56 @@ module.exports = {
       case "close": {
         // === 募集状況をAPI経由で削除 ===
         await deleteRecruitStatus(interaction.guildId);
+        
+        // ボタンを無効化
+        const disabledContainer = new ContainerBuilder()
+        const user = interaction.user;
+        disabledContainer.setAccentColor(0x808080); // グレー色
+
+        // 元のコンテンツを維持しつつボタンを無効化
+        const originalMessage = interaction.message;
+        
+        // 既存のコンテンツを再構築（ボタンなし）
+        disabledContainer.addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(`🎮✨ **募集締め切り済み** ✨🎮`)
+        );
+
+        disabledContainer.addSeparatorComponents(
+          new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+        );
+
+        // 元の画像を維持
+        disabledContainer.addMediaGalleryComponents(
+          new MediaGalleryBuilder().addItems(
+            new MediaGalleryItemBuilder().setURL(originalMessage.attachments.first()?.url || 'attachment://recruit-card.png')
+          )
+        )
+
+        disabledContainer.addSeparatorComponents(
+          new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+        )
+        .addTextDisplayComponents(
+          new TextDisplayBuilder().setContent("🔒 **この募集は締め切られました** 🔒")
+        );
+
+        const footerMessageId = interaction.message.interaction?.id || interaction.message.id;
+        disabledContainer.addSeparatorComponents(
+          new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+        )
+        .addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(`募集ID：\`${footerMessageId.slice(-8)}\` | powered by **rectbot**`)
+        );
+
+        // メッセージを更新（ボタンなし）
+        await interaction.message.edit({
+          components: [disabledContainer],
+          flags: MessageFlags.IsComponentsV2,
+          allowedMentions: { roles: [], users: [] }
+        });
+
+        // 締め切りメッセージを送信
         await interaction.reply({ 
-          content: "🔒 締め切りました。", 
+          content: "🔒 募集を締め切りました。", 
           flags: MessageFlags.Ephemeral,
           allowedMentions: { roles: [], users: [] }
         });
@@ -299,6 +352,7 @@ async function updateParticipantList(interaction, participants) {
   // 実際のメッセージIDを使用
   const updateMessageId = interaction.message.id;
   console.log('updateParticipantList - 検索ID:', updateMessageId);
+  console.log('updateParticipantList - 受け取った参加者:', participants);
   const savedRecruitData = recruitData.get(updateMessageId);
   
   if (savedRecruitData) {
@@ -319,7 +373,9 @@ async function updateParticipantList(interaction, participants) {
   if (participants.length === 0) {
     participantText += "✨（まだ参加者はいません）✨";
   } else {
-    participantText += "🎮 " + participants.map(id => `<@${id}>`).join(" 🎮 ");
+    const mentions = participants.map(id => `<@${id}>`).join(" 🎮 ");
+    participantText += "🎮 " + mentions;
+    console.log('生成されたメンションテキスト:', participantText);
   }  // メッセージのコンポーネントを再構築
   const oldContainer = interaction.message.components[0];
   const newContainer = new ContainerBuilder()
@@ -377,10 +433,12 @@ newContainer.addActionRowComponents(
     );
 
   // メッセージ編集（新しい画像も含める）
+  console.log('メッセージ編集開始 - 参加者リスト:', participants);
   await interaction.message.edit({ 
     files: [newImage],
     components: [newContainer],
     flags: MessageFlags.IsComponentsV2,
     allowedMentions: { roles: [], users: participants }
   });
+  console.log('メッセージ編集完了');
 }
