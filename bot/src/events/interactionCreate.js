@@ -82,6 +82,20 @@ module.exports = {
 
     // ボタンインタラクションの処理
     if (interaction.isButton()) {
+      // ウェルカムメッセージのヘルプボタン処理
+      if (interaction.customId === 'welcome_help') {
+        const helpCommand = client.commands.get('help');
+        if (helpCommand) {
+          try {
+            await helpCommand.execute(interaction);
+          } catch (error) {
+            console.error('ウェルカムヘルプボタン処理中にエラー:', error);
+            await safeRespond({ content: 'ヘルプ表示でエラーが発生しました。', flags: require('discord.js').MessageFlags.Ephemeral }).catch(()=>{});
+          }
+        }
+        return;
+      }
+
       // helpコマンドのボタン処理
       if (interaction.customId === 'help_back') {
         const helpCommand = client.commands.get('help');
