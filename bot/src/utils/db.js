@@ -71,6 +71,29 @@ async function deleteRecruitmentData(messageId) {
 	}
 }
 
+// 管理ページ用の募集データのステータスを更新
+async function updateRecruitmentStatus(messageId, status, endTime = null) {
+	try {
+		const updateData = { 
+			status: status,
+			...(endTime && { end_time: endTime })
+		};
+		
+		const res = await fetch(`${config.BACKEND_API_URL}/api/recruitment/${messageId}`, {
+			method: 'PATCH',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(updateData)
+		});
+		if (!res.ok) {
+			throw new Error(`API error: ${res.status}`);
+		}
+		return await res.json();
+	} catch (error) {
+		console.error('募集ステータスの更新に失敗:', error);
+		throw error;
+	}
+}
+
 // 現在の募集状況一覧を取得
 async function getActiveRecruits() {
 	const res = await fetch(`${config.BACKEND_API_URL}/api/active-recruits`);
@@ -83,5 +106,6 @@ module.exports = {
 	deleteRecruitStatus,
 	getActiveRecruits,
 	saveRecruitmentData,
-	deleteRecruitmentData
+	deleteRecruitmentData,
+	updateRecruitmentStatus
 };

@@ -85,6 +85,61 @@ export default {
         headers: corsHeaders 
       });
     }
+
+    // 募集データのステータス更新API（特定のメッセージID）
+    if (url.pathname.startsWith("/api/recruitment/") && request.method === "PATCH") {
+      const messageId = url.pathname.split("/api/recruitment/")[1];
+      if (!messageId) {
+        return new Response(JSON.stringify({ error: "Message ID required" }), { 
+          status: 400, 
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      }
+      
+      try {
+        const updateData = await request.json();
+        const { status, end_time } = updateData;
+        
+        // すべての募集データから該当するメッセージIDを検索
+        const list = await env.RECRUITMENTS.list();
+        let updated = false;
+        
+        for (const entry of list.keys) {
+          const value = await env.RECRUITMENTS.get(entry.name);
+          if (value) {
+            const data = JSON.parse(value);
+            if (data.message_id === messageId) {
+              // データを更新
+              data.status = status;
+              if (end_time) data.end_time = end_time;
+              
+              // KVストアに保存し直す
+              await env.RECRUITMENTS.put(entry.name, JSON.stringify(data));
+              updated = true;
+              break;
+            }
+          }
+        }
+        
+        if (updated) {
+          return new Response(JSON.stringify({ ok: true }), { 
+            status: 200, 
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
+          });
+        } else {
+          return new Response(JSON.stringify({ error: "Recruitment not found" }), { 
+            status: 404, 
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
+          });
+        }
+      } catch (error) {
+        console.error("Recruitment update error:", error);
+        return new Response(JSON.stringify({ error: "Internal server error" }), { 
+          status: 500, 
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      }
+    }
     
     // 募集状況保存API
     if (url.pathname === '/api/recruit-status' && request.method === 'POST') {

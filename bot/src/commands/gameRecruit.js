@@ -18,7 +18,7 @@ const recruitParticipants = new Map();
 const recruitData = new Map();
 
 // 募集状況API
-const { saveRecruitStatus, deleteRecruitStatus, saveRecruitmentData, deleteRecruitmentData } = require('../utils/db');
+const { saveRecruitStatus, deleteRecruitStatus, saveRecruitmentData, deleteRecruitmentData, updateRecruitmentStatus } = require('../utils/db');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -412,12 +412,12 @@ module.exports = {
         // === 募集状況をAPI経由で削除 ===
         await deleteRecruitStatus(interaction.guildId);
         
-        // === 管理ページからも募集データを削除 ===
+        // === 管理ページの募集データステータスを更新 ===
         try {
-          await deleteRecruitmentData(messageId);
-          console.log('管理ページから募集データを削除しました:', messageId);
+          await updateRecruitmentStatus(messageId, 'ended', new Date().toISOString());
+          console.log('管理ページの募集ステータスを更新しました:', messageId);
         } catch (error) {
-          console.error('管理ページからの募集データ削除に失敗:', error);
+          console.error('管理ページの募集ステータス更新に失敗:', error);
         }
         
         // ボタンを無効化
@@ -619,12 +619,12 @@ async function autoCloseRecruitment(client, guildId, channelId, messageId) {
     // === API経由で削除 ===
     await deleteRecruitStatus(guildId);
     
-    // === 管理ページからも募集データを削除 ===
+    // === 管理ページの募集データステータスを更新 ===
     try {
-      await deleteRecruitmentData(messageId);
-      console.log('管理ページから募集データを削除しました(自動):', messageId);
+      await updateRecruitmentStatus(messageId, 'ended', new Date().toISOString());
+      console.log('管理ページの募集ステータスを更新しました(自動):', messageId);
     } catch (error) {
-      console.error('管理ページからの募集データ削除に失敗(自動):', error);
+      console.error('管理ページの募集ステータス更新に失敗(自動):', error);
     }
 
     // ボタンを無効化したコンテナを作成
