@@ -2,7 +2,7 @@ const {
   SlashCommandBuilder,
   ContainerBuilder, TextDisplayBuilder,
   SeparatorBuilder, SeparatorSpacingSize,
-  ActionRowBuilder, ButtonBuilder, ButtonStyle,
+  ActionRowBuilder, ButtonBuilder, ButtonStyle, ButtonGroupBuilder,
   MessageFlags, MediaGalleryBuilder, MediaGalleryItemBuilder,
   AttachmentBuilder, SectionBuilder, EmbedBuilder
 } = require('discord.js');
@@ -185,7 +185,7 @@ module.exports = {
           new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
         )
         .addTextDisplayComponents(
-          new TextDisplayBuilder().setContent(`募集ID：\`${interaction.id.slice(-8)}\` | powered by **rectbot**`)
+          new TextDisplayBuilder().setContent(`募集ID：準備中... | powered by **rectbot**`)
         );
       
       // 2. Components v2 のパネル送信
@@ -209,6 +209,74 @@ module.exports = {
         console.log('保存された募集データ:', recruitDataObj);
         console.log('現在のrecruitDataキー一覧:', Array.from(recruitData.keys()));
         console.log('募集主を初期参加者として設定:', interaction.user.id);
+
+        // 正しい募集IDでメッセージを更新
+        const correctRecruitId = actualMessageId.slice(-8);
+        console.log('正しい募集IDで更新:', correctRecruitId);
+        
+        // 新しいコンテナを作成（正しい募集IDを含む）
+        const updatedContainer = new ContainerBuilder();
+        updatedContainer.setAccentColor(0xFF69B4);
+
+        // ユーザー名表示
+        updatedContainer.addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(`🎮✨ **${user.username}さんの募集** ✨🎮`)
+        );
+
+        updatedContainer.addSeparatorComponents(
+          new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+        );
+
+        // 新しい画像を生成（正しいメッセージIDを使用）
+        const { generateRecruitCard } = require('../utils/canvasRecruit');
+        const updatedImageBuffer = await generateRecruitCard(recruitDataObj, [interaction.user.id], interaction.client);
+        const updatedImage = new AttachmentBuilder(updatedImageBuffer, { name: 'recruit-card.png' });
+
+        updatedContainer.addMediaGalleryComponents(
+          new MediaGalleryBuilder().addItems(
+            new MediaGalleryItemBuilder()
+              .setImage('attachment://recruit-card.png')
+              .setAltText('募集カード')
+          )
+        );
+
+        // ボタン
+        updatedContainer.addButtonGroupComponents(
+          new ButtonGroupBuilder()
+            .addButtons(
+              new ButtonBuilder()
+                .setCustomId("join")
+                .setLabel("参加")
+                .setStyle(ButtonStyle.Primary),
+              new ButtonBuilder()
+                .setCustomId("leave")
+                .setLabel("退出")
+                .setStyle(ButtonStyle.Secondary),
+              new ButtonBuilder()
+                .setCustomId("close")
+                .setLabel("締め")
+                .setStyle(ButtonStyle.Secondary)
+            )
+        )
+        .addSeparatorComponents(
+          new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+        )
+        .addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(`募集ID：\`${correctRecruitId}\` | powered by **rectbot**`)
+        );
+
+        // メッセージを更新
+        try {
+          await actualMessage.edit({
+            files: [updatedImage],
+            components: [updatedContainer],
+            flags: MessageFlags.IsComponentsV2,
+            allowedMentions: { roles: [], users: [] }
+          });
+          console.log('募集IDを正しい値に更新しました:', correctRecruitId);
+        } catch (editError) {
+          console.error('メッセージ更新エラー:', editError);
+        }
 
         // 8時間後の自動締切タイマーを設定
         setTimeout(async () => {

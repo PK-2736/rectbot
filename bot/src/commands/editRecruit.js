@@ -64,7 +64,7 @@ module.exports = {
         }
         
         await interaction.reply({
-          content: `❌ 募集ID \`${recruitId}\` に対応する募集が見つかりませんでした。\n\n**利用可能な募集一覧:**\n${Object.entries(allRecruitData).map(([msgId, data]) => `• ID: \`${data.recruitId}\` - ${data.title || '無題'}`).join('\n') || '現在アクティブな募集はありません'}`,
+          content: `❌ 募集ID \`${recruitId}\` に対応する募集が見つかりませんでした。\n\n**利用可能な募集一覧:**\n${Object.entries(allRecruitData).length > 0 ? Object.entries(allRecruitData).map(([msgId, data]) => `• ID: \`${data.recruitId}\` - ${data.title || '無題'} (作成者: <@${data.recruiterId}>)`).join('\n') : '現在アクティブな募集はありません'}\n\n**トラブルシューティング:**\n• 募集IDは8桁の数字です（例: \`12345678\`）\n• 募集が既に締め切られていないか確認してください\n• 他のチャンネルの募集ではないか確認してください`,
           flags: MessageFlags.Ephemeral
         });
         return;
@@ -74,6 +74,23 @@ module.exports = {
       const recruitData = gameRecruit.getRecruitData(messageId);
       
       if (!recruitData) {
+        // メッセージは見つかったがメモリにデータがない場合の対処
+        console.log(`[editRecruit] メッセージは存在するがメモリにデータなし: messageId=${messageId}`);
+        
+        // チャンネルから実際のメッセージを取得してデータを復元を試行
+        try {
+          const message = await interaction.channel.messages.fetch(messageId);
+          if (message && message.components && message.components.length > 0) {
+            await interaction.reply({
+              content: `❌ 募集ID \`${recruitId}\` の募集データがメモリから失われています。\n\nこれはボットが再起動されたか、一時的な問題が発生した可能性があります。\n\n**対処方法:**\n• ボット管理者に連絡してください\n• または新しい募集を作成し直してください`,
+              flags: MessageFlags.Ephemeral
+            });
+            return;
+          }
+        } catch (fetchError) {
+          console.error(`[editRecruit] メッセージ取得エラー:`, fetchError);
+        }
+        
         await interaction.reply({
           content: `❌ 募集ID \`${recruitId}\` の募集データが見つかりませんでした。募集が既に締め切られているか、無効なIDです。`,
           flags: MessageFlags.Ephemeral
@@ -178,14 +195,18 @@ async function findMessageIdByRecruitId(interaction, recruitId) {
     
     // まずメモリから直接検索
     const allRecruitData = gameRecruit.getAllRecruitData();
+    console.log(`[findMessageIdByRecruitId] メモリ上の募集データ数: ${Object.keys(allRecruitData).length}`);
+    
     for (const [messageId, data] of Object.entries(allRecruitData)) {
-      if (data.recruitId === recruitId) {
+      console.log(`[findMessageIdByRecruitId] メモリ検索: messageId=${messageId}, data.recruitId=${data.recruitId}, 検索ID=${recruitId}`);
+      if (data.recruitId === recruitId || data.recruitId === String(recruitId)) {
         console.log(`[findMessageIdByRecruitId] メモリから発見: messageId=${messageId}`);
         return messageId;
       }
     }
     
     // メモリになければメッセージを検索
+    console.log(`[findMessageIdByRecruitId] メモリに見つからず、メッセージ検索を開始`);
     const messages = await interaction.channel.messages.fetch({ limit: 100 });
     console.log(`[findMessageIdByRecruitId] 取得したメッセージ数: ${messages.size}`);
     
@@ -209,6 +230,12 @@ async function findMessageIdByRecruitId(interaction, recruitId) {
           // botのメッセージで募集パネルかどうかチェック
           if (message.components && message.components.length > 0) {
             console.log(`[findMessageIdByRecruitId] 一致する募集を発見: messageId=${messageId}`);
+            
+            // メモリにデータがない場合でも、メッセージが存在すればそれを返す
+            const hasMemoryData = gameRecruit.getRecruitData(messageId);
+            if (!hasMemoryData) {
+              console.log(`[findMessageIdByRecruitId] 警告: メッセージは存在するがメモリにデータなし`);
+            }
             return messageId;
           } else {
             console.log(`[findMessageIdByRecruitId] IDは一致するがコンポーネントなし: messageId=${messageId}`);
