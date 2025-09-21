@@ -117,6 +117,7 @@ async function updateRecruitmentData(messageId, recruitData) {
 		console.log(`[updateRecruitmentData] 開始: messageId=${messageId}`);
 		
 		const updateData = {
+			title: recruitData.title || null,
 			content: recruitData.content,
 			participants_count: parseInt(recruitData.participants),
 			start_game_time: recruitData.startTime,

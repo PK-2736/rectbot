@@ -14,10 +14,10 @@ const gameRecruit = require('./gameRecruit');
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('editrecruit')
-    .setDescription('募集内容を編集します')
+    .setDescription('募集内容を編集します（募集主のみ実行可能）')
     .addStringOption(option =>
       option.setName('募集id')
-        .setDescription('編集したい募集のID（募集IDの下8桁）')
+        .setDescription('編集したい募集のID（募集パネル下部に表示される8桁の数字）')
         .setRequired(true)
         .setMaxLength(8)
     ),
@@ -63,8 +63,15 @@ module.exports = {
           }
         }
         
+        // 類似IDを検索
+        const suggestions = findSimilarRecruitIds(recruitId, allRecruitData);
+        let suggestionText = '';
+        if (suggestions.length > 0) {
+          suggestionText = `\n\n**類似するIDが見つかりました:**\n${suggestions.map(s => `• \`${s.id}\` - ${s.title || '無題'} (類似度: ${Math.round(s.similarity * 100)}%)`).join('\n')}\n**これらのIDのいずれかを試してみてください。**`;
+        }
+        
         await interaction.reply({
-          content: `❌ 募集ID \`${recruitId}\` に対応する募集が見つかりませんでした。\n\n**利用可能な募集一覧:**\n${Object.entries(allRecruitData).length > 0 ? Object.entries(allRecruitData).map(([msgId, data]) => `• ID: \`${data.recruitId}\` - ${data.title || '無題'} (作成者: <@${data.recruiterId}>)`).join('\n') : '現在アクティブな募集はありません'}\n\n**トラブルシューティング:**\n• 募集IDは8桁の数字です（例: \`12345678\`）\n• 募集が既に締め切られていないか確認してください\n• 他のチャンネルの募集ではないか確認してください`,
+          content: `❌ 募集ID \`${recruitId}\` に対応する募集が見つかりませんでした。\n\n**利用可能な募集一覧:**\n${Object.entries(allRecruitData).length > 0 ? Object.entries(allRecruitData).map(([msgId, data]) => `• ID: \`${data.recruitId}\` - ${data.title || '無題'} (作成者: <@${data.recruiterId}>)`).join('\n') : '現在アクティブな募集はありません'}${suggestionText}\n\n**トラブルシューティング:**\n• 募集IDは8桁の数字です（例: \`12345678\`）\n• 募集が既に締め切られていないか確認してください\n• 他のチャンネルの募集ではないか確認してください\n• IDの一部だけ覚えている場合は、上記の利用可能なIDと比較してみてください`,
           flags: MessageFlags.Ephemeral
         });
         return;
@@ -148,7 +155,7 @@ module.exports = {
         participants: participantsNum,
         startTime: interaction.fields.getTextInputValue('startTime'),
         vc: interaction.fields.getTextInputValue('vc'),
-        recruiterId: interaction.user.id
+        recruiterId: interaction.user.id // 募集主IDを保持
       };
 
       // 募集データを更新
@@ -341,6 +348,9 @@ async function updateRecruitMessage(interaction, messageId, newRecruitData) {
     let participantText = `🎯✨ 参加リスト ✨🎯\n`;
     if (participants.length > 0) {
       participantText += participants.map(userId => `🎮 <@${userId}>`).join('\n');
+    } else {
+      // 参加者がいない場合は募集主を初期参加者として追加
+      participantText += `🎮 <@${newRecruitData.recruiterId}>`;
     }
 
     const container = new ContainerBuilder();
@@ -375,8 +385,8 @@ async function updateRecruitMessage(interaction, messageId, newRecruitData) {
           .setEmoji('✅')
           .setStyle(ButtonStyle.Success),
         new ButtonBuilder()
-          .setCustomId("cancel")
-          .setLabel("取り消し")
+          .setCustomId("leave")
+          .setLabel("退出")
           .setEmoji('✖️')
           .setStyle(ButtonStyle.Danger),
         new ButtonBuilder()
@@ -396,7 +406,8 @@ async function updateRecruitMessage(interaction, messageId, newRecruitData) {
     await message.edit({
       files: [image],
       components: [container],
-      flags: MessageFlags.IsComponentsV2
+      flags: MessageFlags.IsComponentsV2,
+      allowedMentions: { roles: [], users: [] }
     });
 
     // DB上の募集データも更新
@@ -407,4 +418,51 @@ async function updateRecruitMessage(interaction, messageId, newRecruitData) {
     console.error('updateRecruitMessage error:', error);
     throw error;
   }
+}
+
+// 類似する募集IDを検索する関数
+function findSimilarRecruitIds(searchId, allRecruitData) {
+  const suggestions = [];
+  const searchStr = String(searchId);
+  
+  for (const [messageId, data] of Object.entries(allRecruitData)) {
+    if (!data.recruitId) continue;
+    
+    const similarity = calculateSimilarity(searchStr, data.recruitId);
+    
+    // 30%以上の類似度があるもので、末尾4桁の一致度が高いものを候補とする
+    if (similarity >= 0.3 || data.recruitId.slice(-4) === searchStr.slice(-4)) {
+      suggestions.push({
+        id: data.recruitId,
+        title: data.title,
+        similarity: similarity,
+        messageId: messageId
+      });
+    }
+  }
+  
+  // 類似度順にソート
+  suggestions.sort((a, b) => b.similarity - a.similarity);
+  
+  // 上位3件まで返す
+  return suggestions.slice(0, 3);
+}
+
+// 数字文字列の類似度を計算する関数
+function calculateSimilarity(str1, str2) {
+  const s1 = String(str1);
+  const s2 = String(str2);
+  let matches = 0;
+  const minLen = Math.min(s1.length, s2.length);
+  
+  // 末尾から一致する桁数をカウント
+  for (let i = 0; i < minLen; i++) {
+    if (s1[s1.length - 1 - i] === s2[s2.length - 1 - i]) {
+      matches++;
+    } else {
+      break;
+    }
+  }
+  
+  return matches / Math.max(s1.length, s2.length);
 }
