@@ -202,11 +202,18 @@ module.exports = {
       try {
         const actualMessage = await interaction.fetchReply();
         const actualMessageId = actualMessage.id;
-        recruitData.set(actualMessageId, recruitDataObj);
+        
+        // 募集データに正しい募集IDを追加
+        const finalRecruitData = {
+          ...recruitDataObj,
+          recruitId: actualMessageId.slice(-8) // 正しい募集IDを設定
+        };
+        
+        recruitData.set(actualMessageId, finalRecruitData);
         // 募集主を初期参加者として設定
         recruitParticipants.set(actualMessageId, [interaction.user.id]);
         console.log('実際のメッセージIDで募集データを保存:', actualMessageId);
-        console.log('保存された募集データ:', recruitDataObj);
+        console.log('保存された募集データ:', finalRecruitData);
         console.log('現在のrecruitDataキー一覧:', Array.from(recruitData.keys()));
         console.log('募集主を初期参加者として設定:', interaction.user.id);
 
@@ -229,7 +236,7 @@ module.exports = {
 
         // 新しい画像を生成（正しいメッセージIDを使用）
         const { generateRecruitCard } = require('../utils/canvasRecruit');
-        const updatedImageBuffer = await generateRecruitCard(recruitDataObj, [interaction.user.id], interaction.client);
+        const updatedImageBuffer = await generateRecruitCard(finalRecruitData, [interaction.user.id], interaction.client);
         const updatedImage = new AttachmentBuilder(updatedImageBuffer, { name: 'recruit-card.png' });
 
         updatedContainer.addMediaGalleryComponents(
@@ -315,7 +322,7 @@ module.exports = {
             actualMessageId,
             guild ? guild.name : 'Unknown Guild',
             channel ? channel.name : 'Unknown Channel',
-            recruitDataObj
+            finalRecruitData
           );
           console.log('募集データをAPIに保存しました');
         } catch (error) {
@@ -647,13 +654,13 @@ newContainer.addActionRowComponents(
       )
     );
 
-  // フッター情報を追加
-  const footerMessageId = interaction.message.interaction?.id || interaction.message.id;
+  // フッター情報を追加 (正しいメッセージIDを使用)
+  const correctMessageId = updateMessageId; // updateParticipantList関数の引数で渡された正しいメッセージID
   newContainer.addSeparatorComponents(
       new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
     )
     .addTextDisplayComponents(
-      new TextDisplayBuilder().setContent(`募集ID：\`${footerMessageId.slice(-8)}\` | powered by **rectbot**`)
+      new TextDisplayBuilder().setContent(`募集ID：\`${correctMessageId.slice(-8)}\` | powered by **rectbot**`)
     );
 
   // メッセージ編集（新しい画像も含める）

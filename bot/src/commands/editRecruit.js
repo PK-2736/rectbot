@@ -41,9 +41,10 @@ module.exports = {
         
         let foundMessageId = null;
         for (const [msgId, data] of Object.entries(allRecruitData)) {
-          if (data.recruitId === recruitId) {
+          // データのrecruitIdフィールド、または生成されたrecruitIdとマッチするかチェック
+          if (data.recruitId === recruitId || msgId.slice(-8) === recruitId) {
             foundMessageId = msgId;
-            console.log(`[editRecruit] メモリから発見: messageId=${msgId}, recruitId=${data.recruitId}`);
+            console.log(`[editRecruit] メモリから発見: messageId=${msgId}, recruitId=${data.recruitId || msgId.slice(-8)}`);
             break;
           }
         }
@@ -71,7 +72,7 @@ module.exports = {
         }
         
         await interaction.reply({
-          content: `❌ 募集ID \`${recruitId}\` に対応する募集が見つかりませんでした。\n\n**利用可能な募集一覧:**\n${Object.entries(allRecruitData).length > 0 ? Object.entries(allRecruitData).map(([msgId, data]) => `• ID: \`${data.recruitId}\` - ${data.title || '無題'} (作成者: <@${data.recruiterId}>)`).join('\n') : '現在アクティブな募集はありません'}${suggestionText}\n\n**トラブルシューティング:**\n• 募集IDは8桁の数字です（例: \`12345678\`）\n• 募集が既に締め切られていないか確認してください\n• 他のチャンネルの募集ではないか確認してください\n• IDの一部だけ覚えている場合は、上記の利用可能なIDと比較してみてください`,
+          content: `❌ 募集ID \`${recruitId}\` に対応する募集が見つかりませんでした。\n\n**利用可能な募集一覧:**\n${Object.entries(allRecruitData).length > 0 ? Object.entries(allRecruitData).map(([msgId, data]) => `• ID: \`${data.recruitId || msgId.slice(-8)}\` - ${data.title || '無題'} (作成者: <@${data.recruiterId}>)`).join('\n') : '現在アクティブな募集はありません'}${suggestionText}\n\n**トラブルシューティング:**\n• 募集IDは8桁の数字です（例: \`12345678\`）\n• 募集が既に締め切られていないか確認してください\n• 他のチャンネルの募集ではないか確認してください\n• IDの一部だけ覚えている場合は、上記の利用可能なIDと比較してみてください`,
           flags: MessageFlags.Ephemeral
         });
         return;
@@ -206,7 +207,8 @@ async function findMessageIdByRecruitId(interaction, recruitId) {
     
     for (const [messageId, data] of Object.entries(allRecruitData)) {
       console.log(`[findMessageIdByRecruitId] メモリ検索: messageId=${messageId}, data.recruitId=${data.recruitId}, 検索ID=${recruitId}`);
-      if (data.recruitId === recruitId || data.recruitId === String(recruitId)) {
+      // データに保存されているrecruitIdフィールド、または生成されたrecruitIdとマッチするかチェック
+      if (data.recruitId === recruitId || data.recruitId === String(recruitId) || messageId.slice(-8) === String(recruitId)) {
         console.log(`[findMessageIdByRecruitId] メモリから発見: messageId=${messageId}`);
         return messageId;
       }
@@ -426,14 +428,15 @@ function findSimilarRecruitIds(searchId, allRecruitData) {
   const searchStr = String(searchId);
   
   for (const [messageId, data] of Object.entries(allRecruitData)) {
-    if (!data.recruitId) continue;
+    const dataRecruitId = data.recruitId || messageId.slice(-8);
+    if (!dataRecruitId) continue;
     
-    const similarity = calculateSimilarity(searchStr, data.recruitId);
+    const similarity = calculateSimilarity(searchStr, dataRecruitId);
     
     // 30%以上の類似度があるもので、末尾4桁の一致度が高いものを候補とする
-    if (similarity >= 0.3 || data.recruitId.slice(-4) === searchStr.slice(-4)) {
+    if (similarity >= 0.3 || dataRecruitId.slice(-4) === searchStr.slice(-4)) {
       suggestions.push({
-        id: data.recruitId,
+        id: dataRecruitId,
         title: data.title,
         similarity: similarity,
         messageId: messageId
