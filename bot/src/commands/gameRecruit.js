@@ -743,13 +743,20 @@ module.exports.getParticipants = function(messageId) {
 
 // デバッグ用: すべての募集データを取得
 module.exports.getAllRecruitData = function() {
+  console.log(`[getAllRecruitData] 呼び出し開始 - 保存データ数: ${recruitData.size}`);
   const allData = {};
   for (const [messageId, data] of recruitData.entries()) {
+    const generatedRecruitId = messageId.slice(-8);
+    const finalRecruitId = data.recruitId || generatedRecruitId;
+    
     allData[messageId] = {
       ...data,
-      recruitId: messageId.slice(-8),
+      recruitId: finalRecruitId,
       participants: recruitParticipants.get(messageId) || []
     };
+    
+    console.log(`[getAllRecruitData] データ処理: messageId=${messageId}, data.recruitId="${data.recruitId}", 生成ID="${generatedRecruitId}", 最終ID="${finalRecruitId}"`);
   }
+  console.log(`[getAllRecruitData] 返却データ数: ${Object.keys(allData).length}`);
   return allData;
 };
