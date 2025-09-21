@@ -2,7 +2,7 @@ const {
   SlashCommandBuilder,
   ContainerBuilder, TextDisplayBuilder,
   SeparatorBuilder, SeparatorSpacingSize,
-  ActionRowBuilder, ButtonBuilder, ButtonStyle, ButtonGroupBuilder,
+  ActionRowBuilder, ButtonBuilder, ButtonStyle,
   MessageFlags, MediaGalleryBuilder, MediaGalleryItemBuilder,
   AttachmentBuilder, SectionBuilder, EmbedBuilder
 } = require('discord.js');
@@ -241,22 +241,21 @@ module.exports = {
         );
 
         // ボタン
-        updatedContainer.addButtonGroupComponents(
-          new ButtonGroupBuilder()
-            .addButtons(
-              new ButtonBuilder()
-                .setCustomId("join")
-                .setLabel("参加")
-                .setStyle(ButtonStyle.Primary),
-              new ButtonBuilder()
-                .setCustomId("leave")
-                .setLabel("退出")
-                .setStyle(ButtonStyle.Secondary),
-              new ButtonBuilder()
-                .setCustomId("close")
-                .setLabel("締め")
-                .setStyle(ButtonStyle.Secondary)
-            )
+        updatedContainer.addActionRowComponents(
+          new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+              .setCustomId("join")
+              .setLabel("参加")
+              .setStyle(ButtonStyle.Primary),
+            new ButtonBuilder()
+              .setCustomId("leave")
+              .setLabel("退出")
+              .setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder()
+              .setCustomId("close")
+              .setLabel("締め")
+              .setStyle(ButtonStyle.Secondary)
+          )
         )
         .addSeparatorComponents(
           new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
