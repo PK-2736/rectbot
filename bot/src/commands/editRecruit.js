@@ -159,29 +159,85 @@ module.exports = {
         recruiterId: interaction.user.id // 募集主IDを保持
       };
 
+      // 元の募集データを取得（変更前の内容と比較するため）
+      const originalData = gameRecruit.getRecruitData(messageId);
+
       // 募集データを更新
       gameRecruit.updateRecruitData(messageId, newRecruitData);
 
       // 募集メッセージを更新
       await updateRecruitMessage(interaction, messageId, newRecruitData);
 
+      // 変更内容を詳細に表示
+      const changes = [];
+      const oldData = originalData || {};
+      
+      if (oldData.title !== newRecruitData.title) {
+        changes.push(`**タイトル**: \`${oldData.title || '(なし)'}\` → \`${newRecruitData.title}\``);
+      }
+      if (oldData.content !== newRecruitData.content) {
+        changes.push(`**募集内容**: \`${(oldData.content || '').substring(0, 30)}${oldData.content && oldData.content.length > 30 ? '...' : ''}\` → \`${newRecruitData.content.substring(0, 30)}${newRecruitData.content.length > 30 ? '...' : ''}\``);
+      }
+      if (oldData.participants !== newRecruitData.participants) {
+        changes.push(`**参加人数**: \`${oldData.participants || 0}人\` → \`${newRecruitData.participants}人\``);
+      }
+      if (oldData.startTime !== newRecruitData.startTime) {
+        changes.push(`**開始時間**: \`${oldData.startTime || '(なし)'}\` → \`${newRecruitData.startTime}\``);
+      }
+      if (oldData.vc !== newRecruitData.vc) {
+        changes.push(`**VC**: \`${oldData.vc || '(なし)'}\` → \`${newRecruitData.vc}\``);
+      }
+
       // 成功メッセージ
       const successEmbed = new EmbedBuilder()
         .setColor(0x00FF00)
         .setTitle('✅ 募集編集完了')
-        .setDescription('募集内容を正常に更新しました。')
+        .setDescription(`募集ID \`${messageId.slice(-8)}\` の内容を正常に更新しました。`)
         .addFields(
-          { name: 'タイトル', value: newRecruitData.title, inline: false },
-          { name: '参加人数', value: `${newRecruitData.participants}人`, inline: true },
-          { name: '開始時間', value: newRecruitData.startTime, inline: true },
-          { name: 'VC', value: newRecruitData.vc, inline: true }
+          { name: '📝 変更された項目', value: changes.length > 0 ? changes.join('\n') : '変更はありませんでした', inline: false },
+          { name: '🔗 募集リンク', value: `[編集された募集を確認する](https://discord.com/channels/${interaction.guildId}/${interaction.channelId}/${messageId})`, inline: false }
         )
-        .setTimestamp();
+        .setTimestamp()
+        .setFooter({ text: 'rectbot 編集機能', iconURL: interaction.client.user.displayAvatarURL() });
 
       await interaction.reply({
         embeds: [successEmbed],
         flags: MessageFlags.Ephemeral
       });
+
+      // 募集主に編集完了を通知（チャンネルに公開メッセージとして送信）
+      const notificationEmbed = new EmbedBuilder()
+        .setColor(0x3498db)
+        .setTitle('📝 募集が変更されました')
+        .setDescription(`<@${newRecruitData.recruiterId}> が募集内容を更新しました。`)
+        .addFields(
+          { name: '📋 募集タイトル', value: newRecruitData.title, inline: false },
+          { name: '🔢 募集ID', value: `\`${messageId.slice(-8)}\``, inline: true },
+          { name: '👥 参加人数', value: `${newRecruitData.participants}人`, inline: true },
+          { name: '⏰ 開始時間', value: newRecruitData.startTime, inline: true }
+        )
+        .setTimestamp();
+
+      // 変更内容が1つ以上ある場合のみ、変更詳細を追加
+      if (changes.length > 0) {
+        notificationEmbed.addFields(
+          { name: '📝 変更内容', value: changes.slice(0, 3).join('\n') + (changes.length > 3 ? '\n...他' : ''), inline: false }
+        );
+      }
+
+      const notificationMessage = await interaction.channel.send({
+        embeds: [notificationEmbed],
+        allowedMentions: { users: [newRecruitData.recruiterId] }
+      });
+
+      // 30秒後に通知メッセージを削除
+      setTimeout(async () => {
+        try {
+          await notificationMessage.delete();
+        } catch (error) {
+          console.log('編集通知メッセージの削除に失敗:', error.message);
+        }
+      }, 30 * 1000); // 30秒
 
     } catch (error) {
       console.error('editRecruit handleModalSubmit error:', error);

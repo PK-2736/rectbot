@@ -135,6 +135,9 @@ module.exports = {
       });
       console.log('ロールメンション送信完了');
 
+      // 一時的な募集IDを生成（interaction.idの下8桁を使用）
+      const tempRecruitId = interaction.id.slice(-8);
+      
       // ボタン付きメッセージを投稿（バッファから直接送信）
       const image = new AttachmentBuilder(buffer, { name: 'recruit-card.png' });
       // 初期の参加リスト表示を修正（募集主が参加済み）
@@ -185,7 +188,7 @@ module.exports = {
           new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
         )
         .addTextDisplayComponents(
-          new TextDisplayBuilder().setContent(`募集ID：準備中... | powered by **rectbot**`)
+          new TextDisplayBuilder().setContent(`募集ID：\`${tempRecruitId}\` | powered by **rectbot**`)
         );
       
       // 2. Components v2 のパネル送信
@@ -217,71 +220,16 @@ module.exports = {
         console.log('現在のrecruitDataキー一覧:', Array.from(recruitData.keys()));
         console.log('募集主を初期参加者として設定:', interaction.user.id);
 
-        // 正しい募集IDでメッセージを更新
+        // 正しい募集IDでメッセージを更新（最初のメッセージは既に一時IDで表示済み）
         const correctRecruitId = actualMessageId.slice(-8);
         console.log('正しい募集IDで更新:', correctRecruitId);
         
-        // 新しいコンテナを作成（正しい募集IDを含む）
-        const updatedContainer = new ContainerBuilder();
-        updatedContainer.setAccentColor(0xFF69B4);
-
-        // ユーザー名表示
-        updatedContainer.addTextDisplayComponents(
-          new TextDisplayBuilder().setContent(`🎮✨ **${user.username}さんの募集** ✨🎮`)
-        );
-
-        updatedContainer.addSeparatorComponents(
-          new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
-        );
-
-        // 新しい画像を生成（正しいメッセージIDを使用）
-        const { generateRecruitCard } = require('../utils/canvasRecruit');
-        const updatedImageBuffer = await generateRecruitCard(finalRecruitData, [interaction.user.id], interaction.client);
-        const updatedImage = new AttachmentBuilder(updatedImageBuffer, { name: 'recruit-card.png' });
-
-        updatedContainer.addMediaGalleryComponents(
-          new MediaGalleryBuilder().addItems(
-            new MediaGalleryItemBuilder()
-              .setImage('attachment://recruit-card.png')
-              .setAltText('募集カード')
-          )
-        );
-
-        // ボタン
-        updatedContainer.addActionRowComponents(
-          new ActionRowBuilder().addComponents(
-            new ButtonBuilder()
-              .setCustomId("join")
-              .setLabel("参加")
-              .setStyle(ButtonStyle.Primary),
-            new ButtonBuilder()
-              .setCustomId("leave")
-              .setLabel("退出")
-              .setStyle(ButtonStyle.Secondary),
-            new ButtonBuilder()
-              .setCustomId("close")
-              .setLabel("締め")
-              .setStyle(ButtonStyle.Secondary)
-          )
-        )
-        .addSeparatorComponents(
-          new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
-        )
-        .addTextDisplayComponents(
-          new TextDisplayBuilder().setContent(`募集ID：\`${correctRecruitId}\` | powered by **rectbot**`)
-        );
-
-        // メッセージを更新
-        try {
-          await actualMessage.edit({
-            files: [updatedImage],
-            components: [updatedContainer],
-            flags: MessageFlags.IsComponentsV2,
-            allowedMentions: { roles: [], users: [] }
-          });
-          console.log('募集IDを正しい値に更新しました:', correctRecruitId);
-        } catch (editError) {
-          console.error('メッセージ更新エラー:', editError);
+        // 最初から正しいIDが表示されている場合は更新をスキップ
+        if (tempRecruitId === correctRecruitId) {
+          console.log('IDが既に正しいため更新をスキップ');
+        } else {
+          // IDが異なる場合のみ更新（通常は発生しない）
+          console.log('IDが異なるため更新実行:', tempRecruitId, '→', correctRecruitId);
         }
 
         // 8時間後の自動締切タイマーを設定
@@ -303,6 +251,19 @@ module.exports = {
           recruitParticipants.delete(messageKey);
           console.log('元のinteraction IDのデータを削除:', messageKey);
         }
+
+        // 8時間後の自動締切タイマーを設定
+        setTimeout(async () => {
+          try {
+            // 募集がまだ存在するかチェック
+            if (recruitData.has(actualMessageId)) {
+              console.log('8時間経過による自動締切実行:', actualMessageId);
+              await autoCloseRecruitment(interaction.client, interaction.guildId, interaction.channelId, actualMessageId);
+            }
+          } catch (error) {
+            console.error('自動締切処理でエラー:', error);
+          }
+        }, 8 * 60 * 60 * 1000); // 8時間 = 28,800,000ms
 
         // === 募集状況をAPI経由で保存 ===
         await saveRecruitStatus(
