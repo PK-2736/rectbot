@@ -207,29 +207,109 @@ module.exports = {
         const actualMessageId = actualMessage.id;
         
         // 募集データに正しい募集IDを追加
+        const actualRecruitId = actualMessageId.slice(-8);
         const finalRecruitData = {
           ...recruitDataObj,
-          recruitId: actualMessageId.slice(-8) // 正しい募集IDを設定
+          recruitId: actualRecruitId // 正しい募集IDを設定
         };
         
+        // 古いデータがあれば削除（interaction.idベースのデータ）
+        if (recruitData.has(messageKey)) {
+          recruitData.delete(messageKey);
+          recruitParticipants.delete(messageKey);
+          console.log('元のinteraction IDのデータを削除:', messageKey);
+        }
+        
+        // 正しいメッセージIDでデータを保存
         recruitData.set(actualMessageId, finalRecruitData);
-        // 募集主を初期参加者として設定
         recruitParticipants.set(actualMessageId, [interaction.user.id]);
+        
         console.log('実際のメッセージIDで募集データを保存:', actualMessageId);
+        console.log('tempRecruitId:', tempRecruitId, 'vs actualRecruitId:', actualRecruitId);
         console.log('保存された募集データ:', finalRecruitData);
         console.log('現在のrecruitDataキー一覧:', Array.from(recruitData.keys()));
         console.log('募集主を初期参加者として設定:', interaction.user.id);
 
         // 正しい募集IDでメッセージを更新（最初のメッセージは既に一時IDで表示済み）
-        const correctRecruitId = actualMessageId.slice(-8);
-        console.log('正しい募集IDで更新:', correctRecruitId);
+        console.log('正しい募集IDで更新:', actualRecruitId);
         
-        // 最初から正しいIDが表示されている場合は更新をスキップ
-        if (tempRecruitId === correctRecruitId) {
-          console.log('IDが既に正しいため更新をスキップ');
+        // IDが異なる場合のみメッセージを更新
+        if (tempRecruitId !== actualRecruitId) {
+          console.log('IDが異なるため更新実行:', tempRecruitId, '→', actualRecruitId);
+          
+          // 新しいコンテナを作成（正しい募集IDを含む）
+          const updatedContainer = new ContainerBuilder();
+          updatedContainer.setAccentColor(0xFF69B4);
+
+          // ユーザー名表示
+          updatedContainer.addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(`🎮✨ **${user.username}さんの募集** ✨🎮`)
+          );
+
+          updatedContainer.addSeparatorComponents(
+            new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+          );
+
+          // 新しい画像を生成（正しいメッセージIDを使用）
+          const { generateRecruitCard } = require('../utils/canvasRecruit');
+          const updatedImageBuffer = await generateRecruitCard(finalRecruitData, [interaction.user.id], interaction.client);
+          const updatedImage = new AttachmentBuilder(updatedImageBuffer, { name: 'recruit-card.png' });
+
+          updatedContainer.addMediaGalleryComponents(
+            new MediaGalleryBuilder().addItems(
+              new MediaGalleryItemBuilder()
+                .setURL('attachment://recruit-card.png')
+                .setAltText('募集カード')
+            )
+          );
+
+          updatedContainer.addSeparatorComponents(
+            new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+          )
+          .addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(participantText)
+          );
+
+          // ボタン
+          updatedContainer.addActionRowComponents(
+            new ActionRowBuilder().addComponents(
+              new ButtonBuilder()
+                .setCustomId("join")
+                .setLabel("参加")
+                .setEmoji('✅')
+                .setStyle(ButtonStyle.Success),
+              new ButtonBuilder()
+                .setCustomId("cancel")
+                .setLabel("取り消し")
+                .setEmoji('✖️')
+                .setStyle(ButtonStyle.Danger),
+              new ButtonBuilder()
+                .setCustomId("close")
+                .setLabel("締め")
+                .setStyle(ButtonStyle.Secondary)
+            )
+          )
+          .addSeparatorComponents(
+            new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+          )
+          .addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(`募集ID：\`${actualRecruitId}\` | powered by **rectbot**`)
+          );
+
+          // メッセージを更新
+          try {
+            await actualMessage.edit({
+              files: [updatedImage],
+              components: [updatedContainer],
+              flags: MessageFlags.IsComponentsV2,
+              allowedMentions: { roles: [], users: [] }
+            });
+            console.log('募集IDを正しい値に更新しました:', actualRecruitId);
+          } catch (editError) {
+            console.error('メッセージ更新エラー:', editError);
+          }
         } else {
-          // IDが異なる場合のみ更新（通常は発生しない）
-          console.log('IDが異なるため更新実行:', tempRecruitId, '→', correctRecruitId);
+          console.log('IDが一致しているため更新をスキップ:', tempRecruitId);
         }
 
         // 8時間後の自動締切タイマーを設定
@@ -245,13 +325,6 @@ module.exports = {
           }
         }, 8 * 60 * 60 * 1000); // 8時間 = 28,800,000ms
         
-        // 元のinteraction IDのデータがあれば削除
-        if (recruitData.has(messageKey)) {
-          recruitData.delete(messageKey);
-          recruitParticipants.delete(messageKey);
-          console.log('元のinteraction IDのデータを削除:', messageKey);
-        }
-
         // 8時間後の自動締切タイマーを設定
         setTimeout(async () => {
           try {
@@ -615,13 +688,18 @@ newContainer.addActionRowComponents(
       )
     );
 
-  // フッター情報を追加 (正しいメッセージIDを使用)
+  // フッター情報を追加 (メモリに保存された正しい募集IDを使用)
   const correctMessageId = updateMessageId; // updateParticipantList関数の引数で渡された正しいメッセージID
+  const footerRecruitData = recruitData.get(correctMessageId);
+  const displayRecruitId = footerRecruitData?.recruitId || correctMessageId.slice(-8);
+  
+  console.log(`[updateParticipantList] フッター生成: messageId=${correctMessageId}, savedData.recruitId=${footerRecruitData?.recruitId}, 表示ID=${displayRecruitId}`);
+  
   newContainer.addSeparatorComponents(
       new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
     )
     .addTextDisplayComponents(
-      new TextDisplayBuilder().setContent(`募集ID：\`${correctMessageId.slice(-8)}\` | powered by **rectbot**`)
+      new TextDisplayBuilder().setContent(`募集ID：\`${displayRecruitId}\` | powered by **rectbot**`)
     );
 
   // メッセージ編集（新しい画像も含める）
