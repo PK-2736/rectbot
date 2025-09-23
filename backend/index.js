@@ -533,7 +533,20 @@ export default {
             throw new Error(`Supabase save failed: ${supaRes.status} - ${errorText}`);
           }
           
-          const savedResult = await supaRes.json();
+          // Supabase PATCH操作は空のレスポンスを返すことがあるため、レスポンスボディの解析をスキップ
+          let savedResult = null;
+          try {
+            const responseText = await supaRes.text();
+            if (responseText.trim()) {
+              savedResult = JSON.parse(responseText);
+            } else {
+              savedResult = { message: "Update successful (empty response)" };
+            }
+          } catch (parseError) {
+            console.log(`[finalize] Response parsing skipped (expected for PATCH): ${parseError.message}`);
+            savedResult = { message: "Update successful (non-JSON response)" };
+          }
+          
           console.log(`[finalize] Guild settings saved to Supabase for guild ${guildId}:`, savedResult);
           supabaseSuccess = true;
           
