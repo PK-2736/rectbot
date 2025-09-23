@@ -1,12 +1,6 @@
+
 require("dotenv").config();
-const TOKEN = process.env.DISCORD_  // ボットステータスを更新する関数
-  const updateBotStatus = () => {
-    const guildCount = client.guilds.cache.size;
-    client.user.setActivity(`/help ${guildCount}servers`, {
-      type: ActivityType.Custom
-    });
-    console.log(`[status] Updated bot status: /help ${guildCount}servers`);
-  };N;
+const TOKEN = process.env.DISCORD_BOT_TOKEN;
 
 const { Client, GatewayIntentBits, ActivityType } = require("discord.js");
 const fs = require('fs');
