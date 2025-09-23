@@ -64,10 +64,10 @@ client.once('clientReady', () => {
   // ボットステータスを更新する関数
   const updateBotStatus = () => {
     const guildCount = client.guilds.cache.size;
-    client.user.setActivity(`/ヘルプコマンド ${guildCount}servers`, {
+    client.user.setActivity(`/help ${guildCount}servers`, {
       type: ActivityType.Custom
     });
-    console.log(`[status] Updated bot status: /ヘルプコマンド ${guildCount}servers`);
+    console.log(`[status] Updated bot status: /help ${guildCount}servers`);
   };
   
   // ギルド数をバックエンドに送信する関数（一時的にコメントアウト）
@@ -129,10 +129,10 @@ client.on('guildCreate', async (guild) => {
   
   // ステータスを更新
   const guildCount = client.guilds.cache.size;
-  client.user.setActivity(`/ヘルプコマンド ${guildCount}servers`, {
+  client.user.setActivity(`/help ${guildCount}servers`, {
     type: ActivityType.Custom
   });
-  console.log(`[status] Updated bot status after guild join: /ヘルプコマンド ${guildCount}servers`);
+  console.log(`[status] Updated bot status after guild join: /help ${guildCount}servers`);
   
   // バックエンド連携は一時的にコメントアウト
   /*
@@ -169,10 +169,10 @@ client.on('guildDelete', async (guild) => {
   
   // ステータスを更新
   const guildCount = client.guilds.cache.size;
-  client.user.setActivity(`/ヘルプコマンド ${guildCount}servers`, {
+  client.user.setActivity(`/help ${guildCount}servers`, {
     type: ActivityType.Custom
   });
-  console.log(`[status] Updated bot status after guild leave: /ヘルプコマンド ${guildCount}servers`);
+  console.log(`[status] Updated bot status after guild leave: /help ${guildCount}servers`);
   
   // バックエンド連携は一時的にコメントアウト
   /*
