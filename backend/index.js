@@ -620,7 +620,28 @@ export default {
           } else {
             // 通常の設定更新（セッション中の一時保存）
             const existingSession = await getFromKV(`guild_session:${guildId}`) || {};
-            const updatedSession = { ...existingSession, ...settings, updatedAt: new Date().toISOString() };
+            
+            // 新旧プロパティ名の同期処理
+            const syncedSettings = { ...settings };
+            
+            // 各設定項目について、新旧両方のプロパティを同期
+            if (settings.recruit_channel !== undefined) {
+              syncedSettings.recruitmentChannelId = settings.recruit_channel;
+            }
+            if (settings.notification_role !== undefined) {
+              syncedSettings.recruitmentNotificationRoleId = settings.notification_role;
+            }
+            if (settings.defaultTitle !== undefined) {
+              syncedSettings.defaultRecruitTitle = settings.defaultTitle;
+            }
+            if (settings.defaultColor !== undefined) {
+              syncedSettings.defaultRecruitColor = settings.defaultColor;
+            }
+            if (settings.update_channel !== undefined) {
+              syncedSettings.updateNotificationChannelId = settings.update_channel;
+            }
+            
+            const updatedSession = { ...existingSession, ...syncedSettings, updatedAt: new Date().toISOString() };
             
             // セッション中はKVに一時保存
             await saveToKV(`guild_session:${guildId}`, updatedSession);

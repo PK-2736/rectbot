@@ -415,7 +415,7 @@ module.exports = {
       const guildId = interaction.guildId;
       
       // すべての設定をリセット
-      await saveGuildSettings(guildId, {
+      const result = await saveGuildSettings(guildId, {
         recruit_channel: null,
         notification_role: null,
         defaultTitle: null,
@@ -424,21 +424,35 @@ module.exports = {
       });
       
       console.log(`[guildSettings] すべての設定をリセットしました - guildId: ${guildId}`);
+      console.log(`[guildSettings] リセット結果:`, result);
       
       await interaction.reply({
         content: '✅ すべての設定をリセットしました！',
         flags: MessageFlags.Ephemeral
       });
 
-      // 設定画面を更新
+      // 設定画面を即座に更新（リセット結果の最新データを使用）
       setTimeout(async () => {
         try {
-          const updatedSettings = await getGuildSettings(guildId);
-          await this.showSettingsUI(interaction, updatedSettings);
+          // リセット後の設定を確実に反映
+          const resetSettings = result.settings || {
+            recruit_channel: null,
+            notification_role: null,
+            defaultTitle: null,
+            defaultColor: null,
+            update_channel: null,
+            recruitmentChannelId: null,
+            recruitmentNotificationRoleId: null,
+            defaultRecruitTitle: '参加者募集',
+            defaultRecruitColor: '#00FFFF',
+            updateNotificationChannelId: null
+          };
+          console.log(`[guildSettings] リセット後のUI更新用設定:`, resetSettings);
+          await this.showSettingsUI(interaction, resetSettings);
         } catch (error) {
           console.error('Settings UI update error:', error);
         }
-      }, 2000);
+      }, 1000);
 
     } catch (error) {
       console.error('Reset settings error:', error);
