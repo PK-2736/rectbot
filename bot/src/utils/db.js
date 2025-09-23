@@ -115,6 +115,7 @@ async function updateRecruitmentStatus(messageId, status, endTime = null) {
 async function updateRecruitmentData(messageId, recruitData) {
 	try {
 		console.log(`[updateRecruitmentData] 開始: messageId=${messageId}`);
+		console.log(`[updateRecruitmentData] リクエストデータ:`, recruitData);
 		
 		const updateData = {
 			title: recruitData.title || null,
@@ -141,6 +142,13 @@ async function updateRecruitmentData(messageId, recruitData) {
 		if (!res.ok) {
 			const errorText = await res.text();
 			console.error(`[updateRecruitmentData] APIエラー詳細: ${errorText}`);
+			
+			// 404エラーの場合は特別な処理
+			if (res.status === 404) {
+				console.warn(`[updateRecruitmentData] 募集データがデータベースに見つかりません。メッセージID: ${messageId}`);
+				console.warn(`[updateRecruitmentData] これは正常な場合があります（メモリ上の募集など）`);
+			}
+			
 			throw new Error(`API error: ${res.status} - ${errorText}`);
 		}
 		

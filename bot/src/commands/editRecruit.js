@@ -173,7 +173,28 @@ module.exports = {
       gameRecruit.updateRecruitData(messageId, newRecruitData);
 
       // 募集メッセージを更新
-      await updateRecruitMessage(interaction, messageId, newRecruitData);
+      let dbUpdateSuccess = true;
+      let dbErrorMessage = '';
+      
+      try {
+        await updateRecruitMessage(interaction, messageId, newRecruitData);
+      } catch (updateError) {
+        console.error('メッセージ更新エラー:', updateError);
+        
+        // データベース更新エラーかどうかをチェック
+        if (updateError.message && (
+          updateError.message.includes('Recruitment not found') || 
+          updateError.message.includes('API error: 404') ||
+          updateError.originalError
+        )) {
+          dbUpdateSuccess = false;
+          dbErrorMessage = 'データベース同期に失敗しましたが、メッセージは正常に更新されました。';
+          console.warn('データベース更新失敗、メッセージ更新は成功として処理継続');
+        } else {
+          // 他のエラーは再スロー
+          throw updateError;
+        }
+      }
 
       // 変更内容を詳細に表示
       const changes = [];
@@ -197,15 +218,23 @@ module.exports = {
 
       // 成功メッセージ
       const successEmbed = new EmbedBuilder()
-        .setColor(0x00FF00)
-        .setTitle('✅ 募集編集完了')
-        .setDescription(`募集ID \`${messageId.slice(-8)}\` の内容を正常に更新しました。`)
+        .setColor(dbUpdateSuccess ? 0x00FF00 : 0xFFA500) // 完全成功は緑、部分成功はオレンジ
+        .setTitle(dbUpdateSuccess ? '✅ 募集編集完了' : '⚠️ 募集編集完了（一部警告）')
+        .setDescription(`募集ID \`${messageId.slice(-8)}\` の内容を更新しました。${!dbUpdateSuccess ? '\n' + dbErrorMessage : ''}`)
         .addFields(
           { name: '📝 変更された項目', value: changes.length > 0 ? changes.join('\n') : '変更はありませんでした', inline: false },
           { name: '🔗 募集リンク', value: `[編集された募集を確認する](https://discord.com/channels/${interaction.guildId}/${interaction.channelId}/${messageId})`, inline: false }
         )
         .setTimestamp()
         .setFooter({ text: 'rectbot 編集機能', iconURL: interaction.client.user.displayAvatarURL() });
+      
+      if (!dbUpdateSuccess) {
+        successEmbed.addFields({
+          name: '📋 注意事項',
+          value: '募集の編集は正常に完了しましたが、管理システムとの同期で問題が発生しました。募集機能は正常に動作します。',
+          inline: false
+        });
+      }
 
       await interaction.reply({
         embeds: [successEmbed],
@@ -505,12 +534,24 @@ async function updateRecruitMessage(interaction, messageId, newRecruitData) {
       allowedMentions: { roles: [], users: [] }
     });
 
-    // DB上の募集データも更新
-    const { updateRecruitmentData } = require('../utils/db');
-    await updateRecruitmentData(messageId, newRecruitData);
+    // DB上の募集データも更新（エラーハンドリングを追加）
+    try {
+      const { updateRecruitmentData } = require('../utils/db');
+      await updateRecruitmentData(messageId, newRecruitData);
+      console.log('データベースの募集データを更新しました');
+    } catch (dbError) {
+      console.error('データベース更新エラー（メッセージ更新は成功）:', dbError);
+      // データベース更新が失敗してもメッセージ更新は成功しているので、エラーを投げない
+    }
 
   } catch (error) {
     console.error('updateRecruitMessage error:', error);
+    // データベース更新エラーの場合は、エラーメッセージに詳細を追加
+    if (error.message && error.message.includes('Recruitment not found')) {
+      const enhancedError = new Error('メッセージ更新は成功しましたが、データベース同期でエラーが発生しました: ' + error.message);
+      enhancedError.originalError = error;
+      throw enhancedError;
+    }
     throw error;
   }
 }
