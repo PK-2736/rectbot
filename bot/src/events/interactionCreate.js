@@ -46,40 +46,7 @@ module.exports = {
       return;
     }
 
-    // セレクトメニューの処理（最適化版対応）
-    if (interaction.isStringSelectMenu() || interaction.isChannelSelectMenu() || interaction.isRoleSelectMenu()) {
-      try {
-        // 最適化されたguildSettingsの処理
-        if (interaction.customId.startsWith('channel_select_') || interaction.customId.startsWith('role_select_')) {
-          const guildSettingsOpt = client.commands.get('guildsettings-opt');
-          if (guildSettingsOpt) {
-            if (interaction.customId.startsWith('channel_select_')) {
-              await guildSettingsOpt.handleChannelSelect(interaction);
-            } else if (interaction.customId.startsWith('role_select_')) {
-              await guildSettingsOpt.handleRoleSelect(interaction);
-            }
-            return;
-          }
-        }
-        
-        // 元々のguildSettingsのメニュー処理
-        if (interaction.customId.includes('_select_')) {
-          const guildSettings = client.commands.get('guildsettings');
-          if (guildSettings && guildSettings.handleSelectMenu) {
-            await guildSettings.handleSelectMenu(interaction);
-          }
-          return;
-        }
-      } catch (error) {
-        console.error('Select menu handling error:', error);
-        await safeRespond({ 
-          content: '選択処理中にエラーが発生しました。', 
-          flags: require('discord.js').MessageFlags.Ephemeral 
-        }).catch(console.error);
-      }
-    }
-
-    // セレクトメニューの処理（元のコード）
+    // セレクトメニューの処理
     if (interaction.isStringSelectMenu()) {
       // ギルド設定のセレクトメニュー
       if (interaction.customId.startsWith('channel_select_') || interaction.customId.startsWith('role_select_')) {
@@ -134,20 +101,8 @@ module.exports = {
 
     // モーダル送信(type=5)の処理
     if ((interaction.isModalSubmit && interaction.isModalSubmit()) || interaction.type === 5) {
-      // 最適化されたギルド設定のモーダル処理
+      // ギルド設定のモーダル処理
       if (interaction.customId === 'default_title_modal' || interaction.customId === 'default_color_modal') {
-        const guildSettingsOpt = client.commands.get('guildsettings-opt');
-        if (guildSettingsOpt && typeof guildSettingsOpt.handleModalSubmit === 'function') {
-          try {
-            await guildSettingsOpt.handleModalSubmit(interaction);
-            return; // 最適化版で処理済み
-          } catch (error) {
-            console.error('最適化ギルド設定モーダル処理中にエラー:', error);
-            // フォールバックで元の処理を試行
-          }
-        }
-        
-        // フォールバック：元のギルド設定処理
         const guildSettings = client.commands.get('guildsettings');
         if (guildSettings && typeof guildSettings.handleModalSubmit === 'function') {
           try {
@@ -192,23 +147,7 @@ module.exports = {
 
     // ボタンインタラクションの処理
     if (interaction.isButton()) {
-      // 最適化されたギルド設定のボタン処理
-      if (interaction.customId.startsWith('set_') || interaction.customId === 'reset_all_settings' || 
-          interaction.customId === 'test_settings' || interaction.customId === 'close_settings') {
-        
-        const guildSettingsOpt = client.commands.get('guildsettings-opt');
-        if (guildSettingsOpt && typeof guildSettingsOpt.handleButtonInteraction === 'function') {
-          try {
-            await guildSettingsOpt.handleButtonInteraction(interaction);
-            return; // 最適化版で処理済み
-          } catch (error) {
-            console.error('最適化ギルド設定ボタン処理中にエラー:', error);
-            // フォールバックで元の処理を試行
-          }
-        }
-      }
-      
-      // 元のギルド設定のボタン処理（フォールバック）
+      // ギルド設定のボタン処理
       if (interaction.customId.startsWith('set_') || interaction.customId === 'reset_all_settings' || interaction.customId === 'finalize_settings') {
         const guildSettings = client.commands.get('guildsettings');
         if (guildSettings) {
