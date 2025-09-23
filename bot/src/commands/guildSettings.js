@@ -366,16 +366,9 @@ module.exports = {
       console.log(`[guildSettings] 設定を最終保存中 - guildId: ${guildId}`);
       console.log(`[guildSettings] バックエンドAPI URL: ${require('../config').BACKEND_API_URL}`);
       
-      // セッションが存在しない場合は先に開始
-      try {
-        console.log(`[guildSettings] セッション確保を試行中...`);
-        await startGuildSettingsSession(guildId);
-        console.log(`[guildSettings] セッション確保完了`);
-      } catch (sessionError) {
-        console.warn(`[guildSettings] セッション確保警告: ${sessionError.message}`);
-        console.warn(`[guildSettings] セッション確保エラーの詳細:`, sessionError);
-        // 継続して最終保存を試行
-      }
+      // セッション確保は不要 - 既にセッションが存在するはず
+      // 古いデータを読み込み直すのを防ぐため、セッション確保をスキップ
+      console.log(`[guildSettings] セッション確保をスキップ（既存セッションを使用）`);
       
       console.log(`[guildSettings] ファイナライゼーション処理開始...`);
       

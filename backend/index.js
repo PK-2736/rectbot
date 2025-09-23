@@ -358,6 +358,20 @@ export default {
           });
         }
         
+        // 既存のセッションがある場合は、それを優先する
+        let sessionSettings = await getFromKV(`guild_session:${guildId}`);
+        
+        if (sessionSettings) {
+          console.log(`[start-session] Existing session found, using current session data:`, sessionSettings);
+          return new Response(JSON.stringify({ ok: true, settings: sessionSettings }), { 
+            status: 200, 
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
+          });
+        }
+        
+        // セッションが存在しない場合のみ、Supabaseからデータを読み込む
+        console.log(`[start-session] No existing session, loading from Supabase for guild: ${guildId}`);
+        
         // Supabaseから既存設定を取得
         let existingSettings = null;
         try {
@@ -387,7 +401,7 @@ export default {
         }
         
         // 既存設定がない場合はデフォルト値を使用
-        const sessionSettings = existingSettings || {
+        sessionSettings = existingSettings || {
           recruitmentChannelId: null,
           recruitmentNotificationRoleId: null,
           defaultRecruitTitle: "参加者募集",
