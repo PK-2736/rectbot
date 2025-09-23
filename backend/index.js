@@ -750,6 +750,123 @@ export default {
       }
     }
 
+    // Supabase保存テスト用API
+    if (url.pathname === "/api/admin/test-guild-save" && request.method === "POST") {
+      try {
+        const { guildId } = await request.json();
+        
+        if (!guildId) {
+          return new Response(JSON.stringify({ error: "Guild ID required" }), { 
+            status: 400, 
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
+          });
+        }
+        
+        console.log(`[test-guild-save] Testing guild settings save for: ${guildId}`);
+        
+        // テスト用のダミーデータ
+        const testData = {
+          guild_id: guildId,
+          recruit_channel_id: "1234567890123456789",
+          notification_role_id: "9876543210987654321",
+          default_title: "テスト募集",
+          default_color: "#FF0000",
+          update_channel_id: null,
+          updated_at: new Date().toISOString()
+        };
+        
+        console.log(`[test-guild-save] Test data:`, testData);
+        
+        // 既存レコード確認
+        const existingRes = await fetch(env.SUPABASE_URL + `/rest/v1/guild_settings?guild_id=eq.${guildId}`, {
+          method: 'GET',
+          headers: {
+            'apikey': env.SUPABASE_SERVICE_ROLE_KEY,
+            'Authorization': `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        const existingData = await existingRes.json();
+        console.log(`[test-guild-save] Existing data:`, existingData);
+        
+        let supaRes;
+        if (existingData && existingData.length > 0) {
+          // 更新
+          console.log(`[test-guild-save] Updating existing record`);
+          supaRes = await fetch(env.SUPABASE_URL + `/rest/v1/guild_settings?guild_id=eq.${guildId}`, {
+            method: 'PATCH',
+            headers: {
+              'apikey': env.SUPABASE_SERVICE_ROLE_KEY,
+              'Authorization': `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              recruit_channel_id: testData.recruit_channel_id,
+              notification_role_id: testData.notification_role_id,
+              default_title: testData.default_title,
+              default_color: testData.default_color,
+              update_channel_id: testData.update_channel_id,
+              updated_at: testData.updated_at
+            })
+          });
+        } else {
+          // 新規作成
+          console.log(`[test-guild-save] Creating new record`);
+          supaRes = await fetch(env.SUPABASE_URL + '/rest/v1/guild_settings', {
+            method: 'POST',
+            headers: {
+              'apikey': env.SUPABASE_SERVICE_ROLE_KEY,
+              'Authorization': `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(testData)
+          });
+        }
+        
+        if (!supaRes.ok) {
+          const errorText = await supaRes.text();
+          console.error(`[test-guild-save] Save failed:`, {
+            status: supaRes.status,
+            statusText: supaRes.statusText,
+            response: errorText
+          });
+          
+          return new Response(JSON.stringify({ 
+            success: false, 
+            error: `Save failed: ${supaRes.status}`,
+            details: errorText
+          }), { 
+            status: 500, 
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
+          });
+        }
+        
+        const result = await supaRes.json();
+        console.log(`[test-guild-save] Save successful:`, result);
+        
+        return new Response(JSON.stringify({ 
+          success: true, 
+          operation: existingData && existingData.length > 0 ? 'update' : 'create',
+          result: result
+        }), { 
+          status: 200, 
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+        
+      } catch (error) {
+        console.error('[test-guild-save] Error:', error);
+        return new Response(JSON.stringify({ 
+          success: false, 
+          error: "Test save failed", 
+          details: error.message 
+        }), { 
+          status: 500, 
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      }
+    }
+
     // データ状況確認用API
     if (url.pathname === "/api/admin/data-status" && request.method === "GET") {
       try {
