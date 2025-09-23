@@ -22,21 +22,26 @@ if (!process.env.CLIENT_ID) {
   process.exit(1);
 }
 
-if (!process.env.GUILD_ID) {
-  console.error('GUILD_ID is not set in environment variables');
-  process.exit(1);
-}
+// グローバルコマンドの場合、GUILD_IDは不要
+// if (!process.env.GUILD_ID) {
+//   console.error('GUILD_ID is not set in environment variables');
+//   process.exit(1);
+// }
 
 const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_BOT_TOKEN);
 
 (async () => {
   try {
-    console.log('Started refreshing guild (dev) application commands.');
-    await rest.put(
-      Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID),
+    console.log(`Started refreshing ${commands.length} global application commands.`);
+    
+    // グローバルコマンドとしてデプロイ
+    const data = await rest.put(
+      Routes.applicationCommands(process.env.CLIENT_ID),
       { body: commands },
     );
-    console.log('Successfully reloaded guild (dev) application commands.');
+    
+    console.log(`Successfully reloaded ${data.length} global application commands.`);
+    console.log('Note: Global commands may take up to 1 hour to propagate to all servers.');
   } catch (error) {
     console.error(error);
   }
