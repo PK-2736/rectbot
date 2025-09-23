@@ -76,8 +76,9 @@ module.exports = {
     
     container.addSectionComponents(
       new SectionBuilder()
-        .setContent(
-          new TextDisplayBuilder().setContent(`📍 **募集チャンネル**\n${recruitChannelValue}`)
+        .addTextDisplayComponents(
+          new TextDisplayBuilder()
+            .setContent(`📍 **募集チャンネル**\n${recruitChannelValue}`)
         )
         .setButtonAccessory(
           new ButtonBuilder()
@@ -94,8 +95,9 @@ module.exports = {
 
     container.addSectionComponents(
       new SectionBuilder()
-        .setContent(
-          new TextDisplayBuilder().setContent(`🔔 **通知ロール**\n${notificationRoleValue}`)
+        .addTextDisplayComponents(
+          new TextDisplayBuilder()
+            .setContent(`🔔 **通知ロール**\n${notificationRoleValue}`)
         )
         .setButtonAccessory(
           new ButtonBuilder()
@@ -110,8 +112,9 @@ module.exports = {
 
     container.addSectionComponents(
       new SectionBuilder()
-        .setContent(
-          new TextDisplayBuilder().setContent(`📝 **既定タイトル**\n${defaultTitleValue}`)
+        .addTextDisplayComponents(
+          new TextDisplayBuilder()
+            .setContent(`📝 **既定タイトル**\n${defaultTitleValue}`)
         )
         .setButtonAccessory(
           new ButtonBuilder()
@@ -126,8 +129,9 @@ module.exports = {
 
     container.addSectionComponents(
       new SectionBuilder()
-        .setContent(
-          new TextDisplayBuilder().setContent(`🎨 **既定カラー**\n${defaultColorValue}`)
+        .addTextDisplayComponents(
+          new TextDisplayBuilder()
+            .setContent(`🎨 **既定カラー**\n${defaultColorValue}`)
         )
         .setButtonAccessory(
           new ButtonBuilder()
@@ -144,8 +148,9 @@ module.exports = {
 
     container.addSectionComponents(
       new SectionBuilder()
-        .setContent(
-          new TextDisplayBuilder().setContent(`📢 **アップデート通知チャンネル**\n${updateChannelValue}`)
+        .addTextDisplayComponents(
+          new TextDisplayBuilder()
+            .setContent(`📢 **アップデート通知チャンネル**\n${updateChannelValue}`)
         )
         .setButtonAccessory(
           new ButtonBuilder()
