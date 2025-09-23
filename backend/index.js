@@ -866,11 +866,11 @@ export default {
               
               // KV形式からフロントエンド形式に変換
               const settings = {
-                recruit_channel: kvSettings.recruitmentChannelId || kvSettings.recruit_channel,
-                notification_role: kvSettings.recruitmentNotificationRoleId || kvSettings.notification_role,
-                defaultTitle: kvSettings.defaultRecruitTitle || kvSettings.defaultTitle || "参加者募集",
-                defaultColor: kvSettings.defaultRecruitColor || kvSettings.defaultColor || "#00FFFF",
-                update_channel: kvSettings.updateNotificationChannelId || kvSettings.update_channel
+                recruit_channel: kvSettings.recruit_channel || kvSettings.recruitmentChannelId,
+                notification_role: kvSettings.notification_role || kvSettings.recruitmentNotificationRoleId,
+                defaultTitle: kvSettings.defaultTitle || kvSettings.defaultRecruitTitle || "参加者募集",
+                defaultColor: kvSettings.defaultColor || kvSettings.defaultRecruitColor || "#00FFFF",
+                update_channel: kvSettings.update_channel || kvSettings.updateNotificationChannelId
               };
               
               return new Response(JSON.stringify(settings), { 
