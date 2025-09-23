@@ -148,11 +148,17 @@ module.exports = {
     // ボタンインタラクションの処理
     if (interaction.isButton()) {
       // ギルド設定のボタン処理
-      if (interaction.customId.startsWith('set_') || interaction.customId === 'reset_all_settings') {
+      if (interaction.customId.startsWith('set_') || interaction.customId === 'reset_all_settings' || interaction.customId === 'finalize_settings') {
         const guildSettings = client.commands.get('guildsettings');
-        if (guildSettings && typeof guildSettings.handleButtonInteraction === 'function') {
+        if (guildSettings) {
           try {
-            await guildSettings.handleButtonInteraction(interaction);
+            if (interaction.customId === 'finalize_settings') {
+              if (typeof guildSettings.finalizeSettings === 'function') {
+                await guildSettings.finalizeSettings(interaction);
+              }
+            } else if (typeof guildSettings.handleButtonInteraction === 'function') {
+              await guildSettings.handleButtonInteraction(interaction);
+            }
           } catch (error) {
             console.error('ギルド設定ボタン処理中にエラー:', error);
             console.error('エラーの詳細:', error.stack);

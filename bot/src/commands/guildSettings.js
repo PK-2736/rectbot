@@ -16,7 +16,7 @@ const {
   EmbedBuilder
 } = require('discord.js');
 
-const { saveGuildSettings, getGuildSettings } = require('../utils/db');
+const { saveGuildSettings, getGuildSettings, finalizeGuildSettings, startGuildSettingsSession } = require('../utils/db');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -34,7 +34,11 @@ module.exports = {
         });
       }
 
-      // 現在の設定を取得
+      // 設定セッションを開始（SupabaseからKVに読み込み）
+      console.log(`[guildSettings] 設定セッション開始 - guildId: ${interaction.guildId}`);
+      await startGuildSettingsSession(interaction.guildId);
+      
+      // 現在の設定を取得（KVから）
       const currentSettings = await getGuildSettings(interaction.guildId);
       
       await this.showSettingsUI(interaction, currentSettings);
@@ -106,6 +110,13 @@ module.exports = {
         .setLabel('📢 アップデート通知チャンネル設定')
         .setStyle(ButtonStyle.Primary),
       new ButtonBuilder()
+        .setCustomId('finalize_settings')
+        .setLabel('✅ 設定完了')
+        .setStyle(ButtonStyle.Success)
+    );
+
+    const actionRow4 = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
         .setCustomId('reset_all_settings')
         .setLabel('🔄 すべてリセット')
         .setStyle(ButtonStyle.Danger)
@@ -113,7 +124,7 @@ module.exports = {
 
     const replyOptions = {
       embeds: [settingsEmbed],
-      components: [actionRow1, actionRow2, actionRow3],
+      components: [actionRow1, actionRow2, actionRow3, actionRow4],
       flags: MessageFlags.Ephemeral
     };
 
@@ -146,6 +157,9 @@ module.exports = {
           break;
         case 'reset_all_settings':
           await this.resetAllSettings(interaction);
+          break;
+        case 'finalize_settings':
+          await this.finalizeSettings(interaction);
           break;
       }
     } catch (error) {
@@ -331,6 +345,31 @@ module.exports = {
       console.error('Guild setting update error:', error);
       await interaction.reply({
         content: '❌ 設定の更新に失敗しました。',
+        flags: MessageFlags.Ephemeral
+      });
+    }
+  },
+
+  async finalizeSettings(interaction) {
+    try {
+      const guildId = interaction.guildId;
+      
+      console.log(`[guildSettings] 設定を最終保存中 - guildId: ${guildId}`);
+      
+      // KVからSupabaseに最終保存
+      const result = await finalizeGuildSettings(guildId);
+      
+      console.log(`[guildSettings] 設定最終保存完了:`, result);
+      
+      await interaction.reply({
+        content: '✅ 設定がSupabaseに保存されました！設定が有効になりました。',
+        flags: MessageFlags.Ephemeral
+      });
+
+    } catch (error) {
+      console.error('Finalize settings error:', error);
+      await interaction.reply({
+        content: '❌ 設定の最終保存に失敗しました。',
         flags: MessageFlags.Ephemeral
       });
     }

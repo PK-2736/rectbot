@@ -346,6 +346,88 @@ export default {
     }
 
     // ギルド設定保存API
+    // ギルド設定セッション開始API
+    if (url.pathname === "/api/guild-settings/start-session" && request.method === "POST") {
+      try {
+        const { guildId } = await request.json();
+        
+        if (!guildId) {
+          return new Response(JSON.stringify({ error: "Guild ID required" }), { 
+            status: 400, 
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
+          });
+        }
+        
+        // Supabaseから既存設定を取得（実装予定）
+        // 今はダミーデータを返す
+        const defaultSettings = {
+          recruitmentChannelId: null,
+          recruitmentNotificationRoleId: null,
+          defaultRecruitTitle: "参加者募集",
+          defaultRecruitColor: "#00FFFF",
+          updateNotificationChannelId: null
+        };
+        
+        // KVストアに一時保存
+        await saveToKV(`guild_session:${guildId}`, defaultSettings);
+        
+        return new Response(JSON.stringify({ ok: true, settings: defaultSettings }), { 
+          status: 200, 
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      } catch (error) {
+        console.error('Guild settings session start error:', error);
+        return new Response(JSON.stringify({ error: "Internal server error" }), { 
+          status: 500, 
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      }
+    }
+
+    // ギルド設定最終保存API
+    if (url.pathname === "/api/guild-settings/finalize" && request.method === "POST") {
+      try {
+        const { guildId } = await request.json();
+        
+        if (!guildId) {
+          return new Response(JSON.stringify({ error: "Guild ID required" }), { 
+            status: 400, 
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
+          });
+        }
+        
+        // KVから一時設定を取得
+        const sessionSettings = await getFromKV(`guild_session:${guildId}`);
+        
+        if (!sessionSettings) {
+          return new Response(JSON.stringify({ error: "Session not found" }), { 
+            status: 404, 
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
+          });
+        }
+        
+        // 最終設定をKVに保存（将来的にSupabaseに移行）
+        await saveToKV(`guild_settings:${guildId}`, {
+          ...sessionSettings,
+          finalizedAt: new Date().toISOString()
+        });
+        
+        // セッションデータを削除
+        await env.RECRUIT_KV.delete(`guild_session:${guildId}`);
+        
+        return new Response(JSON.stringify({ ok: true, message: "Settings finalized" }), { 
+          status: 200, 
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      } catch (error) {
+        console.error('Guild settings finalize error:', error);
+        return new Response(JSON.stringify({ error: "Internal server error" }), { 
+          status: 500, 
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      }
+    }
+
     if (url.pathname === "/api/guild-settings") {
       if (request.method === "POST") {
         try {

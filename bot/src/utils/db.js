@@ -182,7 +182,7 @@ async function getActiveRecruits() {
 	return res.json();
 }
 
-// ギルド設定を保存
+// ギルド設定を保存（一時的にKVに保存）
 async function saveGuildSettings(guildId, settings) {
 	try {
 		const res = await fetch(`${config.BACKEND_API_URL}/api/guild-settings`, {
@@ -205,7 +205,27 @@ async function saveGuildSettings(guildId, settings) {
 	}
 }
 
-// ギルド設定を取得
+// ギルド設定をSupabaseに最終保存
+async function finalizeGuildSettings(guildId) {
+	try {
+		const res = await fetch(`${config.BACKEND_API_URL}/api/guild-settings/finalize`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ guildId })
+		});
+
+		if (!res.ok) {
+			throw new Error(`API error: ${res.status}`);
+		}
+
+		return await res.json();
+	} catch (error) {
+		console.error('ギルド設定の最終保存に失敗:', error);
+		throw error;
+	}
+}
+
+// ギルド設定を取得（Supabaseから）
 async function getGuildSettings(guildId) {
 	try {
 		const res = await fetch(`${config.BACKEND_API_URL}/api/guild-settings/${guildId}`);
@@ -238,6 +258,26 @@ async function getGuildSettings(guildId) {
 	}
 }
 
+// ギルド設定セッションを開始（SupabaseからKVに読み込み）
+async function startGuildSettingsSession(guildId) {
+	try {
+		const res = await fetch(`${config.BACKEND_API_URL}/api/guild-settings/start-session`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ guildId })
+		});
+
+		if (!res.ok) {
+			throw new Error(`API error: ${res.status}`);
+		}
+
+		return await res.json();
+	} catch (error) {
+		console.error('ギルド設定セッション開始に失敗:', error);
+		throw error;
+	}
+}
+
 module.exports = {
 	supabase,
 	saveRecruitStatus,
@@ -248,5 +288,7 @@ module.exports = {
 	updateRecruitmentStatus,
 	updateRecruitmentData,
 	saveGuildSettings,
-	getGuildSettings
+	getGuildSettings,
+	finalizeGuildSettings,
+	startGuildSettingsSession
 };
