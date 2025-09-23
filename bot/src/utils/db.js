@@ -214,11 +214,11 @@ async function getGuildSettings(guildId) {
 			if (res.status === 404) {
 				// 設定が見つからない場合はデフォルト値を返す
 				return {
-					recruitChannel: null,
-					notificationRole: null,
+					recruit_channel: null,
+					notification_role: null,
 					defaultTitle: null,
 					defaultColor: null,
-					updateChannel: null
+					update_channel: null
 				};
 			}
 			throw new Error(`API error: ${res.status}`);
@@ -229,11 +229,11 @@ async function getGuildSettings(guildId) {
 		console.error('ギルド設定の取得に失敗:', error);
 		// エラーの場合もデフォルト値を返す
 		return {
-			recruitChannel: null,
-			notificationRole: null,
+			recruit_channel: null,
+			notification_role: null,
 			defaultTitle: null,
 			defaultColor: null,
-			updateChannel: null
+			update_channel: null
 		};
 	}
 }

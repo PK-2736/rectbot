@@ -81,6 +81,8 @@ module.exports = {
 
     // ロールセレクトメニューとチャンネルセレクトメニューの処理
     if (interaction.isRoleSelectMenu() || interaction.isChannelSelectMenu()) {
+      console.log(`[interactionCreate] Role/Channel select menu - customId: ${interaction.customId}, type: ${interaction.type}`);
+      
       // ギルド設定のセレクトメニュー
       if (interaction.customId.startsWith('channel_select_') || interaction.customId.startsWith('role_select_')) {
         const guildSettings = client.commands.get('guildsettings');

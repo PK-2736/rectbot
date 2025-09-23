@@ -141,12 +141,12 @@ module.exports = {
       console.log('通知ロールでの通知送信中');
       
       // 1. メンション通知（ギルド設定があれば使用）
-      if (guildSettings.notificationRole) {
+      if (guildSettings.notification_role) {
         await interaction.channel.send({
-          content: `新しい募集が作成されました。<@&${guildSettings.notificationRole}>`,
-          allowedMentions: { roles: [guildSettings.notificationRole] }
+          content: `新しい募集が作成されました。<@&${guildSettings.notification_role}>`,
+          allowedMentions: { roles: [guildSettings.notification_role] }
         });
-        console.log('ギルド設定の通知ロールで送信完了:', guildSettings.notificationRole);
+        console.log('ギルド設定の通知ロールで送信完了:', guildSettings.notification_role);
       } else {
         // デフォルトの通知（従来の処理）
         await interaction.channel.send({
@@ -226,14 +226,14 @@ module.exports = {
       });
 
       // ギルド設定で募集チャンネルが設定されている場合、そちらにも送信
-      if (guildSettings.recruitChannel && guildSettings.recruitChannel !== interaction.channelId) {
+      if (guildSettings.recruit_channel && guildSettings.recruit_channel !== interaction.channelId) {
         try {
-          const recruitChannel = await interaction.guild.channels.fetch(guildSettings.recruitChannel);
+          const recruitChannel = await interaction.guild.channels.fetch(guildSettings.recruit_channel);
           if (recruitChannel && recruitChannel.isTextBased()) {
             // 通知ロールの準備
             let mentionContent = '';
-            if (guildSettings.notificationRole) {
-              mentionContent = `<@&${guildSettings.notificationRole}> `;
+            if (guildSettings.notification_role) {
+              mentionContent = `<@&${guildSettings.notification_role}> `;
             }
             
             await recruitChannel.send({
@@ -241,10 +241,10 @@ module.exports = {
               files: [image],
               components: [container],
               flags: MessageFlags.IsComponentsV2,
-              allowedMentions: { roles: guildSettings.notificationRole ? [guildSettings.notificationRole] : [], users: [] }
+              allowedMentions: { roles: guildSettings.notification_role ? [guildSettings.notification_role] : [], users: [] }
             });
             
-            console.log('募集メッセージを指定チャンネルに送信しました:', guildSettings.recruitChannel);
+            console.log('募集メッセージを指定チャンネルに送信しました:', guildSettings.recruit_channel);
           }
         } catch (channelError) {
           console.error('指定チャンネルへの送信でエラー:', channelError);

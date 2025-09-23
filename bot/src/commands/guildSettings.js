@@ -60,11 +60,11 @@ module.exports = {
         {
           name: '📋 現在の設定',
           value: [
-            `🏷️ **募集チャンネル**: ${settings.recruitChannel ? `<#${settings.recruitChannel}>` : '未設定'}`,
-            `🔔 **通知ロール**: ${settings.notificationRole ? `<@&${settings.notificationRole}>` : '未設定'}`,
+            `🏷️ **募集チャンネル**: ${settings.recruit_channel ? `<#${settings.recruit_channel}>` : '未設定'}`,
+            `🔔 **通知ロール**: ${settings.notification_role ? `<@&${settings.notification_role}>` : '未設定'}`,
             `📝 **既定タイトル**: ${settings.defaultTitle || '未設定'}`,
             `🎨 **既定カラー**: ${settings.defaultColor ? `#${settings.defaultColor}` : '未設定'}`,
-            `📢 **アップデート通知チャンネル**: ${settings.updateChannel ? `<#${settings.updateChannel}>` : '未設定'}`
+            `📢 **アップデート通知チャンネル**: ${settings.update_channel ? `<#${settings.update_channel}>` : '未設定'}`
           ].join('\n'),
           inline: false
         },
@@ -231,17 +231,21 @@ module.exports = {
 
   async handleSelectMenuInteraction(interaction) {
     const { customId, values } = interaction;
+    
+    console.log(`[guildSettings] handleSelectMenuInteraction called - customId: ${customId}, values:`, values);
 
     try {
       if (customId.startsWith('channel_select_')) {
         const settingType = customId.replace('channel_select_', '');
         const channelId = values[0];
         
+        console.log(`[guildSettings] チャンネル選択 - settingType: ${settingType}, channelId: ${channelId}`);
         await this.updateGuildSetting(interaction, settingType, channelId);
       } else if (customId.startsWith('role_select_')) {
         const settingType = customId.replace('role_select_', '');
         const roleId = values[0];
         
+        console.log(`[guildSettings] ロール選択 - settingType: ${settingType}, roleId: ${roleId}`);
         await this.updateGuildSetting(interaction, settingType, roleId);
       }
     } catch (error) {
@@ -290,16 +294,20 @@ module.exports = {
     try {
       const guildId = interaction.guildId;
       
+      console.log(`[guildSettings] updateGuildSetting - guildId: ${guildId}, settingKey: ${settingKey}, value: ${value}`);
+      
       // 設定をデータベースに保存
-      await saveGuildSettings(guildId, { [settingKey]: value });
+      const result = await saveGuildSettings(guildId, { [settingKey]: value });
+      
+      console.log(`[guildSettings] 設定保存結果:`, result);
       
       // 設定名のマッピング
       const settingNames = {
-        recruitChannel: '募集チャンネル',
-        notificationRole: '通知ロール',
+        recruit_channel: '募集チャンネル',
+        notification_role: '通知ロール',
         defaultTitle: '既定タイトル',
         defaultColor: '既定カラー',
-        updateChannel: 'アップデート通知チャンネル'
+        update_channel: 'アップデート通知チャンネル'
       };
       
       const settingName = settingNames[settingKey] || settingKey;
