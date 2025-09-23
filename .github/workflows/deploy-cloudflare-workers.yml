@@ -46,11 +46,11 @@ jobs:
           cd backend
           # 毎回環境変数を更新（必須）
           echo "Updating secrets..."
-          echo "${{ secrets.DISCORD_CLIENT_SECRET }}" | npx wrangler secret put DISCORD_CLIENT_SECRET --force || echo "DISCORD_CLIENT_SECRET update failed"
-          echo "${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" | npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY --force || echo "SUPABASE_SERVICE_ROLE_KEY update failed" 
-          echo "${{ secrets.REACT_APP_DISCORD_CLIENT_ID }}" | npx wrangler secret put REACT_APP_DISCORD_CLIENT_ID --force || echo "REACT_APP_DISCORD_CLIENT_ID update failed"
-          echo "${{ secrets.REACT_APP_DISCORD_REDIRECT_URI }}" | npx wrangler secret put REACT_APP_DISCORD_REDIRECT_URI --force || echo "REACT_APP_DISCORD_REDIRECT_URI update failed"
-          echo "${{ secrets.SUPABASE_URL }}" | npx wrangler secret put SUPABASE_URL --force || echo "SUPABASE_URL update failed"
+          echo "${{ secrets.DISCORD_CLIENT_SECRET }}" | npx wrangler secret put DISCORD_CLIENT_SECRET || echo "DISCORD_CLIENT_SECRET update failed"
+          echo "${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" | npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY || echo "SUPABASE_SERVICE_ROLE_KEY update failed" 
+          echo "${{ secrets.REACT_APP_DISCORD_CLIENT_ID }}" | npx wrangler secret put REACT_APP_DISCORD_CLIENT_ID || echo "REACT_APP_DISCORD_CLIENT_ID update failed"
+          echo "${{ secrets.REACT_APP_DISCORD_REDIRECT_URI }}" | npx wrangler secret put REACT_APP_DISCORD_REDIRECT_URI || echo "REACT_APP_DISCORD_REDIRECT_URI update failed"
+          echo "${{ secrets.SUPABASE_URL }}" | npx wrangler secret put SUPABASE_URL || echo "SUPABASE_URL update failed"
           
       - name: Final deployment verification
         env:
