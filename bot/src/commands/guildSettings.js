@@ -377,8 +377,16 @@ module.exports = {
       
       console.log(`[guildSettings] 設定最終保存完了:`, result);
       
+      // レスポンスメッセージを結果に応じて調整
+      let message = '✅ 設定が保存されました！設定が有効になりました。';
+      if (result && result.fallbackMode) {
+        message = '✅ 設定が保存されました！（一時的にローカルストレージに保存）';
+      } else if (result && result.supabaseSuccess) {
+        message = '✅ 設定がデータベースに保存されました！設定が有効になりました。';
+      }
+      
       await interaction.reply({
-        content: '✅ 設定がSupabaseに保存されました！設定が有効になりました。',
+        content: message,
         flags: MessageFlags.Ephemeral
       });
 
@@ -386,9 +394,11 @@ module.exports = {
       console.error('Finalize settings error:', error);
       
       // より詳細なエラーメッセージ
-      let errorMessage = '❌ 設定の最終保存に失敗しました。';
+      let errorMessage = '❌ 設定の保存に失敗しました。';
       if (error.message && error.message.includes('404')) {
         errorMessage += '\nセッションが見つかりません。設定を再度お試しください。';
+      } else if (error.message && error.message.includes('500')) {
+        errorMessage += '\nデータベース接続に問題があります。一時的に設定が保存されている可能性があります。';
       }
       
       await interaction.reply({
