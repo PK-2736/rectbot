@@ -463,25 +463,65 @@ export default {
           
           console.log(`[finalize] Attempting Supabase save:`, supabaseData);
           
-          // Supabaseにupsert（存在しない場合は作成、存在する場合は更新）
-          const supaRes = await fetch(env.SUPABASE_URL + '/rest/v1/guild_settings', {
-            method: 'POST',
+          // まず既存レコードがあるか確認
+          const existingRes = await fetch(env.SUPABASE_URL + `/rest/v1/guild_settings?guild_id=eq.${guildId}`, {
+            method: 'GET',
             headers: {
               'apikey': env.SUPABASE_SERVICE_ROLE_KEY,
               'Authorization': `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
               'Content-Type': 'application/json',
-              'Prefer': 'resolution=merge-duplicates'
             },
-            body: JSON.stringify(supabaseData)
           });
+          
+          const existingData = await existingRes.json();
+          console.log(`[finalize] Existing guild settings:`, existingData);
+          
+          let supaRes;
+          if (existingData && existingData.length > 0) {
+            // 更新操作
+            console.log(`[finalize] Updating existing guild settings for ${guildId}`);
+            supaRes = await fetch(env.SUPABASE_URL + `/rest/v1/guild_settings?guild_id=eq.${guildId}`, {
+              method: 'PATCH',
+              headers: {
+                'apikey': env.SUPABASE_SERVICE_ROLE_KEY,
+                'Authorization': `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                recruit_channel_id: sessionSettings.recruitmentChannelId,
+                notification_role_id: sessionSettings.recruitmentNotificationRoleId,
+                default_title: sessionSettings.defaultRecruitTitle,
+                default_color: sessionSettings.defaultRecruitColor,
+                update_channel_id: sessionSettings.updateNotificationChannelId,
+                updated_at: new Date().toISOString()
+              })
+            });
+          } else {
+            // 新規作成
+            console.log(`[finalize] Creating new guild settings for ${guildId}`);
+            supaRes = await fetch(env.SUPABASE_URL + '/rest/v1/guild_settings', {
+              method: 'POST',
+              headers: {
+                'apikey': env.SUPABASE_SERVICE_ROLE_KEY,
+                'Authorization': `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(supabaseData)
+            });
+          }
           
           if (!supaRes.ok) {
             const errorText = await supaRes.text();
-            console.error(`[finalize] Supabase save failed: ${supaRes.status} - ${errorText}`);
+            console.error(`[finalize] Supabase operation failed:`);
+            console.error(`[finalize] Status: ${supaRes.status}`);
+            console.error(`[finalize] Status Text: ${supaRes.statusText}`);
+            console.error(`[finalize] Response: ${errorText}`);
+            console.error(`[finalize] Request Data:`, supabaseData);
             throw new Error(`Supabase save failed: ${supaRes.status} - ${errorText}`);
           }
           
-          console.log(`[finalize] Guild settings saved to Supabase for guild ${guildId}`);
+          const savedResult = await supaRes.json();
+          console.log(`[finalize] Guild settings saved to Supabase for guild ${guildId}:`, savedResult);
           supabaseSuccess = true;
           
           // KVから古い永続設定を削除（Supabaseがメインになるため）
@@ -809,6 +849,33 @@ export default {
         const data = await supaRes.json();
         
         if (!Array.isArray(data) || data.length === 0) {
+          // Supabaseにデータがない場合、KVフォールバックを試行
+          console.log(`[guild-settings] No Supabase data found for guild ${guildId}, checking KV fallback`);
+          
+          try {
+            const kvSettingsRaw = await env.RECRUIT_KV.get(`guild_settings:${guildId}`);
+            if (kvSettingsRaw) {
+              const kvSettings = JSON.parse(kvSettingsRaw);
+              console.log(`[guild-settings] Found KV fallback settings:`, kvSettings);
+              
+              // KV形式からフロントエンド形式に変換
+              const settings = {
+                recruit_channel: kvSettings.recruitmentChannelId || kvSettings.recruit_channel,
+                notification_role: kvSettings.recruitmentNotificationRoleId || kvSettings.notification_role,
+                defaultTitle: kvSettings.defaultRecruitTitle || kvSettings.defaultTitle || "参加者募集",
+                defaultColor: kvSettings.defaultRecruitColor || kvSettings.defaultColor || "#00FFFF",
+                update_channel: kvSettings.updateNotificationChannelId || kvSettings.update_channel
+              };
+              
+              return new Response(JSON.stringify(settings), { 
+                status: 200, 
+                headers: { ...corsHeaders, "Content-Type": "application/json" }
+              });
+            }
+          } catch (kvError) {
+            console.log(`[guild-settings] KV fallback failed:`, kvError);
+          }
+          
           // 設定が見つからない場合はデフォルト値を返す
           const defaultSettings = {
             recruit_channel: null,
