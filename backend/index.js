@@ -899,6 +899,92 @@ export default {
       }
     }
 
+    // 最適化されたギルド設定更新エンドポイント（PUT）
+    if (url.pathname.startsWith('/api/guild-settings/') && request.method === 'PUT') {
+      const guildId = url.pathname.split('/').pop();
+      
+      if (!guildId) {
+        return new Response(JSON.stringify({ error: 'Guild ID is required' }), { 
+          status: 400, 
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      }
+
+      try {
+        const settings = await request.json();
+        console.log(`[optimized-put] Updating guild settings for ${guildId}:`, settings);
+
+        // Supabaseに直接保存（UPSERTで効率的）
+        const supabaseData = {
+          guild_id: guildId,
+          recruit_channel_id: settings.recruit_channel || null,
+          notification_role_id: settings.notification_role || null,
+          default_title: settings.defaultTitle || null,
+          default_color: settings.defaultColor || null,
+          update_channel_id: settings.update_channel || null,
+          updated_at: new Date().toISOString()
+        };
+        
+        const supaRes = await fetch(env.SUPABASE_URL + '/rest/v1/guild_settings', {
+          method: 'POST',
+          headers: {
+            'apikey': env.SUPABASE_SERVICE_ROLE_KEY,
+            'Authorization': `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'resolution=merge-duplicates,return=representation'
+          },
+          body: JSON.stringify(supabaseData)
+        });
+        
+        if (supaRes.ok) {
+          const savedData = await supaRes.json();
+          console.log(`[optimized-put] Successfully saved to Supabase:`, savedData);
+          
+          // レスポンス形式を統一
+          const response = {
+            success: true,
+            method: 'direct_supabase',
+            settings: {
+              recruit_channel: savedData[0]?.recruit_channel_id || null,
+              notification_role: savedData[0]?.notification_role_id || null,
+              defaultTitle: savedData[0]?.default_title || null,
+              defaultColor: savedData[0]?.default_color || null,
+              update_channel: savedData[0]?.update_channel_id || null
+            },
+            message: '設定が正常にSupabaseに保存されました'
+          };
+          
+          return new Response(JSON.stringify(response), { 
+            status: 200, 
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
+          });
+        } else {
+          const error = await supaRes.text();
+          console.error(`[optimized-put] Supabase save failed:`, error);
+          
+          return new Response(JSON.stringify({ 
+            success: false, 
+            error: 'Supabase保存に失敗しました',
+            details: error
+          }), { 
+            status: 500, 
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
+          });
+        }
+      } catch (error) {
+        console.error('[optimized-put] Guild settings update error:', error);
+        
+        return new Response(JSON.stringify({ 
+          success: false, 
+          error: '設定の更新に失敗しました',
+          details: error.message
+        }), { 
+          status: 500, 
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      }
+    }
+
     // すべてのルートにマッチしなかった場合の404レスポンス
     return new Response("Not Found", { 
       status: 404, 
