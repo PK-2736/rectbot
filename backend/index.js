@@ -527,8 +527,6 @@ export default {
             console.error(`[finalize] Status: ${supaRes.status}`);
             console.error(`[finalize] Status Text: ${supaRes.statusText}`);
             console.error(`[finalize] Response: ${errorText}`);
-            console.error(`[finalize] Request URL: ${supaRes.url}`);
-            console.error(`[finalize] Request Headers: ${JSON.stringify(supaRes.headers)}`);
             console.error(`[finalize] Request Data:`, supabaseData);
             throw new Error(`Supabase save failed: ${supaRes.status} - ${errorText}`);
           }
@@ -546,16 +544,7 @@ export default {
           }
           
         } catch (supabaseError) {
-          console.error(`[finalize] Supabase operation failed, falling back to KV:`);
-          console.error(`[finalize] Error type: ${supabaseError.constructor.name}`);
-          console.error(`[finalize] Error message: ${supabaseError.message}`);
-          console.error(`[finalize] Error stack: ${supabaseError.stack}`);
-          
-          // Supabase環境変数の存在確認
-          console.log(`[finalize] Environment check:`);
-          console.log(`[finalize] SUPABASE_URL exists: ${!!env.SUPABASE_URL}`);
-          console.log(`[finalize] SUPABASE_SERVICE_ROLE_KEY exists: ${!!env.SUPABASE_SERVICE_ROLE_KEY}`);
-          console.log(`[finalize] SUPABASE_URL format: ${env.SUPABASE_URL ? 'valid' : 'invalid'}`);
+          console.error(`[finalize] Supabase operation failed, falling back to KV:`, supabaseError);
           
           // Supabase失敗時はKVに保存（フォールバック）
           await saveToKV(`guild_settings:${guildId}`, {
@@ -692,9 +681,10 @@ export default {
         
         console.log(`[supabase-test] Basic connection: ${testRes.status}`);
         
-        // 2. テーブル存在確認
+        // 2. テーブル存在確認とサンプルデータ取得
         let tableExists = false;
         let tableStructure = null;
+        let sampleData = null;
         try {
           const tableRes = await fetch(env.SUPABASE_URL + '/rest/v1/guild_settings?limit=1', {
             method: 'GET',
@@ -708,7 +698,12 @@ export default {
           if (tableRes.ok) {
             tableExists = true;
             const data = await tableRes.json();
-            tableStructure = Array.isArray(data) ? "Table exists and accessible" : "Unexpected response format";
+            sampleData = data;
+            if (Array.isArray(data) && data.length > 0) {
+              tableStructure = `Columns: ${Object.keys(data[0]).join(', ')}`;
+            } else {
+              tableStructure = "Table exists but no data found";
+            }
           } else {
             const errorText = await tableRes.text();
             tableStructure = `Table access failed: ${tableRes.status} - ${errorText}`;
@@ -729,6 +724,7 @@ export default {
           basicConnection: testRes.ok ? 'Success' : `Failed: ${testRes.status}`,
           tableExists,
           tableStructure,
+          sampleData,
           environmentVariables: envCheck,
           recommendation: !tableExists 
             ? "Run the SQL script to create guild_settings table"
@@ -745,116 +741,6 @@ export default {
           timestamp: new Date().toISOString()
         }), {
           status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" }
-        });
-      }
-    }
-
-    // Supabase保存テスト用API
-    if (url.pathname === "/api/admin/test-guild-save" && request.method === "GET") {
-      try {
-        const guildId = url.searchParams.get('guildId') || "1414530004657766422";
-        
-        console.log(`[test-guild-save] Testing guild settings save for: ${guildId}`);
-        
-        // テスト用のダミーデータ
-        const testData = {
-          guild_id: guildId,
-          recruit_channel_id: "1234567890123456789",
-          notification_role_id: "9876543210987654321",
-          default_title: "テスト募集",
-          default_color: "#FF0000",
-          update_channel_id: null,
-          updated_at: new Date().toISOString()
-        };
-        
-        console.log(`[test-guild-save] Test data:`, testData);
-        
-        // 既存レコード確認
-        const existingRes = await fetch(env.SUPABASE_URL + `/rest/v1/guild_settings?guild_id=eq.${guildId}`, {
-          method: 'GET',
-          headers: {
-            'apikey': env.SUPABASE_SERVICE_ROLE_KEY,
-            'Authorization': `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
-            'Content-Type': 'application/json',
-          },
-        });
-        
-        const existingData = await existingRes.json();
-        console.log(`[test-guild-save] Existing data:`, existingData);
-        
-        let supaRes;
-        if (existingData && existingData.length > 0) {
-          // 更新
-          console.log(`[test-guild-save] Updating existing record`);
-          supaRes = await fetch(env.SUPABASE_URL + `/rest/v1/guild_settings?guild_id=eq.${guildId}`, {
-            method: 'PATCH',
-            headers: {
-              'apikey': env.SUPABASE_SERVICE_ROLE_KEY,
-              'Authorization': `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              recruit_channel_id: testData.recruit_channel_id,
-              notification_role_id: testData.notification_role_id,
-              default_title: testData.default_title,
-              default_color: testData.default_color,
-              update_channel_id: testData.update_channel_id,
-              updated_at: testData.updated_at
-            })
-          });
-        } else {
-          // 新規作成
-          console.log(`[test-guild-save] Creating new record`);
-          supaRes = await fetch(env.SUPABASE_URL + '/rest/v1/guild_settings', {
-            method: 'POST',
-            headers: {
-              'apikey': env.SUPABASE_SERVICE_ROLE_KEY,
-              'Authorization': `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(testData)
-          });
-        }
-        
-        if (!supaRes.ok) {
-          const errorText = await supaRes.text();
-          console.error(`[test-guild-save] Save failed:`, {
-            status: supaRes.status,
-            statusText: supaRes.statusText,
-            response: errorText
-          });
-          
-          return new Response(JSON.stringify({ 
-            success: false, 
-            error: `Save failed: ${supaRes.status}`,
-            details: errorText
-          }), { 
-            status: 500, 
-            headers: { ...corsHeaders, "Content-Type": "application/json" }
-          });
-        }
-        
-        const result = await supaRes.json();
-        console.log(`[test-guild-save] Save successful:`, result);
-        
-        return new Response(JSON.stringify({ 
-          success: true, 
-          operation: existingData && existingData.length > 0 ? 'update' : 'create',
-          result: result
-        }), { 
-          status: 200, 
-          headers: { ...corsHeaders, "Content-Type": "application/json" }
-        });
-        
-      } catch (error) {
-        console.error('[test-guild-save] Error:', error);
-        return new Response(JSON.stringify({ 
-          success: false, 
-          error: "Test save failed", 
-          details: error.message 
-        }), { 
-          status: 500, 
           headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
       }
