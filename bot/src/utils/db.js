@@ -208,19 +208,28 @@ async function saveGuildSettings(guildId, settings) {
 // ギルド設定をSupabaseに最終保存
 async function finalizeGuildSettings(guildId) {
 	try {
+		console.log(`[db] ギルド設定の最終保存開始 - guildId: ${guildId}`);
+		
 		const res = await fetch(`${config.BACKEND_API_URL}/api/guild-settings/finalize`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ guildId })
 		});
 
+		console.log(`[db] 最終保存APIレスポンス - status: ${res.status}, ok: ${res.ok}`);
+
 		if (!res.ok) {
-			throw new Error(`API error: ${res.status}`);
+			const errorText = await res.text();
+			console.error(`[db] 最終保存APIエラー: ${res.status} - ${errorText}`);
+			throw new Error(`API error: ${res.status} - ${errorText}`);
 		}
 
-		return await res.json();
+		const result = await res.json();
+		console.log(`[db] 最終保存成功:`, result);
+		return result;
 	} catch (error) {
 		console.error('ギルド設定の最終保存に失敗:', error);
+		console.error('エラーの詳細:', error.stack);
 		throw error;
 	}
 }
@@ -261,19 +270,28 @@ async function getGuildSettings(guildId) {
 // ギルド設定セッションを開始（SupabaseからKVに読み込み）
 async function startGuildSettingsSession(guildId) {
 	try {
+		console.log(`[db] セッション開始API呼び出し - guildId: ${guildId}`);
+		
 		const res = await fetch(`${config.BACKEND_API_URL}/api/guild-settings/start-session`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ guildId })
 		});
 
+		console.log(`[db] セッション開始APIレスポンス - status: ${res.status}, ok: ${res.ok}`);
+
 		if (!res.ok) {
-			throw new Error(`API error: ${res.status}`);
+			const errorText = await res.text();
+			console.error(`[db] セッション開始APIエラー: ${res.status} - ${errorText}`);
+			throw new Error(`API error: ${res.status} - ${errorText}`);
 		}
 
-		return await res.json();
+		const result = await res.json();
+		console.log(`[db] セッション開始成功:`, result);
+		return result;
 	} catch (error) {
 		console.error('ギルド設定セッション開始に失敗:', error);
+		console.error('エラーの詳細:', error.stack);
 		throw error;
 	}
 }

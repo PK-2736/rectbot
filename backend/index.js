@@ -397,13 +397,22 @@ export default {
         }
         
         // KVから一時設定を取得
-        const sessionSettings = await getFromKV(`guild_session:${guildId}`);
+        let sessionSettings = await getFromKV(`guild_session:${guildId}`);
         
+        // セッションが存在しない場合は、既存の設定を取得するかデフォルト値を使用
         if (!sessionSettings) {
-          return new Response(JSON.stringify({ error: "Session not found" }), { 
-            status: 404, 
-            headers: { ...corsHeaders, "Content-Type": "application/json" }
-          });
+          console.log(`Session not found for guild ${guildId}, using existing settings or defaults`);
+          
+          // 既存の設定を確認
+          const existingSettings = await getFromKV(`guild_settings:${guildId}`);
+          
+          sessionSettings = existingSettings || {
+            recruitmentChannelId: null,
+            recruitmentNotificationRoleId: null,
+            defaultRecruitTitle: "参加者募集",
+            defaultRecruitColor: "#00FFFF",
+            updateNotificationChannelId: null
+          };
         }
         
         // 最終設定をKVに保存（将来的にSupabaseに移行）
@@ -412,8 +421,12 @@ export default {
           finalizedAt: new Date().toISOString()
         });
         
-        // セッションデータを削除
-        await env.RECRUIT_KV.delete(`guild_session:${guildId}`);
+        // セッションデータを削除（存在する場合のみ）
+        try {
+          await env.RECRUIT_KV.delete(`guild_session:${guildId}`);
+        } catch (deleteError) {
+          console.log(`Session delete failed (may not exist): ${deleteError.message}`);
+        }
         
         return new Response(JSON.stringify({ ok: true, message: "Settings finalized" }), { 
           status: 200, 

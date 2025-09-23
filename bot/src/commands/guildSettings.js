@@ -36,7 +36,14 @@ module.exports = {
 
       // 設定セッションを開始（SupabaseからKVに読み込み）
       console.log(`[guildSettings] 設定セッション開始 - guildId: ${interaction.guildId}`);
-      await startGuildSettingsSession(interaction.guildId);
+      
+      try {
+        await startGuildSettingsSession(interaction.guildId);
+        console.log(`[guildSettings] セッション開始成功`);
+      } catch (sessionError) {
+        console.warn(`[guildSettings] セッション開始失敗、既存設定を使用: ${sessionError.message}`);
+        // セッション開始に失敗しても続行（既存設定を使用）
+      }
       
       // 現在の設定を取得（KVから）
       const currentSettings = await getGuildSettings(interaction.guildId);
@@ -356,6 +363,15 @@ module.exports = {
       
       console.log(`[guildSettings] 設定を最終保存中 - guildId: ${guildId}`);
       
+      // セッションが存在しない場合は先に開始
+      try {
+        await startGuildSettingsSession(guildId);
+        console.log(`[guildSettings] セッション確保完了`);
+      } catch (sessionError) {
+        console.warn(`[guildSettings] セッション確保警告: ${sessionError.message}`);
+        // 継続して最終保存を試行
+      }
+      
       // KVからSupabaseに最終保存
       const result = await finalizeGuildSettings(guildId);
       
@@ -368,8 +384,15 @@ module.exports = {
 
     } catch (error) {
       console.error('Finalize settings error:', error);
+      
+      // より詳細なエラーメッセージ
+      let errorMessage = '❌ 設定の最終保存に失敗しました。';
+      if (error.message && error.message.includes('404')) {
+        errorMessage += '\nセッションが見つかりません。設定を再度お試しください。';
+      }
+      
       await interaction.reply({
-        content: '❌ 設定の最終保存に失敗しました。',
+        content: errorMessage,
         flags: MessageFlags.Ephemeral
       });
     }
