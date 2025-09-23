@@ -1,10 +1,5 @@
 const {
   SlashCommandBuilder,
-  ContainerBuilder,
-  TextDisplayBuilder,
-  SectionBuilder,
-  SeparatorBuilder,
-  SeparatorSpacingSize,
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
@@ -56,38 +51,33 @@ module.exports = {
   },
 
   async showSettingsUI(interaction, settings = {}) {
-    const container = new ContainerBuilder()
+    // 現在の設定を表示するEmbed
+    const settingsEmbed = new EmbedBuilder()
       .setTitle('⚙️ ギルド募集設定')
-      .setDescription('各項目をクリックして設定を変更できます');
-
-    // 現在の設定を表示するセクション
-    const currentSettingsSection = new SectionBuilder()
-      .setTitle('📋 現在の設定');
-
-    // 設定項目の表示
-    const settingsText = [
-      `🏷️ **募集チャンネル**: ${settings.recruitChannel ? `<#${settings.recruitChannel}>` : '未設定'}`,
-      `🔔 **通知ロール**: ${settings.notificationRole ? `<@&${settings.notificationRole}>` : '未設定'}`,
-      `📝 **既定タイトル**: ${settings.defaultTitle || '未設定'}`,
-      `🎨 **既定カラー**: ${settings.defaultColor ? `#${settings.defaultColor}` : '未設定'}`,
-      `📢 **アップデート通知チャンネル**: ${settings.updateChannel ? `<#${settings.updateChannel}>` : '未設定'}`
-    ].join('\n');
-
-    currentSettingsSection.addComponents(
-      new TextDisplayBuilder()
-        .setText(settingsText)
-    );
-
-    container.addComponents(
-      currentSettingsSection,
-      new SeparatorBuilder()
-        .setSpacing(SeparatorSpacingSize.Medium)
-    );
+      .setDescription('各項目をクリックして設定を変更できます')
+      .setColor(0x5865F2)
+      .addFields(
+        {
+          name: '📋 現在の設定',
+          value: [
+            `🏷️ **募集チャンネル**: ${settings.recruitChannel ? `<#${settings.recruitChannel}>` : '未設定'}`,
+            `🔔 **通知ロール**: ${settings.notificationRole ? `<@&${settings.notificationRole}>` : '未設定'}`,
+            `📝 **既定タイトル**: ${settings.defaultTitle || '未設定'}`,
+            `🎨 **既定カラー**: ${settings.defaultColor ? `#${settings.defaultColor}` : '未設定'}`,
+            `📢 **アップデート通知チャンネル**: ${settings.updateChannel ? `<#${settings.updateChannel}>` : '未設定'}`
+          ].join('\n'),
+          inline: false
+        },
+        {
+          name: '🔧 設定変更',
+          value: '下のボタンから設定したい項目を選択してください。',
+          inline: false
+        }
+      )
+      .setTimestamp()
+      .setFooter({ text: 'RectBot ギルド設定', iconURL: interaction.client.user.displayAvatarURL() });
 
     // 設定変更ボタン
-    const settingsSection = new SectionBuilder()
-      .setTitle('🔧 設定変更');
-
     const actionRow1 = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId('set_recruit_channel')
@@ -121,21 +111,9 @@ module.exports = {
         .setStyle(ButtonStyle.Danger)
     );
 
-    settingsSection.addComponents(
-      new TextDisplayBuilder()
-        .setText('設定したい項目のボタンをクリックしてください。')
-    );
-
-    container.addComponents(settingsSection);
-
     const replyOptions = {
-      content: '',
-      components: [
-        container.toJSON(),
-        actionRow1,
-        actionRow2,
-        actionRow3
-      ],
+      embeds: [settingsEmbed],
+      components: [actionRow1, actionRow2, actionRow3],
       flags: MessageFlags.Ephemeral
     };
 
