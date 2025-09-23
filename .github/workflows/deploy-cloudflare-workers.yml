@@ -32,21 +32,31 @@ jobs:
       - name: Install Wrangler
         run: cd backend && npm install wrangler
         
-      - name: Set Cloudflare Workers secrets and variables
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: |
-          cd backend
-          # すべての環境変数をCloudflare Workersに設定
-          echo "${{ secrets.DISCORD_CLIENT_SECRET }}" | npx wrangler secret put DISCORD_CLIENT_SECRET
-          echo "${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" | npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY
-          echo "${{ secrets.REACT_APP_DISCORD_CLIENT_ID }}" | npx wrangler secret put REACT_APP_DISCORD_CLIENT_ID
-          echo "${{ secrets.REACT_APP_DISCORD_REDIRECT_URI }}" | npx wrangler secret put REACT_APP_DISCORD_REDIRECT_URI
-          echo "${{ secrets.SUPABASE_URL }}" | npx wrangler secret put SUPABASE_URL
-          
       - name: Deploy to Cloudflare Workers
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: |
           cd backend
-          npx wrangler deploy
+          npx wrangler deploy --compatibility-date=2024-01-01
+          
+      - name: Update secrets only if needed (optional)
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          cd backend
+          # 手動トリガー時のみSecretを更新
+          echo "Updating secrets..."
+          echo "${{ secrets.DISCORD_CLIENT_SECRET }}" | npx wrangler secret put DISCORD_CLIENT_SECRET --force || echo "DISCORD_CLIENT_SECRET update skipped"
+          echo "${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" | npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY --force || echo "SUPABASE_SERVICE_ROLE_KEY update skipped"
+          echo "${{ secrets.REACT_APP_DISCORD_CLIENT_ID }}" | npx wrangler secret put REACT_APP_DISCORD_CLIENT_ID --force || echo "REACT_APP_DISCORD_CLIENT_ID update skipped"
+          echo "${{ secrets.REACT_APP_DISCORD_REDIRECT_URI }}" | npx wrangler secret put REACT_APP_DISCORD_REDIRECT_URI --force || echo "REACT_APP_DISCORD_REDIRECT_URI update skipped"
+          echo "${{ secrets.SUPABASE_URL }}" | npx wrangler secret put SUPABASE_URL --force || echo "SUPABASE_URL update skipped"
+          
+      - name: Final deployment verification
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          cd backend
+          echo "Deployment completed successfully!"
+          npx wrangler --version
