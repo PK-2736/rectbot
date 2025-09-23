@@ -18,7 +18,7 @@ const recruitParticipants = new Map();
 const recruitData = new Map();
 
 // 募集状況API
-const { saveRecruitStatus, deleteRecruitStatus, saveRecruitmentData, deleteRecruitmentData, updateRecruitmentStatus } = require('../utils/db');
+const { saveRecruitStatus, deleteRecruitStatus, saveRecruitmentData, deleteRecruitmentData, updateRecruitmentStatus, getGuildSettings } = require('../utils/db');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -26,6 +26,9 @@ module.exports = {
     .setDescription('ゲーム募集を作成します'),
   async execute(interaction) {
     try {
+      // ギルド設定を取得
+      const guildSettings = await getGuildSettings(interaction.guildId);
+      
       // モーダル表示
       const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
       const modal = new ModalBuilder()
@@ -37,6 +40,12 @@ module.exports = {
         .setLabel('タイトル（例: スプラトゥーン3 ガチマッチ募集）')
         .setStyle(TextInputStyle.Short)
         .setRequired(true);
+      
+      // ギルド設定の既定タイトルがあれば初期値として設定
+      if (guildSettings.defaultTitle) {
+        titleInput.setValue(guildSettings.defaultTitle);
+      }
+
       const contentInput = new TextInputBuilder()
         .setCustomId('content')
         .setLabel('募集内容（例: ガチエリア / 初心者歓迎 / 2時間）')
@@ -88,6 +97,9 @@ module.exports = {
   async handleModalSubmit(interaction) {
     if (interaction.customId !== 'recruitModal') return;
     try {
+      // ギルド設定を取得
+      const guildSettings = await getGuildSettings(interaction.guildId);
+      
       // 人数の入力値を検証
       const participantsInput = interaction.fields.getTextInputValue('participants');
       const participantsNum = parseInt(participantsInput);
@@ -126,14 +138,23 @@ module.exports = {
       const user = interaction.targetUser || interaction.user;
 
       // 募集パネル送信前に通知メッセージを送信
-      console.log('ロールメンション送信中: 1416797165769986161');
+      console.log('通知ロールでの通知送信中');
       
-      // 1. メンション通知
-      await interaction.channel.send({
-        content: '新しい募集が取付けられました。<@&1416797165769986161>',
-        allowedMentions: { roles: ['1416797165769986161'] }
-      });
-      console.log('ロールメンション送信完了');
+      // 1. メンション通知（ギルド設定があれば使用）
+      if (guildSettings.notificationRole) {
+        await interaction.channel.send({
+          content: `新しい募集が作成されました。<@&${guildSettings.notificationRole}>`,
+          allowedMentions: { roles: [guildSettings.notificationRole] }
+        });
+        console.log('ギルド設定の通知ロールで送信完了:', guildSettings.notificationRole);
+      } else {
+        // デフォルトの通知（従来の処理）
+        await interaction.channel.send({
+          content: '新しい募集が作成されました。<@&1416797165769986161>',
+          allowedMentions: { roles: ['1416797165769986161'] }
+        });
+        console.log('デフォルト通知ロールで送信完了');
+      }
 
       // 一時的な募集IDを生成（interaction.idの下8桁を使用）
       const tempRecruitId = interaction.id.slice(-8);
@@ -143,7 +164,12 @@ module.exports = {
       // 初期の参加リスト表示を修正（募集主が参加済み）
       const participantText = `🎯✨ 参加リスト ✨🎯\n🎮 <@${interaction.user.id}>`;
       const container = new ContainerBuilder();
-      container.setAccentColor(0xFF69B4);
+      
+      // ギルド設定のカラーがあれば適用、なければデフォルト
+      const accentColor = guildSettings.defaultColor 
+        ? parseInt(guildSettings.defaultColor, 16) 
+        : 0xFF69B4;
+      container.setAccentColor(accentColor);
 
       // ユーザー名表示（絵文字で豪華に装飾）
       container.addTextDisplayComponents(
@@ -192,13 +218,38 @@ module.exports = {
         );
       
       // 2. Components v2 のパネル送信
-      // 2. Components v2 のパネル送信
       const followUpMessage = await interaction.reply({
         files: [image],
         components: [container],
         flags: MessageFlags.IsComponentsV2,
         allowedMentions: { roles: [], users: [] }
       });
+
+      // ギルド設定で募集チャンネルが設定されている場合、そちらにも送信
+      if (guildSettings.recruitChannel && guildSettings.recruitChannel !== interaction.channelId) {
+        try {
+          const recruitChannel = await interaction.guild.channels.fetch(guildSettings.recruitChannel);
+          if (recruitChannel && recruitChannel.isTextBased()) {
+            // 通知ロールの準備
+            let mentionContent = '';
+            if (guildSettings.notificationRole) {
+              mentionContent = `<@&${guildSettings.notificationRole}> `;
+            }
+            
+            await recruitChannel.send({
+              content: mentionContent,
+              files: [image],
+              components: [container],
+              flags: MessageFlags.IsComponentsV2,
+              allowedMentions: { roles: guildSettings.notificationRole ? [guildSettings.notificationRole] : [], users: [] }
+            });
+            
+            console.log('募集メッセージを指定チャンネルに送信しました:', guildSettings.recruitChannel);
+          }
+        } catch (channelError) {
+          console.error('指定チャンネルへの送信でエラー:', channelError);
+        }
+      }
 
       // interaction.reply()の場合、メッセージIDの取得方法が異なる
       // fetchReply()を使用して実際のメッセージを取得
@@ -239,7 +290,12 @@ module.exports = {
           
           // 新しいコンテナを作成（正しい募集IDを含む）
           const updatedContainer = new ContainerBuilder();
-          updatedContainer.setAccentColor(0xFF69B4);
+          
+          // ギルド設定のカラーがあれば適用、なければデフォルト
+          const updatedAccentColor = guildSettings.defaultColor 
+            ? parseInt(guildSettings.defaultColor, 16) 
+            : 0xFF69B4;
+          updatedContainer.setAccentColor(updatedAccentColor);
 
           // ユーザー名表示
           updatedContainer.addTextDisplayComponents(

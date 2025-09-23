@@ -345,6 +345,81 @@ export default {
       return new Response(JSON.stringify({ guilds, recruits }), { status: 200 });
     }
 
+    // ギルド設定保存API
+    if (url.pathname === "/api/guild-settings") {
+      if (request.method === "POST") {
+        try {
+          const data = await request.json();
+          const { guildId, ...settings } = data;
+          
+          if (!guildId) {
+            return new Response(JSON.stringify({ error: "Guild ID required" }), { 
+              status: 400, 
+              headers: { ...corsHeaders, "Content-Type": "application/json" }
+            });
+          }
+          
+          // 既存の設定を取得
+          const existingSettings = await getFromKV(`guild_settings:${guildId}`) || {};
+          
+          // 新しい設定をマージ
+          const updatedSettings = { ...existingSettings, ...settings, updatedAt: new Date().toISOString() };
+          
+          // KVストアに保存
+          await saveToKV(`guild_settings:${guildId}`, updatedSettings);
+          
+          return new Response(JSON.stringify({ ok: true, settings: updatedSettings }), { 
+            status: 200, 
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
+          });
+        } catch (error) {
+          console.error('Guild settings save error:', error);
+          return new Response(JSON.stringify({ error: "Internal server error" }), { 
+            status: 500, 
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
+          });
+        }
+      }
+      return new Response("Method Not Allowed", { 
+        status: 405, 
+        headers: corsHeaders 
+      });
+    }
+
+    // ギルド設定取得API
+    if (url.pathname.startsWith("/api/guild-settings/") && request.method === "GET") {
+      try {
+        const guildId = url.pathname.split("/api/guild-settings/")[1];
+        
+        if (!guildId) {
+          return new Response(JSON.stringify({ error: "Guild ID required" }), { 
+            status: 400, 
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
+          });
+        }
+        
+        const settings = await getFromKV(`guild_settings:${guildId}`);
+        
+        if (!settings) {
+          return new Response(JSON.stringify({ error: "Settings not found" }), { 
+            status: 404, 
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
+          });
+        }
+        
+        return new Response(JSON.stringify(settings), { 
+          status: 200, 
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      } catch (error) {
+        console.error('Guild settings fetch error:', error);
+        return new Response(JSON.stringify({ error: "Internal server error" }), { 
+          status: 500, 
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      }
+    }
+
     // ギルド数を取得するエンドポイント
     if (url.pathname === '/api/guild-count' && request.method === 'GET') {
       try {

@@ -48,6 +48,21 @@ module.exports = {
 
     // セレクトメニューの処理
     if (interaction.isStringSelectMenu()) {
+      // ギルド設定のセレクトメニュー
+      if (interaction.customId.startsWith('channel_select_') || interaction.customId.startsWith('role_select_')) {
+        const guildSettings = client.commands.get('guildsettings');
+        if (guildSettings && typeof guildSettings.handleSelectMenuInteraction === 'function') {
+          try {
+            await guildSettings.handleSelectMenuInteraction(interaction);
+          } catch (error) {
+            console.error('ギルド設定セレクトメニュー処理中にエラー:', error);
+            console.error('エラーの詳細:', error.stack);
+            await safeRespond({ content: 'メニュー処理でエラーが発生しました。', flags: require('discord.js').MessageFlags.Ephemeral }).catch(()=>{});
+          }
+        }
+        return;
+      }
+
       // ヘルプコマンドのセレクトメニュー
       if (interaction.customId === 'help_command_select') {
         const helpCommand = client.commands.get('help');
@@ -64,8 +79,41 @@ module.exports = {
       return;
     }
 
+    // ロールセレクトメニューとチャンネルセレクトメニューの処理
+    if (interaction.isRoleSelectMenu() || interaction.isChannelSelectMenu()) {
+      // ギルド設定のセレクトメニュー
+      if (interaction.customId.startsWith('channel_select_') || interaction.customId.startsWith('role_select_')) {
+        const guildSettings = client.commands.get('guildsettings');
+        if (guildSettings && typeof guildSettings.handleSelectMenuInteraction === 'function') {
+          try {
+            await guildSettings.handleSelectMenuInteraction(interaction);
+          } catch (error) {
+            console.error('ギルド設定セレクトメニュー処理中にエラー:', error);
+            console.error('エラーの詳細:', error.stack);
+            await safeRespond({ content: 'メニュー処理でエラーが発生しました。', flags: require('discord.js').MessageFlags.Ephemeral }).catch(()=>{});
+          }
+        }
+      }
+      return;
+    }
+
     // モーダル送信(type=5)の処理
     if ((interaction.isModalSubmit && interaction.isModalSubmit()) || interaction.type === 5) {
+      // ギルド設定のモーダル処理
+      if (interaction.customId === 'default_title_modal' || interaction.customId === 'default_color_modal') {
+        const guildSettings = client.commands.get('guildsettings');
+        if (guildSettings && typeof guildSettings.handleModalSubmit === 'function') {
+          try {
+            await guildSettings.handleModalSubmit(interaction);
+          } catch (error) {
+            console.error('ギルド設定モーダル処理中にエラー:', error);
+            if (error && error.stack) console.error(error.stack);
+            await safeRespond({ content: `モーダル処理でエラー: ${error.message || error}`, flags: require('discord.js').MessageFlags.Ephemeral }).catch(()=>{});
+          }
+        }
+        return;
+      }
+
       // editRecruitコマンドのモーダル処理
       if (interaction.customId.startsWith('editRecruitModal_')) {
         const editRecruit = client.commands.get('editrecruit');
@@ -97,6 +145,21 @@ module.exports = {
 
     // ボタンインタラクションの処理
     if (interaction.isButton()) {
+      // ギルド設定のボタン処理
+      if (interaction.customId.startsWith('set_') || interaction.customId === 'reset_all_settings') {
+        const guildSettings = client.commands.get('guildsettings');
+        if (guildSettings && typeof guildSettings.handleButtonInteraction === 'function') {
+          try {
+            await guildSettings.handleButtonInteraction(interaction);
+          } catch (error) {
+            console.error('ギルド設定ボタン処理中にエラー:', error);
+            console.error('エラーの詳細:', error.stack);
+            await safeRespond({ content: 'ボタン処理でエラーが発生しました。', flags: require('discord.js').MessageFlags.Ephemeral }).catch(()=>{});
+          }
+        }
+        return;
+      }
+
       // ウェルカムメッセージのヘルプボタン処理
       if (interaction.customId === 'welcome_help') {
         const helpCommand = client.commands.get('help');

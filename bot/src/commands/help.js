@@ -12,6 +12,7 @@ module.exports = {
           { name: 'ping', value: 'ping' },
           { name: 'gamerecruit', value: 'gamerecruit' },
           { name: 'friendcode', value: 'friendcode' },
+          { name: 'guildsettings', value: 'guildsettings' },
           { name: 'help', value: 'help' }
         )
     ),
@@ -62,6 +63,11 @@ async function showGeneralHelp(interaction) {
         inline: true
       },
       {
+        name: '⚙️ 管理機能',
+        value: '`/guildsettings` - ギルド募集設定',
+        inline: true
+      },
+      {
         name: '📖 使い方',
         value: '下のメニューから詳細を確認したいコマンドを選んでください',
         inline: false
@@ -88,6 +94,11 @@ async function showGeneralHelp(interaction) {
         .setDescription('フレンドコードを管理する')
         .setValue('friendcode')
         .setEmoji('👥'),
+      new StringSelectMenuOptionBuilder()
+        .setLabel('⚙️ guildsettings')
+        .setDescription('ギルドの募集設定を管理する')
+        .setValue('guildsettings')
+        .setEmoji('⚙️'),
       new StringSelectMenuOptionBuilder()
         .setLabel('🏓 ping')
         .setDescription('Botの応答を確認する')
@@ -158,6 +169,17 @@ async function showCommandDetails(interaction, commandName) {
       fields: [
         { name: '🚧 開発状況', value: '現在開発中のため、仮の応答のみ表示されます', inline: false },
         { name: '📋 予定機能', value: '• フレンドコード登録\n• フレンドコード表示\n• ゲーム別管理', inline: false }
+      ]
+    },
+    guildsettings: {
+      title: '⚙️ guildsettings コマンド',
+      description: 'ギルド毎の募集設定を管理できるコマンドです。（サーバー管理権限が必要）',
+      usage: '`/guildsettings`',
+      examples: '`/guildsettings` → 設定画面を表示',
+      fields: [
+        { name: '🔧 設定項目', value: '• **募集チャンネル**: 募集を投稿するチャンネル\n• **通知ロール**: 募集時にメンションするロール\n• **既定タイトル**: 募集作成時の初期タイトル\n• **既定カラー**: 募集カードの色\n• **アップデート通知チャンネル**: Bot更新情報のチャンネル', inline: false },
+        { name: '👤 権限', value: 'このコマンドは**サーバー管理**権限を持つユーザーのみ使用できます', inline: false },
+        { name: '🎨 UI', value: 'Discord Components v2を使用した直感的な設定画面で簡単に設定変更できます', inline: false }
       ]
     },
     help: {

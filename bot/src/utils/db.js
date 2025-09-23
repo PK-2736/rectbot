@@ -168,6 +168,62 @@ async function getActiveRecruits() {
 	return res.json();
 }
 
+// ギルド設定を保存
+async function saveGuildSettings(guildId, settings) {
+	try {
+		const res = await fetch(`${config.BACKEND_API_URL}/api/guild-settings`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ 
+				guildId,
+				...settings
+			})
+		});
+
+		if (!res.ok) {
+			throw new Error(`API error: ${res.status}`);
+		}
+
+		return await res.json();
+	} catch (error) {
+		console.error('ギルド設定の保存に失敗:', error);
+		throw error;
+	}
+}
+
+// ギルド設定を取得
+async function getGuildSettings(guildId) {
+	try {
+		const res = await fetch(`${config.BACKEND_API_URL}/api/guild-settings/${guildId}`);
+		
+		if (!res.ok) {
+			if (res.status === 404) {
+				// 設定が見つからない場合はデフォルト値を返す
+				return {
+					recruitChannel: null,
+					notificationRole: null,
+					defaultTitle: null,
+					defaultColor: null,
+					updateChannel: null
+				};
+			}
+			throw new Error(`API error: ${res.status}`);
+		}
+
+		return await res.json();
+	} catch (error) {
+		console.error('ギルド設定の取得に失敗:', error);
+		// エラーの場合もデフォルト値を返す
+		return {
+			recruitChannel: null,
+			notificationRole: null,
+			defaultTitle: null,
+			defaultColor: null,
+			updateChannel: null
+		};
+	}
+}
+
 module.exports = {
 	supabase,
 	saveRecruitStatus,
@@ -176,5 +232,7 @@ module.exports = {
 	saveRecruitmentData,
 	deleteRecruitmentData,
 	updateRecruitmentStatus,
-	updateRecruitmentData
+	updateRecruitmentData,
+	saveGuildSettings,
+	getGuildSettings
 };
