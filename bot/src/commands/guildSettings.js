@@ -71,11 +71,11 @@ module.exports = {
         {
           name: '📋 現在の設定',
           value: [
-            `🏷️ **募集チャンネル**: ${settings.recruit_channel ? `<#${settings.recruit_channel}>` : '未設定'}`,
-            `🔔 **通知ロール**: ${settings.notification_role ? `<@&${settings.notification_role}>` : '未設定'}`,
-            `📝 **既定タイトル**: ${settings.defaultTitle || '未設定'}`,
-            `🎨 **既定カラー**: ${settings.defaultColor ? `#${settings.defaultColor}` : '未設定'}`,
-            `📢 **アップデート通知チャンネル**: ${settings.update_channel ? `<#${settings.update_channel}>` : '未設定'}`
+            `🏷️ **募集チャンネル**: ${settings.recruit_channel || settings.recruitmentChannelId ? `<#${settings.recruit_channel || settings.recruitmentChannelId}>` : '未設定'}`,
+            `🔔 **通知ロール**: ${settings.notification_role || settings.recruitmentNotificationRoleId ? `<@&${settings.notification_role || settings.recruitmentNotificationRoleId}>` : '未設定'}`,
+            `📝 **既定タイトル**: ${settings.defaultTitle || settings.defaultRecruitTitle || '未設定'}`,
+            `🎨 **既定カラー**: ${settings.defaultColor || settings.defaultRecruitColor ? `${settings.defaultColor || settings.defaultRecruitColor}` : '未設定'}`,
+            `📢 **アップデート通知チャンネル**: ${settings.update_channel || settings.updateNotificationChannelId ? `<#${settings.update_channel || settings.updateNotificationChannelId}>` : '未設定'}`
           ].join('\n'),
           inline: false
         },
@@ -338,15 +338,17 @@ module.exports = {
         flags: MessageFlags.Ephemeral
       });
 
-      // 設定画面を更新
+      // 設定画面を即座に更新（保存結果の最新データを使用）
       setTimeout(async () => {
         try {
-          const updatedSettings = await getGuildSettings(guildId);
-          await this.showSettingsUI(interaction, updatedSettings);
+          // 保存結果から最新の設定を取得してUI更新
+          const latestSettings = result.settings || {};
+          console.log(`[guildSettings] UI更新用の最新設定:`, latestSettings);
+          await this.showSettingsUI(interaction, latestSettings);
         } catch (error) {
           console.error('Settings UI update error:', error);
         }
-      }, 2000);
+      }, 1000);
 
     } catch (error) {
       console.error('Guild setting update error:', error);
