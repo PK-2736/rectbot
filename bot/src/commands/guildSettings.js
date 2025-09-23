@@ -7,7 +7,7 @@ const {
   RoleSelectMenuBuilder, ChannelSelectMenuBuilder,
   ChannelType, PermissionFlagsBits, MessageFlags,
   ModalBuilder, TextInputBuilder, TextInputStyle,
-  EmbedBuilder
+  EmbedBuilder, SectionBuilder
 } = require('discord.js');
 
 const { saveGuildSettings, getGuildSettings, finalizeGuildSettings, startGuildSettingsSession } = require('../utils/db');
@@ -74,22 +74,16 @@ module.exports = {
       ? `<#${settings.recruit_channel || settings.recruitmentChannelId}>` 
       : '未設定';
     
-    container.addTextDisplayComponents(
-      new TextDisplayBuilder().setContent(`📍 **募集チャンネル**\n${recruitChannelValue}`)
-    );
-
-    container.addActionRowComponents(
-      new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId('set_recruit_channel')
-          .setLabel('設定変更')
-          .setStyle(ButtonStyle.Primary)
-          .setEmoji('📍')
-      )
-    );
-
-    container.addSeparatorComponents(
-      new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+    container.addSectionComponents(
+      new SectionBuilder()
+        .setTitle('📍 募集チャンネル')
+        .setDescription(recruitChannelValue)
+        .setButtonAccessory(
+          new ButtonBuilder()
+            .setCustomId('set_recruit_channel')
+            .setLabel('設定変更')
+            .setStyle(ButtonStyle.Primary)
+        )
     );
 
     // 2. 通知ロール設定
@@ -97,64 +91,46 @@ module.exports = {
       ? `<@&${settings.notification_role || settings.recruitmentNotificationRoleId}>` 
       : '未設定';
 
-    container.addTextDisplayComponents(
-      new TextDisplayBuilder().setContent(`🔔 **通知ロール**\n${notificationRoleValue}`)
-    );
-
-    container.addActionRowComponents(
-      new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId('set_notification_role')
-          .setLabel('設定変更')
-          .setStyle(ButtonStyle.Primary)
-          .setEmoji('🔔')
-      )
-    );
-
-    container.addSeparatorComponents(
-      new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+    container.addSectionComponents(
+      new SectionBuilder()
+        .setTitle('🔔 通知ロール')
+        .setDescription(notificationRoleValue)
+        .setButtonAccessory(
+          new ButtonBuilder()
+            .setCustomId('set_notification_role')
+            .setLabel('設定変更')
+            .setStyle(ButtonStyle.Primary)
+        )
     );
 
     // 3. 既定タイトル設定
     const defaultTitleValue = settings.defaultTitle || settings.defaultRecruitTitle || '未設定';
 
-    container.addTextDisplayComponents(
-      new TextDisplayBuilder().setContent(`📝 **既定タイトル**\n${defaultTitleValue}`)
-    );
-
-    container.addActionRowComponents(
-      new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId('set_default_title')
-          .setLabel('設定変更')
-          .setStyle(ButtonStyle.Primary)
-          .setEmoji('📝')
-      )
-    );
-
-    container.addSeparatorComponents(
-      new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+    container.addSectionComponents(
+      new SectionBuilder()
+        .setTitle('📝 既定タイトル')
+        .setDescription(defaultTitleValue)
+        .setButtonAccessory(
+          new ButtonBuilder()
+            .setCustomId('set_default_title')
+            .setLabel('設定変更')
+            .setStyle(ButtonStyle.Primary)
+        )
     );
 
     // 4. 既定カラー設定
     const defaultColorValue = settings.defaultColor || settings.defaultRecruitColor || '未設定';
 
-    container.addTextDisplayComponents(
-      new TextDisplayBuilder().setContent(`🎨 **既定カラー**\n${defaultColorValue}`)
-    );
-
-    container.addActionRowComponents(
-      new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId('set_default_color')
-          .setLabel('設定変更')
-          .setStyle(ButtonStyle.Primary)
-          .setEmoji('🎨')
-      )
-    );
-
-    container.addSeparatorComponents(
-      new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+    container.addSectionComponents(
+      new SectionBuilder()
+        .setTitle('🎨 既定カラー')
+        .setDescription(defaultColorValue)
+        .setButtonAccessory(
+          new ButtonBuilder()
+            .setCustomId('set_default_color')
+            .setLabel('設定変更')
+            .setStyle(ButtonStyle.Primary)
+        )
     );
 
     // 5. アップデート通知チャンネル設定
@@ -162,18 +138,16 @@ module.exports = {
       ? `<#${settings.update_channel || settings.updateNotificationChannelId}>` 
       : '未設定';
 
-    container.addTextDisplayComponents(
-      new TextDisplayBuilder().setContent(`📢 **アップデート通知チャンネル**\n${updateChannelValue}`)
-    );
-
-    container.addActionRowComponents(
-      new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId('set_update_channel')
-          .setLabel('設定変更')
-          .setStyle(ButtonStyle.Primary)
-          .setEmoji('📢')
-      )
+    container.addSectionComponents(
+      new SectionBuilder()
+        .setTitle('📢 アップデート通知チャンネル')
+        .setDescription(updateChannelValue)
+        .setButtonAccessory(
+          new ButtonBuilder()
+            .setCustomId('set_update_channel')
+            .setLabel('設定変更')
+            .setStyle(ButtonStyle.Primary)
+        )
     );
 
     container.addSeparatorComponents(
