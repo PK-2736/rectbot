@@ -364,15 +364,20 @@ module.exports = {
       const guildId = interaction.guildId;
       
       console.log(`[guildSettings] 設定を最終保存中 - guildId: ${guildId}`);
+      console.log(`[guildSettings] バックエンドAPI URL: ${require('../config').BACKEND_API_URL}`);
       
       // セッションが存在しない場合は先に開始
       try {
+        console.log(`[guildSettings] セッション確保を試行中...`);
         await startGuildSettingsSession(guildId);
         console.log(`[guildSettings] セッション確保完了`);
       } catch (sessionError) {
         console.warn(`[guildSettings] セッション確保警告: ${sessionError.message}`);
+        console.warn(`[guildSettings] セッション確保エラーの詳細:`, sessionError);
         // 継続して最終保存を試行
       }
+      
+      console.log(`[guildSettings] ファイナライゼーション処理開始...`);
       
       // KVからSupabaseに最終保存
       const result = await finalizeGuildSettings(guildId);
@@ -394,6 +399,9 @@ module.exports = {
 
     } catch (error) {
       console.error('Finalize settings error:', error);
+      console.error('Error name:', error.name);
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
       
       // より詳細なエラーメッセージ
       let errorMessage = '❌ 設定の保存に失敗しました。';
@@ -401,7 +409,11 @@ module.exports = {
         errorMessage += '\nセッションが見つかりません。設定を再度お試しください。';
       } else if (error.message && error.message.includes('500')) {
         errorMessage += '\nデータベース接続に問題があります。一時的に設定が保存されている可能性があります。';
+      } else if (error.message && error.message.includes('fetch')) {
+        errorMessage += '\nネットワーク接続に問題があります。接続を確認してください。';
       }
+      
+      errorMessage += `\n詳細: ${error.message}`;
       
       await interaction.reply({
         content: errorMessage,

@@ -209,14 +209,19 @@ async function saveGuildSettings(guildId, settings) {
 async function finalizeGuildSettings(guildId) {
 	try {
 		console.log(`[db] ギルド設定の最終保存開始 - guildId: ${guildId}`);
+		console.log(`[db] バックエンドURL: ${config.BACKEND_API_URL}/api/guild-settings/finalize`);
+		
+		const requestBody = JSON.stringify({ guildId });
+		console.log(`[db] リクエストボディ: ${requestBody}`);
 		
 		const res = await fetch(`${config.BACKEND_API_URL}/api/guild-settings/finalize`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ guildId })
+			body: requestBody
 		});
 
 		console.log(`[db] 最終保存APIレスポンス - status: ${res.status}, ok: ${res.ok}`);
+		console.log(`[db] レスポンスヘッダー:`, Object.fromEntries(res.headers.entries()));
 
 		if (!res.ok) {
 			const errorText = await res.text();
@@ -229,6 +234,7 @@ async function finalizeGuildSettings(guildId) {
 		return result;
 	} catch (error) {
 		console.error('ギルド設定の最終保存に失敗:', error);
+		console.error('エラーのタイプ:', typeof error);
 		console.error('エラーの詳細:', error.stack);
 		throw error;
 	}
