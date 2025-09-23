@@ -189,7 +189,7 @@ module.exports = {
     );
 
     const replyOptions = {
-      content: '以下の設定を確認してください 👇',
+      content: '　',
       components: [container],
       flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
     };
