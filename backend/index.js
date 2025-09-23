@@ -526,8 +526,10 @@ export default {
             console.error(`[finalize] Supabase operation failed:`);
             console.error(`[finalize] Status: ${supaRes.status}`);
             console.error(`[finalize] Status Text: ${supaRes.statusText}`);
-            console.error(`[finalize] Response: ${errorText}`);
+            console.error(`[finalize] Response Headers:`, [...supaRes.headers.entries()]);
+            console.error(`[finalize] Response Body: ${errorText}`);
             console.error(`[finalize] Request Data:`, supabaseData);
+            console.error(`[finalize] Request URL:`, supaRes.url);
             throw new Error(`Supabase save failed: ${supaRes.status} - ${errorText}`);
           }
           
