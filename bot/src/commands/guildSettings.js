@@ -13,7 +13,11 @@ const {
   ModalBuilder,
   TextInputBuilder,
   TextInputStyle,
-  EmbedBuilder
+  EmbedBuilder,
+  ContainerBuilder,
+  TextDisplayBuilder,
+  SeparatorBuilder,
+  SeparatorSpacingSize
 } = require('discord.js');
 
 const { saveGuildSettings, getGuildSettings, finalizeGuildSettings, startGuildSettingsSession } = require('../utils/db');
@@ -62,77 +66,125 @@ module.exports = {
   },
 
   async showSettingsUI(interaction, settings = {}) {
-    // 現在の設定を表示するEmbed
-    const settingsEmbed = new EmbedBuilder()
-      .setTitle('⚙️ ギルド募集設定')
-      .setDescription('各項目をクリックして設定を変更できます')
-      .setColor(0x5865F2)
-      .addFields(
-        {
-          name: '📋 現在の設定',
-          value: [
-            `🏷️ **募集チャンネル**: ${settings.recruit_channel || settings.recruitmentChannelId ? `<#${settings.recruit_channel || settings.recruitmentChannelId}>` : '未設定'}`,
-            `🔔 **通知ロール**: ${settings.notification_role || settings.recruitmentNotificationRoleId ? `<@&${settings.notification_role || settings.recruitmentNotificationRoleId}>` : '未設定'}`,
-            `📝 **既定タイトル**: ${settings.defaultTitle || settings.defaultRecruitTitle || '未設定'}`,
-            `🎨 **既定カラー**: ${settings.defaultColor || settings.defaultRecruitColor ? `${settings.defaultColor || settings.defaultRecruitColor}` : '未設定'}`,
-            `📢 **アップデート通知チャンネル**: ${settings.update_channel || settings.updateNotificationChannelId ? `<#${settings.update_channel || settings.updateNotificationChannelId}>` : '未設定'}`
-          ].join('\n'),
-          inline: false
-        },
-        {
-          name: '🔧 設定変更',
-          value: '下のボタンから設定したい項目を選択してください。',
-          inline: false
-        }
+    // ContainerBuilderを使用した新しいUI
+    const container = new ContainerBuilder();
+    container.setAccentColor(0x5865F2);
+
+    // タイトル表示
+    container.addTextDisplayComponents(
+      new TextDisplayBuilder().setContent('⚙️ **ギルド募集設定**\n各項目をクリックして設定を変更できます')
+    );
+
+    container.addSeparatorComponents(
+      new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+    );
+
+    // 現在の設定表示
+    const currentSettingsText = [
+      '📋 **現在の設定**',
+      '',
+      `🏷️ **募集チャンネル**: ${settings.recruit_channel || settings.recruitmentChannelId ? `<#${settings.recruit_channel || settings.recruitmentChannelId}>` : '未設定'}`,
+      `🔔 **通知ロール**: ${settings.notification_role || settings.recruitmentNotificationRoleId ? `<@&${settings.notification_role || settings.recruitmentNotificationRoleId}>` : '未設定'}`,
+      `📝 **既定タイトル**: ${settings.defaultTitle || settings.defaultRecruitTitle || '未設定'}`,
+      `🎨 **既定カラー**: ${settings.defaultColor || settings.defaultRecruitColor ? `${settings.defaultColor || settings.defaultRecruitColor}` : '未設定'}`,
+      `📢 **アップデート通知チャンネル**: ${settings.update_channel || settings.updateNotificationChannelId ? `<#${settings.update_channel || settings.updateNotificationChannelId}>` : '未設定'}`
+    ].join('\n');
+
+    container.addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(currentSettingsText)
+    );
+
+    container.addSeparatorComponents(
+      new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+    );
+
+    container.addTextDisplayComponents(
+      new TextDisplayBuilder().setContent('🔧 **設定変更**\n下のボタンから設定したい項目を選択してください。')
+    );
+
+    container.addSeparatorComponents(
+      new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+    );
+
+    // 募集チャンネル設定ボタン
+    container.addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId('set_recruit_channel')
+          .setLabel('📍 募集チャンネル設定')
+          .setStyle(ButtonStyle.Primary)
       )
-      .setTimestamp()
-      .setFooter({ text: 'RectBot ギルド設定', iconURL: interaction.client.user.displayAvatarURL() });
-
-    // 設定変更ボタン
-    const actionRow1 = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId('set_recruit_channel')
-        .setLabel('📍 募集チャンネル設定')
-        .setStyle(ButtonStyle.Primary),
-      new ButtonBuilder()
-        .setCustomId('set_notification_role')
-        .setLabel('🔔 通知ロール設定')
-        .setStyle(ButtonStyle.Primary)
     );
 
-    const actionRow2 = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId('set_default_title')
-        .setLabel('📝 既定タイトル設定')
-        .setStyle(ButtonStyle.Primary),
-      new ButtonBuilder()
-        .setCustomId('set_default_color')
-        .setLabel('🎨 既定カラー設定')
-        .setStyle(ButtonStyle.Primary)
+    // 通知ロール設定ボタン
+    container.addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId('set_notification_role')
+          .setLabel('🔔 通知ロール設定')
+          .setStyle(ButtonStyle.Primary)
+      )
     );
 
-    const actionRow3 = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId('set_update_channel')
-        .setLabel('📢 アップデート通知チャンネル設定')
-        .setStyle(ButtonStyle.Primary),
-      new ButtonBuilder()
-        .setCustomId('finalize_settings')
-        .setLabel('✅ 設定完了')
-        .setStyle(ButtonStyle.Success)
+    // 既定タイトル設定ボタン
+    container.addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId('set_default_title')
+          .setLabel('📝 既定タイトル設定')
+          .setStyle(ButtonStyle.Primary)
+      )
     );
 
-    const actionRow4 = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId('reset_all_settings')
-        .setLabel('🔄 すべてリセット')
-        .setStyle(ButtonStyle.Danger)
+    // 既定カラー設定ボタン
+    container.addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId('set_default_color')
+          .setLabel('🎨 既定カラー設定')
+          .setStyle(ButtonStyle.Primary)
+      )
+    );
+
+    // アップデート通知チャンネル設定ボタン
+    container.addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId('set_update_channel')
+          .setLabel('📢 アップデート通知チャンネル設定')
+          .setStyle(ButtonStyle.Primary)
+      )
+    );
+
+    container.addSeparatorComponents(
+      new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+    );
+
+    // 制御ボタン
+    container.addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId('finalize_settings')
+          .setLabel('✅ 設定完了')
+          .setStyle(ButtonStyle.Success),
+        new ButtonBuilder()
+          .setCustomId('reset_all_settings')
+          .setLabel('🔄 すべてリセット')
+          .setStyle(ButtonStyle.Danger)
+      )
+    );
+
+    container.addSeparatorComponents(
+      new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+    );
+
+    container.addTextDisplayComponents(
+      new TextDisplayBuilder().setContent('powered by **RectBot**')
     );
 
     const replyOptions = {
-      embeds: [settingsEmbed],
-      components: [actionRow1, actionRow2, actionRow3, actionRow4],
-      flags: MessageFlags.Ephemeral
+      components: [container],
+      flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2
     };
 
     if (interaction.replied || interaction.deferred) {
