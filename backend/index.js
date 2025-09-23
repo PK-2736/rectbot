@@ -751,29 +751,9 @@ export default {
     }
 
     // Supabase保存テスト用API
-    if (url.pathname === "/api/admin/test-guild-save" && request.method === "POST") {
+    if (url.pathname === "/api/admin/test-guild-save" && request.method === "GET") {
       try {
-        let guildId;
-        try {
-          const body = await request.json();
-          guildId = body.guildId;
-        } catch (parseError) {
-          console.error(`[test-guild-save] JSON parse error:`, parseError);
-          return new Response(JSON.stringify({ 
-            success: false, 
-            error: "Invalid JSON in request body" 
-          }), { 
-            status: 400, 
-            headers: { ...corsHeaders, "Content-Type": "application/json" }
-          });
-        }
-        
-        if (!guildId) {
-          return new Response(JSON.stringify({ error: "Guild ID required" }), { 
-            status: 400, 
-            headers: { ...corsHeaders, "Content-Type": "application/json" }
-          });
-        }
+        const guildId = url.searchParams.get('guildId') || "1414530004657766422";
         
         console.log(`[test-guild-save] Testing guild settings save for: ${guildId}`);
         
