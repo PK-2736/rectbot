@@ -527,6 +527,8 @@ export default {
             console.error(`[finalize] Status: ${supaRes.status}`);
             console.error(`[finalize] Status Text: ${supaRes.statusText}`);
             console.error(`[finalize] Response: ${errorText}`);
+            console.error(`[finalize] Request URL: ${supaRes.url}`);
+            console.error(`[finalize] Request Headers: ${JSON.stringify(supaRes.headers)}`);
             console.error(`[finalize] Request Data:`, supabaseData);
             throw new Error(`Supabase save failed: ${supaRes.status} - ${errorText}`);
           }
@@ -544,7 +546,16 @@ export default {
           }
           
         } catch (supabaseError) {
-          console.error(`[finalize] Supabase operation failed, falling back to KV:`, supabaseError);
+          console.error(`[finalize] Supabase operation failed, falling back to KV:`);
+          console.error(`[finalize] Error type: ${supabaseError.constructor.name}`);
+          console.error(`[finalize] Error message: ${supabaseError.message}`);
+          console.error(`[finalize] Error stack: ${supabaseError.stack}`);
+          
+          // Supabase環境変数の存在確認
+          console.log(`[finalize] Environment check:`);
+          console.log(`[finalize] SUPABASE_URL exists: ${!!env.SUPABASE_URL}`);
+          console.log(`[finalize] SUPABASE_SERVICE_ROLE_KEY exists: ${!!env.SUPABASE_SERVICE_ROLE_KEY}`);
+          console.log(`[finalize] SUPABASE_URL format: ${env.SUPABASE_URL ? 'valid' : 'invalid'}`);
           
           // Supabase失敗時はKVに保存（フォールバック）
           await saveToKV(`guild_settings:${guildId}`, {
