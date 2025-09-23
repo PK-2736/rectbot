@@ -977,6 +977,84 @@ export default {
       }
     }
 
+    // Supabase直接テスト用API（一時的）
+    if (url.pathname === "/api/test/supabase-direct" && request.method === "POST") {
+      try {
+        const { guildId, recruit_channel_id, notification_role_id } = await request.json();
+        
+        console.log(`[test] Direct Supabase test - guildId: ${guildId}`);
+        
+        // まず既存レコードがあるか確認
+        const existingRes = await fetch(env.SUPABASE_URL + `/rest/v1/guild_settings?guild_id=eq.${guildId}`, {
+          method: 'GET',
+          headers: {
+            'apikey': env.SUPABASE_SERVICE_ROLE_KEY,
+            'Authorization': `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        const existingData = await existingRes.json();
+        console.log(`[test] Existing data:`, existingData);
+        
+        // テストデータでUPDATE
+        const updateData = {
+          recruit_channel_id: recruit_channel_id || "test_channel_123",
+          notification_role_id: notification_role_id || "test_role_456",
+          updated_at: new Date().toISOString()
+        };
+        
+        const supaRes = await fetch(env.SUPABASE_URL + `/rest/v1/guild_settings?guild_id=eq.${guildId}`, {
+          method: 'PATCH',
+          headers: {
+            'apikey': env.SUPABASE_SERVICE_ROLE_KEY,
+            'Authorization': `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(updateData)
+        });
+        
+        console.log(`[test] Update response status: ${supaRes.status}`);
+        
+        if (!supaRes.ok) {
+          const errorText = await supaRes.text();
+          console.error(`[test] Update failed: ${errorText}`);
+          return new Response(JSON.stringify({
+            error: "Supabase update failed",
+            status: supaRes.status,
+            statusText: supaRes.statusText,
+            response: errorText,
+            requestData: updateData
+          }), {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
+          });
+        }
+        
+        const result = await supaRes.json();
+        console.log(`[test] Update success:`, result);
+        
+        return new Response(JSON.stringify({
+          success: true,
+          result,
+          originalData: existingData
+        }), {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+        
+      } catch (error) {
+        console.error('[test] Direct Supabase test error:', error);
+        return new Response(JSON.stringify({
+          error: "Test failed",
+          details: error.message
+        }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      }
+    }
+
     // ギルド数を取得するエンドポイント
     if (url.pathname === '/api/guild-count' && request.method === 'GET') {
       try {
