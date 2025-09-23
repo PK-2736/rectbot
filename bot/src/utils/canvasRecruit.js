@@ -18,7 +18,7 @@ registerFont(__dirname + '/../../data/Corporate-Logo-Rounded-Bold-ver3.otf', { f
  * @param {Client} client Discordクライアント
  * @returns {Buffer} PNG画像バッファ
  */
-async function generateRecruitCard(recruitData, participantIds = [], client = null) {
+async function generateRecruitCard(recruitData, participantIds = [], client = null, accentColor = null) {
   const width = 140;
   const height = 100; // 90から100に拡大（上に10ピクセル拡張）
   const scale = 5; // 高解像度で生成（5倍スケール - 3倍から向上）
@@ -44,10 +44,36 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
   // グラデーション枠
   // 線形グラデーション（左上から右下へ）
   const gradient = ctx.createLinearGradient(0, 0, width, height);
-  gradient.addColorStop(0, '#ff6b9d');    // ピンク
-  gradient.addColorStop(0.3, '#c44569');  // 深いピンク
-  gradient.addColorStop(0.7, '#786fa6');  // 紫
-  gradient.addColorStop(1, '#4834d4');    // 青紫
+  
+  if (accentColor) {
+    // アクセントカラーが指定されている場合
+    const baseColor = `#${accentColor}`;
+    
+    // アクセントカラーをベースにしたグラデーション
+    const r = parseInt(accentColor.substr(0, 2), 16);
+    const g = parseInt(accentColor.substr(2, 2), 16);
+    const b = parseInt(accentColor.substr(4, 2), 16);
+    
+    // 明るい色
+    const lightR = Math.min(255, r + 40);
+    const lightG = Math.min(255, g + 40);
+    const lightB = Math.min(255, b + 40);
+    
+    // 暗い色
+    const darkR = Math.max(0, r - 40);
+    const darkG = Math.max(0, g - 40);
+    const darkB = Math.max(0, b - 40);
+    
+    gradient.addColorStop(0, `rgb(${lightR}, ${lightG}, ${lightB})`);
+    gradient.addColorStop(0.5, baseColor);
+    gradient.addColorStop(1, `rgb(${darkR}, ${darkG}, ${darkB})`);
+  } else {
+    // デフォルトカラー
+    gradient.addColorStop(0, '#ff6b9d');    // ピンク
+    gradient.addColorStop(0.3, '#c44569');  // 深いピンク
+    gradient.addColorStop(0.7, '#786fa6');  // 紫
+    gradient.addColorStop(1, '#4834d4');    // 青紫
+  }
   
   ctx.strokeStyle = gradient;
   ctx.lineWidth = 5;
@@ -80,8 +106,18 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
   
   // グラデーション背景
   const titleGradient = ctx.createLinearGradient(titleBgX, titleBgY, titleBgX + titleBgWidth, titleBgY + titleBgHeight);
-  titleGradient.addColorStop(0, 'rgba(255, 107, 157, 0.3)');    // ピンク
-  titleGradient.addColorStop(1, 'rgba(120, 111, 166, 0.3)');    // 紫
+  
+  if (accentColor) {
+    const r = parseInt(accentColor.substr(0, 2), 16);
+    const g = parseInt(accentColor.substr(2, 2), 16);
+    const b = parseInt(accentColor.substr(4, 2), 16);
+    
+    titleGradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0.3)`);
+    titleGradient.addColorStop(1, `rgba(${Math.max(0, r - 30)}, ${Math.max(0, g - 30)}, ${Math.max(0, b - 30)}, 0.3)`);
+  } else {
+    titleGradient.addColorStop(0, 'rgba(255, 107, 157, 0.3)');    // ピンク
+    titleGradient.addColorStop(1, 'rgba(120, 111, 166, 0.3)');    // 紫
+  }
   
   ctx.fillStyle = titleGradient;
   ctx.fillRect(titleBgX, titleBgY, titleBgWidth, titleBgHeight);

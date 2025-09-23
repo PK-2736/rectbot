@@ -22,14 +22,14 @@ module.exports = {
   data: new SlashCommandBuilder()
     .setName('guildsettings')
     .setDescription('ギルドの募集設定を管理します')
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
   async execute(interaction) {
     try {
       // 権限チェック
-      if (!interaction.member.permissions.has(PermissionFlagsBits.ManageGuild)) {
+      if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
         return await interaction.reply({
-          content: '❌ この機能を使用するには「サーバー管理」権限が必要です。',
+          content: '❌ この機能を使用するには「管理者」権限が必要です。',
           flags: MessageFlags.Ephemeral
         });
       }
@@ -342,12 +342,14 @@ module.exports = {
       
       // すべての設定をリセット
       await saveGuildSettings(guildId, {
-        recruitChannel: null,
-        notificationRole: null,
+        recruit_channel: null,
+        notification_role: null,
         defaultTitle: null,
         defaultColor: null,
-        updateChannel: null
+        update_channel: null
       });
+      
+      console.log(`[guildSettings] すべての設定をリセットしました - guildId: ${guildId}`);
       
       await interaction.reply({
         content: '✅ すべての設定をリセットしました！',

@@ -29,6 +29,14 @@ module.exports = {
       // ギルド設定を取得
       const guildSettings = await getGuildSettings(interaction.guildId);
       
+      // 募集チャンネルが設定されている場合、そのチャンネルでのみ実行可能
+      if (guildSettings.recruit_channel && guildSettings.recruit_channel !== interaction.channelId) {
+        return await interaction.reply({
+          content: `❌ 募集はこのチャンネルでは実行できません。\n📍 募集専用チャンネル: <#${guildSettings.recruit_channel}>`,
+          flags: MessageFlags.Ephemeral
+        });
+      }
+      
       // モーダル表示
       const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
       const modal = new ModalBuilder()
@@ -134,7 +142,7 @@ module.exports = {
       const { generateRecruitCard } = require('../utils/canvasRecruit');
       // 募集主を初期参加者として含める
       const currentParticipants = [interaction.user.id];
-      const buffer = await generateRecruitCard(recruitDataObj, currentParticipants, interaction.client);
+      const buffer = await generateRecruitCard(recruitDataObj, currentParticipants, interaction.client, guildSettings.defaultColor);
       const user = interaction.targetUser || interaction.user;
 
       // 募集パネル送信前に通知メッセージを送信
@@ -308,14 +316,13 @@ module.exports = {
 
           // 新しい画像を生成（正しいメッセージIDを使用）
           const { generateRecruitCard } = require('../utils/canvasRecruit');
-          const updatedImageBuffer = await generateRecruitCard(finalRecruitData, [interaction.user.id], interaction.client);
+          const updatedImageBuffer = await generateRecruitCard(finalRecruitData, [interaction.user.id], interaction.client, guildSettings.defaultColor);
           const updatedImage = new AttachmentBuilder(updatedImageBuffer, { name: 'recruit-card.png' });
 
           updatedContainer.addMediaGalleryComponents(
             new MediaGalleryBuilder().addItems(
               new MediaGalleryItemBuilder()
                 .setURL('attachment://recruit-card.png')
-                .setAltText('募集カード')
             )
           );
 
@@ -670,6 +677,9 @@ module.exports = {
 
   // 参加リスト表示を更新する関数
 async function updateParticipantList(interaction, participants) {
+  // ギルド設定を取得
+  const guildSettings = await getGuildSettings(interaction.guildId);
+  
   // 実際のメッセージIDを使用
   const updateMessageId = interaction.message.id;
   console.log('updateParticipantList - 検索ID:', updateMessageId);
@@ -680,7 +690,7 @@ async function updateParticipantList(interaction, participants) {
     console.log('募集データが見つかりました:', savedRecruitData);
     // 新しい画像を生成
     const { generateRecruitCard } = require('../utils/canvasRecruit');
-    const newImageBuffer = await generateRecruitCard(savedRecruitData, participants, interaction.client);
+    const newImageBuffer = await generateRecruitCard(savedRecruitData, participants, interaction.client, guildSettings.defaultColor);
     var newImage = new AttachmentBuilder(newImageBuffer, { name: 'recruit-card.png' });
   } else {
     console.log('保存された募集データが見つかりません:', updateMessageId);

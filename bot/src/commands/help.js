@@ -173,12 +173,12 @@ async function showCommandDetails(interaction, commandName) {
     },
     guildsettings: {
       title: '⚙️ guildsettings コマンド',
-      description: 'ギルド毎の募集設定を管理できるコマンドです。（サーバー管理権限が必要）',
+      description: 'ギルド毎の募集設定を管理できるコマンドです。（管理者権限が必要）',
       usage: '`/guildsettings`',
       examples: '`/guildsettings` → 設定画面を表示',
       fields: [
-        { name: '🔧 設定項目', value: '• **募集チャンネル**: 募集を投稿するチャンネル\n• **通知ロール**: 募集時にメンションするロール\n• **既定タイトル**: 募集作成時の初期タイトル\n• **既定カラー**: 募集カードの色\n• **アップデート通知チャンネル**: Bot更新情報のチャンネル', inline: false },
-        { name: '👤 権限', value: 'このコマンドは**サーバー管理**権限を持つユーザーのみ使用できます', inline: false },
+        { name: '🔧 設定項目', value: '• **募集チャンネル**: 募集を投稿するチャンネル（設定すると他チャンネルでは募集不可）\n• **通知ロール**: 募集時にメンションするロール\n• **既定タイトル**: 募集作成時の初期タイトル\n• **既定カラー**: 募集カードの色（画像にも反映）\n• **アップデート通知チャンネル**: Bot更新情報のチャンネル', inline: false },
+        { name: '👤 権限', value: 'このコマンドは**管理者**権限を持つユーザーのみ使用できます', inline: false },
         { name: '🎨 UI', value: 'Discord Components v2を使用した直感的な設定画面で簡単に設定変更できます', inline: false }
       ]
     },
