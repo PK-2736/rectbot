@@ -972,6 +972,40 @@ export default {
       }
     }
 
+    // KVデバッグAPI
+    if (url.pathname === '/api/debug-kv' && request.method === 'GET') {
+      try {
+        const guildId = new URL(request.url).searchParams.get('guildId') || '1414530004657766422';
+        
+        const sessionKey = `guild_session:${guildId}`;
+        const settingsKey = `guild_settings:${guildId}`;
+        
+        const sessionData = await env.RECRUIT_KV.get(sessionKey);
+        const settingsData = await env.RECRUIT_KV.get(settingsKey);
+        
+        const allKeys = await env.RECRUIT_KV.list();
+        const guildKeys = allKeys.keys.filter(k => k.name.includes(guildId));
+        
+        return new Response(JSON.stringify({
+          guildId,
+          sessionKey,
+          settingsKey,
+          sessionData: sessionData ? JSON.parse(sessionData) : null,
+          settingsData: settingsData ? JSON.parse(settingsData) : null,
+          allGuildKeys: guildKeys,
+          timestamp: new Date().toISOString()
+        }, null, 2), { 
+          status: 200, 
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      } catch (error) {
+        return new Response(JSON.stringify({ error: error.message }), { 
+          status: 500, 
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      }
+    }
+
     // すべてのルートにマッチしなかった場合の404レスポンス
     return new Response("Not Found", { 
       status: 404, 
