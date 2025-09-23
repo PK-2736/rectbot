@@ -978,33 +978,16 @@ export default {
     }
 
     // Supabase直接テスト用API（一時的）
-    if (url.pathname === "/api/test/supabase-direct" && request.method === "POST") {
+    if (url.pathname === "/api/test/supabase-direct" && request.method === "GET") {
       try {
-        const requestBody = await request.text();
-        console.log(`[test] Raw request body: ${requestBody}`);
-        
-        const data = JSON.parse(requestBody);
-        const { guildId, recruit_channel_id, notification_role_id } = data;
+        const guildId = "1414530004657766422";
         
         console.log(`[test] Direct Supabase test - guildId: ${guildId}`);
         
-        // まず既存レコードがあるか確認
-        const existingRes = await fetch(env.SUPABASE_URL + `/rest/v1/guild_settings?guild_id=eq.${guildId}`, {
-          method: 'GET',
-          headers: {
-            'apikey': env.SUPABASE_SERVICE_ROLE_KEY,
-            'Authorization': `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
-            'Content-Type': 'application/json',
-          },
-        });
-        
-        const existingData = await existingRes.json();
-        console.log(`[test] Existing data:`, existingData);
-        
         // テストデータでUPDATE
         const updateData = {
-          recruit_channel_id: recruit_channel_id || "test_channel_123",
-          notification_role_id: notification_role_id || "test_role_456",
+          recruit_channel_id: "get_test_channel_789",
+          notification_role_id: "get_test_role_987",
           updated_at: new Date().toISOString()
         };
         
@@ -1041,7 +1024,7 @@ export default {
         return new Response(JSON.stringify({
           success: true,
           result,
-          originalData: existingData
+          testData: updateData
         }), {
           status: 200,
           headers: { ...corsHeaders, "Content-Type": "application/json" }
