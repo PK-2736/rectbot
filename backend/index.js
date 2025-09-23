@@ -55,6 +55,40 @@ export default {
       const list = await env.RECRUIT_KV.list();
       return list.keys.map(k => k.name);
     }
+
+    // 古い募集データをクリーンアップする関数
+    async function cleanupOldRecruitments() {
+      const list = await env.RECRUITMENTS.list();
+      const now = new Date();
+      const eightHoursAgo = new Date(now.getTime() - 8 * 60 * 60 * 1000); // 8時間前
+      let cleanedCount = 0;
+
+      for (const entry of list.keys) {
+        const value = await env.RECRUITMENTS.get(entry.name);
+        if (value) {
+          const data = JSON.parse(value);
+          const startTime = new Date(data.start_time);
+          
+          // 8時間以上経過した募集、または既に終了・中止状態の募集で24時間以上経過したもの
+          const shouldDelete = (
+            startTime < eightHoursAgo || 
+            (data.status !== 'recruiting' && startTime < new Date(now.getTime() - 24 * 60 * 60 * 1000))
+          );
+          
+          if (shouldDelete) {
+            await env.RECRUITMENTS.delete(entry.name);
+            cleanedCount++;
+            console.log(`[cleanup] Deleted old recruitment: ${entry.name}, started: ${data.start_time}, status: ${data.status}`);
+          }
+        }
+      }
+      
+      if (cleanedCount > 0) {
+        console.log(`[cleanup] Cleaned up ${cleanedCount} old recruitments`);
+      }
+      
+      return cleanedCount;
+    }
     // 募集データ保存API
     if (url.pathname === "/api/recruitment") {
       if (request.method === "POST") {
@@ -68,6 +102,9 @@ export default {
         });
       }
       if (request.method === "GET") {
+        // 古い募集データをクリーンアップ
+        await cleanupOldRecruitments();
+        
         // 募集データ一覧取得
         const list = await env.RECRUITMENTS.list();
         const results = [];
@@ -185,6 +222,27 @@ export default {
         return new Response(JSON.stringify({ result: 'fetched', key, value: data }), { status: 200 });
       }
     }
+    // 手動クリーンアップAPI
+    if (url.pathname === '/api/recruitment/cleanup' && request.method === 'POST') {
+      try {
+        const cleanedCount = await cleanupOldRecruitments();
+        return new Response(JSON.stringify({ 
+          ok: true, 
+          cleaned_count: cleanedCount,
+          message: `Cleaned up ${cleanedCount} old recruitments`
+        }), { 
+          status: 200, 
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      } catch (error) {
+        console.error("Cleanup error:", error);
+        return new Response(JSON.stringify({ error: "Cleanup failed" }), { 
+          status: 500, 
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      }
+    }
+
     // デバッグ用テストエンドポイント
     if (url.pathname === '/api/test' && request.method === 'GET') {
       return new Response(JSON.stringify({ 

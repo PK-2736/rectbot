@@ -1,7 +1,14 @@
 require("dotenv").config();
-const TOKEN = process.env.DISCORD_BOT_TOKEN;
+const TOKEN = process.env.DISCORD_  // ボットステータスを更新する関数
+  const updateBotStatus = () => {
+    const guildCount = client.guilds.cache.size;
+    client.user.setActivity(`/help ${guildCount}servers`, {
+      type: ActivityType.Custom
+    });
+    console.log(`[status] Updated bot status: /help ${guildCount}servers`);
+  };N;
 
-const { Client, GatewayIntentBits } = require("discord.js");
+const { Client, GatewayIntentBits, ActivityType } = require("discord.js");
 const fs = require('fs');
 const path = require('path');
 
@@ -60,11 +67,26 @@ console.log(`[events] Loaded ${eventFiles.length} event(s): ${eventFiles.map(f =
 client.once('clientReady', () => {
   console.log(`[ready] Logged in as ${client.user.tag} (id: ${client.user.id})`);
   
-  // ギルド数をバックエンドに送信する関数
+  // ボットステータスを更新する関数
+  const updateBotStatus = () => {
+    const guildCount = client.guilds.cache.size;
+    client.user.setActivity(`/ヘルプコマンド ${guildCount}servers`, {
+      type: ActivityType.Custom
+    });
+    console.log(`[status] Updated bot status: /ヘルプコマンド ${guildCount}servers`);
+  };
+  
+  // ギルド数をバックエンドに送信する関数（一時的にコメントアウト）
+  /*
   const updateGuildCount = async () => {
     try {
       const guildCount = client.guilds.cache.size;
       console.log(`[guild-count] Current guild count: ${guildCount}`);
+      
+      if (!process.env.BACKEND_URL) {
+        console.log('[guild-count] BACKEND_URL not set, skipping guild count update');
+        return;
+      }
       
       const response = await fetch(`${process.env.BACKEND_URL}/api/guild-count-update`, {
         method: 'POST',
@@ -87,19 +109,45 @@ client.once('clientReady', () => {
       console.error('[guild-count] Error updating guild count:', error);
     }
   };
+  */
   
   // 初回実行
-  updateGuildCount();
+  updateBotStatus();
+  // updateGuildCount(); // 一時的にコメントアウト
   
-  // 5分ごとにギルド数を更新
-  setInterval(updateGuildCount, 5 * 60 * 1000);
+  // 5分ごとにギルド数を更新（一時的にコメントアウト）
+  /*
+  setInterval(() => {
+    updateBotStatus();
+    updateGuildCount();
+  }, 5 * 60 * 1000);
+  */
+  
+  // ステータスのみ5分ごとに更新
+  setInterval(() => {
+    updateBotStatus();
+  }, 5 * 60 * 1000);
 });
 
 // ギルド参加時と退出時にもギルド数を更新
 client.on('guildCreate', async (guild) => {
   console.log(`[guild] Joined guild: ${guild.name} (${guild.id})`);
+  
+  // ステータスを更新
+  const guildCount = client.guilds.cache.size;
+  client.user.setActivity(`/ヘルプコマンド ${guildCount}servers`, {
+    type: ActivityType.Custom
+  });
+  console.log(`[status] Updated bot status after guild join: /ヘルプコマンド ${guildCount}servers`);
+  
+  // バックエンド連携は一時的にコメントアウト
+  /*
+  if (!process.env.BACKEND_URL) {
+    console.log('[guild-count] BACKEND_URL not set, skipping guild count update');
+    return;
+  }
+  
   try {
-    const guildCount = client.guilds.cache.size;
     const response = await fetch(`${process.env.BACKEND_URL}/api/guild-count-update`, {
       method: 'POST',
       headers: {
@@ -119,12 +167,27 @@ client.on('guildCreate', async (guild) => {
   } catch (error) {
     console.error('[guild-count] Error updating count after guild join:', error);
   }
+  */
 });
 
 client.on('guildDelete', async (guild) => {
   console.log(`[guild] Left guild: ${guild.name} (${guild.id})`);
+  
+  // ステータスを更新
+  const guildCount = client.guilds.cache.size;
+  client.user.setActivity(`/ヘルプコマンド ${guildCount}servers`, {
+    type: ActivityType.Custom
+  });
+  console.log(`[status] Updated bot status after guild leave: /ヘルプコマンド ${guildCount}servers`);
+  
+  // バックエンド連携は一時的にコメントアウト
+  /*
+  if (!process.env.BACKEND_URL) {
+    console.log('[guild-count] BACKEND_URL not set, skipping guild count update');
+    return;
+  }
+  
   try {
-    const guildCount = client.guilds.cache.size;
     const response = await fetch(`${process.env.BACKEND_URL}/api/guild-count-update`, {
       method: 'POST',
       headers: {
@@ -144,6 +207,7 @@ client.on('guildDelete', async (guild) => {
   } catch (error) {
     console.error('[guild-count] Error updating count after guild leave:', error);
   }
+  */
 });
 
 client.login(TOKEN);

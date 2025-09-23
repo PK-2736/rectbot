@@ -12,6 +12,21 @@ for (const file of commandFiles) {
   }
 }
 
+if (!process.env.DISCORD_BOT_TOKEN) {
+  console.error('DISCORD_BOT_TOKEN is not set in environment variables');
+  process.exit(1);
+}
+
+if (!process.env.CLIENT_ID) {
+  console.error('CLIENT_ID is not set in environment variables');
+  process.exit(1);
+}
+
+if (!process.env.GUILD_ID) {
+  console.error('GUILD_ID is not set in environment variables');
+  process.exit(1);
+}
+
 const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_BOT_TOKEN);
 
 (async () => {
