@@ -27,7 +27,7 @@ module.exports = {
       const embed = new EmbedBuilder()
         .setColor(0x5865F2)
         .setTitle('🎉 RecruitBot（りくるぼ）を導入いただきありがとうございます！')
-        .setDescription('ゲーム募集を簡単に作成・管理できるDiscordボットです。\n早速使い始めてみましょう！')
+        .setDescription('ゲーム募集を簡単に作成・管理できるDiscordボットです。')
         .addFields({ name: '使い方', value: '下のボタンからヘルプを確認できます', inline: false })
         .setTimestamp();
 

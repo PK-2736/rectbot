@@ -6,6 +6,8 @@ const path = require('path');
 const commands = [];
 const commandFiles = fs.readdirSync(path.join(__dirname, 'commands')).filter(file => file.endsWith('.js'));
 for (const file of commandFiles) {
+  // testwelcome.jsはグローバルコマンドに登録しない
+  if (file === 'testwelcome.js') continue;
   const command = require(`./commands/${file}`);
   if ('data' in command && 'execute' in command) {
     commands.push(command.data.toJSON());
