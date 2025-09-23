@@ -446,7 +446,7 @@ export default {
         
         console.log(`[finalize] Session settings before processing:`, sessionSettings);
         
-        // KVセッションの新しい形式の設定値も確認
+        // KVセッションの新しい形式の設定値も確認（古い形式を優先してDiscord側と整合性を保つ）
         const finalSettings = {
           recruitmentChannelId: sessionSettings.recruit_channel || sessionSettings.recruitmentChannelId,
           recruitmentNotificationRoleId: sessionSettings.notification_role || sessionSettings.recruitmentNotificationRoleId,
