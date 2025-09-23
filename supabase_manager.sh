@@ -57,17 +57,46 @@ case "$1" in
         grep -q "finalizeGuildSettings" /workspaces/rectbot/bot/src/utils/db.js && echo "✅ DB関数実装済み" || echo "❌ DB関数未実装"
         grep -q "guild_settings" /workspaces/rectbot/backend/index.js && echo "✅ API実装済み" || echo "❌ API未実装"
         ;;
+    "supabase-test")
+        echo "🔍 Supabase接続テスト実行中..."
+        if command -v curl &> /dev/null; then
+            echo "Supabase接続・テーブル確認:"
+            curl -s https://api.rectbot.tech/api/admin/supabase-test | jq '.' 2>/dev/null || curl -s https://api.rectbot.tech/api/admin/supabase-test
+        else
+            echo "❌ curl が見つかりません"
+        fi
+        ;;
+    "debug")
+        echo "🐛 デバッグ情報収集中..."
+        echo ""
+        echo "=== システム状況 ==="
+        if command -v curl &> /dev/null; then
+            curl -s https://api.rectbot.tech/api/admin/data-status | jq '.' 2>/dev/null || curl -s https://api.rectbot.tech/api/admin/data-status
+        fi
+        echo ""
+        echo "=== Supabase接続テスト ==="
+        if command -v curl &> /dev/null; then
+            curl -s https://api.rectbot.tech/api/admin/supabase-test | jq '.' 2>/dev/null || curl -s https://api.rectbot.tech/api/admin/supabase-test
+        fi
+        echo ""
+        echo "=== 最新ログ ==="
+        echo "ボットの最新ログを確認してください"
+        ;;
+    "test")
     *)
         echo "使用方法:"
-        echo "  $0 status    - システム状況確認"
-        echo "  $0 migrate   - データ移行実行"
-        echo "  $0 deploy    - バックエンドデプロイ"
-        echo "  $0 restart   - ボット再起動"
-        echo "  $0 sql       - Supabase実行用SQL表示"
-        echo "  $0 test      - 簡易テスト"
+        echo "  $0 status       - システム状況確認"
+        echo "  $0 migrate      - データ移行実行"
+        echo "  $0 deploy       - バックエンドデプロイ"
+        echo "  $0 restart      - ボット再起動"
+        echo "  $0 sql          - Supabase実行用SQL表示"
+        echo "  $0 test         - 簡易テスト"
+        echo "  $0 supabase-test - Supabase接続テスト"
+        echo "  $0 debug        - 詳細デバッグ情報"
         echo ""
         echo "例:"
-        echo "  $0 status     # 現在の状況確認"
-        echo "  $0 migrate    # 既存データをKVからSupabaseに移行"
+        echo "  $0 status        # 現在の状況確認"
+        echo "  $0 supabase-test # Supabase接続問題の診断"
+        echo "  $0 debug         # 全体的な問題診断"
         ;;
 esac

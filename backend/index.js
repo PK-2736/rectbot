@@ -423,6 +423,8 @@ export default {
           });
         }
         
+        console.log(`[finalize] Starting finalization for guild: ${guildId}`);
+        
         // KVから一時設定を取得
         let sessionSettings = await getFromKV(`guild_session:${guildId}`);
         
@@ -442,58 +444,96 @@ export default {
           };
         }
         
-        // Supabaseに最終保存（UPSERT操作）
-        const supabaseData = {
-          guild_id: guildId,
-          recruit_channel_id: sessionSettings.recruitmentChannelId,
-          notification_role_id: sessionSettings.recruitmentNotificationRoleId,
-          default_title: sessionSettings.defaultRecruitTitle,
-          default_color: sessionSettings.defaultRecruitColor,
-          update_channel_id: sessionSettings.updateNotificationChannelId,
-          updated_at: new Date().toISOString()
-        };
+        console.log(`[finalize] Session settings:`, sessionSettings);
         
-        // Supabaseにupsert（存在しない場合は作成、存在する場合は更新）
-        const supaRes = await fetch(env.SUPABASE_URL + '/rest/v1/guild_settings', {
-          method: 'POST',
-          headers: {
-            'apikey': env.SUPABASE_SERVICE_ROLE_KEY,
-            'Authorization': `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
-            'Content-Type': 'application/json',
-            'Prefer': 'resolution=merge-duplicates'
-          },
-          body: JSON.stringify(supabaseData)
-        });
+        // Supabase保存を試行、失敗した場合はKVにフォールバック
+        let supabaseSuccess = false;
         
-        if (!supaRes.ok) {
-          const errorText = await supaRes.text();
-          console.error(`Supabase save failed: ${supaRes.status} - ${errorText}`);
-          throw new Error(`Supabase save failed: ${supaRes.status}`);
-        }
-        
-        console.log(`Guild settings saved to Supabase for guild ${guildId}`);
-        
-        // KVから古い永続設定を削除（Supabaseがメインになるため）
         try {
-          await env.RECRUIT_KV.delete(`guild_settings:${guildId}`);
-        } catch (deleteError) {
-          console.log(`Old KV settings delete failed (may not exist): ${deleteError.message}`);
+          // Supabaseに最終保存（UPSERT操作）
+          const supabaseData = {
+            guild_id: guildId,
+            recruit_channel_id: sessionSettings.recruitmentChannelId,
+            notification_role_id: sessionSettings.recruitmentNotificationRoleId,
+            default_title: sessionSettings.defaultRecruitTitle,
+            default_color: sessionSettings.defaultRecruitColor,
+            update_channel_id: sessionSettings.updateNotificationChannelId,
+            updated_at: new Date().toISOString()
+          };
+          
+          console.log(`[finalize] Attempting Supabase save:`, supabaseData);
+          
+          // Supabaseにupsert（存在しない場合は作成、存在する場合は更新）
+          const supaRes = await fetch(env.SUPABASE_URL + '/rest/v1/guild_settings', {
+            method: 'POST',
+            headers: {
+              'apikey': env.SUPABASE_SERVICE_ROLE_KEY,
+              'Authorization': `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+              'Content-Type': 'application/json',
+              'Prefer': 'resolution=merge-duplicates'
+            },
+            body: JSON.stringify(supabaseData)
+          });
+          
+          if (!supaRes.ok) {
+            const errorText = await supaRes.text();
+            console.error(`[finalize] Supabase save failed: ${supaRes.status} - ${errorText}`);
+            throw new Error(`Supabase save failed: ${supaRes.status} - ${errorText}`);
+          }
+          
+          console.log(`[finalize] Guild settings saved to Supabase for guild ${guildId}`);
+          supabaseSuccess = true;
+          
+          // KVから古い永続設定を削除（Supabaseがメインになるため）
+          try {
+            await env.RECRUIT_KV.delete(`guild_settings:${guildId}`);
+            console.log(`[finalize] Deleted old KV settings for guild ${guildId}`);
+          } catch (deleteError) {
+            console.log(`[finalize] Old KV settings delete failed (may not exist): ${deleteError.message}`);
+          }
+          
+        } catch (supabaseError) {
+          console.error(`[finalize] Supabase operation failed, falling back to KV:`, supabaseError);
+          
+          // Supabase失敗時はKVに保存（フォールバック）
+          await saveToKV(`guild_settings:${guildId}`, {
+            ...sessionSettings,
+            finalizedAt: new Date().toISOString(),
+            fallbackMode: true
+          });
+          
+          console.log(`[finalize] Settings saved to KV as fallback for guild ${guildId}`);
         }
         
         // セッションデータを削除
         try {
           await env.RECRUIT_KV.delete(`guild_session:${guildId}`);
+          console.log(`[finalize] Session deleted for guild ${guildId}`);
         } catch (deleteError) {
-          console.log(`Session delete failed (may not exist): ${deleteError.message}`);
+          console.log(`[finalize] Session delete failed (may not exist): ${deleteError.message}`);
         }
         
-        return new Response(JSON.stringify({ ok: true, message: "Settings saved to Supabase" }), { 
+        const responseMessage = supabaseSuccess 
+          ? "Settings saved to Supabase" 
+          : "Settings saved to KV (Supabase unavailable)";
+        
+        return new Response(JSON.stringify({ 
+          ok: true, 
+          message: responseMessage,
+          supabaseSuccess,
+          fallbackMode: !supabaseSuccess
+        }), { 
           status: 200, 
           headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
       } catch (error) {
-        console.error('Guild settings finalize error:', error);
-        return new Response(JSON.stringify({ error: "Internal server error" }), { 
+        console.error('[finalize] Guild settings finalize error:', error);
+        console.error('[finalize] Error stack:', error.stack);
+        return new Response(JSON.stringify({ 
+          error: "Internal server error",
+          details: error.message,
+          timestamp: new Date().toISOString()
+        }), { 
           status: 500, 
           headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
@@ -551,6 +591,80 @@ export default {
         status: 405, 
         headers: corsHeaders 
       });
+    }
+
+    // Supabase接続テスト用API
+    if (url.pathname === "/api/admin/supabase-test" && request.method === "GET") {
+      try {
+        console.log(`[supabase-test] Testing Supabase connection...`);
+        
+        // 1. 基本的な接続テスト
+        const testRes = await fetch(env.SUPABASE_URL + '/rest/v1/', {
+          method: 'GET',
+          headers: {
+            'apikey': env.SUPABASE_SERVICE_ROLE_KEY,
+            'Authorization': `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+          },
+        });
+        
+        console.log(`[supabase-test] Basic connection: ${testRes.status}`);
+        
+        // 2. テーブル存在確認
+        let tableExists = false;
+        let tableStructure = null;
+        try {
+          const tableRes = await fetch(env.SUPABASE_URL + '/rest/v1/guild_settings?limit=1', {
+            method: 'GET',
+            headers: {
+              'apikey': env.SUPABASE_SERVICE_ROLE_KEY,
+              'Authorization': `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+              'Content-Type': 'application/json',
+            },
+          });
+          
+          if (tableRes.ok) {
+            tableExists = true;
+            const data = await tableRes.json();
+            tableStructure = Array.isArray(data) ? "Table exists and accessible" : "Unexpected response format";
+          } else {
+            const errorText = await tableRes.text();
+            tableStructure = `Table access failed: ${tableRes.status} - ${errorText}`;
+          }
+        } catch (tableError) {
+          tableStructure = `Table check error: ${tableError.message}`;
+        }
+        
+        // 3. 環境変数確認
+        const envCheck = {
+          supabaseUrlExists: !!env.SUPABASE_URL,
+          supabaseKeyExists: !!env.SUPABASE_SERVICE_ROLE_KEY,
+          supabaseUrlFormat: env.SUPABASE_URL ? env.SUPABASE_URL.includes('supabase') : false
+        };
+        
+        return new Response(JSON.stringify({
+          timestamp: new Date().toISOString(),
+          basicConnection: testRes.ok ? 'Success' : `Failed: ${testRes.status}`,
+          tableExists,
+          tableStructure,
+          environmentVariables: envCheck,
+          recommendation: !tableExists 
+            ? "Run the SQL script to create guild_settings table"
+            : "Supabase setup appears correct"
+        }), {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      } catch (error) {
+        console.error('[supabase-test] Test error:', error);
+        return new Response(JSON.stringify({
+          error: "Supabase test failed",
+          details: error.message,
+          timestamp: new Date().toISOString()
+        }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      }
     }
 
     // データ状況確認用API
