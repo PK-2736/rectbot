@@ -199,6 +199,15 @@ module.exports = {
     } else {
       await interaction.reply(replyOptions);
     }
+
+    // 5分後に設定メッセージを自動削除
+    setTimeout(async () => {
+      try {
+        await interaction.deleteReply();
+      } catch (error) {
+        console.log('[guildSettings] メッセージの自動削除に失敗（既に削除済みの可能性）:', error.message);
+      }
+    }, 5 * 60 * 1000); // 5分 = 300,000ms
   },
 
   async handleButtonInteraction(interaction) {

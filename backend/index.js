@@ -1069,45 +1069,127 @@ export default {
       }
     }
 
+    // ギルド数を更新するエンドポイント（Discord botから呼ばれる）
+    if (url.pathname === '/api/guild-count-update' && request.method === 'POST') {
+      try {
+        const data = await request.json();
+        const { count, timestamp, bot_id, event } = data;
+        
+        console.log(`[guild-count-update] Received update: count=${count}, bot_id=${bot_id}, event=${event || 'scheduled'}`);
+        
+        // KVにギルド数を保存
+        await env.RECRUIT_KV.put('guild_count', JSON.stringify({
+          count,
+          timestamp,
+          bot_id,
+          event: event || 'scheduled',
+          updated_at: new Date().toISOString()
+        }));
+        
+        console.log(`[guild-count-update] Successfully stored guild count: ${count}`);
+        
+        return new Response(JSON.stringify({ 
+          success: true,
+          count,
+          timestamp
+        }), { 
+          status: 200, 
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+        
+      } catch (error) {
+        console.error('Guild count update error:', error);
+        return new Response(JSON.stringify({ error: 'Internal server error' }), { 
+          status: 500, 
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      }
+    }
+
     // ギルド数を取得するエンドポイント
     if (url.pathname === '/api/guild-count' && request.method === 'GET') {
       try {
-        // Supabaseから全ギルド数を取得
-        const supaRes = await fetch(env.SUPABASE_URL + '/rest/v1/guilds?select=count', {
-          method: 'GET',
-          headers: {
-            'apikey': env.SUPABASE_SERVICE_ROLE_KEY,
-            'Authorization': `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
-            'Content-Type': 'application/json',
-            'Prefer': 'count=exact'
-          },
+        console.log('[guild-count] Starting guild count fetch...');
+        
+        // まずKVからDiscord botが送信したリアルタイムギルド数を取得
+        let realtimeCount = 0;
+        let realtimeData = null;
+        try {
+          const kvGuildCount = await env.RECRUIT_KV.get('guild_count');
+          if (kvGuildCount) {
+            realtimeData = JSON.parse(kvGuildCount);
+            realtimeCount = realtimeData.count || 0;
+            console.log(`[guild-count] Realtime count from bot: ${realtimeCount} (updated: ${realtimeData.updated_at})`);
+          }
+        } catch (kvError) {
+          console.log(`[guild-count] KV realtime data error: ${kvError.message}`);
+        }
+        
+        // Supabaseのguild_settingsテーブルからユニークなギルド数を取得（バックアップ）
+        let supabaseCount = 0;
+        try {
+          const supaRes = await fetch(env.SUPABASE_URL + '/rest/v1/guild_settings?select=guild_id', {
+            method: 'GET',
+            headers: {
+              'apikey': env.SUPABASE_SERVICE_ROLE_KEY,
+              'Authorization': `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+              'Content-Type': 'application/json',
+            },
+          });
+          
+          if (supaRes.ok) {
+            const data = await supaRes.json();
+            if (Array.isArray(data)) {
+              // ユニークなguild_idの数をカウント
+              const uniqueGuilds = new Set(data.map(item => item.guild_id));
+              supabaseCount = uniqueGuilds.size;
+              console.log(`[guild-count] Supabase guild_settings count: ${supabaseCount}`);
+            }
+          } else {
+            console.log(`[guild-count] Supabase guild_settings fetch failed: ${supaRes.status}`);
+          }
+        } catch (supaError) {
+          console.log(`[guild-count] Supabase error: ${supaError.message}`);
+        }
+        
+        // KVからもギルド設定数を取得
+        let kvSettingsCount = 0;
+        try {
+          const kvList = await env.RECRUIT_KV.list({ prefix: 'guild_settings:' });
+          kvSettingsCount = kvList.keys.length;
+          console.log(`[guild-count] KV guild_settings count: ${kvSettingsCount}`);
+        } catch (kvError) {
+          console.log(`[guild-count] KV settings error: ${kvError.message}`);
+        }
+        
+        // リアルタイムデータがある場合はそれを優先、なければ最大値を使用
+        let finalCount = realtimeCount;
+        let source = 'realtime';
+        
+        if (realtimeCount === 0) {
+          finalCount = Math.max(supabaseCount, kvSettingsCount);
+          source = supabaseCount >= kvSettingsCount ? 'supabase' : 'kv';
+        }
+        
+        console.log(`[guild-count] Final count: ${finalCount} (source: ${source})`);
+        
+        return new Response(JSON.stringify({ 
+          count: finalCount,
+          source,
+          realtimeCount,
+          supabaseCount,
+          kvSettingsCount,
+          realtimeData
+        }), { 
+          status: 200, 
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
         
-        if (supaRes.ok) {
-          const countHeader = supaRes.headers.get('content-range');
-          let count = 0;
-          if (countHeader) {
-            // content-range: 0-4/5 の形式から総数を抽出
-            const match = countHeader.match(/\/(\d+)$/);
-            if (match) {
-              count = parseInt(match[1]);
-            }
-          }
-          return new Response(JSON.stringify({ count }), { 
-            status: 200, 
-            headers: corsHeaders 
-          });
-        } else {
-          return new Response(JSON.stringify({ error: 'Failed to fetch guild count', count: 0 }), { 
-            status: 500, 
-            headers: corsHeaders 
-          });
-        }
       } catch (error) {
         console.error('Guild count fetch error:', error);
         return new Response(JSON.stringify({ error: 'Internal server error', count: 0 }), { 
           status: 500, 
-          headers: corsHeaders 
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
       }
     }

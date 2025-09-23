@@ -59,6 +59,91 @@ console.log(`[events] Loaded ${eventFiles.length} event(s): ${eventFiles.map(f =
 
 client.once('clientReady', () => {
   console.log(`[ready] Logged in as ${client.user.tag} (id: ${client.user.id})`);
+  
+  // ギルド数をバックエンドに送信する関数
+  const updateGuildCount = async () => {
+    try {
+      const guildCount = client.guilds.cache.size;
+      console.log(`[guild-count] Current guild count: ${guildCount}`);
+      
+      const response = await fetch(`${process.env.BACKEND_URL}/api/guild-count-update`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          count: guildCount,
+          timestamp: new Date().toISOString(),
+          bot_id: client.user.id
+        }),
+      });
+      
+      if (response.ok) {
+        console.log(`[guild-count] Successfully updated guild count: ${guildCount}`);
+      } else {
+        console.log(`[guild-count] Failed to update guild count: ${response.status}`);
+      }
+    } catch (error) {
+      console.error('[guild-count] Error updating guild count:', error);
+    }
+  };
+  
+  // 初回実行
+  updateGuildCount();
+  
+  // 5分ごとにギルド数を更新
+  setInterval(updateGuildCount, 5 * 60 * 1000);
+});
+
+// ギルド参加時と退出時にもギルド数を更新
+client.on('guildCreate', async (guild) => {
+  console.log(`[guild] Joined guild: ${guild.name} (${guild.id})`);
+  try {
+    const guildCount = client.guilds.cache.size;
+    const response = await fetch(`${process.env.BACKEND_URL}/api/guild-count-update`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ 
+        count: guildCount,
+        timestamp: new Date().toISOString(),
+        bot_id: client.user.id,
+        event: 'guild_create'
+      }),
+    });
+    
+    if (response.ok) {
+      console.log(`[guild-count] Updated count after guild join: ${guildCount}`);
+    }
+  } catch (error) {
+    console.error('[guild-count] Error updating count after guild join:', error);
+  }
+});
+
+client.on('guildDelete', async (guild) => {
+  console.log(`[guild] Left guild: ${guild.name} (${guild.id})`);
+  try {
+    const guildCount = client.guilds.cache.size;
+    const response = await fetch(`${process.env.BACKEND_URL}/api/guild-count-update`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ 
+        count: guildCount,
+        timestamp: new Date().toISOString(),
+        bot_id: client.user.id,
+        event: 'guild_delete'
+      }),
+    });
+    
+    if (response.ok) {
+      console.log(`[guild-count] Updated count after guild leave: ${guildCount}`);
+    }
+  } catch (error) {
+    console.error('[guild-count] Error updating count after guild leave:', error);
+  }
 });
 
 client.login(TOKEN);
