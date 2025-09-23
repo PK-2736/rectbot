@@ -98,6 +98,13 @@ async function updateRecruitmentStatus(messageId, status, endTime = null) {
 		if (!res.ok) {
 			const errorText = await res.text();
 			console.error(`[updateRecruitmentStatus] APIエラー詳細: ${errorText}`);
+			
+			// 404エラーの場合は警告レベルで処理を続行（募集データが見つからない場合）
+			if (res.status === 404) {
+				console.warn(`[updateRecruitmentStatus] 募集データが見つかりません（messageId: ${messageId}）- 処理を続行します`);
+				return { warning: "Recruitment data not found", messageId };
+			}
+			
 			throw new Error(`API error: ${res.status} - ${errorText}`);
 		}
 		
@@ -107,6 +114,13 @@ async function updateRecruitmentStatus(messageId, status, endTime = null) {
 	} catch (error) {
 		console.error('[updateRecruitmentStatus] 募集ステータスの更新に失敗:', error);
 		console.error('[updateRecruitmentStatus] エラーの詳細:', error.stack);
+		
+		// 404エラーの場合は例外を再発生させない
+		if (error.message && error.message.includes('404')) {
+			console.warn(`[updateRecruitmentStatus] 募集データが見つからないため処理をスキップします`);
+			return { warning: "Recruitment data not found" };
+		}
+		
 		throw error;
 	}
 }
