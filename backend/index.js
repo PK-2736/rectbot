@@ -979,6 +979,91 @@ export default {
       }
     }
 
+    // 手動KV移行API
+    if (url.pathname === '/api/manual-kv-migration' && request.method === 'POST') {
+      try {
+        const { guildId } = await request.json();
+        if (!guildId) {
+          return new Response(JSON.stringify({ error: "Guild ID required" }), { 
+            status: 400, 
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
+          });
+        }
+
+        // KVセッションデータを取得
+        const sessionData = await env.RECRUIT_KV.get(`guild_session:${guildId}`);
+        if (!sessionData) {
+          return new Response(JSON.stringify({ error: "No session data found" }), { 
+            status: 404, 
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
+          });
+        }
+
+        const settings = JSON.parse(sessionData);
+        console.log(`[manual-migration] Session data for ${guildId}:`, settings);
+
+        // Supabaseにupsert
+        const supabaseData = {
+          guild_id: guildId,
+          recruit_channel_id: settings.recruit_channel || settings.recruitmentChannelId,
+          notification_role_id: settings.notification_role || settings.recruitmentNotificationRoleId,
+          default_title: settings.defaultTitle || settings.defaultRecruitTitle || "参加者募集",
+          default_color: settings.defaultColor || settings.defaultRecruitColor || "#00FFFF",
+          update_channel_id: settings.update_channel || settings.updateNotificationChannelId,
+          updated_at: new Date().toISOString()
+        };
+
+        // 既存レコードを更新
+        const supaRes = await fetch(env.SUPABASE_URL + `/rest/v1/guild_settings?guild_id=eq.${guildId}`, {
+          method: 'PATCH',
+          headers: {
+            'apikey': env.SUPABASE_SERVICE_ROLE_KEY,
+            'Authorization': `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            recruit_channel_id: supabaseData.recruit_channel_id,
+            notification_role_id: supabaseData.notification_role_id,
+            default_title: supabaseData.default_title,
+            default_color: supabaseData.default_color,
+            update_channel_id: supabaseData.update_channel_id,
+            updated_at: supabaseData.updated_at
+          })
+        });
+
+        if (!supaRes.ok) {
+          const errorText = await supaRes.text();
+          console.error(`[manual-migration] Supabase update failed:`, errorText);
+          return new Response(JSON.stringify({ 
+            error: "Supabase update failed", 
+            details: errorText 
+          }), { 
+            status: 500, 
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
+          });
+        }
+
+        const result = await supaRes.json();
+        console.log(`[manual-migration] Successfully updated Supabase:`, result);
+
+        return new Response(JSON.stringify({ 
+          ok: true, 
+          message: "Manual migration completed",
+          supabaseData,
+          result
+        }), { 
+          status: 200, 
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      } catch (error) {
+        console.error('[manual-migration] Error:', error);
+        return new Response(JSON.stringify({ error: error.message }), { 
+          status: 500, 
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      }
+    }
+
     // KVデバッグAPI
     if (url.pathname === '/api/debug-kv' && request.method === 'GET') {
       try {
