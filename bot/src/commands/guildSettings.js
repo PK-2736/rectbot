@@ -62,7 +62,7 @@ module.exports = {
 
     // タイトル表示
     container.addTextDisplayComponents(
-      new TextDisplayBuilder().setContent('⚙️✨ **ギルド募集設定** ✨⚙️')
+      new TextDisplayBuilder().setContent('**ギルド募集設定**')
     );
 
     container.addSeparatorComponents(
@@ -78,7 +78,7 @@ module.exports = {
       new SectionBuilder()
         .addTextDisplayComponents(
           new TextDisplayBuilder()
-            .setContent(`📍 **募集チャンネル**\n${recruitChannelValue}`)
+            .setContent(`**募集チャンネル**\n${recruitChannelValue}`)
         )
         .setButtonAccessory(
           new ButtonBuilder()
@@ -97,7 +97,7 @@ module.exports = {
       new SectionBuilder()
         .addTextDisplayComponents(
           new TextDisplayBuilder()
-            .setContent(`🔔 **通知ロール**\n${notificationRoleValue}`)
+            .setContent(`**通知ロール**\n${notificationRoleValue}`)
         )
         .setButtonAccessory(
           new ButtonBuilder()
@@ -114,7 +114,7 @@ module.exports = {
       new SectionBuilder()
         .addTextDisplayComponents(
           new TextDisplayBuilder()
-            .setContent(`📝 **既定タイトル**\n${defaultTitleValue}`)
+            .setContent(`**既定タイトル**\n${defaultTitleValue}`)
         )
         .setButtonAccessory(
           new ButtonBuilder()
@@ -131,7 +131,7 @@ module.exports = {
       new SectionBuilder()
         .addTextDisplayComponents(
           new TextDisplayBuilder()
-            .setContent(`🎨 **既定カラー**\n${defaultColorValue}`)
+            .setContent(`**既定カラー**\n${defaultColorValue}`)
         )
         .setButtonAccessory(
           new ButtonBuilder()
@@ -150,7 +150,7 @@ module.exports = {
       new SectionBuilder()
         .addTextDisplayComponents(
           new TextDisplayBuilder()
-            .setContent(`📢 **アップデート通知チャンネル**\n${updateChannelValue}`)
+            .setContent(`**アップデート通知チャンネル**\n${updateChannelValue}`)
         )
         .setButtonAccessory(
           new ButtonBuilder()
@@ -170,13 +170,11 @@ module.exports = {
         new ButtonBuilder()
           .setCustomId('finalize_settings')
           .setLabel('設定完了')
-          .setStyle(ButtonStyle.Success)
-          .setEmoji('✅'),
+          .setStyle(ButtonStyle.Success),
         new ButtonBuilder()
           .setCustomId('reset_all_settings')
           .setLabel('すべてリセット')
           .setStyle(ButtonStyle.Danger)
-          .setEmoji('🔄')
       )
     );
 
