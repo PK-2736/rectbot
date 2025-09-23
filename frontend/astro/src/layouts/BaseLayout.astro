@@ -6,7 +6,9 @@ export interface Props {
   description?: string;
 }
 
-const { title = "rectbot - あなたのDiscordサーバーを次のレベルへ", description = "rectbotは、ゲーミングコミュニティのためのオールインワンDiscordボット。募集機能、フレンドコード管理、サーバー統計など豊富な機能でサーバー運営をサポートします。" } = Astro.props;
+const { title, description } = Astro.props;
+title = title || "rectbot - Discordのゲーム募集をより円滑に"; 
+description = description || "Recrubo（りくるぼ）は、ゲーミングコミュニティのためのDiscordボット。募集機能、フレンドコード管理機能でサーバー運営をサポートします。";
 ---
 <!DOCTYPE html>
 <html lang="ja">
@@ -83,7 +85,7 @@ const { title = "rectbot - あなたのDiscordサーバーを次のレベルへ"
           <div class="col-span-1 md:col-span-2">
             <h3 class="text-2xl font-bold text-blue-400 mb-4">rectbot</h3>
             <p class="text-slate-400 mb-4 max-w-md">
-              ゲーミングコミュニティのためのオールインワンDiscordボット。サーバー運営を次のレベルへ。
+              Discordのゲーム募集をより円滑に。ゲーミングコミュニティのためのDiscordボット。
             </p>
             <div class="flex space-x-4">
               <a href="#" class="text-slate-400 hover:text-white transition-colors">
