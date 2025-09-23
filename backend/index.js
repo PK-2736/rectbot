@@ -980,7 +980,11 @@ export default {
     // Supabase直接テスト用API（一時的）
     if (url.pathname === "/api/test/supabase-direct" && request.method === "POST") {
       try {
-        const { guildId, recruit_channel_id, notification_role_id } = await request.json();
+        const requestBody = await request.text();
+        console.log(`[test] Raw request body: ${requestBody}`);
+        
+        const data = JSON.parse(requestBody);
+        const { guildId, recruit_channel_id, notification_role_id } = data;
         
         console.log(`[test] Direct Supabase test - guildId: ${guildId}`);
         
