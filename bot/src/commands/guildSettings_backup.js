@@ -1,13 +1,23 @@
 const {
   SlashCommandBuilder,
-  ContainerBuilder, TextDisplayBuilder,
-  SeparatorBuilder, SeparatorSpacingSize,
-  ActionRowBuilder, ButtonBuilder, ButtonStyle,
-  StringSelectMenuBuilder, StringSelectMenuOptionBuilder,
-  RoleSelectMenuBuilder, ChannelSelectMenuBuilder,
-  ChannelType, PermissionFlagsBits, MessageFlags,
-  ModalBuilder, TextInputBuilder, TextInputStyle,
-  EmbedBuilder
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  StringSelectMenuBuilder,
+  StringSelectMenuOptionBuilder,
+  RoleSelectMenuBuilder,
+  ChannelSelectMenuBuilder,
+  ChannelType,
+  PermissionFlagsBits,
+  MessageFlags,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle,
+  EmbedBuilder,
+  ContainerBuilder,
+  TextDisplayBuilder,
+  SeparatorBuilder,
+  SeparatorSpacingSize
 } = require('discord.js');
 
 const { saveGuildSettings, getGuildSettings, finalizeGuildSettings, startGuildSettingsSession } = require('../utils/db');
@@ -56,18 +66,40 @@ module.exports = {
   },
 
   async showSettingsUI(interaction, settings = {}) {
-    // ContainerBuilderを使用したV2コンポーネント
-    const container = new ContainerBuilder();
-    container.setAccentColor(0x5865F2);
+    // 従来のEmbedBuilderを使用したUIに戻す（V2コンポーネントエラー回避）
+    const settingsEmbed = new EmbedBuilder()
+      .setTitle('⚙️ ギルド募集設定')
+      .setDescription('各項目をクリックして設定を変更できます')
+      .setColor(0x5865F2)
+      .setTimestamp()
+      .setFooter({ text: 'RectBot ギルド設定', iconURL: interaction.client.user.displayAvatarURL() });
 
-    // タイトル表示
-    container.addTextDisplayComponents(
-      new TextDisplayBuilder().setContent('⚙️✨ **ギルド募集設定** ✨⚙️')
+    // 各設定項目を個別のフィールドとして表示
+    const recruitChannelValue = settings.recruit_channel || settings.recruitmentChannelId 
+      ? `<#${settings.recruit_channel || settings.recruitmentChannelId}>` 
+      : '未設定';
+    
+    const notificationRoleValue = settings.notification_role || settings.recruitmentNotificationRoleId 
+      ? `<@&${settings.notification_role || settings.recruitmentNotificationRoleId}>` 
+      : '未設定';
+
+    const defaultTitleValue = settings.defaultTitle || settings.defaultRecruitTitle || '未設定';
+    const defaultColorValue = settings.defaultColor || settings.defaultRecruitColor || '未設定';
+    
+    const updateChannelValue = settings.update_channel || settings.updateNotificationChannelId 
+      ? `<#${settings.update_channel || settings.updateNotificationChannelId}>` 
+      : '未設定';
+
+    settingsEmbed.addFields(
+      { name: '📍 募集チャンネル', value: recruitChannelValue, inline: true },
+      { name: '🔔 通知ロール', value: notificationRoleValue, inline: true },
+      { name: '📝 既定タイトル', value: defaultTitleValue, inline: true },
+      { name: '🎨 既定カラー', value: defaultColorValue, inline: true },
+      { name: '📢 アップデート通知チャンネル', value: updateChannelValue, inline: true },
+      { name: '\u200B', value: '\u200B', inline: true } // 空のフィールドで整列
     );
 
-    container.addSeparatorComponents(
-      new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
-    );
+    // 各設定項目を個別に表示
 
     // 1. 募集チャンネル設定
     const recruitChannelValue = settings.recruit_channel || settings.recruitmentChannelId 
@@ -107,7 +139,7 @@ module.exports = {
           .setCustomId('set_notification_role')
           .setLabel('設定変更')
           .setStyle(ButtonStyle.Primary)
-          .setEmoji('🔔')
+          .setEmoji('�')
       )
     );
 
