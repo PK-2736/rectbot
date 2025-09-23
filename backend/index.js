@@ -853,7 +853,13 @@ export default {
           console.log(`[guild-settings] No Supabase data found for guild ${guildId}, checking KV fallback`);
           
           try {
-            const kvSettingsRaw = await env.RECRUIT_KV.get(`guild_settings:${guildId}`);
+            // まず永続設定を確認
+            let kvSettingsRaw = await env.RECRUIT_KV.get(`guild_settings:${guildId}`);
+            if (!kvSettingsRaw) {
+              // 永続設定がない場合はセッション設定を確認
+              kvSettingsRaw = await env.RECRUIT_KV.get(`guild_session:${guildId}`);
+            }
+            
             if (kvSettingsRaw) {
               const kvSettings = JSON.parse(kvSettingsRaw);
               console.log(`[guild-settings] Found KV fallback settings:`, kvSettings);
