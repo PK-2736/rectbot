@@ -358,9 +358,36 @@ export default {
           });
         }
         
-        // Supabaseから既存設定を取得（実装予定）
-        // 今はダミーデータを返す
-        const defaultSettings = {
+        // Supabaseから既存設定を取得
+        let existingSettings = null;
+        try {
+          const supaRes = await fetch(env.SUPABASE_URL + `/rest/v1/guild_settings?guild_id=eq.${guildId}`, {
+            method: 'GET',
+            headers: {
+              'apikey': env.SUPABASE_SERVICE_ROLE_KEY,
+              'Authorization': `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+              'Content-Type': 'application/json',
+            },
+          });
+          
+          if (supaRes.ok) {
+            const data = await supaRes.json();
+            if (Array.isArray(data) && data.length > 0) {
+              existingSettings = {
+                recruitmentChannelId: data[0].recruit_channel_id,
+                recruitmentNotificationRoleId: data[0].notification_role_id,
+                defaultRecruitTitle: data[0].default_title || "参加者募集",
+                defaultRecruitColor: data[0].default_color || "#00FFFF",
+                updateNotificationChannelId: data[0].update_channel_id
+              };
+            }
+          }
+        } catch (supaError) {
+          console.log(`Supabase fetch failed, using defaults: ${supaError.message}`);
+        }
+        
+        // 既存設定がない場合はデフォルト値を使用
+        const sessionSettings = existingSettings || {
           recruitmentChannelId: null,
           recruitmentNotificationRoleId: null,
           defaultRecruitTitle: "参加者募集",
@@ -368,10 +395,10 @@ export default {
           updateNotificationChannelId: null
         };
         
-        // KVストアに一時保存
-        await saveToKV(`guild_session:${guildId}`, defaultSettings);
+        // KVストアに一時保存（セッション用）
+        await saveToKV(`guild_session:${guildId}`, sessionSettings);
         
-        return new Response(JSON.stringify({ ok: true, settings: defaultSettings }), { 
+        return new Response(JSON.stringify({ ok: true, settings: sessionSettings }), { 
           status: 200, 
           headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
@@ -415,20 +442,52 @@ export default {
           };
         }
         
-        // 最終設定をKVに保存（将来的にSupabaseに移行）
-        await saveToKV(`guild_settings:${guildId}`, {
-          ...sessionSettings,
-          finalizedAt: new Date().toISOString()
+        // Supabaseに最終保存（UPSERT操作）
+        const supabaseData = {
+          guild_id: guildId,
+          recruit_channel_id: sessionSettings.recruitmentChannelId,
+          notification_role_id: sessionSettings.recruitmentNotificationRoleId,
+          default_title: sessionSettings.defaultRecruitTitle,
+          default_color: sessionSettings.defaultRecruitColor,
+          update_channel_id: sessionSettings.updateNotificationChannelId,
+          updated_at: new Date().toISOString()
+        };
+        
+        // Supabaseにupsert（存在しない場合は作成、存在する場合は更新）
+        const supaRes = await fetch(env.SUPABASE_URL + '/rest/v1/guild_settings', {
+          method: 'POST',
+          headers: {
+            'apikey': env.SUPABASE_SERVICE_ROLE_KEY,
+            'Authorization': `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'resolution=merge-duplicates'
+          },
+          body: JSON.stringify(supabaseData)
         });
         
-        // セッションデータを削除（存在する場合のみ）
+        if (!supaRes.ok) {
+          const errorText = await supaRes.text();
+          console.error(`Supabase save failed: ${supaRes.status} - ${errorText}`);
+          throw new Error(`Supabase save failed: ${supaRes.status}`);
+        }
+        
+        console.log(`Guild settings saved to Supabase for guild ${guildId}`);
+        
+        // KVから古い永続設定を削除（Supabaseがメインになるため）
+        try {
+          await env.RECRUIT_KV.delete(`guild_settings:${guildId}`);
+        } catch (deleteError) {
+          console.log(`Old KV settings delete failed (may not exist): ${deleteError.message}`);
+        }
+        
+        // セッションデータを削除
         try {
           await env.RECRUIT_KV.delete(`guild_session:${guildId}`);
         } catch (deleteError) {
           console.log(`Session delete failed (may not exist): ${deleteError.message}`);
         }
         
-        return new Response(JSON.stringify({ ok: true, message: "Settings finalized" }), { 
+        return new Response(JSON.stringify({ ok: true, message: "Settings saved to Supabase" }), { 
           status: 200, 
           headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
@@ -454,19 +513,32 @@ export default {
             });
           }
           
-          // 既存の設定を取得
-          const existingSettings = await getFromKV(`guild_settings:${guildId}`) || {};
-          
-          // 新しい設定をマージ
-          const updatedSettings = { ...existingSettings, ...settings, updatedAt: new Date().toISOString() };
-          
-          // KVストアに保存
-          await saveToKV(`guild_settings:${guildId}`, updatedSettings);
-          
-          return new Response(JSON.stringify({ ok: true, settings: updatedSettings }), { 
-            status: 200, 
-            headers: { ...corsHeaders, "Content-Type": "application/json" }
-          });
+          // セッション中の設定はKVに一時保存
+          if (guildId.startsWith('guild_session:')) {
+            // セッション設定の更新
+            const sessionGuildId = guildId.replace('guild_session:', '');
+            const existingSession = await getFromKV(`guild_session:${sessionGuildId}`) || {};
+            const updatedSession = { ...existingSession, ...settings, updatedAt: new Date().toISOString() };
+            
+            await saveToKV(`guild_session:${sessionGuildId}`, updatedSession);
+            
+            return new Response(JSON.stringify({ ok: true, settings: updatedSession }), { 
+              status: 200, 
+              headers: { ...corsHeaders, "Content-Type": "application/json" }
+            });
+          } else {
+            // 通常の設定更新（セッション中の一時保存）
+            const existingSession = await getFromKV(`guild_session:${guildId}`) || {};
+            const updatedSession = { ...existingSession, ...settings, updatedAt: new Date().toISOString() };
+            
+            // セッション中はKVに一時保存
+            await saveToKV(`guild_session:${guildId}`, updatedSession);
+            
+            return new Response(JSON.stringify({ ok: true, settings: updatedSession }), { 
+              status: 200, 
+              headers: { ...corsHeaders, "Content-Type": "application/json" }
+            });
+          }
         } catch (error) {
           console.error('Guild settings save error:', error);
           return new Response(JSON.stringify({ error: "Internal server error" }), { 
@@ -481,7 +553,120 @@ export default {
       });
     }
 
-    // ギルド設定取得API
+    // データ状況確認用API
+    if (url.pathname === "/api/admin/data-status" && request.method === "GET") {
+      try {
+        // KVから全ギルド設定を取得
+        const kvList = await env.RECRUIT_KV.list({ prefix: 'guild_settings:' });
+        const kvCount = kvList.keys.length;
+        
+        // Supabaseから全ギルド設定を取得
+        const supaRes = await fetch(env.SUPABASE_URL + '/rest/v1/guild_settings?select=count', {
+          method: 'GET',
+          headers: {
+            'apikey': env.SUPABASE_SERVICE_ROLE_KEY,
+            'Authorization': `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'count=exact'
+          },
+        });
+        
+        let supabaseCount = 0;
+        if (supaRes.ok) {
+          const countHeader = supaRes.headers.get('content-range');
+          if (countHeader) {
+            const match = countHeader.match(/\/(\d+)$/);
+            if (match) {
+              supabaseCount = parseInt(match[1], 10);
+            }
+          }
+        }
+        
+        return new Response(JSON.stringify({ 
+          kv_guild_settings_count: kvCount,
+          supabase_guild_settings_count: supabaseCount,
+          data_migration_needed: kvCount > supabaseCount
+        }), { 
+          status: 200, 
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      } catch (error) {
+        console.error('Data status check error:', error);
+        return new Response(JSON.stringify({ error: "Status check failed" }), { 
+          status: 500, 
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      }
+    }
+
+    // データマイグレーション用API（KV → Supabase）
+    if (url.pathname === "/api/admin/migrate-guild-settings" && request.method === "POST") {
+      try {
+        // KVから全ギルド設定を取得
+        const list = await env.RECRUIT_KV.list({ prefix: 'guild_settings:' });
+        const migrationResults = [];
+        
+        for (const entry of list.keys) {
+          try {
+            const kvData = await env.RECRUIT_KV.get(entry.name);
+            if (kvData) {
+              const settings = JSON.parse(kvData);
+              const guildId = entry.name.replace('guild_settings:', '');
+              
+              // Supabase形式に変換
+              const supabaseData = {
+                guild_id: guildId,
+                recruit_channel_id: settings.recruit_channel || settings.recruitmentChannelId,
+                notification_role_id: settings.notification_role || settings.recruitmentNotificationRoleId,
+                default_title: settings.defaultTitle || settings.defaultRecruitTitle || "参加者募集",
+                default_color: settings.defaultColor || settings.defaultRecruitColor || "#00FFFF",
+                update_channel_id: settings.update_channel || settings.updateNotificationChannelId
+              };
+              
+              // Supabaseにupsert
+              const supaRes = await fetch(env.SUPABASE_URL + '/rest/v1/guild_settings', {
+                method: 'POST',
+                headers: {
+                  'apikey': env.SUPABASE_SERVICE_ROLE_KEY,
+                  'Authorization': `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+                  'Content-Type': 'application/json',
+                  'Prefer': 'resolution=merge-duplicates'
+                },
+                body: JSON.stringify(supabaseData)
+              });
+              
+              if (supaRes.ok) {
+                migrationResults.push({ guildId, status: 'success' });
+                console.log(`Migrated guild settings for ${guildId}`);
+              } else {
+                migrationResults.push({ guildId, status: 'failed', error: supaRes.status });
+                console.error(`Failed to migrate guild ${guildId}: ${supaRes.status}`);
+              }
+            }
+          } catch (entryError) {
+            console.error(`Error processing entry ${entry.name}:`, entryError);
+            migrationResults.push({ guildId: entry.name, status: 'error', error: entryError.message });
+          }
+        }
+        
+        return new Response(JSON.stringify({ 
+          ok: true, 
+          message: `Migration completed. Processed ${migrationResults.length} guilds.`,
+          results: migrationResults 
+        }), { 
+          status: 200, 
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      } catch (error) {
+        console.error('Migration error:', error);
+        return new Response(JSON.stringify({ error: "Migration failed" }), { 
+          status: 500, 
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      }
+    }
+
+    // ギルド設定取得API（Supabaseメイン）
     if (url.pathname.startsWith("/api/guild-settings/") && request.method === "GET") {
       try {
         const guildId = url.pathname.split("/api/guild-settings/")[1];
@@ -493,14 +678,46 @@ export default {
           });
         }
         
-        const settings = await getFromKV(`guild_settings:${guildId}`);
+        // Supabaseから設定を取得
+        const supaRes = await fetch(env.SUPABASE_URL + `/rest/v1/guild_settings?guild_id=eq.${guildId}`, {
+          method: 'GET',
+          headers: {
+            'apikey': env.SUPABASE_SERVICE_ROLE_KEY,
+            'Authorization': `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+            'Content-Type': 'application/json',
+          },
+        });
         
-        if (!settings) {
-          return new Response(JSON.stringify({ error: "Settings not found" }), { 
-            status: 404, 
+        if (!supaRes.ok) {
+          throw new Error(`Supabase fetch failed: ${supaRes.status}`);
+        }
+        
+        const data = await supaRes.json();
+        
+        if (!Array.isArray(data) || data.length === 0) {
+          // 設定が見つからない場合はデフォルト値を返す
+          const defaultSettings = {
+            recruit_channel: null,
+            notification_role: null,
+            defaultTitle: "参加者募集",
+            defaultColor: "#00FFFF",
+            update_channel: null
+          };
+          
+          return new Response(JSON.stringify(defaultSettings), { 
+            status: 200, 
             headers: { ...corsHeaders, "Content-Type": "application/json" }
           });
         }
+        
+        // Supabaseのデータ形式をフロントエンド形式に変換
+        const settings = {
+          recruit_channel: data[0].recruit_channel_id,
+          notification_role: data[0].notification_role_id,
+          defaultTitle: data[0].default_title || "参加者募集",
+          defaultColor: data[0].default_color || "#00FFFF",
+          update_channel: data[0].update_channel_id
+        };
         
         return new Response(JSON.stringify(settings), { 
           status: 200, 
@@ -508,8 +725,18 @@ export default {
         });
       } catch (error) {
         console.error('Guild settings fetch error:', error);
-        return new Response(JSON.stringify({ error: "Internal server error" }), { 
-          status: 500, 
+        
+        // エラー時はデフォルト値を返す
+        const defaultSettings = {
+          recruit_channel: null,
+          notification_role: null,
+          defaultTitle: "参加者募集", 
+          defaultColor: "#00FFFF",
+          update_channel: null
+        };
+        
+        return new Response(JSON.stringify(defaultSettings), { 
+          status: 200, 
           headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
       }
