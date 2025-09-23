@@ -444,7 +444,18 @@ export default {
           };
         }
         
-        console.log(`[finalize] Session settings:`, sessionSettings);
+        console.log(`[finalize] Session settings before processing:`, sessionSettings);
+        
+        // KVセッションの新しい形式の設定値も確認
+        const finalSettings = {
+          recruitmentChannelId: sessionSettings.recruit_channel || sessionSettings.recruitmentChannelId,
+          recruitmentNotificationRoleId: sessionSettings.notification_role || sessionSettings.recruitmentNotificationRoleId,
+          defaultRecruitTitle: sessionSettings.defaultTitle || sessionSettings.defaultRecruitTitle || "参加者募集",
+          defaultRecruitColor: sessionSettings.defaultColor || sessionSettings.defaultRecruitColor || "#00FFFF",
+          updateNotificationChannelId: sessionSettings.update_channel || sessionSettings.updateNotificationChannelId
+        };
+        
+        console.log(`[finalize] Final settings to save:`, finalSettings);
         
         // Supabase保存を試行、失敗した場合はKVにフォールバック
         let supabaseSuccess = false;
@@ -453,11 +464,11 @@ export default {
           // Supabaseに最終保存（UPSERT操作）
           const supabaseData = {
             guild_id: guildId,
-            recruit_channel_id: sessionSettings.recruitmentChannelId,
-            notification_role_id: sessionSettings.recruitmentNotificationRoleId,
-            default_title: sessionSettings.defaultRecruitTitle,
-            default_color: sessionSettings.defaultRecruitColor,
-            update_channel_id: sessionSettings.updateNotificationChannelId,
+            recruit_channel_id: finalSettings.recruitmentChannelId,
+            notification_role_id: finalSettings.recruitmentNotificationRoleId,
+            default_title: finalSettings.defaultRecruitTitle,
+            default_color: finalSettings.defaultRecruitColor,
+            update_channel_id: finalSettings.updateNotificationChannelId,
             updated_at: new Date().toISOString()
           };
           
@@ -488,11 +499,11 @@ export default {
                 'Content-Type': 'application/json',
               },
               body: JSON.stringify({
-                recruit_channel_id: sessionSettings.recruitmentChannelId,
-                notification_role_id: sessionSettings.recruitmentNotificationRoleId,
-                default_title: sessionSettings.defaultRecruitTitle,
-                default_color: sessionSettings.defaultRecruitColor,
-                update_channel_id: sessionSettings.updateNotificationChannelId,
+                recruit_channel_id: finalSettings.recruitmentChannelId,
+                notification_role_id: finalSettings.recruitmentNotificationRoleId,
+                default_title: finalSettings.defaultRecruitTitle,
+                default_color: finalSettings.defaultRecruitColor,
+                update_channel_id: finalSettings.updateNotificationChannelId,
                 updated_at: new Date().toISOString()
               })
             });
@@ -537,7 +548,7 @@ export default {
           
           // Supabase失敗時はKVに保存（フォールバック）
           await saveToKV(`guild_settings:${guildId}`, {
-            ...sessionSettings,
+            ...finalSettings,
             finalizedAt: new Date().toISOString(),
             fallbackMode: true
           });
