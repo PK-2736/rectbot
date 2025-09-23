@@ -855,9 +855,12 @@ export default {
           try {
             // まず永続設定を確認
             let kvSettingsRaw = await env.RECRUIT_KV.get(`guild_settings:${guildId}`);
+            console.log(`[guild-settings] KV permanent settings raw:`, kvSettingsRaw);
+            
             if (!kvSettingsRaw) {
               // 永続設定がない場合はセッション設定を確認
               kvSettingsRaw = await env.RECRUIT_KV.get(`guild_session:${guildId}`);
+              console.log(`[guild-settings] KV session settings raw:`, kvSettingsRaw);
             }
             
             if (kvSettingsRaw) {
@@ -873,10 +876,14 @@ export default {
                 update_channel: kvSettings.update_channel || kvSettings.updateNotificationChannelId
               };
               
+              console.log(`[guild-settings] Converted KV settings:`, settings);
+              
               return new Response(JSON.stringify(settings), { 
                 status: 200, 
                 headers: { ...corsHeaders, "Content-Type": "application/json" }
               });
+            } else {
+              console.log(`[guild-settings] No KV data found for guild ${guildId}`);
             }
           } catch (kvError) {
             console.log(`[guild-settings] KV fallback failed:`, kvError);
