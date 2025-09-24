@@ -39,14 +39,13 @@ module.exports = {
 
       // ボタン作成
 
-      const removeButtonCustomId = 'remove_role_1420235531442196562';
       const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId(buttonCustomId)
           .setLabel('ロールを付与')
           .setStyle(ButtonStyle.Primary),
         new ButtonBuilder()
-          .setCustomId(removeButtonCustomId)
+          .setCustomId('remove_role_1420235531442196562')
           .setLabel('ロールを外す')
           .setStyle(ButtonStyle.Secondary)
       );
