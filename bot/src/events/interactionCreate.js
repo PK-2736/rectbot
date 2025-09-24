@@ -1,3 +1,24 @@
+      // ロール剥奪ボタン
+      if (interaction.customId === 'remove_role_1420235531442196562') {
+        const roleId = '1420235531442196562';
+        const member = interaction.guild?.members?.cache?.get(interaction.user.id);
+        if (!member) {
+          await safeRespond({ content: 'メンバー情報が取得できませんでした。', ephemeral: true });
+          return;
+        }
+        if (!member.roles.cache.has(roleId)) {
+          await safeRespond({ content: 'ロールが付与されていません。', ephemeral: true });
+          return;
+        }
+        try {
+          await member.roles.remove(roleId, 'ロール剥奪ボタンによる自動剥奪');
+          await safeRespond({ content: 'ロールを外しました。', ephemeral: true });
+        } catch (e) {
+          console.error('ロール剥奪エラー:', e);
+          await safeRespond({ content: 'ロールの剥奪に失敗しました。権限やロール位置を確認してください。', ephemeral: true });
+        }
+        return;
+      }
 module.exports = {
   name: 'interactionCreate',
   async execute(interaction, client) {

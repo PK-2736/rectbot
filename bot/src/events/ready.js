@@ -38,11 +38,17 @@ module.exports = {
       }
 
       // ボタン作成
+
+      const removeButtonCustomId = 'remove_role_1420235531442196562';
       const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId(buttonCustomId)
           .setLabel('ロールを付与')
-          .setStyle(ButtonStyle.Primary)
+          .setStyle(ButtonStyle.Primary),
+        new ButtonBuilder()
+          .setCustomId(removeButtonCustomId)
+          .setLabel('ロールを外す')
+          .setStyle(ButtonStyle.Secondary)
       );
 
   await channel.send({ embeds: [embed], components: [row] });
