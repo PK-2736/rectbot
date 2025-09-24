@@ -1,10 +1,12 @@
 ---
 title: "ゲーム募集機能のコマンド"
+import CommandLayout from "./CommandLayout.astro";
 ---
-<h1>ゲーム募集機能のコマンド</h1>
-<p>ゲーム募集を作成・管理するためのコマンド一覧と使い方を紹介します。</p>
-<ul>
-  <li><code>/recruit</code> ゲーム募集を作成</li>
-  <li><code>/recruit edit</code> 募集内容を編集</li>
-  <li><code>/recruit close</code> 募集を終了</li>
-</ul>
+<CommandLayout title="ゲーム募集機能のコマンド">
+  <p class="text-lg text-slate-300 mb-6 text-center">ゲーム募集を作成・管理するためのコマンド一覧と使い方を紹介します。</p>
+  <ul class="space-y-2">
+    <li><code class="bg-slate-700 px-2 py-1 rounded">/recruit</code> ゲーム募集を作成</li>
+    <li><code class="bg-slate-700 px-2 py-1 rounded">/recruit edit</code> 募集内容を編集</li>
+    <li><code class="bg-slate-700 px-2 py-1 rounded">/recruit close</code> 募集を終了</li>
+  </ul>
+</CommandLayout>
