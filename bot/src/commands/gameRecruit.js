@@ -25,6 +25,28 @@ module.exports = {
     .setName('rect')
     .setDescription('ゲーム募集を作成します（/rect）'),
   async execute(interaction) {
+    // --- 募集数制限: 特定ギルド以外は1件まで ---
+    const EXEMPT_GUILD_ID = '1414530004657766422';
+    if (interaction.guildId !== EXEMPT_GUILD_ID) {
+      // メモリ上のrecruitDataから同じguildIdのアクティブ募集数をカウント
+      let activeCount = 0;
+      for (const [_, data] of recruitData.entries()) {
+        if (data && interaction.guildId && data.recruiterId && interaction.guildId === interaction.guildId) {
+          // 既存データのguildIdが一致するものをカウント
+          // ただしrecruitDataの保存形式によってはguildIdが含まれない場合もあるので、
+          // 必要に応じてAPIや他の方法で取得することも検討
+          activeCount++;
+        }
+      }
+      if (activeCount >= 1) {
+        await interaction.reply({
+          content: '❌ このサーバーでは同時に実行できる募集は1件までです。既存の募集を締め切ってから新しい募集を作成してください。',
+          flags: MessageFlags.Ephemeral,
+          allowedMentions: { roles: [], users: [] }
+        });
+        return;
+      }
+    }
     try {
       // ギルド設定を取得
       const guildSettings = await getGuildSettings(interaction.guildId);

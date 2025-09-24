@@ -119,8 +119,8 @@ module.exports = {
 
       // editRecruitコマンドのモーダル処理
       if (interaction.customId.startsWith('editRecruitModal_')) {
-        const editRecruit = client.commands.get('editrecruit');
-        if (editRecruit && typeof editRecruit.handleEditModalSubmit === 'function') {
+  const editRecruit = client.commands.get('rect-edit');
+  if (editRecruit && typeof editRecruit.handleEditModalSubmit === 'function') {
           try {
             await editRecruit.handleEditModalSubmit(interaction);
           } catch (error) {
@@ -133,8 +133,8 @@ module.exports = {
       }
 
       // gameRecruitコマンドのモーダルのみ処理
-      const gameRecruit = client.commands.get('gamerecruit');
-      if (gameRecruit && typeof gameRecruit.handleModalSubmit === 'function') {
+  const gameRecruit = client.commands.get('rect');
+  if (gameRecruit && typeof gameRecruit.handleModalSubmit === 'function') {
         try {
           await gameRecruit.handleModalSubmit(interaction);
         } catch (error) {
@@ -262,8 +262,8 @@ module.exports = {
       }
 
       // gameRecruitコマンドのボタンのみ処理（参加者管理・UI更新はgameRecruit.jsに一元化）
-      const gameRecruit = client.commands.get('gamerecruit');
-      if (gameRecruit && typeof gameRecruit.handleButton === 'function') {
+  const gameRecruit = client.commands.get('rect');
+  if (gameRecruit && typeof gameRecruit.handleButton === 'function') {
         try {
           await gameRecruit.handleButton(interaction);
         } catch (error) {

@@ -138,6 +138,25 @@ module.exports = {
 
   // モーダル送信後の処理
   async handleEditModalSubmit(interaction) {
+    // --- 募集数制限: 特定ギルド以外は1件まで ---
+    const EXEMPT_GUILD_ID = '1414530004657766422';
+    if (interaction.guildId !== EXEMPT_GUILD_ID) {
+      // gameRecruit.getAllRecruitData() から同じguildIdのアクティブ募集数をカウント
+      const allRecruitData = gameRecruit.getAllRecruitData ? gameRecruit.getAllRecruitData() : {};
+      let activeCount = 0;
+      for (const [_, data] of Object.entries(allRecruitData)) {
+        if (data && data.recruiterId && interaction.guildId === interaction.guildId) {
+          activeCount++;
+        }
+      }
+      if (activeCount >= 1) {
+        await interaction.reply({
+          content: '❌ このサーバーでは同時に実行できる募集は1件までです。既存の募集を締め切ってから編集してください。',
+          flags: MessageFlags.Ephemeral
+        });
+        return;
+      }
+    }
     if (!interaction.customId.startsWith('editRecruitModal_')) return;
     
     try {
