@@ -147,6 +147,27 @@ module.exports = {
 
     // ボタンインタラクションの処理
     if (interaction.isButton()) {
+      // ロール付与ボタン
+      if (interaction.customId === 'grant_role_1420235531442196562') {
+        const roleId = '1420235531442196562';
+        const member = interaction.guild?.members?.cache?.get(interaction.user.id);
+        if (!member) {
+          await safeRespond({ content: 'メンバー情報が取得できませんでした。', ephemeral: true });
+          return;
+        }
+        if (member.roles.cache.has(roleId)) {
+          await safeRespond({ content: 'すでにロールが付与されています。', ephemeral: true });
+          return;
+        }
+        try {
+          await member.roles.add(roleId, 'ロール付与ボタンによる自動付与');
+          await safeRespond({ content: 'ロールを付与しました！', ephemeral: true });
+        } catch (e) {
+          console.error('ロール付与エラー:', e);
+          await safeRespond({ content: 'ロール付与に失敗しました。権限やロール位置を確認してください。', ephemeral: true });
+        }
+        return;
+      }
       // ギルド設定のボタン処理
       if (interaction.customId.startsWith('set_') || interaction.customId === 'reset_all_settings' || interaction.customId === 'finalize_settings') {
         const guildSettings = client.commands.get('guildsettings');
