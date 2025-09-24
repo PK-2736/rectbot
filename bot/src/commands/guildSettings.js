@@ -14,8 +14,8 @@ const { saveGuildSettings, getGuildSettings, finalizeGuildSettings, startGuildSe
 
 module.exports = {
   data: new SlashCommandBuilder()
-    .setName('guildsettings')
-    .setDescription('ギルドの募集設定を管理します')
+    .setName('rect-setting')
+    .setDescription('募集設定を管理します（/rect-setting）')
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
   async execute(interaction) {

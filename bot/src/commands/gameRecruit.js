@@ -22,8 +22,8 @@ const { saveRecruitStatus, deleteRecruitStatus, saveRecruitmentData, deleteRecru
 
 module.exports = {
   data: new SlashCommandBuilder()
-    .setName('gamerecruit')
-    .setDescription('ゲーム募集を作成します'),
+    .setName('rect')
+    .setDescription('ゲーム募集を作成します（/rect）'),
   async execute(interaction) {
     try {
       // ギルド設定を取得

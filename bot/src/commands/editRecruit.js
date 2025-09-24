@@ -13,8 +13,8 @@ const gameRecruit = require('./gameRecruit');
 
 module.exports = {
   data: new SlashCommandBuilder()
-    .setName('editrecruit')
-    .setDescription('募集内容を編集します（募集主のみ実行可能）')
+    .setName('rect-edit')
+    .setDescription('募集内容を編集します（/rect-edit 募集ID）')
     .addStringOption(option =>
       option.setName('募集id')
         .setDescription('編集したい募集のID（募集パネル下部に表示される8桁の数字）')
