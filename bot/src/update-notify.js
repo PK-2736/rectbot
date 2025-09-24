@@ -1,5 +1,6 @@
 // rectbot アップデート通知一斉送信スクリプト
-require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '../.env') });
 const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
 const { getGuildSettings } = require('./utils/db');
 
