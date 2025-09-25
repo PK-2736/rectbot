@@ -14,6 +14,9 @@ const fs = require('fs');
 // 参加者リストはメモリ上で管理
 const recruitParticipants = new Map();
 
+// 一時的にモーダルへ渡したいオプションを保存する（ユーザーIDをキーに）
+const pendingModalOptions = new Map();
+
 // 外部ハイドレーション用（index.js から呼び出すためのユーティリティ）
 async function __hydrateParticipants(messageId, participants) {
   try {
@@ -210,8 +213,15 @@ module.exports = {
         selectedColor = undefined;
       }
 
-      // 色選択値をinteractionに一時保存（未指定ならundefinedのまま）
-      interaction.recruitPanelColor = selectedColor;
+      // 色選択値を一時保存（モーダル送信では異なる interaction オブジェクトになるため Map を利用）
+      interaction.recruitPanelColor = selectedColor; // 互換性のために残す
+      try {
+        if (interaction.user && interaction.user.id) {
+          pendingModalOptions.set(interaction.user.id, { panelColor: selectedColor });
+        }
+      } catch (e) {
+        console.warn('pendingModalOptions set failed:', e?.message || e);
+      }
 
       // モーダル表示
       const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
@@ -324,13 +334,30 @@ module.exports = {
 
       // 色の決定: セレクト（コマンドオプション）＞設定＞デフォルト
       let panelColor = null;
-      // 1. コマンドオプション（executeで一時保存）
-      if (typeof interaction.recruitPanelColor === 'string' && interaction.recruitPanelColor.length > 0) {
-        panelColor = interaction.recruitPanelColor;
-      } else if (guildSettings.defaultColor) {
-        panelColor = guildSettings.defaultColor;
-      } else {
-        panelColor = undefined; // デフォルト色（色無し）
+      // 1. コマンドオプション（executeで一時保存）-> pendingModalOptions 経由で受け取る
+      try {
+        const pending = interaction.user && interaction.user.id ? pendingModalOptions.get(interaction.user.id) : null;
+        if (pending && typeof pending.panelColor === 'string' && pending.panelColor.length > 0) {
+          panelColor = pending.panelColor;
+          // 一度取得したら破棄
+          pendingModalOptions.delete(interaction.user.id);
+        } else if (typeof interaction.recruitPanelColor === 'string' && interaction.recruitPanelColor.length > 0) {
+          // 互換性フォールバック
+          panelColor = interaction.recruitPanelColor;
+        } else if (guildSettings.defaultColor) {
+          panelColor = guildSettings.defaultColor;
+        } else {
+          panelColor = undefined; // デフォルト色（色無し）
+        }
+      } catch (e) {
+        console.warn('handleModalSubmit: failed to retrieve pending modal options:', e?.message || e);
+        if (typeof interaction.recruitPanelColor === 'string' && interaction.recruitPanelColor.length > 0) {
+          panelColor = interaction.recruitPanelColor;
+        } else if (guildSettings.defaultColor) {
+          panelColor = guildSettings.defaultColor;
+        } else {
+          panelColor = undefined;
+        }
       }
 
       // 仮recruitIdは空文字で初期化し、メッセージ送信後に正しいrecruitIdをセット
@@ -568,6 +595,18 @@ module.exports = {
     console.log('=== ボタンクリック処理開始 ===');
     console.log('ボタンクリック - メッセージID:', messageId);
     console.log('ボタンクリック - ボタンID:', interaction.customId);
+    // 処理に時間がかかる可能性があるため、最初に defer して Unknown interaction(10062) を減らす
+    try {
+      if (interaction && !interaction.deferred && !interaction.replied) {
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+      }
+    } catch (e) {
+      if (e && e.code === 10062) {
+        console.warn('handleButton: deferReply failed - Unknown interaction (ignored)');
+      } else {
+        console.warn('handleButton: deferReply failed:', e?.message || e);
+      }
+    }
   // KV化のためrecruitDataは参照しない
   console.log('保存されている参加者データのキー:', Array.from(recruitParticipants.keys()));
     
