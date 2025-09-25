@@ -26,8 +26,8 @@ function buildContainer({ headerTitle = '募集', participantText = '', recruitI
   container.addTextDisplayComponents(
     new TextDisplayBuilder().setContent(participantText)
   );
-  // close ボタンは requesterId が提供されている場合にのみ無効化する（募集主でない場合）
-  const isRequesterRecruiter = requesterId && recruiterId ? String(requesterId) === String(recruiterId) : true;
+  // close ボタンは requesterId と recruiterId が一致する場合のみ有効にする（厳密比較）
+  const isRequesterRecruiter = (typeof requesterId !== 'undefined' && typeof recruiterId !== 'undefined') ? String(requesterId) === String(recruiterId) : false;
   container.addActionRowComponents(
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()

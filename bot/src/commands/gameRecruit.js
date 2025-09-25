@@ -428,6 +428,12 @@ module.exports = {
       }
       const accentColor = (panelColorForAccent && /^[0-9A-Fa-f]{6}$/.test(panelColorForAccent)) ? parseInt(panelColorForAccent, 16) : (guildSettings.defaultColor && /^[0-9A-Fa-f]{6}$/.test(guildSettings.defaultColor) ? parseInt(guildSettings.defaultColor, 16) : 0x000000);
       // container をヘルパーで生成（募集主＝作成者なので requesterId は interaction.user.id）
+      // Debug: log color and id values used to build the initial container
+      try {
+        console.log('[debug] initial container values:', { panelColor, panelColorForAccent, accentColor: accentColor.toString(16), recruiterId: interaction.user.id, requesterId: interaction.user.id, guildDefault: guildSettings.defaultColor });
+      } catch (e) {
+        console.warn('debug log failed:', e?.message || e);
+      }
       const container = buildContainer({ headerTitle: `${user.username}さんの募集`, participantText, recruitIdText: '(送信後決定)', accentColor, imageAttachmentName: 'attachment://recruit-card.png', recruiterId: interaction.user.id, requesterId: interaction.user.id });
       // メインチャンネル：通知が既に送信済みのはずなので、募集パネルを通常メッセージとして送信
       const followUpMessage = await interaction.channel.send({
