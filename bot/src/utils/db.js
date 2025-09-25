@@ -15,21 +15,24 @@ async function saveRecruitStatus(serverId, channelId, messageId, startTime) {
 
 // 新しい募集データをAPIに保存
 async function saveRecruitmentData(guildId, channelId, messageId, guildName, channelName, recruitData) {
-       const data = {
-	       guild_id: guildId,
-	       channel_id: channelId,
-	       message_id: messageId,
-	       guild_name: guildName,
-	       channel_name: channelName,
-	       status: 'recruiting',
-	       start_time: new Date().toISOString(),
-	       content: recruitData.content,
-	       participants_count: parseInt(recruitData.participants),
-	       start_game_time: recruitData.startTime,
-	       vc: recruitData.vc,
-	       note: recruitData.note,
-	       recruiterId: recruitData.recruiterId // 募集主IDを追加
-       };
+	// recruitIdがなければ自動付与
+	const recruitId = recruitData.recruitId || String(messageId).slice(-8);
+	const data = {
+		guild_id: guildId,
+		channel_id: channelId,
+		message_id: messageId,
+		guild_name: guildName,
+		channel_name: channelName,
+		status: 'recruiting',
+		start_time: new Date().toISOString(),
+		content: recruitData.content,
+		participants_count: parseInt(recruitData.participants),
+		start_game_time: recruitData.startTime,
+		vc: recruitData.vc,
+		note: recruitData.note,
+		recruiterId: recruitData.recruiterId, // 募集主IDを追加
+		recruitId // 必ずrecruitIdを保存
+	};
 
 	try {
 		const res = await fetch(`${config.BACKEND_API_URL}/api/recruitment`, {
