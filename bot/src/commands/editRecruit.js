@@ -28,12 +28,15 @@ module.exports = {
       console.log(`[editRecruit] 編集要求: recruitId=${recruitId}, user=${interaction.user.id}`);
       
       // デバッグ: 現在のメモリ上の募集データを確認
-  let allRecruitData = gameRecruit.getAllRecruitData ? await gameRecruit.getAllRecruitData() : 'getAllRecruitData method not available';
+      let allRecruitData = gameRecruit.getAllRecruitData ? await gameRecruit.getAllRecruitData() : 'getAllRecruitData method not available';
       if (Array.isArray(allRecruitData)) {
         // 配列の場合は message_id をキーにしたオブジェクトに変換
         allRecruitData = Object.fromEntries(allRecruitData.map(d => [d.message_id, d]));
       }
       console.log(`[editRecruit] 現在のメモリ上の募集データ:`, allRecruitData);
+      if (allRecruitData && typeof allRecruitData === 'object') {
+        console.log('[editRecruit] 募集データの全 message_id:', Object.keys(allRecruitData));
+      }
       
       // 募集IDから実際のメッセージIDを見つける
   const message_id = await findMessageIdByRecruitId(interaction, recruitId);
@@ -41,9 +44,12 @@ module.exports = {
   if (!message_id) {
         // メッセージが見つからない場合、メモリ上のデータから直接検索を試行
         console.log(`[editRecruit] メッセージ検索失敗、メモリから直接検索を試行`);
-  let allRecruitData = await gameRecruit.getAllRecruitData();
+        let allRecruitData = await gameRecruit.getAllRecruitData();
         if (Array.isArray(allRecruitData)) {
           allRecruitData = Object.fromEntries(allRecruitData.map(d => [d.message_id, d]));
+        }
+        if (allRecruitData && typeof allRecruitData === 'object') {
+          console.log('[editRecruit] 再取得 募集データの全 message_id:', Object.keys(allRecruitData));
         }
         let foundMessageId = null;
         for (const [msgId, data] of Object.entries(allRecruitData)) {
