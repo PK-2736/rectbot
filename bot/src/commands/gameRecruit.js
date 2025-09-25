@@ -241,8 +241,14 @@ module.exports = {
     const EXEMPT_GUILD_ID = '1414530004657766422';
     const { getActiveRecruits, saveRecruitmentData } = require('../utils/db');
     if (interaction.guildId !== EXEMPT_GUILD_ID) {
-      const activeRecruits = await getActiveRecruits() || [];
-      const recruitsArray = Array.isArray(activeRecruits) ? activeRecruits : [];
+      let activeRecruitsRaw = [];
+      try {
+        activeRecruitsRaw = await getActiveRecruits();
+      } catch (e) {
+        console.warn('getActiveRecruits failed:', e?.message || e);
+        activeRecruitsRaw = [];
+      }
+      const recruitsArray = Array.isArray(activeRecruitsRaw) ? activeRecruitsRaw : (activeRecruitsRaw && Array.isArray(activeRecruitsRaw.recruits) ? activeRecruitsRaw.recruits : []);
       const guildActiveCount = recruitsArray.filter(r => r.guild_id === interaction.guildId && r.status === 'recruiting').length;
       if (guildActiveCount >= 1) {
         await interaction.editReply({
@@ -616,10 +622,36 @@ module.exports = {
   }
   console.log('現在の参加者リスト:', participants);
   const { getActiveRecruits, getGuildSettings } = require('../utils/db');
-  // 最新の募集データをKVから取得
+  // 最新の募集データをKVまたはRedisから取得（APIの戻り値が配列でない場合に備えた防御処理）
   let savedRecruitData = null;
-  const allRecruits = await getActiveRecruits();
-  savedRecruitData = allRecruits.find(r => r.message_id === messageId);
+  let allRecruits = [];
+  try {
+    const res = await getActiveRecruits();
+    if (Array.isArray(res)) {
+      allRecruits = res;
+    } else if (res && Array.isArray(res.recruits)) {
+      allRecruits = res.recruits;
+    } else if (res && Array.isArray(res.data)) {
+      allRecruits = res.data;
+    } else {
+      // 期待する配列が返らない場合は Redis からのフォールバック取得を試みる
+      try {
+        allRecruits = await listRecruitsFromRedis();
+      } catch (e) {
+        console.warn('listRecruitsFromRedis failed:', e?.message || e);
+        allRecruits = [];
+      }
+    }
+  } catch (e) {
+    console.warn('getActiveRecruits failed or returned unexpected shape:', e?.message || e);
+    try {
+      allRecruits = await listRecruitsFromRedis();
+    } catch (err) {
+      console.warn('listRecruitsFromRedis fallback failed:', err?.message || err);
+      allRecruits = [];
+    }
+  }
+  savedRecruitData = allRecruits.find(r => r && (r.message_id === messageId || r.messageId === messageId));
 
   switch (interaction.customId) {
       case "join": {
