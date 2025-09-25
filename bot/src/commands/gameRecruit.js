@@ -362,7 +362,7 @@ module.exports = {
           recruitId: actualRecruitId,
           guildId: interaction.guildId,
           channelId: interaction.channelId,
-          messageId: actualMessageId,
+          message_id: actualMessageId, // messageId → message_id に統一
           status: 'recruiting',
           start_time: new Date().toISOString(),
         };
