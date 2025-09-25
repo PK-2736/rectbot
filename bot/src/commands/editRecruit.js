@@ -24,9 +24,9 @@ module.exports = {
 
   async execute(interaction) {
     try {
+      await interaction.deferReply({ ephemeral: true });
       const recruitId = interaction.options.getString('募集id');
       console.log(`[editRecruit] 編集要求: recruitId=${recruitId}, user=${interaction.user.id}`);
-      
       // デバッグ: 現在のメモリ上の募集データを確認
       let allRecruitData = gameRecruit.getAllRecruitData ? await gameRecruit.getAllRecruitData() : 'getAllRecruitData method not available';
       if (Array.isArray(allRecruitData)) {
@@ -37,11 +37,9 @@ module.exports = {
       if (allRecruitData && typeof allRecruitData === 'object') {
         console.log('[editRecruit] 募集データの全 message_id:', Object.keys(allRecruitData));
       }
-      
       // 募集IDから実際のメッセージIDを見つける
-  const message_id = await findMessageIdByRecruitId(interaction, recruitId);
-      
-  if (!message_id) {
+      const message_id = await findMessageIdByRecruitId(interaction, recruitId);
+      if (!message_id) {
         // メッセージが見つからない場合、メモリ上のデータから直接検索を試行
         console.log(`[editRecruit] メッセージ検索失敗、メモリから直接検索を試行`);
         // 最新の募集データを再取得
@@ -72,9 +70,10 @@ module.exports = {
           const recruitData = await gameRecruit.getRecruitData(foundMessageId);
           if (recruitData && recruitData.recruiterId === interaction.user.id) {
             await showEditModal(interaction, recruitData, foundMessageId);
+            await interaction.deleteReply();
             return;
           } else if (recruitData && recruitData.recruiterId !== interaction.user.id) {
-            await interaction.reply({
+            await interaction.editReply({
               content: `❌ この募集の編集権限がありません。募集は募集主のみが編集できます。`,
               flags: MessageFlags.Ephemeral
             });
@@ -118,7 +117,7 @@ module.exports = {
           console.error(`[editRecruit] メッセージ取得エラー:`, fetchError);
         }
         
-        await interaction.reply({
+        await interaction.editReply({
           content: `❌ 募集ID \`${recruitId}\` の募集データが見つかりませんでした。募集が既に締め切られているか、無効なIDです。`,
           flags: MessageFlags.Ephemeral
         });
@@ -128,15 +127,16 @@ module.exports = {
       // 募集主の権限チェック
   console.log(`[editRecruit] 権限チェック: recruitData=`, recruitData, `interaction.user.id=`, interaction.user.id, `型:`, typeof recruitData.recruiterId, typeof interaction.user.id);
   if (recruitData.recruiterId !== interaction.user.id) {
-        await interaction.reply({
+        await interaction.editReply({
           content: `❌ この募集の編集権限がありません。募集は募集主のみが編集できます。`,
           flags: MessageFlags.Ephemeral
         });
         return;
       }
 
-      // 編集用モーダルを表示
-      await showEditModal(interaction, recruitData, message_id);
+  // 編集用モーダルを表示
+  await showEditModal(interaction, recruitData, message_id);
+  await interaction.deleteReply();
 
     } catch (error) {
       console.error('editRecruit execute error:', error);
