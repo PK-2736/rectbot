@@ -32,9 +32,9 @@ module.exports = {
       console.log(`[editRecruit] 現在のメモリ上の募集データ:`, allRecruitData);
       
       // 募集IDから実際のメッセージIDを見つける
-      const messageId = await findMessageIdByRecruitId(interaction, recruitId);
+  const message_id = await findMessageIdByRecruitId(interaction, recruitId);
       
-      if (!messageId) {
+  if (!message_id) {
         // メッセージが見つからない場合、メモリ上のデータから直接検索を試行
         console.log(`[editRecruit] メッセージ検索失敗、メモリから直接検索を試行`);
   const allRecruitData = await gameRecruit.getAllRecruitData();
@@ -86,15 +86,15 @@ module.exports = {
       }
 
       // 募集データを取得
-  const recruitData = await gameRecruit.getRecruitData(messageId);
+      const recruitData = await gameRecruit.getRecruitData(message_id);
       
       if (!recruitData) {
         // メッセージは見つかったがメモリにデータがない場合の対処
-        console.log(`[editRecruit] メッセージは存在するがメモリにデータなし: messageId=${messageId}`);
+        console.log(`[editRecruit] メッセージは存在するがメモリにデータなし: message_id=${message_id}`);
         
         // チャンネルから実際のメッセージを取得してデータを復元を試行
         try {
-          const message = await interaction.channel.messages.fetch(messageId);
+          const message = await interaction.channel.messages.fetch(message_id);
           if (message && message.components && message.components.length > 0) {
             await interaction.reply({
               content: `❌ 募集ID \`${recruitId}\` の募集データがメモリから失われています。\n\nこれはボットが再起動されたか、一時的な問題が発生した可能性があります。\n\n**対処方法:**\n• ボット管理者に連絡してください\n• または新しい募集を作成し直してください`,
@@ -124,7 +124,7 @@ module.exports = {
       }
 
       // 編集用モーダルを表示
-      await showEditModal(interaction, recruitData, messageId);
+      await showEditModal(interaction, recruitData, message_id);
 
     } catch (error) {
       console.error('editRecruit execute error:', error);
@@ -162,7 +162,7 @@ module.exports = {
     
     try {
       // メッセージIDをカスタムIDから取得
-      const messageId = interaction.customId.replace('editRecruitModal_', '');
+  const message_id = interaction.customId.replace('editRecruitModal_', '');
       
       // 人数の入力値を検証
       const participantsInput = interaction.fields.getTextInputValue('participants');
@@ -187,17 +187,17 @@ module.exports = {
       };
 
       // 元の募集データを取得（変更前の内容と比較するため）
-  const originalData = await gameRecruit.getRecruitData(messageId);
+  const originalData = await gameRecruit.getRecruitData(message_id);
 
       // 募集データを更新
-      gameRecruit.updateRecruitData(messageId, newRecruitData);
+      gameRecruit.updateRecruitData(message_id, newRecruitData);
 
       // 募集メッセージを更新
       let dbUpdateSuccess = true;
       let dbErrorMessage = '';
       
       try {
-        await updateRecruitMessage(interaction, messageId, newRecruitData);
+        await updateRecruitMessage(interaction, message_id, newRecruitData);
       } catch (updateError) {
         console.error('メッセージ更新エラー:', updateError);
         
@@ -240,10 +240,10 @@ module.exports = {
       const successEmbed = new EmbedBuilder()
         .setColor(dbUpdateSuccess ? 0x00FF00 : 0xFFA500) // 完全成功は緑、部分成功はオレンジ
         .setTitle(dbUpdateSuccess ? '✅ 募集編集完了' : '⚠️ 募集編集完了（一部警告）')
-        .setDescription(`募集ID \`${messageId.slice(-8)}\` の内容を更新しました。${!dbUpdateSuccess ? '\n' + dbErrorMessage : ''}`)
+        .setDescription(`募集ID \`${message_id.slice(-8)}\` の内容を更新しました。${!dbUpdateSuccess ? '\n' + dbErrorMessage : ''}`)
         .addFields(
           { name: '📝 変更された項目', value: changes.length > 0 ? changes.join('\n') : '変更はありませんでした', inline: false },
-          { name: '🔗 募集リンク', value: `[編集された募集を確認する](https://discord.com/channels/${interaction.guildId}/${interaction.channelId}/${messageId})`, inline: false }
+          { name: '🔗 募集リンク', value: `[編集された募集を確認する](https://discord.com/channels/${interaction.guildId}/${interaction.channelId}/${message_id})`, inline: false }
         )
         .setTimestamp()
         .setFooter({ text: 'rectbot 編集機能', iconURL: interaction.client.user.displayAvatarURL() });
@@ -268,7 +268,7 @@ module.exports = {
         .setDescription(`<@${newRecruitData.recruiterId}> が募集内容を更新しました。`)
         .addFields(
           { name: '📋 募集タイトル', value: newRecruitData.title, inline: false },
-          { name: '🔢 募集ID', value: `\`${messageId.slice(-8)}\``, inline: true },
+          { name: '🔢 募集ID', value: `\`${message_id.slice(-8)}\``, inline: true },
           { name: '👥 参加人数', value: `${newRecruitData.participants}人`, inline: true },
           { name: '⏰ 開始時間', value: newRecruitData.startTime, inline: true }
         )
@@ -319,18 +319,18 @@ async function findMessageIdByRecruitId(interaction, recruitId) {
     console.log(`[findMessageIdByRecruitId] 検索対象ID: "${recruitId}" (型: ${typeof recruitId})`);
     
     // デバッグ: 全ての保存されているデータを詳細出力
-    for (const [messageId, data] of Object.entries(allRecruitData)) {
-      const storedRecruitId = data.recruitId || messageId.slice(-8);
-      console.log(`[findMessageIdByRecruitId] 保存データ: messageId=${messageId}, data.recruitId="${data.recruitId}", messageId下8桁="${messageId.slice(-8)}", 生成recruitId="${storedRecruitId}"`);
-      console.log(`[findMessageIdByRecruitId] マッチ判定: data.recruitId=="${data.recruitId}" vs "${recruitId}" = ${data.recruitId === recruitId}, messageId下8桁=="${messageId.slice(-8)}" vs "${recruitId}" = ${messageId.slice(-8) === String(recruitId)}`);
+    for (const [message_id, data] of Object.entries(allRecruitData)) {
+      const storedRecruitId = data.recruitId || message_id.slice(-8);
+      console.log(`[findMessageIdByRecruitId] 保存データ: message_id=${message_id}, data.recruitId="${data.recruitId}", message_id下8桁="${message_id.slice(-8)}", 生成recruitId="${storedRecruitId}"`);
+      console.log(`[findMessageIdByRecruitId] マッチ判定: data.recruitId=="${data.recruitId}" vs "${recruitId}" = ${data.recruitId === recruitId}, message_id下8桁=="${message_id.slice(-8)}" vs "${recruitId}" = ${message_id.slice(-8) === String(recruitId)}`);
     }
     
-    for (const [messageId, data] of Object.entries(allRecruitData)) {
-      console.log(`[findMessageIdByRecruitId] メモリ検索: messageId=${messageId}, data.recruitId=${data.recruitId}, 検索ID=${recruitId}`);
+    for (const [message_id, data] of Object.entries(allRecruitData)) {
+      console.log(`[findMessageIdByRecruitId] メモリ検索: message_id=${message_id}, data.recruitId=${data.recruitId}, 検索ID=${recruitId}`);
       // データに保存されているrecruitIdフィールド、または生成されたrecruitIdとマッチするかチェック
-      if (data.recruitId === recruitId || data.recruitId === String(recruitId) || messageId.slice(-8) === String(recruitId)) {
-        console.log(`[findMessageIdByRecruitId] メモリから発見: messageId=${messageId}`);
-        return messageId;
+      if (data.recruitId === recruitId || data.recruitId === String(recruitId) || message_id.slice(-8) === String(recruitId)) {
+        console.log(`[findMessageIdByRecruitId] メモリから発見: message_id=${message_id}`);
+        return message_id;
       }
     }
     
@@ -341,10 +341,10 @@ async function findMessageIdByRecruitId(interaction, recruitId) {
     
     const botMessages = [];
     
-    for (const [messageId, message] of messages) {
+  for (const [message_id, message] of messages) {
       // botのメッセージのみチェック
       if (message.author.id === interaction.client.user.id) {
-        const messageRecruitId = String(messageId).slice(-8);
+  const messageRecruitId = String(message_id).slice(-8);
         
         // メッセージ内容から募集IDを抽出（Components v2のテキストから）
         let extractedRecruitId = null;
@@ -380,16 +380,16 @@ async function findMessageIdByRecruitId(interaction, recruitId) {
         if (messageRecruitId === String(recruitId) || extractedRecruitId === String(recruitId)) {
           // botのメッセージで募集パネルかどうかチェック
           if (message.components && message.components.length > 0) {
-            console.log(`[findMessageIdByRecruitId] 一致する募集を発見: messageId=${messageId} (${extractedRecruitId ? '抽出IDで一致' : 'messageIDで一致'})`);
+            console.log(`[findMessageIdByRecruitId] 一致する募集を発見: message_id=${message_id} (${extractedRecruitId ? '抽出IDで一致' : 'messageIDで一致'})`);
             
             // メモリにデータがない場合でも、メッセージが存在すればそれを返す
-            const hasMemoryData = gameRecruit.getRecruitData(messageId);
+            const hasMemoryData = gameRecruit.getRecruitData(message_id);
             if (!hasMemoryData) {
               console.log(`[findMessageIdByRecruitId] 警告: メッセージは存在するがメモリにデータなし`);
             }
-            return messageId;
+            return message_id;
           } else {
-            console.log(`[findMessageIdByRecruitId] IDは一致するがコンポーネントなし: messageId=${messageId}`);
+            console.log(`[findMessageIdByRecruitId] IDは一致するがコンポーネントなし: message_id=${message_id}`);
           }
         }
       }
@@ -581,8 +581,8 @@ function findSimilarRecruitIds(searchId, allRecruitData) {
   const suggestions = [];
   const searchStr = String(searchId);
   
-  for (const [messageId, data] of Object.entries(allRecruitData)) {
-    const dataRecruitId = data.recruitId || messageId.slice(-8);
+  for (const [message_id, data] of Object.entries(allRecruitData)) {
+    const dataRecruitId = data.recruitId || message_id.slice(-8);
     if (!dataRecruitId) continue;
     
     console.log(`[findSimilarRecruitIds] 類似度計算: dataRecruitId="${dataRecruitId}" vs searchStr="${searchStr}"`);
@@ -595,7 +595,7 @@ function findSimilarRecruitIds(searchId, allRecruitData) {
         id: dataRecruitId,
         title: data.title,
         similarity: similarity,
-        messageId: messageId
+        message_id: message_id
       });
       console.log(`[findSimilarRecruitIds] 候補追加: id="${dataRecruitId}", similarity=${similarity}`);
     }
