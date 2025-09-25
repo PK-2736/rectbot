@@ -153,6 +153,7 @@ module.exports = {
   // モーダル送信後の処理（interactionCreateイベントで呼び出し）
   async handleModalSubmit(interaction) {
     // --- 募集数制限: 特定ギルド以外は1件まで（KVで判定） ---
+    await interaction.deferReply({ ephemeral: true }); // 3秒ルールを厳守
     const EXEMPT_GUILD_ID = '1414530004657766422';
     const { getActiveRecruits, saveRecruitmentData } = require('../utils/db');
     if (interaction.guildId !== EXEMPT_GUILD_ID) {
@@ -160,13 +161,11 @@ module.exports = {
       const recruitsArray = Array.isArray(activeRecruits) ? activeRecruits : [];
       const guildActiveCount = recruitsArray.filter(r => r.guild_id === interaction.guildId && r.status === 'recruiting').length;
       if (guildActiveCount >= 1) {
-        if (!interaction.replied && !interaction.deferred) {
-          await interaction.reply({
-            content: '❌ このサーバーでは同時に実行できる募集は1件までです。既存の募集を締め切ってから新しい募集を作成してください。',
-            flags: MessageFlags.Ephemeral,
-            allowedMentions: { roles: [], users: [] }
-          });
-        }
+        await interaction.editReply({
+          content: '❌ このサーバーでは同時に実行できる募集は1件までです。既存の募集を締め切ってから新しい募集を作成してください。',
+          flags: MessageFlags.Ephemeral,
+          allowedMentions: { roles: [], users: [] }
+        });
         return;
       }
     }
@@ -179,13 +178,11 @@ module.exports = {
       const participantsInput = interaction.fields.getTextInputValue('participants');
       const participantsNum = parseInt(participantsInput);
       if (isNaN(participantsNum) || participantsNum < 1 || participantsNum > 16) {
-        if (!interaction.replied && !interaction.deferred) {
-          await interaction.reply({
-            content: '❌ 参加人数は1〜16の数字で入力してください。',
-            flags: MessageFlags.Ephemeral,
-            allowedMentions: { roles: [], users: [] }
-          });
-        }
+        await interaction.editReply({
+          content: '❌ 参加人数は1〜16の数字で入力してください。',
+          flags: MessageFlags.Ephemeral,
+          allowedMentions: { roles: [], users: [] }
+        });
         return;
       }
 
@@ -311,8 +308,8 @@ module.exports = {
       container.addTextDisplayComponents(
         new TextDisplayBuilder().setContent(`募集ID：\`(送信後決定)\` | powered by **rectbot**`)
       );
-      // 3秒ルール厳守: ここで必ずreply
-      const followUpMessage = await interaction.reply({
+      // 3秒ルール厳守: ここではeditReplyで返す
+      const followUpMessage = await interaction.editReply({
         files: [image],
         components: [container],
         flags: MessageFlags.IsComponentsV2,
