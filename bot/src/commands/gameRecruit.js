@@ -31,11 +31,31 @@ const { saveRecruitToRedis, getRecruitFromRedis, listRecruitsFromRedis, deleteRe
 // ヘルパー: 参加者リストをメッセージに反映してRedisに保存する
 async function updateParticipantList(interactionOrMessage, participants, savedRecruitData) {
   try {
-    // interactionOrMessage は interaction オブジェクトで呼ばれる想定
-    const interaction = interactionOrMessage;
-    const message = interaction.message;
-    const client = interaction.client;
-    const guildId = savedRecruitData?.guildId || interaction.guildId || (message?.guildId);
+    // interactionOrMessage は interaction オブジェクトか message オブジェクトのどちらか
+    let interaction = null;
+    let message = null;
+    if (interactionOrMessage && interactionOrMessage.message) {
+      interaction = interactionOrMessage;
+      message = interaction.message;
+    } else {
+      message = interactionOrMessage;
+    }
+    const client = (interaction && interaction.client) || (message && message.client);
+    const db = require('../utils/db');
+
+    // savedRecruitData がない場合は Redis から復元を試みる
+    if (!savedRecruitData) {
+      try {
+        const recruitId = message?.id ? String(message.id).slice(-8) : null;
+        if (recruitId) {
+          const fromRedis = await db.getRecruitFromRedis(recruitId);
+          if (fromRedis) savedRecruitData = fromRedis;
+        }
+      } catch (e) {
+        console.warn('updateParticipantList: getRecruitFromRedis failed:', e?.message || e);
+      }
+    }
+    const guildId = savedRecruitData?.guildId || (interaction && interaction.guildId) || (message && message.guildId);
 
     // ギルド設定を取得して色を決定
     const guildSettings = await getGuildSettings(guildId);
@@ -259,7 +279,13 @@ module.exports = {
         console.warn('getActiveRecruits failed:', e?.message || e);
         activeRecruitsRaw = [];
       }
-      const recruitsArray = Array.isArray(activeRecruitsRaw) ? activeRecruitsRaw : (activeRecruitsRaw && Array.isArray(activeRecruitsRaw.recruits) ? activeRecruitsRaw.recruits : []);
+      const recruitsArray = Array.isArray(activeRecruitsRaw)
+        ? activeRecruitsRaw
+        : (activeRecruitsRaw && Array.isArray(activeRecruitsRaw.recruits)
+          ? activeRecruitsRaw.recruits
+          : (activeRecruitsRaw && typeof activeRecruitsRaw === 'object'
+            ? Object.values(activeRecruitsRaw)
+            : []));
       const guildActiveCount = recruitsArray.filter(r => r.guild_id === interaction.guildId && r.status === 'recruiting').length;
       if (guildActiveCount >= 1) {
         await interaction.editReply({
@@ -657,6 +683,8 @@ module.exports = {
       allRecruits = res.recruits;
     } else if (res && Array.isArray(res.data)) {
       allRecruits = res.data;
+    } else if (res && typeof res === 'object') {
+      allRecruits = Object.values(res);
     } else {
       // 期待する配列が返らない場合は Redis からのフォールバック取得を試みる
       try {
