@@ -322,17 +322,25 @@ module.exports = {
           const recruitChannel = await interaction.guild.channels.fetch(guildSettings.recruit_channel);
           if (recruitChannel && recruitChannel.isTextBased()) {
             // 通知ロールの準備
-            let mentionContent = '';
             if (guildSettings.notification_role) {
-              mentionContent = `<@&${guildSettings.notification_role}> `;
+              await recruitChannel.send({
+                content: `新しい募集が作成されました。<@&${guildSettings.notification_role}>`,
+                allowedMentions: { roles: [guildSettings.notification_role] }
+              });
+              console.log('指定チャンネルに通知ロールで送信完了:', guildSettings.notification_role);
+            } else {
+              await recruitChannel.send({
+                content: '新しい募集が作成されました。@unknown-role募集ぱねる',
+                allowedMentions: { roles: [] }
+              });
+              console.log('指定チャンネルにデフォルト通知で送信完了');
             }
             
             await recruitChannel.send({
-              content: mentionContent,
               files: [image],
               components: [container],
               flags: MessageFlags.IsComponentsV2,
-              allowedMentions: { roles: guildSettings.notification_role ? [guildSettings.notification_role] : [], users: [] }
+              allowedMentions: { roles: [], users: [] }
             });
             
             console.log('募集メッセージを指定チャンネルに送信しました:', guildSettings.recruit_channel);
