@@ -198,7 +198,7 @@ module.exports = {
       // 募集主を初期参加者として含める
       const currentParticipants = [interaction.user.id];
   // 色指定: スラッシュコマンドオプション＞設定＞デフォルト
-  let useColor = panelColor ? parseInt(panelColor, 16) : (guildSettings.defaultColor ? parseInt(guildSettings.defaultColor, 16) : undefined);
+  let useColor = panelColor ? panelColor : (guildSettings.defaultColor ? guildSettings.defaultColor : undefined);
   const buffer = await generateRecruitCard(recruitDataObj, currentParticipants, interaction.client, useColor);
       const user = interaction.targetUser || interaction.user;
 
