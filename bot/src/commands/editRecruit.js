@@ -341,11 +341,10 @@ async function findMessageIdByRecruitId(interaction, recruitId) {
     
     const botMessages = [];
     
-  for (const [message_id, message] of messages) {
+    for (const [message_id, message] of messages) {
       // botのメッセージのみチェック
       if (message.author.id === interaction.client.user.id) {
-  const messageRecruitId = String(message_id).slice(-8);
-        
+        const messageRecruitId = String(message_id).slice(-8);
         // メッセージ内容から募集IDを抽出（Components v2のテキストから）
         let extractedRecruitId = null;
         if (message.components && message.components.length > 0) {
@@ -360,28 +359,24 @@ async function findMessageIdByRecruitId(interaction, recruitId) {
             // コンポーネント解析エラーは無視
           }
         }
-        
-        console.log(`[findMessageIdByRecruitId] Bot message found: messageId=${messageId}, messageId下8桁=${messageRecruitId}, 抽出ID=${extractedRecruitId}, hasComponents=${message.components && message.components.length > 0}`);
-        
+        // ログ出力もmessage_idで統一
+        console.log(`[findMessageIdByRecruitId] Bot message found: message_id=${message_id}, message_id下8桁=${messageRecruitId}, 抽出ID=${extractedRecruitId}, hasComponents=${message.components && message.components.length > 0}`);
         botMessages.push({
-          messageId,
+          message_id,
           recruitId: messageRecruitId,
           extractedId: extractedRecruitId,
           hasComponents: message.components && message.components.length > 0,
           content: message.content ? message.content.substring(0, 50) + '...' : 'No content'
         });
-        
         // メッセージIDの下8桁、または抽出されたIDが募集IDと一致するかチェック
         console.log(`[findMessageIdByRecruitId] ID比較: messageRecruitId="${messageRecruitId}" vs recruitId="${recruitId}" = ${messageRecruitId === String(recruitId)}`);
         if (extractedRecruitId) {
           console.log(`[findMessageIdByRecruitId] 抽出ID比較: extractedRecruitId="${extractedRecruitId}" vs recruitId="${recruitId}" = ${extractedRecruitId === String(recruitId)}`);
         }
-        
         if (messageRecruitId === String(recruitId) || extractedRecruitId === String(recruitId)) {
           // botのメッセージで募集パネルかどうかチェック
           if (message.components && message.components.length > 0) {
             console.log(`[findMessageIdByRecruitId] 一致する募集を発見: message_id=${message_id} (${extractedRecruitId ? '抽出IDで一致' : 'messageIDで一致'})`);
-            
             // メモリにデータがない場合でも、メッセージが存在すればそれを返す
             const hasMemoryData = gameRecruit.getRecruitData(message_id);
             if (!hasMemoryData) {
@@ -394,7 +389,6 @@ async function findMessageIdByRecruitId(interaction, recruitId) {
         }
       }
     }
-    
     console.log(`[findMessageIdByRecruitId] 全てのbotメッセージ:`, botMessages);
     console.log(`[findMessageIdByRecruitId] 募集ID ${recruitId} に一致するメッセージが見つかりませんでした`);
     return null;
