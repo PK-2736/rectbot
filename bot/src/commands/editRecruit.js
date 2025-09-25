@@ -24,7 +24,7 @@ module.exports = {
 
   async execute(interaction) {
     try {
-      await interaction.deferReply({ ephemeral: true });
+  // モーダルを表示する場合はdeferReplyしない
       const recruitId = interaction.options.getString('募集id');
       console.log(`[editRecruit] 編集要求: recruitId=${recruitId}, user=${interaction.user.id}`);
       // デバッグ: 現在のメモリ上の募集データを確認
@@ -70,10 +70,9 @@ module.exports = {
           const recruitData = await gameRecruit.getRecruitData(foundMessageId);
           if (recruitData && recruitData.recruiterId === interaction.user.id) {
             await showEditModal(interaction, recruitData, foundMessageId);
-            await interaction.deleteReply();
             return;
           } else if (recruitData && recruitData.recruiterId !== interaction.user.id) {
-            await interaction.editReply({
+            await interaction.reply({
               content: `❌ この募集の編集権限がありません。募集は募集主のみが編集できます。`,
               flags: MessageFlags.Ephemeral
             });
@@ -117,7 +116,7 @@ module.exports = {
           console.error(`[editRecruit] メッセージ取得エラー:`, fetchError);
         }
         
-        await interaction.editReply({
+        await interaction.reply({
           content: `❌ 募集ID \`${recruitId}\` の募集データが見つかりませんでした。募集が既に締め切られているか、無効なIDです。`,
           flags: MessageFlags.Ephemeral
         });
@@ -127,7 +126,7 @@ module.exports = {
       // 募集主の権限チェック
   console.log(`[editRecruit] 権限チェック: recruitData=`, recruitData, `interaction.user.id=`, interaction.user.id, `型:`, typeof recruitData.recruiterId, typeof interaction.user.id);
   if (recruitData.recruiterId !== interaction.user.id) {
-        await interaction.editReply({
+        await interaction.reply({
           content: `❌ この募集の編集権限がありません。募集は募集主のみが編集できます。`,
           flags: MessageFlags.Ephemeral
         });
@@ -136,7 +135,6 @@ module.exports = {
 
   // 編集用モーダルを表示
   await showEditModal(interaction, recruitData, message_id);
-  await interaction.deleteReply();
 
     } catch (error) {
       console.error('editRecruit execute error:', error);
