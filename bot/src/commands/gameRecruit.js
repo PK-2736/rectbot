@@ -59,6 +59,7 @@ async function safeReply(interaction, options) {
 
 // Redis専用 募集データAPI
 const { saveRecruitToRedis, getRecruitFromRedis, listRecruitsFromRedis, deleteRecruitFromRedis, pushRecruitToWebAPI, getGuildSettings, saveParticipantsToRedis, getParticipantsFromRedis, deleteParticipantsFromRedis } = require('../utils/db');
+const { buildContainer, sendChannelNotification } = require('../utils/recruitHelpers');
 
 // ヘルパー: 参加者リストをメッセージに反映してRedisに保存する
 async function updateParticipantList(interactionOrMessage, participants, savedRecruitData) {
@@ -149,7 +150,7 @@ async function updateParticipantList(interactionOrMessage, participants, savedRe
           .setStyle(ButtonStyle.Danger),
         new ButtonBuilder()
           .setCustomId("close")
-          .setLabel("締め")
+          .setLabel("締め (募集主のみ)")
           .setStyle(ButtonStyle.Secondary)
       )
     );
@@ -218,7 +219,7 @@ module.exports = {
       const allRecruits = await listRecruitsFromRedis();
       const guildActiveCount = allRecruits.filter(r => r.guildId === interaction.guildId && r.status === 'recruiting').length;
       if (guildActiveCount >= 1) {
-        await interaction.reply({
+        await safeReply(interaction, {
           content: '❌ このサーバーでは同時に実行できる募集は1件までです。既存の募集を締め切ってから新しい募集を作成してください。',
           flags: MessageFlags.Ephemeral,
           allowedMentions: { roles: [], users: [] }
@@ -232,10 +233,10 @@ module.exports = {
 
       // 募集チャンネルが設定されている場合、そのチャンネルでのみ実行可能
       if (guildSettings.recruit_channel && guildSettings.recruit_channel !== interaction.channelId) {
-        return await interaction.reply({
-          content: `❌ 募集はこのチャンネルでは実行できません。\n📍 募集専用チャンネル: <#${guildSettings.recruit_channel}>`,
-          flags: MessageFlags.Ephemeral
-        });
+          return await safeReply(interaction, {
+            content: `❌ 募集はこのチャンネルでは実行できません。\n📍 募集専用チャンネル: <#${guildSettings.recruit_channel}>`,
+            flags: MessageFlags.Ephemeral
+          });
       }
 
       // スラッシュコマンドの色オプション取得
@@ -350,7 +351,7 @@ module.exports = {
       const participantsInput = interaction.fields.getTextInputValue('participants');
       const participantsNum = parseInt(participantsInput);
       if (isNaN(participantsNum) || participantsNum < 1 || participantsNum > 16) {
-        await interaction.editReply({
+        await safeReply(interaction, {
           content: '❌ 参加人数は1〜16の数字で入力してください。',
           flags: MessageFlags.Ephemeral,
           allowedMentions: { roles: [], users: [] }
@@ -431,62 +432,13 @@ module.exports = {
       // ボタン付きメッセージを投稿（バッファから直接送信）
       const image = new AttachmentBuilder(buffer, { name: 'recruit-card.png' });
       const participantText = `🎯✨ 参加リスト ✨🎯\n🎮 <@${interaction.user.id}>`;
-      const container = new ContainerBuilder();
-      let accentColor = null;
       let panelColorForAccent = panelColor;
       if (typeof panelColorForAccent === 'string' && panelColorForAccent.startsWith('#')) {
         panelColorForAccent = panelColorForAccent.slice(1);
       }
-      if (panelColorForAccent && /^[0-9A-Fa-f]{6}$/.test(panelColorForAccent)) {
-        accentColor = parseInt(panelColorForAccent, 16);
-      } else if (guildSettings.defaultColor && /^[0-9A-Fa-f]{6}$/.test(guildSettings.defaultColor)) {
-        accentColor = parseInt(guildSettings.defaultColor, 16);
-      } else {
-        accentColor = 0x000000;
-      }
-      container.setAccentColor(accentColor);
-      container.addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(`🎮✨ **${user.username}さんの募集** ✨🎮`)
-      );
-      container.addSeparatorComponents(
-        new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
-      );
-      container.addMediaGalleryComponents(
-        new MediaGalleryBuilder().addItems(
-          new MediaGalleryItemBuilder().setURL('attachment://recruit-card.png')
-        )
-      );
-      container.addSeparatorComponents(
-        new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
-      );
-      container.addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(participantText)
-      );
-      container.addActionRowComponents(
-        new ActionRowBuilder().addComponents(
-          new ButtonBuilder()
-            .setCustomId("join")
-            .setLabel("参加")
-            .setEmoji('✅')
-            .setStyle(ButtonStyle.Success),
-          new ButtonBuilder()
-            .setCustomId("cancel")
-            .setLabel("取り消し")
-            .setEmoji('✖️')
-            .setStyle(ButtonStyle.Danger),
-          new ButtonBuilder()
-            .setCustomId("close")
-            .setLabel("締め")
-            .setStyle(ButtonStyle.Secondary)
-        )
-      );
-      container.addSeparatorComponents(
-        new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
-      );
-      // 仮ID表示も後で上書きされるので空欄または仮表示
-      container.addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(`募集ID：\`(送信後決定)\` | powered by **rectbot**`)
-      );
+      const accentColor = (panelColorForAccent && /^[0-9A-Fa-f]{6}$/.test(panelColorForAccent)) ? parseInt(panelColorForAccent, 16) : (guildSettings.defaultColor && /^[0-9A-Fa-f]{6}$/.test(guildSettings.defaultColor) ? parseInt(guildSettings.defaultColor, 16) : 0x000000);
+      // container をヘルパーで生成（募集主＝作成者なので requesterId は interaction.user.id）
+      const container = buildContainer({ headerTitle: `${user.username}さんの募集`, participantText, recruitIdText: '(送信後決定)', accentColor, imageAttachmentName: 'attachment://recruit-card.png', recruiterId: interaction.user.id, requesterId: interaction.user.id });
       // メインチャンネル：通知が既に送信済みのはずなので、募集パネルを通常メッセージとして送信
       const followUpMessage = await interaction.channel.send({
         files: [image],
@@ -579,49 +531,7 @@ module.exports = {
         const { generateRecruitCard } = require('../utils/canvasRecruit');
         const updatedImageBuffer = await generateRecruitCard(finalRecruitData, [interaction.user.id], interaction.client, guildSettings.defaultColor);
         const updatedImage = new AttachmentBuilder(updatedImageBuffer, { name: 'recruit-card.png' });
-        const updatedContainer = new ContainerBuilder();
-        updatedContainer.setAccentColor(accentColor);
-        updatedContainer.addTextDisplayComponents(
-          new TextDisplayBuilder().setContent(`🎮✨ **${user.username}さんの募集** ✨🎮`)
-        );
-        updatedContainer.addSeparatorComponents(
-          new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
-        );
-        updatedContainer.addMediaGalleryComponents(
-          new MediaGalleryBuilder().addItems(
-            new MediaGalleryItemBuilder().setURL('attachment://recruit-card.png')
-          )
-        );
-        updatedContainer.addSeparatorComponents(
-          new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
-        );
-        updatedContainer.addTextDisplayComponents(
-          new TextDisplayBuilder().setContent(participantText)
-        );
-        updatedContainer.addActionRowComponents(
-          new ActionRowBuilder().addComponents(
-            new ButtonBuilder()
-              .setCustomId("join")
-              .setLabel("参加")
-              .setEmoji('✅')
-              .setStyle(ButtonStyle.Success),
-            new ButtonBuilder()
-              .setCustomId("cancel")
-              .setLabel("取り消し")
-              .setEmoji('✖️')
-              .setStyle(ButtonStyle.Danger),
-            new ButtonBuilder()
-              .setCustomId("close")
-              .setLabel("締め")
-              .setStyle(ButtonStyle.Secondary)
-          )
-        );
-        updatedContainer.addSeparatorComponents(
-          new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
-        );
-        updatedContainer.addTextDisplayComponents(
-          new TextDisplayBuilder().setContent(`募集ID：\`${actualRecruitId}\` | powered by **rectbot**`)
-        );
+        const updatedContainer = buildContainer({ headerTitle: `${user.username}さんの募集`, participantText, recruitIdText: actualRecruitId, accentColor, imageAttachmentName: 'attachment://recruit-card.png', recruiterId: interaction.user.id, requesterId: interaction.user.id });
         // メッセージを更新
         try {
           await actualMessage.edit({
@@ -634,22 +544,17 @@ module.exports = {
         } catch (editError) {
           console.error('メッセージ更新エラー:', editError);
         }
-        // 8時間後の自動締切タイマーを設定
+        // 8時間後の自動締切タイマーを設定（重複を削除、未定義変数 recruitData -> recruitParticipants に修正）
         setTimeout(async () => {
           try {
-            if (recruitData.has(actualMessageId)) {
+            // メモリ上にまだ募集データが存在する場合のみ自動締切を実行
+            if (recruitParticipants.has(actualMessageId)) {
               console.log('8時間経過による自動締切実行:', actualMessageId);
-              await autoCloseRecruitment(interaction.client, interaction.guildId, interaction.channelId, actualMessageId);
-            }
-          } catch (error) {
-            console.error('自動締切処理でエラー:', error);
-          }
-        }, 8 * 60 * 60 * 1000);
-        setTimeout(async () => {
-          try {
-            if (recruitData.has(actualMessageId)) {
-              console.log('8時間経過による自動締切実行:', actualMessageId);
-              await autoCloseRecruitment(interaction.client, interaction.guildId, interaction.channelId, actualMessageId);
+              try {
+                await autoCloseRecruitment(interaction.client, interaction.guildId, interaction.channelId, actualMessageId);
+              } catch (e) {
+                console.error('autoCloseRecruitment failed:', e);
+              }
             }
           } catch (error) {
             console.error('自動締切処理でエラー:', error);
@@ -671,20 +576,20 @@ module.exports = {
       // 2重返信防止: replied/deferred両方判定
       if (!interaction.replied && !interaction.deferred) {
         try {
-          await interaction.reply({ 
+          await safeReply(interaction, { 
             content: `モーダル送信エラー: ${error.message || error}`, 
             flags: MessageFlags.Ephemeral,
             allowedMentions: { roles: [], users: [] }
           });
         } catch (e) {
           // それでも失敗した場合はログのみ
-          console.error('二重応答防止: reply失敗', e);
+          console.error('二重応答防止: safeReply failed', e);
         }
       } else {
         try {
-          await interaction.editReply({ content: `モーダル送信エラー: ${error.message || error}` });
+          await safeReply(interaction, { content: `モーダル送信エラー: ${error.message || error}` });
         } catch (e) {
-          console.error('editReply失敗', e);
+          console.error('safeReply(edit) failed', e);
         }
       }
     }
@@ -875,8 +780,8 @@ module.exports = {
           }
         } else {
           // 元々参加していない場合
-          await interaction.reply({ 
-            content: "❌ 参加していないため、取り消せません。", 
+          await safeReply(interaction, {
+            content: "❌ 参加していないため、取り消せません。",
             flags: MessageFlags.Ephemeral,
             allowedMentions: { roles: [], users: [] }
           });
@@ -887,6 +792,28 @@ module.exports = {
       case "close": {
         {
           const messageId = interaction.message.id;
+          // 締め処理は募集主のみ許可する
+          try {
+            if (!savedRecruitData) {
+              // Redis からフォールバックで取得を試みる
+              try {
+                const fromRedis = await getRecruitFromRedis(String(messageId).slice(-8));
+                if (fromRedis) savedRecruitData = fromRedis;
+              } catch (e) {
+                console.warn('close: getRecruitFromRedis failed:', e?.message || e);
+              }
+            }
+          } catch (e) {
+            console.warn('close: recruiter check preparation failed:', e?.message || e);
+          }
+          if (!savedRecruitData) {
+            await safeReply(interaction, { content: '❌ 募集データが見つからないため締め切れません。', flags: MessageFlags.Ephemeral });
+            return;
+          }
+          if (savedRecruitData.recruiterId !== interaction.user.id) {
+            await safeReply(interaction, { content: '❌ 締め切りを実行できるのは募集主のみです。', flags: MessageFlags.Ephemeral });
+            return;
+          }
           // === 募集状況をAPI経由で削除 ===
           const { deleteRecruitmentData, updateRecruitmentStatus } = require('../utils/db');
           // API 側で見つからない（404）などのケースがあるため例外を吸収して処理を継続する
