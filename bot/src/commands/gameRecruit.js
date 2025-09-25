@@ -27,8 +27,9 @@ module.exports = {
     const EXEMPT_GUILD_ID = '1414530004657766422';
     const { getActiveRecruits } = require('../utils/db');
     if (interaction.guildId !== EXEMPT_GUILD_ID) {
-      const activeRecruits = await getActiveRecruits();
-      const guildActiveCount = activeRecruits.filter(r => r.guild_id === interaction.guildId && r.status === 'recruiting').length;
+      const activeRecruits = await getActiveRecruits() || [];
+      const recruitsArray = Array.isArray(activeRecruits) ? activeRecruits : [];
+      const guildActiveCount = recruitsArray.filter(r => r.guild_id === interaction.guildId && r.status === 'recruiting').length;
       if (guildActiveCount >= 1) {
         await interaction.reply({
           content: '❌ このサーバーでは同時に実行できる募集は1件までです。既存の募集を締め切ってから新しい募集を作成してください。',
@@ -120,8 +121,9 @@ module.exports = {
     const EXEMPT_GUILD_ID = '1414530004657766422';
     const { getActiveRecruits, saveRecruitmentData } = require('../utils/db');
     if (interaction.guildId !== EXEMPT_GUILD_ID) {
-      const activeRecruits = await getActiveRecruits();
-      const guildActiveCount = activeRecruits.filter(r => r.guild_id === interaction.guildId && r.status === 'recruiting').length;
+      const activeRecruits = await getActiveRecruits() || [];
+      const recruitsArray = Array.isArray(activeRecruits) ? activeRecruits : [];
+      const guildActiveCount = recruitsArray.filter(r => r.guild_id === interaction.guildId && r.status === 'recruiting').length;
       if (guildActiveCount >= 1) {
         await interaction.reply({
           content: '❌ このサーバーでは同時に実行できる募集は1件までです。既存の募集を締め切ってから新しい募集を作成してください。',
