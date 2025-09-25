@@ -108,6 +108,47 @@ client.once('clientReady', () => {
   // 初回実行
   updateBotStatus();
   // updateGuildCount(); // 一時的にコメントアウト
+
+  // --- 起動時ハイドレーション: Redis からアクティブな募集を読み込み、gameRecruit モジュールの recruitParticipants を初期化 ---
+  try {
+    const gameRecruit = require('./commands/gameRecruit');
+    const db = require('./utils/db');
+    (async () => {
+      try {
+        const recruits = await db.listRecruitsFromRedis();
+        if (Array.isArray(recruits) && recruits.length > 0) {
+          for (const r of recruits) {
+            try {
+              const msgId = r.message_id || r.messageId || null;
+              if (msgId) {
+                // 募集の参加者を Redis から取得して map にセット
+                const participants = await db.getParticipantsFromRedis(msgId) || [];
+                if (participants && participants.length > 0) {
+                  // 内部 Map に直接アクセス（gameRecruit モジュール内の recruitParticipants を想定）
+                  if (gameRecruit && gameRecruit.__hydrateParticipants) {
+                    // モジュールが hydrate 関数を公開している場合はそれを使う
+                    await gameRecruit.__hydrateParticipants(msgId, participants);
+                  } else if (gameRecruit && gameRecruit.recruitParticipants) {
+                    gameRecruit.recruitParticipants.set(msgId, participants);
+                  } else {
+                    // もし内部へのアクセスが異なる場合は console に出す
+                    console.log('[hydration] gameRecruit モジュールに recruitParticipants マップが見つかりません');
+                  }
+                }
+              }
+            } catch (e) {
+              console.warn('[hydration] 個別募集の復元で失敗:', e?.message || e);
+            }
+          }
+          console.log('[hydration] Redis からアクティブ募集の復元が完了しました:', recruits.length);
+        }
+      } catch (e) {
+        console.warn('[hydration] Redis からの募集一覧取得に失敗:', e?.message || e);
+      }
+    })();
+  } catch (e) {
+    console.warn('[hydration] gameRecruit モジュールの読み込みに失敗:', e?.message || e);
+  }
   
   // 5分ごとにギルド数を更新（一時的にコメントアウト）
   /*

@@ -14,6 +14,17 @@ const fs = require('fs');
 // 参加者リストはメモリ上で管理
 const recruitParticipants = new Map();
 
+// 外部ハイドレーション用（index.js から呼び出すためのユーティリティ）
+async function __hydrateParticipants(messageId, participants) {
+  try {
+    if (!messageId || !Array.isArray(participants)) return;
+    recruitParticipants.set(messageId, participants);
+    console.log('[hydrate] set participants for', messageId, participants.length);
+  } catch (e) {
+    console.warn('[hydrate] failed to set participants:', e?.message || e);
+  }
+}
+
 // Redis専用 募集データAPI
 const { saveRecruitToRedis, getRecruitFromRedis, listRecruitsFromRedis, deleteRecruitFromRedis, pushRecruitToWebAPI, getGuildSettings, saveParticipantsToRedis, getParticipantsFromRedis, deleteParticipantsFromRedis } = require('../utils/db');
 
@@ -323,18 +334,25 @@ module.exports = {
       
       // 1. メンション通知（ギルド設定があれば使用）
       if (guildSettings.notification_role) {
-        await interaction.channel.send({
-          content: `新しい募集が作成されました。<@&${guildSettings.notification_role}>`,
-          allowedMentions: { roles: [guildSettings.notification_role] }
-        });
-        console.log('ギルド設定の通知ロールで送信完了:', guildSettings.notification_role);
+        // fire-and-forget: 通知は非同期で送信し、失敗はログに残す
+        (async () => {
+          try {
+            await interaction.channel.send({ content: `新しい募集が作成されました。<@&${guildSettings.notification_role}>`, allowedMentions: { roles: [guildSettings.notification_role] } });
+            console.log('ギルド設定の通知ロールで送信完了:', guildSettings.notification_role);
+          } catch (e) {
+            console.warn('通知送信失敗 (guild notification role):', e?.message || e);
+          }
+        })();
       } else {
-        // デフォルトの通知（従来の処理）
-        await interaction.channel.send({
-          content: '新しい募集が作成されました。<@&1416797165769986161>',
-          allowedMentions: { roles: ['1416797165769986161'] }
-        });
-        console.log('デフォルト通知ロールで送信完了');
+        // デフォルトの通知（従来の処理） - 非同期送信
+        (async () => {
+          try {
+            await interaction.channel.send({ content: '新しい募集が作成されました。<@&1416797165769986161>', allowedMentions: { roles: ['1416797165769986161'] } });
+            console.log('デフォルト通知ロールで送信完了');
+          } catch (e) {
+            console.warn('通知送信失敗 (default role):', e?.message || e);
+          }
+        })();
       }
 
   // 2回目以降のtempRecruitId宣言を削除
@@ -420,27 +438,33 @@ module.exports = {
           if (recruitChannel && recruitChannel.isTextBased()) {
             // 通知ロールの準備
             if (guildSettings.notification_role) {
-              await recruitChannel.send({
-                content: `新しい募集が作成されました。<@&${guildSettings.notification_role}>`,
-                allowedMentions: { roles: [guildSettings.notification_role] }
-              });
-              console.log('指定チャンネルに通知ロールで送信完了:', guildSettings.notification_role);
+              (async () => {
+                try {
+                  await recruitChannel.send({ content: `新しい募集が作成されました。<@&${guildSettings.notification_role}>`, allowedMentions: { roles: [guildSettings.notification_role] } });
+                  console.log('指定チャンネルに通知ロールで送信完了:', guildSettings.notification_role);
+                } catch (e) {
+                  console.warn('通知送信失敗 (指定チャンネル, role):', e?.message || e);
+                }
+              })();
             } else {
-              await recruitChannel.send({
-                content: '新しい募集が作成されました。@unknown-role募集ぱねる',
-                allowedMentions: { roles: [] }
-              });
-              console.log('指定チャンネルにデフォルト通知で送信完了');
+              (async () => {
+                try {
+                  await recruitChannel.send({ content: '新しい募集が作成されました。@unknown-role募集ぱねる', allowedMentions: { roles: [] } });
+                  console.log('指定チャンネルにデフォルト通知で送信完了');
+                } catch (e) {
+                  console.warn('通知送信失敗 (指定チャンネル, default):', e?.message || e);
+                }
+              })();
             }
             
-            await recruitChannel.send({
-              files: [image],
-              components: [container],
-              flags: MessageFlags.IsComponentsV2,
-              allowedMentions: { roles: [], users: [] }
-            });
-            
-            console.log('募集メッセージを指定チャンネルに送信しました:', guildSettings.recruit_channel);
+            (async () => {
+              try {
+                await recruitChannel.send({ files: [image], components: [container], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } });
+                console.log('募集メッセージを指定チャンネルに送信しました:', guildSettings.recruit_channel);
+              } catch (e) {
+                console.warn('指定チャンネルへの募集メッセージ送信に失敗:', e?.message || e);
+              }
+            })();
           }
         } catch (channelError) {
           console.error('指定チャンネルへの送信でエラー:', channelError);
@@ -674,16 +698,29 @@ module.exports = {
               )
               .setTimestamp();
 
-            const notificationMessage = await interaction.reply({
-              content: `<@${savedRecruitData.recruiterId}>`,
-              embeds: [joinEmbed],
-              allowedMentions: { users: [savedRecruitData.recruiterId] }
-            });
+            let notificationMessage = null;
+            try {
+              notificationMessage = await interaction.reply({
+                content: `<@${savedRecruitData.recruiterId}>`,
+                embeds: [joinEmbed],
+                allowedMentions: { users: [savedRecruitData.recruiterId] }
+              });
+            } catch (replyErr) {
+              console.warn('interaction.reply failed during join handling:', replyErr?.message || replyErr);
+              try {
+                notificationMessage = await interaction.followUp({ content: `<@${savedRecruitData.recruiterId}>`, embeds: [joinEmbed], allowedMentions: { users: [savedRecruitData.recruiterId] } });
+              } catch (followErr) {
+                console.warn('interaction.followUp failed during join handling:', followErr?.message || followErr);
+                try { await interaction.editReply({ content: `募集に参加しました（通知送信失敗）` }); } catch (e) { /* ignore */ }
+              }
+            }
 
-            // 3分後に通知メッセージを削除
+            // 3分後に通知メッセージを削除（notificationMessage が取得できた場合のみ）
             setTimeout(async () => {
               try {
-                await notificationMessage.delete();
+                if (notificationMessage && typeof notificationMessage.delete === 'function') {
+                  await notificationMessage.delete();
+                }
               } catch (error) {
                 console.log('通知メッセージの削除に失敗:', error.message);
               }
@@ -740,16 +777,29 @@ module.exports = {
               )
               .setTimestamp();
 
-            const notificationMessage = await interaction.reply({
-              content: `<@${savedRecruitData.recruiterId}>`,
-              embeds: [cancelEmbed],
-              allowedMentions: { users: [savedRecruitData.recruiterId] }
-            });
+            let notificationMessage = null;
+            try {
+              notificationMessage = await interaction.reply({
+                content: `<@${savedRecruitData.recruiterId}>`,
+                embeds: [cancelEmbed],
+                allowedMentions: { users: [savedRecruitData.recruiterId] }
+              });
+            } catch (replyErr) {
+              console.warn('interaction.reply failed during cancel handling:', replyErr?.message || replyErr);
+              try {
+                notificationMessage = await interaction.followUp({ content: `<@${savedRecruitData.recruiterId}>`, embeds: [cancelEmbed], allowedMentions: { users: [savedRecruitData.recruiterId] } });
+              } catch (followErr) {
+                console.warn('interaction.followUp failed during cancel handling:', followErr?.message || followErr);
+                try { await interaction.editReply({ content: `参加取り消しを受け付けました（通知送信失敗）` }); } catch (e) { /* ignore */ }
+              }
+            }
 
-            // 3分後に通知メッセージを削除
+            // 3分後に通知メッセージを削除（notificationMessage が取得できた場合のみ）
             setTimeout(async () => {
               try {
-                await notificationMessage.delete();
+                if (notificationMessage && typeof notificationMessage.delete === 'function') {
+                  await notificationMessage.delete();
+                }
               } catch (error) {
                 console.log('通知メッセージの削除に失敗:', error.message);
               }
