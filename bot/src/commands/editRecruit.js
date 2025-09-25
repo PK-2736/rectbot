@@ -326,7 +326,7 @@ async function findMessageIdByRecruitId(interaction, recruitId) {
     console.log(`[findMessageIdByRecruitId] 検索開始: recruitId=${recruitId}`);
     
     // まずメモリから直接検索
-    const allRecruitData = gameRecruit.getAllRecruitData();
+    const allRecruitData = await gameRecruit.getAllRecruitData();
     console.log(`[findMessageIdByRecruitId] メモリ上の募集データ数: ${Object.keys(allRecruitData).length}`);
     console.log(`[findMessageIdByRecruitId] 検索対象ID: "${recruitId}" (型: ${typeof recruitId})`);
     
