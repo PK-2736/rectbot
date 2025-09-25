@@ -1,6 +1,96 @@
+// --- ギルド設定 Redis一時保存・取得 ---
+// ギルド設定をRedisに一時保存
+async function saveGuildSettingsToRedis(guildId, settings) {
+	const key = `guildsettings:${guildId}`;
+	// 既存設定を取得してマージ
+	let current = await getGuildSettingsFromRedis(guildId);
+	if (!current) current = {};
+	const merged = { ...current, ...settings };
+	await redis.set(key, JSON.stringify(merged));
+	return merged;
+}
 
-const { createClient } = require('@supabase/supabase-js');
+// ギルド設定をRedisから取得
+async function getGuildSettingsFromRedis(guildId) {
+	const key = `guildsettings:${guildId}`;
+	const val = await redis.get(key);
+	return val ? JSON.parse(val) : {};
+}
+
+// finalizeGuildSettings: RedisからSupabase/BackendAPIに保存
+async function finalizeGuildSettings(guildId) {
+	const settings = await getGuildSettingsFromRedis(guildId);
+	// ここでSupabase/BackendAPIに保存するAPIを呼び出す
+	// 例: /api/guild-settings/finalize
+	const config = require('../config');
+	const res = await fetch(`${config.BACKEND_API_URL}/api/guild-settings/finalize`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ guildId, ...settings })
+	});
+	if (!res.ok) {
+		throw new Error(`API error: ${res.status}`);
+	}
+	return await res.json();
+}
+
+
+
 const config = require('../config');
+const Redis = require('ioredis');
+
+// Redisクライアント初期化
+const redis = new Redis({
+	host: process.env.REDIS_HOST || 'localhost',
+	port: process.env.REDIS_PORT || 6379,
+	password: process.env.REDIS_PASSWORD || undefined,
+	db: process.env.REDIS_DB || 0
+});
+
+// 募集データをRedisに保存
+async function saveRecruitToRedis(recruitId, data) {
+	await redis.set(`recruit:${recruitId}`, JSON.stringify(data));
+}
+
+// 募集データをRedisから取得
+async function getRecruitFromRedis(recruitId) {
+	const val = await redis.get(`recruit:${recruitId}`);
+	return val ? JSON.parse(val) : null;
+}
+
+// Redisから全募集データのID一覧を取得
+async function listRecruitIdsFromRedis() {
+	return await redis.keys('recruit:*');
+}
+
+// Redisから募集データを全件取得
+async function listRecruitsFromRedis() {
+	const keys = await listRecruitIdsFromRedis();
+	if (keys.length === 0) return [];
+	const vals = await redis.mget(keys);
+	return vals.map(v => v ? JSON.parse(v) : null).filter(Boolean);
+}
+
+// Redisから募集データを削除
+async function deleteRecruitFromRedis(recruitId) {
+	await redis.del(`recruit:${recruitId}`);
+}
+
+// Worker APIにデータをpushする汎用関数
+async function pushRecruitToWebAPI(recruitData) {
+	const res = await fetch(`${config.BACKEND_API_URL}/api/recruitment/push`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(recruitData)
+	});
+	if (!res.ok) {
+		throw new Error(`API push error: ${res.status}`);
+	}
+	return await res.json();
+}
+
+// --- Supabase/BackendAPI経由の募集データ保存・取得・削除・更新 ---
+const { createClient } = require('@supabase/supabase-js');
 const supabase = createClient(config.SUPABASE_URL, config.SUPABASE_SERVICE_ROLE_KEY);
 
 // 募集状況を保存
@@ -188,137 +278,22 @@ async function getActiveRecruits() {
 	return json;
 }
 
-// ギルド設定を保存（一時的にKVに保存）
-async function saveGuildSettings(guildId, settings) {
-	try {
-		const res = await fetch(`${config.BACKEND_API_URL}/api/guild-settings`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ 
-				guildId,
-				...settings
-			})
-		});
-
-		if (!res.ok) {
-			throw new Error(`API error: ${res.status}`);
-		}
-
-		return await res.json();
-	} catch (error) {
-		console.error('ギルド設定の保存に失敗:', error);
-		throw error;
-	}
-}
-
-// ギルド設定をSupabaseに最終保存
-async function finalizeGuildSettings(guildId) {
-	try {
-		console.log(`[db] ギルド設定の最終保存開始 - guildId: ${guildId}`);
-		console.log(`[db] バックエンドURL: ${config.BACKEND_API_URL}/api/guild-settings/finalize`);
-		
-		const requestBody = JSON.stringify({ guildId });
-		console.log(`[db] リクエストボディ: ${requestBody}`);
-		
-		const res = await fetch(`${config.BACKEND_API_URL}/api/guild-settings/finalize`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: requestBody
-		});
-
-		console.log(`[db] 最終保存APIレスポンス - status: ${res.status}, ok: ${res.ok}`);
-		console.log(`[db] レスポンスヘッダー:`, Object.fromEntries(res.headers.entries()));
-
-		if (!res.ok) {
-			const errorText = await res.text();
-			console.error(`[db] 最終保存APIエラー: ${res.status} - ${errorText}`);
-			throw new Error(`API error: ${res.status} - ${errorText}`);
-		}
-
-		const result = await res.json();
-		console.log(`[db] 最終保存成功:`, result);
-		return result;
-	} catch (error) {
-		console.error('ギルド設定の最終保存に失敗:', error);
-		console.error('エラーのタイプ:', typeof error);
-		console.error('エラーの詳細:', error.stack);
-		throw error;
-	}
-}
-
-// ギルド設定を取得（Supabaseから）
-async function getGuildSettings(guildId) {
-	try {
-		const res = await fetch(`${config.BACKEND_API_URL}/api/guild-settings/${guildId}`);
-		
-		if (!res.ok) {
-			if (res.status === 404) {
-				// 設定が見つからない場合はデフォルト値を返す
-				return {
-					recruit_channel: null,
-					notification_role: null,
-					defaultTitle: null,
-					defaultColor: null,
-					update_channel: null
-				};
-			}
-			throw new Error(`API error: ${res.status}`);
-		}
-
-		return await res.json();
-	} catch (error) {
-		console.error('ギルド設定の取得に失敗:', error);
-		// エラーの場合もデフォルト値を返す
-		return {
-			recruit_channel: null,
-			notification_role: null,
-			defaultTitle: null,
-			defaultColor: null,
-			update_channel: null
-		};
-	}
-}
-
-// ギルド設定セッションを開始（SupabaseからKVに読み込み）
-async function startGuildSettingsSession(guildId) {
-	try {
-		console.log(`[db] セッション開始API呼び出し - guildId: ${guildId}`);
-		
-		const res = await fetch(`${config.BACKEND_API_URL}/api/guild-settings/start-session`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ guildId })
-		});
-
-		console.log(`[db] セッション開始APIレスポンス - status: ${res.status}, ok: ${res.ok}`);
-
-		if (!res.ok) {
-			const errorText = await res.text();
-			console.error(`[db] セッション開始APIエラー: ${res.status} - ${errorText}`);
-			throw new Error(`API error: ${res.status} - ${errorText}`);
-		}
-
-		const result = await res.json();
-		console.log(`[db] セッション開始成功:`, result);
-		return result;
-	} catch (error) {
-		console.error('ギルド設定セッション開始に失敗:', error);
-		console.error('エラーの詳細:', error.stack);
-		throw error;
-	}
-}
-
 module.exports = {
-	supabase,
-	saveRecruitStatus,
-	deleteRecruitStatus,
-	getActiveRecruits,
-	saveRecruitmentData,
-	deleteRecruitmentData,
-	updateRecruitmentStatus,
-	updateRecruitmentData,
-	saveGuildSettings,
-	getGuildSettings,
-	finalizeGuildSettings,
-	startGuildSettingsSession
+  supabase,
+  saveRecruitStatus,
+  deleteRecruitStatus,
+  getActiveRecruits,
+  saveRecruitmentData,
+  deleteRecruitmentData,
+  updateRecruitmentStatus,
+  updateRecruitmentData,
+  saveRecruitToRedis,
+  getRecruitFromRedis,
+  listRecruitIdsFromRedis,
+  listRecruitsFromRedis,
+  deleteRecruitFromRedis,
+  pushRecruitToWebAPI
+	,saveGuildSettingsToRedis
+	,getGuildSettingsFromRedis
+	,finalizeGuildSettings
 };

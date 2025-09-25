@@ -15,42 +15,23 @@ const fs = require('fs');
 // 参加者リストはメモリ上で管理（必要ならKV化も可）
 // const recruitParticipants = new Map(); // 使われていないので削除
 
-// 募集状況API
-const { saveRecruitStatus, deleteRecruitStatus, saveRecruitmentData, deleteRecruitmentData, updateRecruitmentStatus, getGuildSettings } = require('../utils/db');
+// Redis専用 募集データAPI
+const { saveRecruitToRedis, getRecruitFromRedis, listRecruitsFromRedis, deleteRecruitFromRedis, pushRecruitToWebAPI } = require('../utils/db');
 
 module.exports = {
-  // 指定メッセージIDの募集データをKV/APIで更新する関数
+  // 指定メッセージIDの募集データをRedisから取得
+  async getRecruitData(messageId) {
+    const recruit = await getRecruitFromRedis(messageId.slice(-8));
+    if (!recruit) return null;
+    return recruit;
+  },
+  // 指定メッセージIDの募集データをRedisで更新
   async updateRecruitData(messageId, newRecruitData) {
-    const { updateRecruitmentData } = require('../utils/db');
-    // recruitIdを必ず付与
     if (!newRecruitData.recruitId) {
       newRecruitData.recruitId = messageId.slice(-8);
     }
-    return await updateRecruitmentData(messageId, newRecruitData);
-  },
-  // 指定メッセージIDの募集データをKVから取得する関数
-  async getRecruitData(messageId) {
-    const { getActiveRecruits } = require('../utils/db');
-    const recruits = await getActiveRecruits();
-    let recruit = null;
-    if (Array.isArray(recruits)) {
-      recruit = recruits.find(r => r.message_id === messageId) || null;
-    } else if (recruits && typeof recruits === 'object') {
-      recruit = recruits[messageId] || null;
-    }
-    if (!recruit) return null;
-    // フィールド名を統一して返す
-    return {
-      title: recruit.title ?? '',
-      content: recruit.content ?? '',
-      participants: recruit.participants ?? recruit.participants_count ?? 1,
-      startTime: recruit.startTime ?? recruit.start_game_time ?? '',
-      vc: recruit.vc ?? '',
-      recruiterId: recruit.recruiterId ?? '',
-      recruitId: recruit.recruitId ?? (recruit.message_id ? recruit.message_id.slice(-8) : ''),
-      message_id: recruit.message_id,
-      ...recruit
-    };
+    await saveRecruitToRedis(newRecruitData.recruitId, newRecruitData);
+    return newRecruitData;
   },
   data: new SlashCommandBuilder()
     .setName('rect')
@@ -77,11 +58,9 @@ module.exports = {
   async execute(interaction) {
     // --- 募集数制限: 特定ギルド以外は1件まで（KVで判定） ---
     const EXEMPT_GUILD_ID = '1414530004657766422';
-    const { getActiveRecruits } = require('../utils/db');
     if (interaction.guildId !== EXEMPT_GUILD_ID) {
-      const activeRecruits = await getActiveRecruits() || [];
-      const recruitsArray = Array.isArray(activeRecruits) ? activeRecruits : [];
-      const guildActiveCount = recruitsArray.filter(r => r.guild_id === interaction.guildId && r.status === 'recruiting').length;
+      const allRecruits = await listRecruitsFromRedis();
+      const guildActiveCount = allRecruits.filter(r => r.guildId === interaction.guildId && r.status === 'recruiting').length;
       if (guildActiveCount >= 1) {
         await interaction.reply({
           content: '❌ このサーバーでは同時に実行できる募集は1件までです。既存の募集を締め切ってから新しい募集を作成してください。',
@@ -222,10 +201,7 @@ module.exports = {
         panelColor = undefined; // デフォルト色（色無し）
       }
 
-      // 一時的な募集IDを生成（interaction.idの下8桁を使用）
-      // recruitId: 募集ID（8桁の数字）で編集対象を特定
-      // recruiterId: 募集主のDiscordユーザーIDで権限判定
-      const tempRecruitId = interaction.id.slice(-8);
+      // 仮recruitIdは空文字で初期化し、メッセージ送信後に正しいrecruitIdをセット
       const recruitDataObj = {
         title: interaction.fields.getTextInputValue('title'),
         content: interaction.fields.getTextInputValue('content'),
@@ -233,7 +209,7 @@ module.exports = {
         startTime: interaction.fields.getTextInputValue('startTime'),
         vc: interaction.fields.getTextInputValue('vc'),
         recruiterId: interaction.user.id, // 募集主のDiscordユーザーIDを保存
-        recruitId: tempRecruitId, // 8桁の募集IDを追加
+        recruitId: '', // ここでは空、後で正しいIDをセット
         panelColor: panelColor
       };
 
@@ -279,11 +255,8 @@ module.exports = {
       
       // ボタン付きメッセージを投稿（バッファから直接送信）
       const image = new AttachmentBuilder(buffer, { name: 'recruit-card.png' });
-      // 初期の参加リスト表示を修正（募集主が参加済み）
       const participantText = `🎯✨ 参加リスト ✨🎯\n🎮 <@${interaction.user.id}>`;
       const container = new ContainerBuilder();
-      
-      // パネル色の優先順位: セレクト＞設定＞デフォルト
       let accentColor = null;
       let panelColorForAccent = panelColor;
       if (typeof panelColorForAccent === 'string' && panelColorForAccent.startsWith('#')) {
@@ -297,54 +270,48 @@ module.exports = {
         accentColor = 0x000000;
       }
       container.setAccentColor(accentColor);
-
-      // ユーザー名表示（絵文字で豪華に装飾）
       container.addTextDisplayComponents(
         new TextDisplayBuilder().setContent(`🎮✨ **${user.username}さんの募集** ✨🎮`)
       );
-
       container.addSeparatorComponents(
         new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
       );
-
       container.addMediaGalleryComponents(
         new MediaGalleryBuilder().addItems(
-            new MediaGalleryItemBuilder().setURL('attachment://recruit-card.png')
-          )
+          new MediaGalleryItemBuilder().setURL('attachment://recruit-card.png')
         )
+      );
       container.addSeparatorComponents(
-          new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
-        )
-        .addTextDisplayComponents(
-          new TextDisplayBuilder().setContent(participantText)
-        )
-
+        new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+      );
+      container.addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(participantText)
+      );
       container.addActionRowComponents(
-          new ActionRowBuilder().addComponents(
-            new ButtonBuilder()
-              .setCustomId("join")
-              .setLabel("参加")
-              .setEmoji('✅')
-              .setStyle(ButtonStyle.Success),
-            new ButtonBuilder()
-              .setCustomId("cancel")
-              .setLabel("取り消し")
-              .setEmoji('✖️')
-              .setStyle(ButtonStyle.Danger),
-            new ButtonBuilder()
-              .setCustomId("close")
-              .setLabel("締め")
-              .setStyle(ButtonStyle.Secondary)
-          )
+        new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId("join")
+            .setLabel("参加")
+            .setEmoji('✅')
+            .setStyle(ButtonStyle.Success),
+          new ButtonBuilder()
+            .setCustomId("cancel")
+            .setLabel("取り消し")
+            .setEmoji('✖️')
+            .setStyle(ButtonStyle.Danger),
+          new ButtonBuilder()
+            .setCustomId("close")
+            .setLabel("締め")
+            .setStyle(ButtonStyle.Secondary)
         )
-        .addSeparatorComponents(
-          new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
-        )
-        .addTextDisplayComponents(
-          new TextDisplayBuilder().setContent(`募集ID：\`${tempRecruitId}\` | powered by **rectbot**`)
-        );
-      
-      // 2. Components v2 のパネル送信
+      );
+      container.addSeparatorComponents(
+        new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+      );
+      // 仮ID表示も後で上書きされるので空欄または仮表示
+      container.addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(`募集ID：\`(送信後決定)\` | powered by **rectbot**`)
+      );
       const followUpMessage = await interaction.reply({
         files: [image],
         components: [container],
@@ -378,137 +345,114 @@ module.exports = {
         }
       }
 
-      // メッセージ送信後、実際のメッセージIDでKVに保存
+      // メッセージ送信後、実際のメッセージIDでrecruitIdを上書きし、保存・表示も必ず一致させる
       try {
         const actualMessage = await interaction.fetchReply();
         const actualMessageId = actualMessage.id;
         const actualRecruitId = actualMessageId.slice(-8);
+        // recruitIdを正しい値で上書き
+        recruitDataObj.recruitId = actualRecruitId;
         const finalRecruitData = {
           ...recruitDataObj,
-          recruitId: actualRecruitId,
           guildId: interaction.guildId,
           channelId: interaction.channelId,
           message_id: actualMessageId, // messageId → message_id に統一
           status: 'recruiting',
           start_time: new Date().toISOString(),
         };
-        // KVに保存
+        // Redisに保存 & Worker APIにpush
         try {
-          const saveResult = await saveRecruitmentData(interaction.guildId, interaction.channelId, actualMessageId, interaction.guild?.name || '', interaction.channel?.name || '', finalRecruitData);
-          console.log('KVに募集データを保存: 成功', saveResult);
+          await saveRecruitToRedis(actualRecruitId, finalRecruitData);
+          console.log('Redisに募集データを保存: 成功', actualRecruitId);
+          await pushRecruitToWebAPI(finalRecruitData);
+          console.log('Worker APIに募集データをpush: 成功');
         } catch (err) {
-          console.error('KVへの募集データ保存エラー:', err);
+          console.error('Redis保存またはAPI pushエラー:', err);
         }
-        // 参加者リストはメモリ上で管理（必要ならKV化）
         recruitParticipants.set(actualMessageId, [interaction.user.id]);
-        console.log('KVに保存しようとしたデータ:', finalRecruitData);
-          // 新しい画像を生成（正しいメッセージIDを使用）
-          const { generateRecruitCard } = require('../utils/canvasRecruit');
-          const updatedImageBuffer = await generateRecruitCard(finalRecruitData, [interaction.user.id], interaction.client, guildSettings.defaultColor);
-          const updatedImage = new AttachmentBuilder(updatedImageBuffer, { name: 'recruit-card.png' });
-
-          updatedContainer.addMediaGalleryComponents(
-            new MediaGalleryBuilder().addItems(
-              new MediaGalleryItemBuilder()
-                .setURL('attachment://recruit-card.png')
-            )
-          );
-
-          updatedContainer.addSeparatorComponents(
-            new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
-          )
-          .addTextDisplayComponents(
-            new TextDisplayBuilder().setContent(participantText)
-          );
-
-          // ボタン
-          updatedContainer.addActionRowComponents(
-            new ActionRowBuilder().addComponents(
-              new ButtonBuilder()
-                .setCustomId("join")
-                .setLabel("参加")
-                .setEmoji('✅')
-                .setStyle(ButtonStyle.Success),
-              new ButtonBuilder()
-                .setCustomId("cancel")
-                .setLabel("取り消し")
-                .setEmoji('✖️')
-                .setStyle(ButtonStyle.Danger),
-              new ButtonBuilder()
-                .setCustomId("close")
-                .setLabel("締め")
-                .setStyle(ButtonStyle.Secondary)
-            )
-          )
-          .addSeparatorComponents(
-            new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
-          )
-          .addTextDisplayComponents(
-            new TextDisplayBuilder().setContent(`募集ID：\`${actualRecruitId}\` | powered by **rectbot**`)
-          );
-
-          // メッセージを更新
-          try {
-            await actualMessage.edit({
-              files: [updatedImage],
-              components: [updatedContainer],
-              flags: MessageFlags.IsComponentsV2,
-              allowedMentions: { roles: [], users: [] }
-            });
-            console.log('募集IDを正しい値に更新しました:', actualRecruitId);
-          } catch (editError) {
-            console.error('メッセージ更新エラー:', editError);
-          }
-        // 8時間後の自動締切タイマーを設定
-        setTimeout(async () => {
-          try {
-            // 募集がまだ存在するかチェック
-            if (recruitData.has(actualMessageId)) {
-              console.log('8時間経過による自動締切実行:', actualMessageId);
-              await autoCloseRecruitment(interaction.client, interaction.guildId, interaction.channelId, actualMessageId);
-            }
-          } catch (error) {
-            console.error('自動締切処理でエラー:', error);
-          }
-        }, 8 * 60 * 60 * 1000); // 8時間 = 28,800,000ms
-        
-        // 8時間後の自動締切タイマーを設定
-        setTimeout(async () => {
-          try {
-            // 募集がまだ存在するかチェック
-            if (recruitData.has(actualMessageId)) {
-              console.log('8時間経過による自動締切実行:', actualMessageId);
-              await autoCloseRecruitment(interaction.client, interaction.guildId, interaction.channelId, actualMessageId);
-            }
-          } catch (error) {
-            console.error('自動締切処理でエラー:', error);
-          }
-        }, 8 * 60 * 60 * 1000); // 8時間 = 28,800,000ms
-
-        // === 募集状況をAPI経由で保存 ===
-        await saveRecruitStatus(
-          interaction.guildId,
-          interaction.channelId,
-          actualMessageId,
-          new Date().toISOString()
+        console.log('Redisに保存しようとしたデータ:', finalRecruitData);
+        // 新しい画像を生成（正しいメッセージIDを使用）
+        const { generateRecruitCard } = require('../utils/canvasRecruit');
+        const updatedImageBuffer = await generateRecruitCard(finalRecruitData, [interaction.user.id], interaction.client, guildSettings.defaultColor);
+        const updatedImage = new AttachmentBuilder(updatedImageBuffer, { name: 'recruit-card.png' });
+        const updatedContainer = new ContainerBuilder();
+        updatedContainer.setAccentColor(accentColor);
+        updatedContainer.addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(`🎮✨ **${user.username}さんの募集** ✨🎮`)
         );
-
-        // === 新しい募集データAPIに保存 ===
+        updatedContainer.addSeparatorComponents(
+          new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+        );
+        updatedContainer.addMediaGalleryComponents(
+          new MediaGalleryBuilder().addItems(
+            new MediaGalleryItemBuilder().setURL('attachment://recruit-card.png')
+          )
+        );
+        updatedContainer.addSeparatorComponents(
+          new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+        );
+        updatedContainer.addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(participantText)
+        );
+        updatedContainer.addActionRowComponents(
+          new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+              .setCustomId("join")
+              .setLabel("参加")
+              .setEmoji('✅')
+              .setStyle(ButtonStyle.Success),
+            new ButtonBuilder()
+              .setCustomId("cancel")
+              .setLabel("取り消し")
+              .setEmoji('✖️')
+              .setStyle(ButtonStyle.Danger),
+            new ButtonBuilder()
+              .setCustomId("close")
+              .setLabel("締め")
+              .setStyle(ButtonStyle.Secondary)
+          )
+        );
+        updatedContainer.addSeparatorComponents(
+          new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+        );
+        updatedContainer.addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(`募集ID：\`${actualRecruitId}\` | powered by **rectbot**`)
+        );
+        // メッセージを更新
         try {
-          const guild = interaction.guild;
-          const channel = interaction.channel;
-          await saveRecruitmentData(
-            interaction.guildId,
-            interaction.channelId,
-            actualMessageId,
-            guild ? guild.name : 'Unknown Guild',
-            channel ? channel.name : 'Unknown Channel',
-            finalRecruitData
-          );
-          console.log('募集データをAPIに保存しました');
-        } catch (error) {
-          console.error('募集データAPIへの保存に失敗:', error);
+          await actualMessage.edit({
+            files: [updatedImage],
+            components: [updatedContainer],
+            flags: MessageFlags.IsComponentsV2,
+            allowedMentions: { roles: [], users: [] }
+          });
+          console.log('募集IDを正しい値に更新しました:', actualRecruitId);
+        } catch (editError) {
+          console.error('メッセージ更新エラー:', editError);
         }
+        // 8時間後の自動締切タイマーを設定
+        setTimeout(async () => {
+          try {
+            if (recruitData.has(actualMessageId)) {
+              console.log('8時間経過による自動締切実行:', actualMessageId);
+              await autoCloseRecruitment(interaction.client, interaction.guildId, interaction.channelId, actualMessageId);
+            }
+          } catch (error) {
+            console.error('自動締切処理でエラー:', error);
+          }
+        }, 8 * 60 * 60 * 1000);
+        setTimeout(async () => {
+          try {
+            if (recruitData.has(actualMessageId)) {
+              console.log('8時間経過による自動締切実行:', actualMessageId);
+              await autoCloseRecruitment(interaction.client, interaction.guildId, interaction.channelId, actualMessageId);
+            }
+          } catch (error) {
+            console.error('自動締切処理でエラー:', error);
+          }
+        }, 8 * 60 * 60 * 1000);
+        // === 募集状況をAPI経由で保存 ===
+        // Redis専用のためAPI保存は省略
       } catch (error) {
         console.error('メッセージ取得エラー:', error);
       }
@@ -749,25 +693,15 @@ module.exports = {
 
 
 
-  // 全募集データをKVから取得する関数
+  // 全募集データをRedisから取得する関数
   async getAllRecruitData() {
-    const { getActiveRecruits } = require('../utils/db');
-    const recruits = await getActiveRecruits();
-    // recruits: { [message_id]: {...} }
-    if (recruits && typeof recruits === 'object' && !Array.isArray(recruits)) {
-      // 各データにrecruitIdを必ず付与し、フィールド名を統一
-      const result = {};
-      for (const [msgId, data] of Object.entries(recruits)) {
-        result[msgId] = {
-          ...data,
-          participants: data.participants ?? data.participants_count ?? 1,
-          startTime: data.startTime ?? data.start_game_time ?? '',
-          recruitId: data.recruitId ?? msgId.slice(-8),
-          message_id: msgId
-        };
+    const recruits = await listRecruitsFromRedis();
+    const result = {};
+    for (const recruit of recruits) {
+      if (recruit && recruit.recruitId) {
+        result[recruit.message_id || recruit.recruitId] = recruit;
       }
-      return result;
     }
-    return {};
+    return result;
   },
 }

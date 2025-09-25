@@ -10,12 +10,12 @@ const {
   EmbedBuilder, SectionBuilder
 } = require('discord.js');
 
-const { saveGuildSettings, getGuildSettings, finalizeGuildSettings, startGuildSettingsSession } = require('../utils/db');
+const { saveGuildSettingsToRedis, getGuildSettingsFromRedis, finalizeGuildSettings } = require('../utils/db');
 
 module.exports = {
   data: new SlashCommandBuilder()
-    .setName('rect-setting')
-    .setDescription('募集設定を管理します（/rect-setting）')
+    .setName('setting')
+    .setDescription('募集設定を管理します（/setting）')
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
   async execute(interaction) {
@@ -28,20 +28,8 @@ module.exports = {
         });
       }
 
-      // 設定セッションを開始（SupabaseからKVに読み込み）
-      console.log(`[guildSettings] 設定セッション開始 - guildId: ${interaction.guildId}`);
-      
-      try {
-        await startGuildSettingsSession(interaction.guildId);
-        console.log(`[guildSettings] セッション開始成功`);
-      } catch (sessionError) {
-        console.warn(`[guildSettings] セッション開始失敗、既存設定を使用: ${sessionError.message}`);
-        // セッション開始に失敗しても続行（既存設定を使用）
-      }
-      
-      // 現在の設定を取得（KVから）
-      const currentSettings = await getGuildSettings(interaction.guildId);
-      
+      // Redisから現在の設定を取得
+      const currentSettings = await getGuildSettingsFromRedis(interaction.guildId);
       await this.showSettingsUI(interaction, currentSettings);
 
     } catch (error) {
@@ -385,10 +373,9 @@ module.exports = {
       
       console.log(`[guildSettings] updateGuildSetting - guildId: ${guildId}, settingKey: ${settingKey}, value: ${value}`);
       
-      // 設定をデータベースに保存
-      const result = await saveGuildSettings(guildId, { [settingKey]: value });
-      
-      console.log(`[guildSettings] 設定保存結果:`, result);
+  // Redisに一時保存
+  const result = await saveGuildSettingsToRedis(guildId, { [settingKey]: value });
+  console.log(`[guildSettings] Redis一時保存結果:`, result);
       
       // 設定名のマッピング
       const settingNames = {
@@ -410,7 +397,7 @@ module.exports = {
       setTimeout(async () => {
         try {
           // 保存結果から最新の設定を取得してUI更新
-          const latestSettings = result.settings || {};
+          const latestSettings = await getGuildSettingsFromRedis(guildId);
           console.log(`[guildSettings] UI更新用の最新設定:`, latestSettings);
           await this.showSettingsUI(interaction, latestSettings);
         } catch (error) {
@@ -440,10 +427,9 @@ module.exports = {
       
       console.log(`[guildSettings] ファイナライゼーション処理開始...`);
       
-      // KVからSupabaseに最終保存
-      const result = await finalizeGuildSettings(guildId);
-      
-      console.log(`[guildSettings] 設定最終保存完了:`, result);
+  // RedisからSupabase/BackendAPIに最終保存
+  const result = await finalizeGuildSettings(guildId);
+  console.log(`[guildSettings] 設定最終保存完了:`, result);
       
       // レスポンスメッセージを結果に応じて調整
       let message = '✅ 設定が保存されました！設定が有効になりました。';
@@ -487,15 +473,14 @@ module.exports = {
     try {
       const guildId = interaction.guildId;
       
-      // すべての設定をリセット
-      const result = await saveGuildSettings(guildId, {
+      // Redisの設定をリセット
+      const result = await saveGuildSettingsToRedis(guildId, {
         recruit_channel: null,
         notification_role: null,
         defaultTitle: null,
         defaultColor: null,
         update_channel: null
       });
-      
       console.log(`[guildSettings] すべての設定をリセットしました - guildId: ${guildId}`);
       console.log(`[guildSettings] リセット結果:`, result);
       
@@ -508,18 +493,7 @@ module.exports = {
       setTimeout(async () => {
         try {
           // リセット後の設定を確実に反映
-          const resetSettings = result.settings || {
-            recruit_channel: null,
-            notification_role: null,
-            defaultTitle: null,
-            defaultColor: null,
-            update_channel: null,
-            recruitmentChannelId: null,
-            recruitmentNotificationRoleId: null,
-            defaultRecruitTitle: '参加者募集',
-            defaultRecruitColor: '#00FFFF',
-            updateNotificationChannelId: null
-          };
+          const resetSettings = await getGuildSettingsFromRedis(guildId);
           console.log(`[guildSettings] リセット後のUI更新用設定:`, resetSettings);
           await this.showSettingsUI(interaction, resetSettings);
         } catch (error) {
