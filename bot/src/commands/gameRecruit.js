@@ -204,7 +204,8 @@ module.exports = {
         participants: participantsNum,
         startTime: interaction.fields.getTextInputValue('startTime'),
         vc: interaction.fields.getTextInputValue('vc'),
-        recruiterId: tempRecruitId, // 募集IDをrecruiterIdに保存
+        recruiterId: interaction.user.id, // 募集主のDiscordユーザーIDを保存
+        recruitId: tempRecruitId, // 8桁の募集IDを追加
         panelColor: panelColor
       };
 
