@@ -168,13 +168,16 @@ module.exports = {
       }
     }
     if (interaction.customId !== 'recruitModal') return;
-    try {
-      // ギルド設定を取得
-      const guildSettings = await getGuildSettings(interaction.guildId);
+  console.log('[recruit] handleModalSubmit: start');
+  try {
+  // ギルド設定を取得
+  const guildSettings = await getGuildSettings(interaction.guildId);
+  console.log('[recruit] ギルド設定取得:', guildSettings);
       
-      // 人数の入力値を検証
-      const participantsInput = interaction.fields.getTextInputValue('participants');
-      const participantsNum = parseInt(participantsInput);
+  // 人数の入力値を検証
+  const participantsInput = interaction.fields.getTextInputValue('participants');
+  const participantsNum = parseInt(participantsInput);
+  console.log('[recruit] 参加人数入力:', participantsInput, participantsNum);
       
       if (isNaN(participantsNum) || participantsNum < 1 || participantsNum > 16) {
         await interaction.reply({
@@ -187,14 +190,14 @@ module.exports = {
 
       // 色の決定: セレクト（コマンドオプション）＞設定＞デフォルト
       let panelColor = null;
-      // 1. コマンドオプション（executeで一時保存）
       if (typeof interaction.recruitPanelColor === 'string' && interaction.recruitPanelColor.length > 0) {
         panelColor = interaction.recruitPanelColor;
       } else if (guildSettings.defaultColor) {
         panelColor = guildSettings.defaultColor;
       } else {
-        panelColor = undefined; // デフォルト色（色無し）
+        panelColor = undefined;
       }
+      console.log('[recruit] パネル色決定:', panelColor);
 
       const recruitDataObj = {
         title: interaction.fields.getTextInputValue('title'),
@@ -205,28 +208,27 @@ module.exports = {
         recruiterId: interaction.user.id, // 募集主のIDを追加
         panelColor: panelColor
       };
+      console.log('[recruit] recruitDataObj:', recruitDataObj);
 
   // KVにはメッセージ送信後に保存する（下で実施）
 
       // Canvas画像生成（参加者リストとDiscordクライアントも渡す）
       const { generateRecruitCard } = require('../utils/canvasRecruit');
-      // 募集主を初期参加者として含める
       const currentParticipants = [interaction.user.id];
-      // 色指定: セレクト＞設定＞デフォルト（なければ'000000'=黒）
       let useColor = panelColor ? panelColor : (guildSettings.defaultColor ? guildSettings.defaultColor : '000000');
-      // 先頭に#があれば除去
       if (typeof useColor === 'string' && useColor.startsWith('#')) {
         useColor = useColor.slice(1);
       }
-      // 6桁の16進数文字列でなければデフォルト色に
       if (typeof useColor !== 'string' || !/^[0-9A-Fa-f]{6}$/.test(useColor)) {
         useColor = '000000';
       }
+      console.log('[recruit] Canvas画像生成直前:', useColor);
       const buffer = await generateRecruitCard(recruitDataObj, currentParticipants, interaction.client, useColor);
       const user = interaction.targetUser || interaction.user;
+      console.log('[recruit] Canvas画像生成完了');
 
-      // 募集パネル送信前に通知メッセージを送信
-      console.log('通知ロールでの通知送信中');
+  // 募集パネル送信前に通知メッセージを送信
+  console.log('[recruit] 通知ロールでの通知送信中');
       
       // 1. メンション通知（ギルド設定があれば使用）
       if (guildSettings.notification_role) {
@@ -244,29 +246,12 @@ module.exports = {
         console.log('デフォルト通知ロールで送信完了');
       }
 
-      // 一時的な募集IDを生成（interaction.idの下8桁を使用）
-      const tempRecruitId = interaction.id.slice(-8);
+  // 一時的な募集IDを生成（interaction.idの下8桁を使用）
+  const tempRecruitId = interaction.id.slice(-8);
+  console.log('[recruit] メッセージ送信直前');
       
-      // ボタン付きメッセージを投稿（バッファから直接送信）
-      const image = new AttachmentBuilder(buffer, { name: 'recruit-card.png' });
-      // 初期の参加リスト表示を修正（募集主が参加済み）
-      const participantText = `🎯✨ 参加リスト ✨🎯\n🎮 <@${interaction.user.id}>`;
-      const container = new ContainerBuilder();
-      
-      // パネル色の優先順位: セレクト＞設定＞デフォルト
-      let accentColor = null;
-      let panelColorForAccent = panelColor;
-      if (typeof panelColorForAccent === 'string' && panelColorForAccent.startsWith('#')) {
-        panelColorForAccent = panelColorForAccent.slice(1);
-      }
-      if (panelColorForAccent && /^[0-9A-Fa-f]{6}$/.test(panelColorForAccent)) {
-        accentColor = parseInt(panelColorForAccent, 16);
-      } else if (guildSettings.defaultColor && /^[0-9A-Fa-f]{6}$/.test(guildSettings.defaultColor)) {
-        accentColor = parseInt(guildSettings.defaultColor, 16);
-      } else {
-        accentColor = 0x000000;
-      }
-      container.setAccentColor(accentColor);
+      // ...existing code...
+      console.log('[recruit] ボタン付きメッセージ送信直前');
 
       // ユーザー名表示（絵文字で豪華に装飾）
       container.addTextDisplayComponents(
@@ -362,17 +347,15 @@ module.exports = {
           status: 'recruiting',
           start_time: new Date().toISOString(),
         };
-        // KVに保存
-        console.log('saveRecruitmentData呼び出し直前: messageId=', actualMessageId, 'finalRecruitData=', finalRecruitData);
+        console.log('[recruit] saveRecruitmentData呼び出し直前: messageId=', actualMessageId, 'finalRecruitData=', finalRecruitData);
         try {
           const saveResult = await saveRecruitmentData(interaction.guildId, interaction.channelId, actualMessageId, interaction.guild?.name || '', interaction.channel?.name || '', finalRecruitData);
-          console.log('KVに募集データを保存: 成功', saveResult);
+          console.log('[recruit] KVに募集データを保存: 成功', saveResult);
         } catch (err) {
-          console.error('KVへの募集データ保存エラー:', err && err.stack ? err.stack : err);
+          console.error('[recruit] KVへの募集データ保存エラー:', err && err.stack ? err.stack : err);
         }
-        // 参加者リストはメモリ上で管理（必要ならKV化）
         recruitParticipants.set(actualMessageId, [interaction.user.id]);
-        console.log('KVに保存しようとしたデータ:', finalRecruitData);
+        console.log('[recruit] KVに保存しようとしたデータ:', finalRecruitData);
           // 新しい画像を生成（正しいメッセージIDを使用）
           const { generateRecruitCard } = require('../utils/canvasRecruit');
           const updatedImageBuffer = await generateRecruitCard(finalRecruitData, [interaction.user.id], interaction.client, guildSettings.defaultColor);
