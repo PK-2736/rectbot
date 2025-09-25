@@ -1,4 +1,5 @@
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, ButtonBuilder, ButtonStyle, MessageFlags } = require('discord.js');
+const { safeReply, safeUpdate } = require('../utils/safeReply');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -123,13 +124,13 @@ async function showGeneralHelp(interaction) {
   // 応答方法を判定（reply or update）
   if (interaction.isButton()) {
     // ボタンからの操作の場合はupdate
-    await interaction.update({
+    await safeUpdate(interaction, {
       embeds: [helpEmbed],
       components: [selectRow, buttonRow]
     });
   } else {
     // 最初のコマンド実行の場合はreply
-    await interaction.reply({
+    await safeReply(interaction, {
       embeds: [helpEmbed],
       components: [selectRow, buttonRow],
       flags: MessageFlags.Ephemeral

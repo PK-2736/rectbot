@@ -104,8 +104,21 @@ async function updateParticipantList(interactionOrMessage, participants, savedRe
     const updatedContainer = new ContainerBuilder();
     const accentColor = parseInt(useColor, 16);
     updatedContainer.setAccentColor(accentColor);
+    // ヘッダー: 募集を開始した人の表示名で固定（取得できない場合はタイトルにフォールバック）
+    let headerTitle = savedRecruitData?.title || '募集';
+    try {
+      if (savedRecruitData && savedRecruitData.recruiterId && client) {
+        const user = await client.users.fetch(savedRecruitData.recruiterId).catch(() => null);
+        if (user && (user.username || user.displayName || user.tag)) {
+          const name = user.username || user.displayName || user.tag;
+          headerTitle = `${name}さんの募集`;
+        }
+      }
+    } catch (e) {
+      console.warn('updateParticipantList: failed to fetch recruiter user:', e?.message || e);
+    }
     updatedContainer.addTextDisplayComponents(
-      new TextDisplayBuilder().setContent(`🎮✨ **${savedRecruitData.title || '募集'}** ✨🎮`)
+      new TextDisplayBuilder().setContent(`🎮✨ **${headerTitle}** ✨🎮`)
     );
     updatedContainer.addSeparatorComponents(
       new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)

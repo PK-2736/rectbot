@@ -11,6 +11,7 @@ const {
 } = require('discord.js');
 
 const { saveGuildSettingsToRedis, getGuildSettingsFromRedis, finalizeGuildSettings } = require('../utils/db');
+const { safeReply, safeUpdate } = require('../utils/safeReply');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -22,7 +23,7 @@ module.exports = {
     try {
       // 権限チェック
       if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
-        return await interaction.reply({
+        return await safeReply(interaction, {
           content: '❌ この機能を使用するには「管理者」権限が必要です。',
           flags: MessageFlags.Ephemeral
         });
@@ -35,7 +36,7 @@ module.exports = {
     } catch (error) {
       console.error('Guild settings command error:', error);
       if (!interaction.replied && !interaction.deferred) {
-        await interaction.reply({
+        await safeReply(interaction, {
           content: '❌ 設定画面の表示でエラーが発生しました。',
           flags: MessageFlags.Ephemeral
         });
@@ -182,11 +183,8 @@ module.exports = {
       flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
     };
 
-    if (interaction.replied || interaction.deferred) {
-      await interaction.editReply(replyOptions);
-    } else {
-      await interaction.reply(replyOptions);
-    }
+    // safeReply が内部で editReply/followUp を適切に試行するため、共通化して呼ぶ
+    await safeReply(interaction, replyOptions);
 
     // 5分後に設定メッセージを自動削除
     setTimeout(async () => {
@@ -228,7 +226,7 @@ module.exports = {
     } catch (error) {
       console.error('Button interaction error:', error);
       if (!interaction.replied && !interaction.deferred) {
-        await interaction.reply({
+        await safeReply(interaction, {
           content: '❌ 処理中にエラーが発生しました。',
           flags: MessageFlags.Ephemeral
         });
@@ -244,7 +242,7 @@ module.exports = {
 
     const actionRow = new ActionRowBuilder().addComponents(channelSelect);
 
-    await interaction.reply({
+    await safeReply(interaction, {
       content: placeholder,
       components: [actionRow],
       flags: MessageFlags.Ephemeral
@@ -258,7 +256,7 @@ module.exports = {
 
     const actionRow = new ActionRowBuilder().addComponents(roleSelect);
 
-    await interaction.reply({
+    await safeReply(interaction, {
       content: placeholder,
       components: [actionRow],
       flags: MessageFlags.Ephemeral
@@ -348,7 +346,7 @@ module.exports = {
         
         // カラーコードの検証
         if (color && !/^[0-9A-Fa-f]{6}$/.test(color)) {
-          return await interaction.reply({
+          return await safeReply(interaction, {
             content: '❌ 無効なカラーコードです。6桁の16進数（例: 5865F2）を入力してください。',
             flags: MessageFlags.Ephemeral
           });
@@ -359,7 +357,7 @@ module.exports = {
     } catch (error) {
       console.error('Modal submit error:', error);
       if (!interaction.replied && !interaction.deferred) {
-        await interaction.reply({
+        await safeReply(interaction, {
           content: '❌ 設定の更新でエラーが発生しました。',
           flags: MessageFlags.Ephemeral
         });
@@ -388,7 +386,7 @@ module.exports = {
       
       const settingName = settingNames[settingKey] || settingKey;
       
-      await interaction.reply({
+      await safeReply(interaction, {
         content: `✅ ${settingName}を更新しました！`,
         flags: MessageFlags.Ephemeral
       });
@@ -407,7 +405,7 @@ module.exports = {
 
     } catch (error) {
       console.error('Guild setting update error:', error);
-      await interaction.reply({
+      await safeReply(interaction, {
         content: '❌ 設定の更新に失敗しました。',
         flags: MessageFlags.Ephemeral
       });
@@ -439,7 +437,7 @@ module.exports = {
         message = '✅ 設定がデータベースに保存されました！設定が有効になりました。';
       }
       
-      await interaction.reply({
+      await safeReply(interaction, {
         content: message,
         flags: MessageFlags.Ephemeral
       });
@@ -462,7 +460,7 @@ module.exports = {
       
       errorMessage += `\n詳細: ${error.message}`;
       
-      await interaction.reply({
+      await safeReply(interaction, {
         content: errorMessage,
         flags: MessageFlags.Ephemeral
       });
@@ -484,7 +482,7 @@ module.exports = {
       console.log(`[guildSettings] すべての設定をリセットしました - guildId: ${guildId}`);
       console.log(`[guildSettings] リセット結果:`, result);
       
-      await interaction.reply({
+      await safeReply(interaction, {
         content: '✅ すべての設定をリセットしました！',
         flags: MessageFlags.Ephemeral
       });
@@ -503,7 +501,7 @@ module.exports = {
 
     } catch (error) {
       console.error('Reset settings error:', error);
-      await interaction.reply({
+      await safeReply(interaction, {
         content: '❌ 設定のリセットに失敗しました。',
         flags: MessageFlags.Ephemeral
       });
