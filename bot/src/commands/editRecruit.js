@@ -44,9 +44,13 @@ module.exports = {
   if (!message_id) {
         // メッセージが見つからない場合、メモリ上のデータから直接検索を試行
         console.log(`[editRecruit] メッセージ検索失敗、メモリから直接検索を試行`);
+        // 最新の募集データを再取得
         let allRecruitData = await gameRecruit.getAllRecruitData();
         if (Array.isArray(allRecruitData)) {
-          allRecruitData = Object.fromEntries(allRecruitData.map(d => [d.message_id, d]));
+          allRecruitData = Object.fromEntries(allRecruitData.map(d => [String(d.message_id), d]));
+        } else if (allRecruitData && typeof allRecruitData === 'object') {
+          // すべてのキーをstring化
+          allRecruitData = Object.fromEntries(Object.entries(allRecruitData).map(([k, v]) => [String(k), v]));
         }
         if (allRecruitData && typeof allRecruitData === 'object') {
           console.log('[editRecruit] 再取得 募集データの全 message_id:', Object.keys(allRecruitData));
@@ -54,10 +58,10 @@ module.exports = {
         let foundMessageId = null;
         for (const [msgId, data] of Object.entries(allRecruitData)) {
           // データのrecruitIdフィールド、または生成されたrecruitIdとマッチするかチェック
-          const storedRecruitId = data.recruitId || msgId.slice(-8);
-          console.log(`[editRecruit] メモリ再検索: msgId=${msgId}, data.recruitId="${data.recruitId}", 生成ID="${msgId.slice(-8)}", 最終ID="${storedRecruitId}", 検索ID="${recruitId}"`);
-          console.log(`[editRecruit] マッチ判定: "${storedRecruitId}" === "${recruitId}" = ${storedRecruitId === recruitId}, "${msgId.slice(-8)}" === "${recruitId}" = ${msgId.slice(-8) === recruitId}`);
-          if (storedRecruitId === recruitId || msgId.slice(-8) === recruitId) {
+          const storedRecruitId = data.recruitId || String(msgId).slice(-8);
+          console.log(`[editRecruit] メモリ再検索: msgId=${msgId}, data.recruitId="${data.recruitId}", 生成ID="${String(msgId).slice(-8)}", 最終ID="${storedRecruitId}", 検索ID="${recruitId}"`);
+          console.log(`[editRecruit] マッチ判定: "${storedRecruitId}" === "${recruitId}" = ${storedRecruitId === recruitId}, "${String(msgId).slice(-8)}" === "${recruitId}" = ${String(msgId).slice(-8) === recruitId}`);
+          if (storedRecruitId === recruitId || String(msgId).slice(-8) === recruitId) {
             foundMessageId = msgId;
             console.log(`[editRecruit] メモリから発見: messageId=${msgId}, recruitId=${storedRecruitId}`);
             break;
