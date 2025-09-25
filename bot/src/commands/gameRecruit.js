@@ -42,7 +42,7 @@ module.exports = {
     try {
       // ギルド設定を取得
       const guildSettings = await getGuildSettings(interaction.guildId);
-      
+
       // 募集チャンネルが設定されている場合、そのチャンネルでのみ実行可能
       if (guildSettings.recruit_channel && guildSettings.recruit_channel !== interaction.channelId) {
         return await interaction.reply({
@@ -50,9 +50,54 @@ module.exports = {
           flags: MessageFlags.Ephemeral
         });
       }
-      
+
+      // 12色セレクトメニューを表示
+      const { StringSelectMenuBuilder, ActionRowBuilder: RowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
+      const colorOptions = [
+        { label: '赤', value: 'FF0000', emoji: '🟥' },
+        { label: 'オレンジ', value: 'FF8000', emoji: '🟧' },
+        { label: '黄', value: 'FFFF00', emoji: '🟨' },
+        { label: '緑', value: '00FF00', emoji: '🟩' },
+        { label: '水色', value: '00FFFF', emoji: '🟦' },
+        { label: '青', value: '0000FF', emoji: '🟦' },
+        { label: '紫', value: '8000FF', emoji: '🟪' },
+        { label: 'ピンク', value: 'FF69B4', emoji: '💗' },
+        { label: '茶', value: '8B4513', emoji: '🟫' },
+        { label: '白', value: 'FFFFFF', emoji: '⬜' },
+        { label: '黒', value: '000000', emoji: '⬛' },
+        { label: 'グレー', value: '808080', emoji: '⬜' }
+      ];
+      // 初期色（設定があればそれを選択状態に）
+      const defaultColor = guildSettings.defaultColor ? guildSettings.defaultColor.toUpperCase() : null;
+      const selectMenu = new StringSelectMenuBuilder()
+        .setCustomId('recruitColorSelect')
+        .setPlaceholder('パネルカラーを選択（任意）')
+        .addOptions(colorOptions.map(opt => ({
+          label: opt.label,
+          value: opt.value,
+          emoji: opt.emoji,
+          default: defaultColor === opt.value
+        })));
+
+      // セレクトメニューを一時的に表示
+      await interaction.reply({
+        content: '募集パネルの色を選択してください（スキップ可）',
+        components: [new RowBuilder().addComponents(selectMenu)],
+        ephemeral: true
+      });
+
+      // セレクトまたはスキップを待つ
+      const filter = i => i.user.id === interaction.user.id && i.customId === 'recruitColorSelect';
+      let selectedColor = null;
+      try {
+        const selectInteraction = await interaction.channel.awaitMessageComponent({ filter, time: 15000 });
+        selectedColor = selectInteraction.values[0];
+        await selectInteraction.deferUpdate();
+      } catch (e) {
+        // タイムアウトやスキップ時は何もしない
+      }
+
       // モーダル表示
-      const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
       const modal = new ModalBuilder()
         .setCustomId('recruitModal')
         .setTitle('🎮 募集内容入力');
@@ -62,12 +107,9 @@ module.exports = {
         .setLabel('タイトル（例: スプラトゥーン3 ガチマッチ募集）')
         .setStyle(TextInputStyle.Short)
         .setRequired(true);
-      
-      // ギルド設定の既定タイトルがあれば初期値として設定
       if (guildSettings.defaultTitle) {
         titleInput.setValue(guildSettings.defaultTitle);
       }
-
       const contentInput = new TextInputBuilder()
         .setCustomId('content')
         .setLabel('募集内容（例: ガチエリア / 初心者歓迎 / 2時間）')
@@ -101,6 +143,9 @@ module.exports = {
         new ActionRowBuilder().addComponents(timeInput),
         new ActionRowBuilder().addComponents(vcInput)
       );
+
+      // 色選択値をinteractionに一時保存
+      interaction.recruitPanelColor = selectedColor;
 
       await interaction.showModal(modal);
     } catch (error) {
@@ -151,13 +196,23 @@ module.exports = {
         return;
       }
 
+      // 色の決定: セレクト＞設定＞デフォルト
+      let panelColor = null;
+      // 1. セレクト値（executeで一時保存したもの）
+      if (interaction.recruitPanelColor) {
+        panelColor = interaction.recruitPanelColor;
+      } else if (guildSettings.defaultColor) {
+        panelColor = guildSettings.defaultColor;
+      } // どちらもなければnull
+
       const recruitDataObj = {
         title: interaction.fields.getTextInputValue('title'),
         content: interaction.fields.getTextInputValue('content'),
         participants: participantsNum,
         startTime: interaction.fields.getTextInputValue('startTime'),
         vc: interaction.fields.getTextInputValue('vc'),
-        recruiterId: interaction.user.id // 募集主のIDを追加
+        recruiterId: interaction.user.id, // 募集主のIDを追加
+        panelColor: panelColor
       };
 
   // KVにはメッセージ送信後に保存する（下で実施）
@@ -166,7 +221,9 @@ module.exports = {
       const { generateRecruitCard } = require('../utils/canvasRecruit');
       // 募集主を初期参加者として含める
       const currentParticipants = [interaction.user.id];
-      const buffer = await generateRecruitCard(recruitDataObj, currentParticipants, interaction.client, guildSettings.defaultColor);
+  // 色指定: セレクト＞設定＞デフォルト
+  let useColor = panelColor ? parseInt(panelColor, 16) : (guildSettings.defaultColor ? parseInt(guildSettings.defaultColor, 16) : undefined);
+  const buffer = await generateRecruitCard(recruitDataObj, currentParticipants, interaction.client, useColor);
       const user = interaction.targetUser || interaction.user;
 
       // 募集パネル送信前に通知メッセージを送信
