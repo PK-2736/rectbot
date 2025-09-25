@@ -458,6 +458,11 @@ module.exports = {
       }
     } catch (error) {
       console.error('handleModalSubmit error:', error);
+      if (error && error.code === 10062) {
+        // Discord側でインタラクションが期限切れ・Unknown interaction
+        console.warn('インタラクションが期限切れまたはUnknown interactionです');
+        return;
+      }
       if (error && error.stack) console.error(error.stack);
       // 2重返信防止: replied/deferred両方判定
       if (!interaction.replied && !interaction.deferred) {
