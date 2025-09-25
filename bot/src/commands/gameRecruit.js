@@ -777,8 +777,19 @@ module.exports = {
         {
           const messageId = interaction.message.id;
           // === 募集状況をAPI経由で削除 ===
-          const { deleteRecruitmentData } = require('../utils/db');
-          await deleteRecruitmentData(messageId);
+          const { deleteRecruitmentData, updateRecruitmentStatus } = require('../utils/db');
+          // API 側で見つからない（404）などのケースがあるため例外を吸収して処理を継続する
+          try {
+            await deleteRecruitmentData(messageId);
+            console.log('管理API: 募集データを削除しました:', messageId);
+          } catch (err) {
+            // 404 等は警告で続行する
+            if (err && err.message && err.message.includes('404')) {
+              console.warn('管理APIで募集データが見つかりませんでした（404）。処理を続行します:', messageId);
+            } else {
+              console.error('募集データの削除に失敗:', err);
+            }
+          }
           // === 管理ページの募集データステータスを更新 ===
           try {
             await updateRecruitmentStatus(messageId, 'ended', new Date().toISOString());
@@ -834,11 +845,23 @@ module.exports = {
               .addFields(
                 { name: '最終参加者数', value: `${finalParticipants.length}/${savedRecruitData.participants}人`, inline: false }
               );
-            await interaction.reply({
-              content: `<@${savedRecruitData.recruiterId}>`,
-              embeds: [closeEmbed],
-              allowedMentions: { users: [savedRecruitData.recruiterId] }
-            });
+            try {
+              await interaction.reply({
+                content: `<@${savedRecruitData.recruiterId}>`,
+                embeds: [closeEmbed],
+                allowedMentions: { users: [savedRecruitData.recruiterId] }
+              });
+            } catch (replyErr) {
+              console.warn('interaction.reply failed during close handling:', replyErr?.message || replyErr);
+              try {
+                // 既に応答済み/期限切れの場合は followUp を試す
+                await interaction.followUp({ content: `<@${savedRecruitData.recruiterId}>`, embeds: [closeEmbed], allowedMentions: { users: [savedRecruitData.recruiterId] } });
+              } catch (followErr) {
+                console.warn('interaction.followUp also failed:', followErr?.message || followErr);
+                // 最終手段として ephemereal な editReply を試す
+                try { await interaction.editReply({ content: `募集を締め切りました。` }); } catch (e) { /* ignore */ }
+              }
+            }
             // メモリからデータを削除（自動締切タイマーもクリア）
               // メモリからデータを削除
               recruitParticipants.delete(messageId);

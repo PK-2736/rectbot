@@ -312,5 +312,9 @@ module.exports = {
 	saveGuildSettingsToRedis,
 	getGuildSettingsFromRedis,
 	finalizeGuildSettings,
-	getGuildSettings: getGuildSettingsFromRedis
+	getGuildSettings: getGuildSettingsFromRedis,
+	// 参加者リスト永続化
+	saveParticipantsToRedis,
+	getParticipantsFromRedis,
+	deleteParticipantsFromRedis
 };
