@@ -363,11 +363,12 @@ module.exports = {
           start_time: new Date().toISOString(),
         };
         // KVに保存
+        console.log('saveRecruitmentData呼び出し直前: messageId=', actualMessageId, 'finalRecruitData=', finalRecruitData);
         try {
           const saveResult = await saveRecruitmentData(interaction.guildId, interaction.channelId, actualMessageId, interaction.guild?.name || '', interaction.channel?.name || '', finalRecruitData);
           console.log('KVに募集データを保存: 成功', saveResult);
         } catch (err) {
-          console.error('KVへの募集データ保存エラー:', err);
+          console.error('KVへの募集データ保存エラー:', err && err.stack ? err.stack : err);
         }
         // 参加者リストはメモリ上で管理（必要ならKV化）
         recruitParticipants.set(actualMessageId, [interaction.user.id]);
