@@ -363,10 +363,15 @@ module.exports = {
           start_time: new Date().toISOString(),
         };
         // KVに保存
-        await saveRecruitmentData(interaction.guildId, interaction.channelId, actualMessageId, interaction.guild?.name || '', interaction.channel?.name || '', finalRecruitData);
+        try {
+          const saveResult = await saveRecruitmentData(interaction.guildId, interaction.channelId, actualMessageId, interaction.guild?.name || '', interaction.channel?.name || '', finalRecruitData);
+          console.log('KVに募集データを保存: 成功', saveResult);
+        } catch (err) {
+          console.error('KVへの募集データ保存エラー:', err);
+        }
         // 参加者リストはメモリ上で管理（必要ならKV化）
         recruitParticipants.set(actualMessageId, [interaction.user.id]);
-        console.log('KVに募集データを保存:', finalRecruitData);
+        console.log('KVに保存しようとしたデータ:', finalRecruitData);
           // 新しい画像を生成（正しいメッセージIDを使用）
           const { generateRecruitCard } = require('../utils/canvasRecruit');
           const updatedImageBuffer = await generateRecruitCard(finalRecruitData, [interaction.user.id], interaction.client, guildSettings.defaultColor);
