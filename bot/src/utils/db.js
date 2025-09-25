@@ -279,21 +279,22 @@ async function getActiveRecruits() {
 }
 
 module.exports = {
-  supabase,
-  saveRecruitStatus,
-  deleteRecruitStatus,
-  getActiveRecruits,
-  saveRecruitmentData,
-  deleteRecruitmentData,
-  updateRecruitmentStatus,
-  updateRecruitmentData,
-  saveRecruitToRedis,
-  getRecruitFromRedis,
-  listRecruitIdsFromRedis,
-  listRecruitsFromRedis,
-  deleteRecruitFromRedis,
-  pushRecruitToWebAPI
-	,saveGuildSettingsToRedis
-	,getGuildSettingsFromRedis
-	,finalizeGuildSettings
+	supabase,
+	saveRecruitStatus,
+	deleteRecruitStatus,
+	getActiveRecruits,
+	saveRecruitmentData,
+	deleteRecruitmentData,
+	updateRecruitmentStatus,
+	updateRecruitmentData,
+	saveRecruitToRedis,
+	getRecruitFromRedis,
+	listRecruitIdsFromRedis,
+	listRecruitsFromRedis,
+	deleteRecruitFromRedis,
+	pushRecruitToWebAPI,
+	saveGuildSettingsToRedis,
+	getGuildSettingsFromRedis,
+	finalizeGuildSettings,
+	getGuildSettings: getGuildSettingsFromRedis
 };
