@@ -21,7 +21,26 @@ const { saveRecruitStatus, deleteRecruitStatus, saveRecruitmentData, deleteRecru
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('rect')
-    .setDescription('ゲーム募集を作成します（/rect）'),
+    .setDescription('ゲーム募集を作成します（/rect）')
+    .addStringOption(option =>
+      option.setName('color')
+        .setDescription('募集パネルの色を選択（任意）')
+        .setRequired(false)
+        .addChoices(
+          { name: '赤', value: 'FF0000' },
+          { name: 'オレンジ', value: 'FF8000' },
+          { name: '黄', value: 'FFFF00' },
+          { name: '緑', value: '00FF00' },
+          { name: '水色', value: '00FFFF' },
+          { name: '青', value: '0000FF' },
+          { name: '紫', value: '8000FF' },
+          { name: 'ピンク', value: 'FF69B4' },
+          { name: '茶', value: '8B4513' },
+          { name: '白', value: 'FFFFFF' },
+          { name: '黒', value: '000000' },
+          { name: 'グレー', value: '808080' }
+        )
+    ),
   async execute(interaction) {
     // --- 募集数制限: 特定ギルド以外は1件まで（KVで判定） ---
     const EXEMPT_GUILD_ID = '1414530004657766422';
@@ -51,53 +70,11 @@ module.exports = {
         });
       }
 
-      // 12色セレクトメニューを表示
-      const { StringSelectMenuBuilder, ActionRowBuilder: RowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
-      const colorOptions = [
-        { label: '赤', value: 'FF0000', emoji: '🟥' },
-        { label: 'オレンジ', value: 'FF8000', emoji: '🟧' },
-        { label: '黄', value: 'FFFF00', emoji: '🟨' },
-        { label: '緑', value: '00FF00', emoji: '🟩' },
-        { label: '水色', value: '00FFFF', emoji: '🟦' },
-        { label: '青', value: '0000FF', emoji: '🟦' },
-        { label: '紫', value: '8000FF', emoji: '🟪' },
-        { label: 'ピンク', value: 'FF69B4', emoji: '💗' },
-        { label: '茶', value: '8B4513', emoji: '🟫' },
-        { label: '白', value: 'FFFFFF', emoji: '⬜' },
-        { label: '黒', value: '000000', emoji: '⬛' },
-        { label: 'グレー', value: '808080', emoji: '⬜' }
-      ];
-      // 初期色（設定があればそれを選択状態に）
-      const defaultColor = guildSettings.defaultColor ? guildSettings.defaultColor.toUpperCase() : null;
-      const selectMenu = new StringSelectMenuBuilder()
-        .setCustomId('recruitColorSelect')
-        .setPlaceholder('パネルカラーを選択（任意）')
-        .addOptions(colorOptions.map(opt => ({
-          label: opt.label,
-          value: opt.value,
-          emoji: opt.emoji,
-          default: defaultColor === opt.value
-        })));
-
-      // セレクトメニューを一時的に表示
-      await interaction.reply({
-        content: '募集パネルの色を選択してください（スキップ可）',
-        components: [new RowBuilder().addComponents(selectMenu)],
-        ephemeral: true
-      });
-
-      // セレクトまたはスキップを待つ
-      const filter = i => i.user.id === interaction.user.id && i.customId === 'recruitColorSelect';
-      let selectedColor = null;
-      try {
-        const selectInteraction = await interaction.channel.awaitMessageComponent({ filter, time: 15000 });
-        selectedColor = selectInteraction.values[0];
-        await selectInteraction.deferUpdate();
-      } catch (e) {
-        // タイムアウトやスキップ時は何もしない
-      }
+      // スラッシュコマンドの色オプション取得
+      const selectedColor = interaction.options.getString('color');
 
       // モーダル表示
+      const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
       const modal = new ModalBuilder()
         .setCustomId('recruitModal')
         .setTitle('🎮 募集内容入力');
@@ -196,14 +173,13 @@ module.exports = {
         return;
       }
 
-      // 色の決定: セレクト＞設定＞デフォルト
+      // 色の決定: スラッシュコマンドオプション＞設定＞デフォルト
       let panelColor = null;
-      // 1. セレクト値（executeで一時保存したもの）
       if (interaction.recruitPanelColor) {
         panelColor = interaction.recruitPanelColor;
       } else if (guildSettings.defaultColor) {
         panelColor = guildSettings.defaultColor;
-      } // どちらもなければnull
+      }
 
       const recruitDataObj = {
         title: interaction.fields.getTextInputValue('title'),
@@ -221,7 +197,7 @@ module.exports = {
       const { generateRecruitCard } = require('../utils/canvasRecruit');
       // 募集主を初期参加者として含める
       const currentParticipants = [interaction.user.id];
-  // 色指定: セレクト＞設定＞デフォルト
+  // 色指定: スラッシュコマンドオプション＞設定＞デフォルト
   let useColor = panelColor ? parseInt(panelColor, 16) : (guildSettings.defaultColor ? parseInt(guildSettings.defaultColor, 16) : undefined);
   const buffer = await generateRecruitCard(recruitDataObj, currentParticipants, interaction.client, useColor);
       const user = interaction.targetUser || interaction.user;
