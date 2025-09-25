@@ -308,13 +308,20 @@ module.exports = {
       container.addTextDisplayComponents(
         new TextDisplayBuilder().setContent(`募集ID：\`(送信後決定)\` | powered by **rectbot**`)
       );
-      // 3秒ルール厳守: ここではeditReplyで返す
-      const followUpMessage = await interaction.editReply({
+      // メインチャンネル：通知が既に送信済みのはずなので、募集パネルを通常メッセージとして送信
+      const followUpMessage = await interaction.channel.send({
         files: [image],
         components: [container],
         flags: MessageFlags.IsComponentsV2,
         allowedMentions: { roles: [], users: [] }
       });
+      // 確認用のephemeralレスポンス（deferReplyしているのでeditReplyでOK）
+      try {
+        await interaction.editReply({ content: '募集を作成しました。' });
+      } catch (e) {
+        // editReplyが失敗しても処理は継続
+        console.warn('editReply failed (non-fatal):', e?.message || e);
+      }
 
       // ギルド設定で募集チャンネルが設定されている場合、そちらにも送信
       if (guildSettings.recruit_channel && guildSettings.recruit_channel !== interaction.channelId) {
@@ -352,8 +359,8 @@ module.exports = {
 
       // メッセージ送信後、実際のメッセージIDでrecruitIdを上書きし、保存・表示も必ず一致させる
       try {
-        const actualMessage = await interaction.fetchReply();
-        const actualMessageId = actualMessage.id;
+  const actualMessage = followUpMessage; // メインチャンネルに投稿したメッセージを実メッセージとして扱う
+  const actualMessageId = actualMessage.id;
         const actualRecruitId = actualMessageId.slice(-8);
         // recruitIdを正しい値で上書き
         recruitDataObj.recruitId = actualRecruitId;
