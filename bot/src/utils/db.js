@@ -180,7 +180,9 @@ async function updateRecruitmentData(messageId, recruitData) {
 // 現在の募集状況一覧を取得
 async function getActiveRecruits() {
 	const res = await fetch(`${config.BACKEND_API_URL}/api/active-recruits`);
-	return res.json();
+	const json = await res.json();
+	console.log('[db.js/getActiveRecruits] APIレスポンス:', JSON.stringify(json));
+	return json;
 }
 
 // ギルド設定を保存（一時的にKVに保存）
