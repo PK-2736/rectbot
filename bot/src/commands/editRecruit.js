@@ -28,7 +28,7 @@ module.exports = {
       console.log(`[editRecruit] 編集要求: recruitId=${recruitId}, user=${interaction.user.id}`);
       
       // デバッグ: 現在のメモリ上の募集データを確認
-      const allRecruitData = gameRecruit.getAllRecruitData ? gameRecruit.getAllRecruitData() : 'getAllRecruitData method not available';
+  const allRecruitData = gameRecruit.getAllRecruitData ? await gameRecruit.getAllRecruitData() : 'getAllRecruitData method not available';
       console.log(`[editRecruit] 現在のメモリ上の募集データ:`, allRecruitData);
       
       // 募集IDから実際のメッセージIDを見つける
@@ -37,7 +37,7 @@ module.exports = {
       if (!messageId) {
         // メッセージが見つからない場合、メモリ上のデータから直接検索を試行
         console.log(`[editRecruit] メッセージ検索失敗、メモリから直接検索を試行`);
-        const allRecruitData = gameRecruit.getAllRecruitData();
+  const allRecruitData = await gameRecruit.getAllRecruitData();
         
         let foundMessageId = null;
         for (const [msgId, data] of Object.entries(allRecruitData)) {
@@ -55,7 +55,7 @@ module.exports = {
         
         if (foundMessageId) {
           // メモリから見つかった場合、そのIDを使用
-          const recruitData = gameRecruit.getRecruitData(foundMessageId);
+          const recruitData = await gameRecruit.getRecruitData(foundMessageId);
           if (recruitData && recruitData.recruiterId === interaction.user.id) {
             await showEditModal(interaction, recruitData, foundMessageId);
             return;
@@ -86,7 +86,7 @@ module.exports = {
       }
 
       // 募集データを取得
-      const recruitData = gameRecruit.getRecruitData(messageId);
+  const recruitData = await gameRecruit.getRecruitData(messageId);
       
       if (!recruitData) {
         // メッセージは見つかったがメモリにデータがない場合の対処
@@ -114,7 +114,8 @@ module.exports = {
       }
 
       // 募集主の権限チェック
-      if (recruitData.recruiterId !== interaction.user.id) {
+  console.log(`[editRecruit] 権限チェック: recruitData=`, recruitData, `interaction.user.id=`, interaction.user.id, `型:`, typeof recruitData.recruiterId, typeof interaction.user.id);
+  if (recruitData.recruiterId !== interaction.user.id) {
         await interaction.reply({
           content: `❌ この募集の編集権限がありません。募集は募集主のみが編集できます。`,
           flags: MessageFlags.Ephemeral
@@ -142,7 +143,7 @@ module.exports = {
     const EXEMPT_GUILD_ID = '1414530004657766422';
     if (interaction.guildId !== EXEMPT_GUILD_ID) {
       // gameRecruit.getAllRecruitData() から同じguildIdのアクティブ募集数をカウント
-      const allRecruitData = gameRecruit.getAllRecruitData ? gameRecruit.getAllRecruitData() : {};
+  const allRecruitData = gameRecruit.getAllRecruitData ? await gameRecruit.getAllRecruitData() : {};
       let activeCount = 0;
       for (const [_, data] of Object.entries(allRecruitData)) {
         if (data && data.recruiterId && interaction.guildId === interaction.guildId) {
@@ -186,7 +187,7 @@ module.exports = {
       };
 
       // 元の募集データを取得（変更前の内容と比較するため）
-      const originalData = gameRecruit.getRecruitData(messageId);
+  const originalData = await gameRecruit.getRecruitData(messageId);
 
       // 募集データを更新
       gameRecruit.updateRecruitData(messageId, newRecruitData);
