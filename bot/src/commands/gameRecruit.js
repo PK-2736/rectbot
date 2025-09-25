@@ -277,7 +277,7 @@ module.exports = {
   // モーダル送信後の処理（interactionCreateイベントで呼び出し）
   async handleModalSubmit(interaction) {
     // --- 募集数制限: 特定ギルド以外は1件まで（KVで判定） ---
-    await interaction.deferReply({ ephemeral: true }); // 3秒ルールを厳守
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral }); // 3秒ルールを厳守
     const EXEMPT_GUILD_ID = '1414530004657766422';
     const { getActiveRecruits, saveRecruitmentData } = require('../utils/db');
     if (interaction.guildId !== EXEMPT_GUILD_ID) {
@@ -475,8 +475,12 @@ module.exports = {
         try {
           await saveRecruitToRedis(actualRecruitId, finalRecruitData);
           console.log('Redisに募集データを保存: 成功', actualRecruitId);
-          await pushRecruitToWebAPI(finalRecruitData);
-          console.log('Worker APIに募集データをpush: 成功');
+          const pushRes = await pushRecruitToWebAPI(finalRecruitData);
+          if (!pushRes || !pushRes.ok) {
+            console.warn('Worker APIに募集データをpushできませんでした:', pushRes && (pushRes.status || pushRes.error));
+          } else {
+            console.log('Worker APIに募集データをpush: 成功');
+          }
         } catch (err) {
           console.error('Redis保存またはAPI pushエラー:', err);
         }
@@ -780,15 +784,16 @@ module.exports = {
           const { deleteRecruitmentData, updateRecruitmentStatus } = require('../utils/db');
           // API 側で見つからない（404）などのケースがあるため例外を吸収して処理を継続する
           try {
-            await deleteRecruitmentData(messageId);
-            console.log('管理API: 募集データを削除しました:', messageId);
-          } catch (err) {
-            // 404 等は警告で続行する
-            if (err && err.message && err.message.includes('404')) {
+            const delRes = await deleteRecruitmentData(messageId);
+            if (delRes && delRes.ok) {
+              console.log('管理API: 募集データを削除しました:', messageId);
+            } else if (delRes && delRes.status === 404) {
               console.warn('管理APIで募集データが見つかりませんでした（404）。処理を続行します:', messageId);
             } else {
-              console.error('募集データの削除に失敗:', err);
+              console.warn('管理API: 募集データ削除の結果が不正です:', delRes);
             }
+          } catch (err) {
+            console.error('募集データの削除に失敗:', err);
           }
           // === 管理ページの募集データステータスを更新 ===
           try {

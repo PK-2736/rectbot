@@ -94,15 +94,26 @@ async function deleteParticipantsFromRedis(messageId) {
 
 // Worker APIにデータをpushする汎用関数
 async function pushRecruitToWebAPI(recruitData) {
-	const res = await fetch(`${config.BACKEND_API_URL}/api/recruitment/push`, {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify(recruitData)
-	});
-	if (!res.ok) {
-		throw new Error(`API push error: ${res.status}`);
+	try {
+		const res = await fetch(`${config.BACKEND_API_URL}/api/recruitment/push`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(recruitData)
+		});
+		const status = res.status;
+		const ok = res.ok;
+		let body = null;
+		try { body = await res.json(); } catch (_) { /* ignore invalid json */ }
+		if (!ok) {
+			// 404 は警告扱いで呼び出し側に状況を返す
+			return { ok: false, status, body };
+		}
+		return { ok: true, status, body };
+	} catch (err) {
+		// ネットワークその他の例外はエラーとして伝搬
+		console.error('pushRecruitToWebAPI error:', err?.message || err);
+		return { ok: false, status: null, error: err?.message || String(err) };
 	}
-	return await res.json();
 }
 
 // --- Supabase/BackendAPI経由の募集データ保存・取得・削除・更新 ---
@@ -171,12 +182,26 @@ async function deleteRecruitmentData(messageId) {
 			method: 'DELETE',
 			headers: { 'Content-Type': 'application/json' }
 		});
+
+		const status = res.status;
+		let body = null;
+		try { body = await res.json(); } catch (_) { body = await res.text().catch(()=>null); }
+
 		if (!res.ok) {
-			throw new Error(`API error: ${res.status}`);
+			// 404 は警告扱いで処理を続行できるよう、例外を投げずに結果を返す
+			if (status === 404) {
+				console.warn(`deleteRecruitmentData: Recruitment not found (404) for messageId=${messageId}`);
+				return { ok: false, status, body, warning: 'Recruitment not found' };
+			}
+			// それ以外はエラーとして呼び出し元に伝える
+			console.error('deleteRecruitmentData: API error', { status, body });
+			throw new Error(`API error: ${status} - ${typeof body === 'string' ? body : JSON.stringify(body)}`);
 		}
-		return await res.json();
+
+		return { ok: true, status, body: body || null };
 	} catch (error) {
 		console.error('募集データの削除に失敗:', error);
+		// ネットワーク等の致命的なエラーはそのまま投げる
 		throw error;
 	}
 }

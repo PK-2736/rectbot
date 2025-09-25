@@ -153,19 +153,19 @@ module.exports = {
         const roleId = '1420235531442196562';
         const member = interaction.guild?.members?.cache?.get(interaction.user.id);
         if (!member) {
-          await safeRespond({ content: 'メンバー情報が取得できませんでした。', ephemeral: true });
+          await safeRespond({ content: 'メンバー情報が取得できませんでした。', flags: require('discord.js').MessageFlags.Ephemeral });
           return;
         }
         if (member.roles.cache.has(roleId)) {
-          await safeRespond({ content: 'すでにロールが付与されています。', ephemeral: true });
+          await safeRespond({ content: 'すでにロールが付与されています。', flags: require('discord.js').MessageFlags.Ephemeral });
           return;
         }
         try {
           await member.roles.add(roleId, 'ロール付与ボタンによる自動付与');
-          await safeRespond({ content: 'ロールを付与しました！', ephemeral: true });
+          await safeRespond({ content: 'ロールを付与しました！', flags: require('discord.js').MessageFlags.Ephemeral });
         } catch (e) {
           console.error('ロール付与エラー:', e);
-          await safeRespond({ content: 'ロール付与に失敗しました。権限やロール位置を確認してください。', ephemeral: true });
+          await safeRespond({ content: 'ロール付与に失敗しました。権限やロール位置を確認してください。', flags: require('discord.js').MessageFlags.Ephemeral });
         }
         return;
       }
@@ -174,19 +174,19 @@ module.exports = {
         const roleId = '1420235531442196562';
         const member = interaction.guild?.members?.cache?.get(interaction.user.id);
         if (!member) {
-          await safeRespond({ content: 'メンバー情報が取得できませんでした。', ephemeral: true });
+          await safeRespond({ content: 'メンバー情報が取得できませんでした。', flags: require('discord.js').MessageFlags.Ephemeral });
           return;
         }
         if (!member.roles.cache.has(roleId)) {
-          await safeRespond({ content: 'ロールが付与されていません。', ephemeral: true });
+          await safeRespond({ content: 'ロールが付与されていません。', flags: require('discord.js').MessageFlags.Ephemeral });
           return;
         }
         try {
           await member.roles.remove(roleId, 'ロール剥奪ボタンによる自動剥奪');
-          await safeRespond({ content: 'ロールを外しました。', ephemeral: true });
+          await safeRespond({ content: 'ロールを外しました。', flags: require('discord.js').MessageFlags.Ephemeral });
         } catch (e) {
           console.error('ロール剥奪エラー:', e);
-          await safeRespond({ content: 'ロールの剥奪に失敗しました。権限やロール位置を確認してください。', ephemeral: true });
+          await safeRespond({ content: 'ロールの剥奪に失敗しました。権限やロール位置を確認してください。', flags: require('discord.js').MessageFlags.Ephemeral });
         }
         return;
       }
@@ -195,19 +195,19 @@ module.exports = {
         const roleId = '1420235531442196562';
         const member = interaction.guild?.members?.cache?.get(interaction.user.id);
         if (!member) {
-          await safeRespond({ content: 'メンバー情報が取得できませんでした。', ephemeral: true });
+          await safeRespond({ content: 'メンバー情報が取得できませんでした。', flags: require('discord.js').MessageFlags.Ephemeral });
           return;
         }
         if (member.roles.cache.has(roleId)) {
-          await safeRespond({ content: 'すでにロールが付与されています。', ephemeral: true });
+          await safeRespond({ content: 'すでにロールが付与されています。', flags: require('discord.js').MessageFlags.Ephemeral });
           return;
         }
         try {
           await member.roles.add(roleId, 'ロール付与ボタンによる自動付与');
-          await safeRespond({ content: 'ロールを付与しました！', ephemeral: true });
+          await safeRespond({ content: 'ロールを付与しました！', flags: require('discord.js').MessageFlags.Ephemeral });
         } catch (e) {
           console.error('ロール付与エラー:', e);
-          await safeRespond({ content: 'ロール付与に失敗しました。権限やロール位置を確認してください。', ephemeral: true });
+          await safeRespond({ content: 'ロール付与に失敗しました。権限やロール位置を確認してください。', flags: require('discord.js').MessageFlags.Ephemeral });
         }
         return;
       }
