@@ -205,7 +205,9 @@ export default {
       const results = {};
       for (const key of recruitKeys) {
         const data = await getFromKV(key);
-        if (data) results[data.serverId] = data;
+        if (data && data.message_id) {
+          results[data.message_id] = data;
+        }
       }
       return new Response(JSON.stringify(results), { status: 200 });
     }
