@@ -94,10 +94,11 @@ export default {
       if (request.method === "POST") {
         // 募集データ保存
         const data = await request.json();
-        const key = `${data.guild_id}:${data.channel_id}`;
+        // message_id ベースのキーで保存
+        const key = `recruit:${data.message_id}`;
         await env.RECRUITMENTS.put(key, JSON.stringify(data));
-        return new Response(JSON.stringify({ ok: true }), { 
-          status: 200, 
+        return new Response(JSON.stringify({ ok: true }), {
+          status: 200,
           headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
       }
