@@ -28,7 +28,7 @@ module.exports = {
     let found = null;
     let foundMessageId = null;
     for (const [messageId, data] of Object.entries(allRecruitData)) {
-      if (data && (data.recruitId === recruitId || messageId.slice(-8) === recruitId)) {
+      if (data && data.recruitId === recruitId) {
         found = data;
         foundMessageId = messageId;
         break;
