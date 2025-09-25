@@ -526,11 +526,15 @@ module.exports = {
           console.warn('初期参加者のRedis保存に失敗:', e?.message || e);
         }
         console.log('Redisに保存しようとしたデータ:', finalRecruitData);
-        // 新しい画像を生成（正しいメッセージIDを使用）
-        const { generateRecruitCard } = require('../utils/canvasRecruit');
-        const updatedImageBuffer = await generateRecruitCard(finalRecruitData, [interaction.user.id], interaction.client, guildSettings.defaultColor);
-        const updatedImage = new AttachmentBuilder(updatedImageBuffer, { name: 'recruit-card.png' });
-        const updatedContainer = buildContainer({ headerTitle: `${user.username}さんの募集`, participantText, recruitIdText: actualRecruitId, accentColor, imageAttachmentName: 'attachment://recruit-card.png', recruiterId: interaction.user.id, requesterId: interaction.user.id });
+  // 新しい画像を生成（正しいメッセージIDを使用） - 色は finalRecruitData.panelColor を優先して統一
+  const { generateRecruitCard } = require('../utils/canvasRecruit');
+  let finalUseColor = finalRecruitData.panelColor ? finalRecruitData.panelColor : (guildSettings.defaultColor ? guildSettings.defaultColor : '000000');
+  if (typeof finalUseColor === 'string' && finalUseColor.startsWith('#')) finalUseColor = finalUseColor.slice(1);
+  if (typeof finalUseColor !== 'string' || !/^[0-9A-Fa-f]{6}$/.test(finalUseColor)) finalUseColor = '000000';
+  const updatedImageBuffer = await generateRecruitCard(finalRecruitData, [interaction.user.id], interaction.client, finalUseColor);
+  const updatedImage = new AttachmentBuilder(updatedImageBuffer, { name: 'recruit-card.png' });
+  const finalAccentColor = /^[0-9A-Fa-f]{6}$/.test(finalUseColor) ? parseInt(finalUseColor, 16) : 0x000000;
+  const updatedContainer = buildContainer({ headerTitle: `${user.username}さんの募集`, participantText, recruitIdText: actualRecruitId, accentColor: finalAccentColor, imageAttachmentName: 'attachment://recruit-card.png', recruiterId: interaction.user.id, requesterId: interaction.user.id });
         // メッセージを更新
         try {
           await actualMessage.edit({

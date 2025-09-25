@@ -26,8 +26,8 @@ function buildContainer({ headerTitle = '募集', participantText = '', recruitI
   container.addTextDisplayComponents(
     new TextDisplayBuilder().setContent(participantText)
   );
-  // close ボタンは requesterId と recruiterId が一致する場合のみ有効にする（厳密比較）
-  const isRequesterRecruiter = (typeof requesterId !== 'undefined' && typeof recruiterId !== 'undefined') ? String(requesterId) === String(recruiterId) : false;
+  // close ボタンはグローバルには無効化せずに常に表示する（権限チェックはボタンハンドラ側で行う）
+  const isRequesterRecruiter = true;
   container.addActionRowComponents(
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
@@ -44,7 +44,7 @@ function buildContainer({ headerTitle = '募集', participantText = '', recruitI
         .setCustomId('close')
         .setLabel('締め')
         .setStyle(ButtonStyle.Secondary)
-        .setDisabled(!isRequesterRecruiter)
+        .setDisabled(false)
     )
   );
   container.addSeparatorComponents(
