@@ -196,13 +196,15 @@ module.exports = {
         panelColor = undefined; // デフォルト色（色無し）
       }
 
+      // 一時的な募集IDを生成（interaction.idの下8桁を使用）
+      const tempRecruitId = interaction.id.slice(-8);
       const recruitDataObj = {
         title: interaction.fields.getTextInputValue('title'),
         content: interaction.fields.getTextInputValue('content'),
         participants: participantsNum,
         startTime: interaction.fields.getTextInputValue('startTime'),
         vc: interaction.fields.getTextInputValue('vc'),
-        recruiterId: interaction.user.id, // 募集主のIDを追加
+        recruiterId: tempRecruitId, // 募集IDをrecruiterIdに保存
         panelColor: panelColor
       };
 
@@ -244,8 +246,7 @@ module.exports = {
         console.log('デフォルト通知ロールで送信完了');
       }
 
-      // 一時的な募集IDを生成（interaction.idの下8桁を使用）
-      const tempRecruitId = interaction.id.slice(-8);
+  // 2回目以降のtempRecruitId宣言を削除
       
       // ボタン付きメッセージを投稿（バッファから直接送信）
       const image = new AttachmentBuilder(buffer, { name: 'recruit-card.png' });
