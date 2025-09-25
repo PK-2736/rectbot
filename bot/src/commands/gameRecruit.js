@@ -13,7 +13,7 @@ const fs = require('fs');
 
 
 // 参加者リストはメモリ上で管理（必要ならKV化も可）
-const recruitParticipants = new Map();
+// const recruitParticipants = new Map(); // 使われていないので削除
 
 // 募集状況API
 const { saveRecruitStatus, deleteRecruitStatus, saveRecruitmentData, deleteRecruitmentData, updateRecruitmentStatus, getGuildSettings } = require('../utils/db');
@@ -22,7 +22,10 @@ module.exports = {
   // 指定メッセージIDの募集データをKV/APIで更新する関数
   async updateRecruitData(messageId, newRecruitData) {
     const { updateRecruitmentData } = require('../utils/db');
-    // messageIdで該当データをAPI経由で更新
+    // recruitIdを必ず付与
+    if (!newRecruitData.recruitId) {
+      newRecruitData.recruitId = messageId.slice(-8);
+    }
     return await updateRecruitmentData(messageId, newRecruitData);
   },
   // 指定メッセージIDの募集データをKVから取得する関数
@@ -36,14 +39,16 @@ module.exports = {
       recruit = recruits[messageId] || null;
     }
     if (!recruit) return null;
-    // 必須フィールドを補完
+    // フィールド名を統一して返す
     return {
       title: recruit.title ?? '',
       content: recruit.content ?? '',
-      participants: recruit.participants ?? 1,
-      startTime: recruit.startTime ?? '',
+      participants: recruit.participants ?? recruit.participants_count ?? 1,
+      startTime: recruit.startTime ?? recruit.start_game_time ?? '',
       vc: recruit.vc ?? '',
       recruiterId: recruit.recruiterId ?? '',
+      recruitId: recruit.recruitId ?? (recruit.message_id ? recruit.message_id.slice(-8) : ''),
+      message_id: recruit.message_id,
       ...recruit
     };
   },
@@ -746,9 +751,23 @@ module.exports = {
 
   // 全募集データをKVから取得する関数
   async getAllRecruitData() {
-  const { getActiveRecruits } = require('../utils/db');
-  const recruits = await getActiveRecruits();
-  // オブジェクトならそのまま返す、配列なら空オブジェクト
-  return (recruits && typeof recruits === 'object' && !Array.isArray(recruits)) ? recruits : {};
+    const { getActiveRecruits } = require('../utils/db');
+    const recruits = await getActiveRecruits();
+    // recruits: { [message_id]: {...} }
+    if (recruits && typeof recruits === 'object' && !Array.isArray(recruits)) {
+      // 各データにrecruitIdを必ず付与し、フィールド名を統一
+      const result = {};
+      for (const [msgId, data] of Object.entries(recruits)) {
+        result[msgId] = {
+          ...data,
+          participants: data.participants ?? data.participants_count ?? 1,
+          startTime: data.startTime ?? data.start_game_time ?? '',
+          recruitId: data.recruitId ?? msgId.slice(-8),
+          message_id: msgId
+        };
+      }
+      return result;
+    }
+    return {};
   },
 }
