@@ -16,7 +16,7 @@ const fs = require('fs');
 // const recruitParticipants = new Map(); // 使われていないので削除
 
 // Redis専用 募集データAPI
-const { saveRecruitToRedis, getRecruitFromRedis, listRecruitsFromRedis, deleteRecruitFromRedis, pushRecruitToWebAPI } = require('../utils/db');
+const { saveRecruitToRedis, getRecruitFromRedis, listRecruitsFromRedis, deleteRecruitFromRedis, pushRecruitToWebAPI, getGuildSettings } = require('../utils/db');
 
 module.exports = {
   // 指定メッセージIDの募集データをRedisから取得
