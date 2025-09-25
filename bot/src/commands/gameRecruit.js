@@ -197,6 +197,8 @@ module.exports = {
       }
 
       // 一時的な募集IDを生成（interaction.idの下8桁を使用）
+      // recruitId: 募集ID（8桁の数字）で編集対象を特定
+      // recruiterId: 募集主のDiscordユーザーIDで権限判定
       const tempRecruitId = interaction.id.slice(-8);
       const recruitDataObj = {
         title: interaction.fields.getTextInputValue('title'),
