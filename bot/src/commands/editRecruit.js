@@ -412,6 +412,7 @@ async function findMessageIdByRecruitId(interaction, recruitId) {
 
 // 編集用モーダルを表示する関数
 async function showEditModal(interaction, recruitData, messageId) {
+  const safe = v => (v === undefined || v === null || v === '') ? ' ' : String(v);
   const modal = new ModalBuilder()
     .setCustomId(`editRecruitModal_${messageId}`)
     .setTitle('📝 募集内容編集');
@@ -421,7 +422,7 @@ async function showEditModal(interaction, recruitData, messageId) {
     .setLabel('タイトル')
     .setStyle(TextInputStyle.Short)
     .setRequired(true)
-    .setValue(recruitData.title || ''); // 既存値を設定
+    .setValue(safe(recruitData.title));
 
   const contentInput = new TextInputBuilder()
     .setCustomId('content')
@@ -429,7 +430,7 @@ async function showEditModal(interaction, recruitData, messageId) {
     .setStyle(TextInputStyle.Paragraph)
     .setRequired(true)
     .setMaxLength(1000)
-    .setValue(recruitData.content || ''); // 既存値を設定
+    .setValue(safe(recruitData.content));
 
   const participantsInput = new TextInputBuilder()
     .setCustomId('participants')
@@ -438,21 +439,21 @@ async function showEditModal(interaction, recruitData, messageId) {
     .setRequired(true)
     .setMinLength(1)
     .setMaxLength(2)
-    .setValue(String(recruitData.participants || '')); // 既存値を設定
+    .setValue(safe(recruitData.participants));
 
   const timeInput = new TextInputBuilder()
     .setCustomId('startTime')
     .setLabel('開始時間（例: 21:00）')
     .setStyle(TextInputStyle.Short)
     .setRequired(true)
-    .setValue(recruitData.startTime || ''); // 既存値を設定
+    .setValue(safe(recruitData.startTime));
 
   const vcInput = new TextInputBuilder()
     .setCustomId('vc')
     .setLabel('VCの有無（あり / なし）')
     .setStyle(TextInputStyle.Short)
     .setRequired(true)
-    .setValue(recruitData.vc || ''); // 既存値を設定
+    .setValue(safe(recruitData.vc));
 
   modal.addComponents(
     new ActionRowBuilder().addComponents(titleInput),

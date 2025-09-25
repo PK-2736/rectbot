@@ -23,13 +23,23 @@ module.exports = {
   async getRecruitData(messageId) {
     const { getActiveRecruits } = require('../utils/db');
     const recruits = await getActiveRecruits();
+    let recruit = null;
     if (Array.isArray(recruits)) {
-      return recruits.find(r => r.message_id === messageId) || null;
+      recruit = recruits.find(r => r.message_id === messageId) || null;
     } else if (recruits && typeof recruits === 'object') {
-      // message_idをキーにしたオブジェクトの場合
-      return recruits[messageId] || null;
+      recruit = recruits[messageId] || null;
     }
-    return null;
+    if (!recruit) return null;
+    // 必須フィールドを補完
+    return {
+      title: recruit.title ?? '',
+      content: recruit.content ?? '',
+      participants: recruit.participants ?? 1,
+      startTime: recruit.startTime ?? '',
+      vc: recruit.vc ?? '',
+      recruiterId: recruit.recruiterId ?? '',
+      ...recruit
+    };
   },
   data: new SlashCommandBuilder()
     .setName('rect')
