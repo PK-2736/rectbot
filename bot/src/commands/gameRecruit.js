@@ -205,9 +205,13 @@ module.exports = {
       const { generateRecruitCard } = require('../utils/canvasRecruit');
       // 募集主を初期参加者として含める
       const currentParticipants = [interaction.user.id];
-  // 色指定: セレクト＞設定＞デフォルト（なければ'FF69B4'）
-  let useColor = panelColor ? panelColor : (guildSettings.defaultColor ? guildSettings.defaultColor : 'FF69B4');
-  const buffer = await generateRecruitCard(recruitDataObj, currentParticipants, interaction.client, useColor);
+      // 色指定: セレクト＞設定＞デフォルト（なければ'FF69B4'）
+      let useColor = panelColor ? panelColor : (guildSettings.defaultColor ? guildSettings.defaultColor : 'FF69B4');
+      // 6桁の16進数文字列でなければデフォルト色に
+      if (typeof useColor !== 'string' || !/^[0-9A-Fa-f]{6}$/.test(useColor)) {
+        useColor = 'FF69B4';
+      }
+      const buffer = await generateRecruitCard(recruitDataObj, currentParticipants, interaction.client, useColor);
       const user = interaction.targetUser || interaction.user;
 
       // 募集パネル送信前に通知メッセージを送信
