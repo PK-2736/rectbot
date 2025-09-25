@@ -19,6 +19,13 @@ const recruitParticipants = new Map();
 const { saveRecruitStatus, deleteRecruitStatus, saveRecruitmentData, deleteRecruitmentData, updateRecruitmentStatus, getGuildSettings } = require('../utils/db');
 
 module.exports = {
+  // 指定メッセージIDの募集データをKVから取得する関数
+  async getRecruitData(messageId) {
+    const { getActiveRecruits } = require('../utils/db');
+    const recruits = await getActiveRecruits();
+    if (!Array.isArray(recruits)) return null;
+    return recruits.find(r => r.message_id === messageId) || null;
+  },
   data: new SlashCommandBuilder()
     .setName('rect')
     .setDescription('ゲーム募集を作成します（/rect）')
