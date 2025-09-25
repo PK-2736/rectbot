@@ -725,8 +725,9 @@ module.exports = {
 
   // 全募集データをKVから取得する関数
   async getAllRecruitData() {
-    const { getActiveRecruits } = require('../utils/db');
-    const recruits = await getActiveRecruits();
-    return Array.isArray(recruits) ? recruits : [];
+  const { getActiveRecruits } = require('../utils/db');
+  const recruits = await getActiveRecruits();
+  // オブジェクトならそのまま返す、配列なら空オブジェクト
+  return (recruits && typeof recruits === 'object' && !Array.isArray(recruits)) ? recruits : {};
   },
 }
