@@ -207,6 +207,10 @@ module.exports = {
       const currentParticipants = [interaction.user.id];
       // 色指定: セレクト＞設定＞デフォルト（なければ'000000'=黒）
       let useColor = panelColor ? panelColor : (guildSettings.defaultColor ? guildSettings.defaultColor : '000000');
+      // 先頭に#があれば除去
+      if (typeof useColor === 'string' && useColor.startsWith('#')) {
+        useColor = useColor.slice(1);
+      }
       // 6桁の16進数文字列でなければデフォルト色に
       if (typeof useColor !== 'string' || !/^[0-9A-Fa-f]{6}$/.test(useColor)) {
         useColor = '000000';
@@ -244,8 +248,12 @@ module.exports = {
       
       // パネル色の優先順位: セレクト＞設定＞デフォルト
       let accentColor = null;
-      if (panelColor && /^[0-9A-Fa-f]{6}$/.test(panelColor)) {
-        accentColor = parseInt(panelColor, 16);
+      let panelColorForAccent = panelColor;
+      if (typeof panelColorForAccent === 'string' && panelColorForAccent.startsWith('#')) {
+        panelColorForAccent = panelColorForAccent.slice(1);
+      }
+      if (panelColorForAccent && /^[0-9A-Fa-f]{6}$/.test(panelColorForAccent)) {
+        accentColor = parseInt(panelColorForAccent, 16);
       } else if (guildSettings.defaultColor && /^[0-9A-Fa-f]{6}$/.test(guildSettings.defaultColor)) {
         accentColor = parseInt(guildSettings.defaultColor, 16);
       } else {
@@ -699,5 +707,10 @@ module.exports = {
 
 
 
-// 募集データ操作用のメソッドはKV/API経由に統一したため削除
+  // 全募集データをKVから取得する関数
+  async getAllRecruitData() {
+    const { getActiveRecruits } = require('../utils/db');
+    const recruits = await getActiveRecruits();
+    return Array.isArray(recruits) ? recruits : [];
+  },
 }
