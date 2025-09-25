@@ -19,6 +19,12 @@ const recruitParticipants = new Map();
 const { saveRecruitStatus, deleteRecruitStatus, saveRecruitmentData, deleteRecruitmentData, updateRecruitmentStatus, getGuildSettings } = require('../utils/db');
 
 module.exports = {
+  // 指定メッセージIDの募集データをKV/APIで更新する関数
+  async updateRecruitData(messageId, newRecruitData) {
+    const { updateRecruitmentData } = require('../utils/db');
+    // messageIdで該当データをAPI経由で更新
+    return await updateRecruitmentData(messageId, newRecruitData);
+  },
   // 指定メッセージIDの募集データをKVから取得する関数
   async getRecruitData(messageId) {
     const { getActiveRecruits } = require('../utils/db');
