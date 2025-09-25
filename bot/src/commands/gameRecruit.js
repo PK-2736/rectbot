@@ -11,10 +11,6 @@ const { ThumbnailBuilder } = require('@discordjs/builders');
 const path = require('path');
 const fs = require('fs');
 
-
-// 参加者リストはメモリ上で管理（必要ならKV化も可）
-// const recruitParticipants = new Map(); // 使われていないので削除
-
 // Redis専用 募集データAPI
 const { saveRecruitToRedis, getRecruitFromRedis, listRecruitsFromRedis, deleteRecruitFromRedis, pushRecruitToWebAPI, getGuildSettings } = require('../utils/db');
 
@@ -164,11 +160,13 @@ module.exports = {
       const recruitsArray = Array.isArray(activeRecruits) ? activeRecruits : [];
       const guildActiveCount = recruitsArray.filter(r => r.guild_id === interaction.guildId && r.status === 'recruiting').length;
       if (guildActiveCount >= 1) {
-        await interaction.reply({
-          content: '❌ このサーバーでは同時に実行できる募集は1件までです。既存の募集を締め切ってから新しい募集を作成してください。',
-          flags: MessageFlags.Ephemeral,
-          allowedMentions: { roles: [], users: [] }
-        });
+        if (!interaction.replied && !interaction.deferred) {
+          await interaction.reply({
+            content: '❌ このサーバーでは同時に実行できる募集は1件までです。既存の募集を締め切ってから新しい募集を作成してください。',
+            flags: MessageFlags.Ephemeral,
+            allowedMentions: { roles: [], users: [] }
+          });
+        }
         return;
       }
     }
@@ -180,13 +178,14 @@ module.exports = {
       // 人数の入力値を検証
       const participantsInput = interaction.fields.getTextInputValue('participants');
       const participantsNum = parseInt(participantsInput);
-      
       if (isNaN(participantsNum) || participantsNum < 1 || participantsNum > 16) {
-        await interaction.reply({
-          content: '❌ 参加人数は1〜16の数字で入力してください。',
-          flags: MessageFlags.Ephemeral,
-          allowedMentions: { roles: [], users: [] }
-        });
+        if (!interaction.replied && !interaction.deferred) {
+          await interaction.reply({
+            content: '❌ 参加人数は1〜16の数字で入力してください。',
+            flags: MessageFlags.Ephemeral,
+            allowedMentions: { roles: [], users: [] }
+          });
+        }
         return;
       }
 
@@ -312,6 +311,7 @@ module.exports = {
       container.addTextDisplayComponents(
         new TextDisplayBuilder().setContent(`募集ID：\`(送信後決定)\` | powered by **rectbot**`)
       );
+      // 3秒ルール厳守: ここで必ずreply
       const followUpMessage = await interaction.reply({
         files: [image],
         components: [container],
@@ -461,14 +461,22 @@ module.exports = {
       if (error && error.stack) console.error(error.stack);
       // 2重返信防止: replied/deferred両方判定
       if (!interaction.replied && !interaction.deferred) {
-        await interaction.reply({ 
-          content: `モーダル送信エラー: ${error.message || error}`, 
-          flags: MessageFlags.Ephemeral,
-          allowedMentions: { roles: [], users: [] }
-        });
+        try {
+          await interaction.reply({ 
+            content: `モーダル送信エラー: ${error.message || error}`, 
+            flags: MessageFlags.Ephemeral,
+            allowedMentions: { roles: [], users: [] }
+          });
+        } catch (e) {
+          // それでも失敗した場合はログのみ
+          console.error('二重応答防止: reply失敗', e);
+        }
       } else {
-        // 既に返信済みならeditReplyでエラー表示
-        await interaction.editReply({ content: `モーダル送信エラー: ${error.message || error}` });
+        try {
+          await interaction.editReply({ content: `モーダル送信エラー: ${error.message || error}` });
+        } catch (e) {
+          console.error('editReply失敗', e);
+        }
       }
     }
   },  // （重複部分削除済み）
