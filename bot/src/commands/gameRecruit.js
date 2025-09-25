@@ -23,8 +23,13 @@ module.exports = {
   async getRecruitData(messageId) {
     const { getActiveRecruits } = require('../utils/db');
     const recruits = await getActiveRecruits();
-    if (!Array.isArray(recruits)) return null;
-    return recruits.find(r => r.message_id === messageId) || null;
+    if (Array.isArray(recruits)) {
+      return recruits.find(r => r.message_id === messageId) || null;
+    } else if (recruits && typeof recruits === 'object') {
+      // message_idをキーにしたオブジェクトの場合
+      return recruits[messageId] || null;
+    }
+    return null;
   },
   data: new SlashCommandBuilder()
     .setName('rect')
