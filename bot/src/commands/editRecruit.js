@@ -28,7 +28,11 @@ module.exports = {
       console.log(`[editRecruit] 編集要求: recruitId=${recruitId}, user=${interaction.user.id}`);
       
       // デバッグ: 現在のメモリ上の募集データを確認
-  const allRecruitData = gameRecruit.getAllRecruitData ? await gameRecruit.getAllRecruitData() : 'getAllRecruitData method not available';
+  let allRecruitData = gameRecruit.getAllRecruitData ? await gameRecruit.getAllRecruitData() : 'getAllRecruitData method not available';
+      if (Array.isArray(allRecruitData)) {
+        // 配列の場合は message_id をキーにしたオブジェクトに変換
+        allRecruitData = Object.fromEntries(allRecruitData.map(d => [d.message_id, d]));
+      }
       console.log(`[editRecruit] 現在のメモリ上の募集データ:`, allRecruitData);
       
       // 募集IDから実際のメッセージIDを見つける
@@ -37,22 +41,22 @@ module.exports = {
   if (!message_id) {
         // メッセージが見つからない場合、メモリ上のデータから直接検索を試行
         console.log(`[editRecruit] メッセージ検索失敗、メモリから直接検索を試行`);
-  const allRecruitData = await gameRecruit.getAllRecruitData();
-        
+  let allRecruitData = await gameRecruit.getAllRecruitData();
+        if (Array.isArray(allRecruitData)) {
+          allRecruitData = Object.fromEntries(allRecruitData.map(d => [d.message_id, d]));
+        }
         let foundMessageId = null;
         for (const [msgId, data] of Object.entries(allRecruitData)) {
           // データのrecruitIdフィールド、または生成されたrecruitIdとマッチするかチェック
           const storedRecruitId = data.recruitId || msgId.slice(-8);
           console.log(`[editRecruit] メモリ再検索: msgId=${msgId}, data.recruitId="${data.recruitId}", 生成ID="${msgId.slice(-8)}", 最終ID="${storedRecruitId}", 検索ID="${recruitId}"`);
           console.log(`[editRecruit] マッチ判定: "${storedRecruitId}" === "${recruitId}" = ${storedRecruitId === recruitId}, "${msgId.slice(-8)}" === "${recruitId}" = ${msgId.slice(-8) === recruitId}`);
-          
           if (storedRecruitId === recruitId || msgId.slice(-8) === recruitId) {
             foundMessageId = msgId;
             console.log(`[editRecruit] メモリから発見: messageId=${msgId}, recruitId=${storedRecruitId}`);
             break;
           }
         }
-        
         if (foundMessageId) {
           // メモリから見つかった場合、そのIDを使用
           const recruitData = await gameRecruit.getRecruitData(foundMessageId);
@@ -67,14 +71,12 @@ module.exports = {
             return;
           }
         }
-        
         // 類似IDを検索
         const suggestions = findSimilarRecruitIds(recruitId, allRecruitData);
         let suggestionText = '';
         if (suggestions.length > 0) {
           suggestionText = `\n\n**類似するIDが見つかりました:**\n${suggestions.map(s => `• \`${s.id}\` - ${s.title || '無題'} (類似度: ${Math.round(s.similarity * 100)}%)`).join('\n')}\n**これらのIDのいずれかを試してみてください。**`;
         }
-        
         await interaction.reply({
           content: `❌ 募集ID \`${recruitId}\` に対応する募集が見つかりませんでした。\n\n**利用可能な募集一覧:**\n${Object.entries(allRecruitData).length > 0 ? Object.entries(allRecruitData).map(([msgId, data]) => {
             const displayId = data.recruitId || msgId.slice(-8);
