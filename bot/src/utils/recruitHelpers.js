@@ -42,7 +42,7 @@ function buildContainer({ headerTitle = '募集', participantText = '', recruitI
         .setStyle(ButtonStyle.Danger),
       new ButtonBuilder()
         .setCustomId('close')
-        .setLabel('締め (募集主のみ)')
+        .setLabel('締め')
         .setStyle(ButtonStyle.Secondary)
         .setDisabled(!isRequesterRecruiter)
     )

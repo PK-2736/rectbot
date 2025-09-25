@@ -101,11 +101,8 @@ async function updateParticipantList(interactionOrMessage, participants, savedRe
     const buffer = await generateRecruitCard(savedRecruitData, participants, client, useColor);
     const updatedImage = new AttachmentBuilder(buffer, { name: 'recruit-card.png' });
 
-    // コンテナを再構築
-    const updatedContainer = new ContainerBuilder();
-    const accentColor = parseInt(useColor, 16);
-    updatedContainer.setAccentColor(accentColor);
-    // ヘッダー: 募集を開始した人の表示名で固定（取得できない場合はタイトルにフォールバック）
+    // コンテナを再構築（共通ヘルパーを利用し、募集主以外は締めボタンを disabled にする）
+    const participantText = `🎯✨ 参加リスト ✨🎯\n${participants.map(id => `<@${id}>`).join(' ')}`;
     let headerTitle = savedRecruitData?.title || '募集';
     try {
       if (savedRecruitData && savedRecruitData.recruiterId && client) {
@@ -118,48 +115,11 @@ async function updateParticipantList(interactionOrMessage, participants, savedRe
     } catch (e) {
       console.warn('updateParticipantList: failed to fetch recruiter user:', e?.message || e);
     }
-    updatedContainer.addTextDisplayComponents(
-      new TextDisplayBuilder().setContent(`🎮✨ **${headerTitle}** ✨🎮`)
-    );
-    updatedContainer.addSeparatorComponents(
-      new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
-    );
-    updatedContainer.addMediaGalleryComponents(
-      new MediaGalleryBuilder().addItems(
-        new MediaGalleryItemBuilder().setURL('attachment://recruit-card.png')
-      )
-    );
-    updatedContainer.addSeparatorComponents(
-      new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
-    );
-    const participantText = `🎯✨ 参加リスト ✨🎯\n${participants.map(id => `<@${id}>`).join(' ')}`;
-    updatedContainer.addTextDisplayComponents(
-      new TextDisplayBuilder().setContent(participantText)
-    );
-    updatedContainer.addActionRowComponents(
-      new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId("join")
-          .setLabel("参加")
-          .setEmoji('✅')
-          .setStyle(ButtonStyle.Success),
-        new ButtonBuilder()
-          .setCustomId("cancel")
-          .setLabel("取り消し")
-          .setEmoji('✖️')
-          .setStyle(ButtonStyle.Danger),
-        new ButtonBuilder()
-          .setCustomId("close")
-          .setLabel("締め (募集主のみ)")
-          .setStyle(ButtonStyle.Secondary)
-      )
-    );
-    updatedContainer.addSeparatorComponents(
-      new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
-    );
-    updatedContainer.addTextDisplayComponents(
-      new TextDisplayBuilder().setContent(`募集ID：\`${savedRecruitData.recruitId || (savedRecruitData.message_id ? savedRecruitData.message_id.slice(-8) : '(unknown)')}\` | powered by **rectbot**`)
-    );
+    const accentColor = parseInt(useColor, 16);
+    const recruiterId = savedRecruitData?.recruiterId || null;
+    // requesterId は interactionOrMessage が interaction の場合は interaction.user.id、message の場合は null
+    const requesterId = interaction ? interaction.user?.id : null;
+    const updatedContainer = buildContainer({ headerTitle, participantText, recruitIdText: savedRecruitData?.recruitId || (savedRecruitData?.message_id ? savedRecruitData.message_id.slice(-8) : '(unknown)'), accentColor, imageAttachmentName: 'attachment://recruit-card.png', recruiterId, requesterId });
 
     // メッセージを更新
     if (message && message.edit) {
@@ -334,7 +294,7 @@ module.exports = {
             : []));
       const guildActiveCount = recruitsArray.filter(r => r.guild_id === interaction.guildId && r.status === 'recruiting').length;
       if (guildActiveCount >= 1) {
-        await interaction.editReply({
+        await safeReply(interaction, {
           content: '❌ このサーバーでは同時に実行できる募集は1件までです。既存の募集を締め切ってから新しい募集を作成してください。',
           flags: MessageFlags.Ephemeral,
           allowedMentions: { roles: [], users: [] }
@@ -447,11 +407,10 @@ module.exports = {
         allowedMentions: { roles: [], users: [] }
       });
       // 確認用のephemeralレスポンス（deferReplyしているのでeditReplyでOK）
-      try {
-        await interaction.editReply({ content: '募集を作成しました。' });
+        try {
+        await safeReply(interaction, { content: '募集を作成しました。', flags: MessageFlags.Ephemeral });
       } catch (e) {
-        // editReplyが失敗しても処理は継続
-        console.warn('editReply failed (non-fatal):', e?.message || e);
+        console.warn('safeReply failed (non-fatal):', e?.message || e);
       }
 
       // ギルド設定で募集チャンネルが設定されている場合、そちらにも送信
