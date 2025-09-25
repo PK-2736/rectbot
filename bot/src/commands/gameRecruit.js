@@ -1,11 +1,12 @@
 const {
   SlashCommandBuilder,
-  ContainerBuilder, TextDisplayBuilder,
-  SeparatorBuilder, SeparatorSpacingSize,
   ActionRowBuilder, ButtonBuilder, ButtonStyle,
-  MessageFlags, MediaGalleryBuilder, MediaGalleryItemBuilder,
-  AttachmentBuilder, SectionBuilder, EmbedBuilder
+  MessageFlags, AttachmentBuilder, SectionBuilder, EmbedBuilder
 } = require('discord.js');
+const {
+  ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, SeparatorSpacingSize,
+  MediaGalleryBuilder, MediaGalleryItemBuilder
+} = require('@discordjs/builders');
 // Components v2 で画像をインライン表示するためのビルダー
 const { ThumbnailBuilder } = require('@discordjs/builders');
 const path = require('path');
@@ -181,19 +182,8 @@ module.exports = {
       
       if (isNaN(participantsNum) || participantsNum < 1 || participantsNum > 16) {
         await interaction.reply({
-          content: '❌ 参加人数は1〜16の数字で入力してください。',
-          flags: MessageFlags.Ephemeral,
-          allowedMentions: { roles: [], users: [] }
-        });
-        return;
-      }
-
-      // 色の決定: セレクト（コマンドオプション）＞設定＞デフォルト
-      let panelColor = null;
-      if (typeof interaction.recruitPanelColor === 'string' && interaction.recruitPanelColor.length > 0) {
-        panelColor = interaction.recruitPanelColor;
-      } else if (guildSettings.defaultColor) {
-        panelColor = guildSettings.defaultColor;
+    // containerの宣言・初期化を必ず行う
+  const container = new ContainerBuilder();
       } else {
         panelColor = undefined;
       }
