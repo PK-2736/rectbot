@@ -71,7 +71,15 @@ module.exports = {
       }
 
       // スラッシュコマンドの色オプション取得
-      const selectedColor = interaction.options.getString('color');
+      let selectedColor = interaction.options.getString('color');
+      // セッティングカラーが未設定でも、セレクト値またはデフォルト色（ピンク）でモーダルを開ける
+      if (!selectedColor) {
+        // 設定色がなければデフォルト色（例: FF69B4）を仮でセット（実際の優先順位はhandleModalSubmitで再判定）
+        selectedColor = undefined;
+      }
+
+      // 色選択値をinteractionに一時保存（未指定ならundefinedのまま）
+      interaction.recruitPanelColor = selectedColor;
 
       // モーダル表示
       const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
@@ -120,9 +128,6 @@ module.exports = {
         new ActionRowBuilder().addComponents(timeInput),
         new ActionRowBuilder().addComponents(vcInput)
       );
-
-      // 色選択値をinteractionに一時保存
-      interaction.recruitPanelColor = selectedColor;
 
       await interaction.showModal(modal);
     } catch (error) {
@@ -173,12 +178,15 @@ module.exports = {
         return;
       }
 
-      // 色の決定: スラッシュコマンドオプション＞設定＞デフォルト
+      // 色の決定: セレクト（コマンドオプション）＞設定＞デフォルト
       let panelColor = null;
-      if (interaction.recruitPanelColor) {
+      // 1. コマンドオプション（executeで一時保存）
+      if (typeof interaction.recruitPanelColor === 'string' && interaction.recruitPanelColor.length > 0) {
         panelColor = interaction.recruitPanelColor;
       } else if (guildSettings.defaultColor) {
         panelColor = guildSettings.defaultColor;
+      } else {
+        panelColor = undefined; // デフォルト色（色無し）
       }
 
       const recruitDataObj = {
