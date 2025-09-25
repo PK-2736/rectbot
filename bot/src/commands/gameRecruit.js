@@ -11,8 +11,92 @@ const { ThumbnailBuilder } = require('@discordjs/builders');
 const path = require('path');
 const fs = require('fs');
 
+// 参加者リストはメモリ上で管理
+const recruitParticipants = new Map();
+
 // Redis専用 募集データAPI
-const { saveRecruitToRedis, getRecruitFromRedis, listRecruitsFromRedis, deleteRecruitFromRedis, pushRecruitToWebAPI, getGuildSettings } = require('../utils/db');
+const { saveRecruitToRedis, getRecruitFromRedis, listRecruitsFromRedis, deleteRecruitFromRedis, pushRecruitToWebAPI, getGuildSettings, saveParticipantsToRedis, getParticipantsFromRedis, deleteParticipantsFromRedis } = require('../utils/db');
+
+// ヘルパー: 参加者リストをメッセージに反映してRedisに保存する
+async function updateParticipantList(interactionOrMessage, participants, savedRecruitData) {
+  try {
+    // interactionOrMessage は interaction オブジェクトで呼ばれる想定
+    const interaction = interactionOrMessage;
+    const message = interaction.message;
+    const client = interaction.client;
+    const guildId = savedRecruitData?.guildId || interaction.guildId || (message?.guildId);
+
+    // ギルド設定を取得して色を決定
+    const guildSettings = await getGuildSettings(guildId);
+    let useColor = savedRecruitData?.panelColor || guildSettings?.defaultColor || '000000';
+    if (typeof useColor === 'string' && useColor.startsWith('#')) useColor = useColor.slice(1);
+    if (!/^[0-9A-Fa-f]{6}$/.test(useColor)) useColor = '000000';
+
+    // 画像を再生成
+    const { generateRecruitCard } = require('../utils/canvasRecruit');
+    const buffer = await generateRecruitCard(savedRecruitData, participants, client, useColor);
+    const updatedImage = new AttachmentBuilder(buffer, { name: 'recruit-card.png' });
+
+    // コンテナを再構築
+    const updatedContainer = new ContainerBuilder();
+    const accentColor = parseInt(useColor, 16);
+    updatedContainer.setAccentColor(accentColor);
+    updatedContainer.addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(`🎮✨ **${savedRecruitData.title || '募集'}** ✨🎮`)
+    );
+    updatedContainer.addSeparatorComponents(
+      new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+    );
+    updatedContainer.addMediaGalleryComponents(
+      new MediaGalleryBuilder().addItems(
+        new MediaGalleryItemBuilder().setURL('attachment://recruit-card.png')
+      )
+    );
+    updatedContainer.addSeparatorComponents(
+      new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+    );
+    const participantText = `🎯✨ 参加リスト ✨🎯\n${participants.map(id => `<@${id}>`).join(' ')}`;
+    updatedContainer.addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(participantText)
+    );
+    updatedContainer.addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId("join")
+          .setLabel("参加")
+          .setEmoji('✅')
+          .setStyle(ButtonStyle.Success),
+        new ButtonBuilder()
+          .setCustomId("cancel")
+          .setLabel("取り消し")
+          .setEmoji('✖️')
+          .setStyle(ButtonStyle.Danger),
+        new ButtonBuilder()
+          .setCustomId("close")
+          .setLabel("締め")
+          .setStyle(ButtonStyle.Secondary)
+      )
+    );
+    updatedContainer.addSeparatorComponents(
+      new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+    );
+    updatedContainer.addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(`募集ID：\`${savedRecruitData.recruitId || (savedRecruitData.message_id ? savedRecruitData.message_id.slice(-8) : '(unknown)')}\` | powered by **rectbot**`)
+    );
+
+    // メッセージを更新
+    if (message && message.edit) {
+      await message.edit({ files: [updatedImage], components: [updatedContainer], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } });
+    }
+
+    // Redisへ永続化
+    if (message && message.id) {
+      await saveParticipantsToRedis(message.id, participants);
+    }
+  } catch (err) {
+    console.error('updateParticipantList error:', err);
+  }
+}
 
 module.exports = {
   // 指定メッセージIDの募集データをRedisから取得
@@ -382,6 +466,13 @@ module.exports = {
           console.error('Redis保存またはAPI pushエラー:', err);
         }
         recruitParticipants.set(actualMessageId, [interaction.user.id]);
+        // 初期参加者をRedisに保存
+        try {
+          await saveParticipantsToRedis(actualMessageId, [interaction.user.id]);
+          console.log('初期参加者をRedisに保存しました:', actualMessageId);
+        } catch (e) {
+          console.warn('初期参加者のRedis保存に失敗:', e?.message || e);
+        }
         console.log('Redisに保存しようとしたデータ:', finalRecruitData);
         // 新しい画像を生成（正しいメッセージIDを使用）
         const { generateRecruitCard } = require('../utils/canvasRecruit');
@@ -508,7 +599,21 @@ module.exports = {
   // KV化のためrecruitDataは参照しない
   console.log('保存されている参加者データのキー:', Array.from(recruitParticipants.keys()));
     
+  // Lazy-hydrate participants from Redis if missing in memory
   let participants = recruitParticipants.get(messageId) || [];
+  try {
+    const persisted = await getParticipantsFromRedis(messageId);
+    if (Array.isArray(persisted) && persisted.length > 0) {
+      // Prefer persisted list if memory is empty
+      if (!participants || participants.length === 0) {
+        participants = persisted;
+        recruitParticipants.set(messageId, participants);
+        console.log('Redisから参加者リストを復元しました:', participants);
+      }
+    }
+  } catch (e) {
+    console.warn('参加者リスト復元に失敗:', e?.message || e);
+  }
   console.log('現在の参加者リスト:', participants);
   const { getActiveRecruits, getGuildSettings } = require('../utils/db');
   // 最新の募集データをKVから取得
@@ -523,6 +628,8 @@ module.exports = {
           participants.push(interaction.user.id);
           recruitParticipants.set(messageId, participants);
           console.log('参加者追加:', interaction.user.id, '現在の参加者:', participants);
+          // Redisに保存
+          try { await saveParticipantsToRedis(messageId, participants); } catch (e) { console.warn('参加者保存失敗:', e?.message || e); }
           // 募集データを取得して募集主に通知
           if (savedRecruitData && savedRecruitData.recruiterId) {
             const joinEmbed = new EmbedBuilder()
@@ -587,6 +694,7 @@ module.exports = {
           // 実際に削除された場合
           recruitParticipants.set(messageId, participants);
           console.log('参加者削除:', interaction.user.id, '削除前:', beforeLength, '削除後:', participants.length);
+          try { await saveParticipantsToRedis(messageId, participants); } catch (e) { console.warn('参加者保存失敗:', e?.message || e); }
           
           // 募集データを取得して募集主に通知
           if (savedRecruitData && savedRecruitData.recruiterId) {
@@ -700,8 +808,11 @@ module.exports = {
               allowedMentions: { users: [savedRecruitData.recruiterId] }
             });
             // メモリからデータを削除（自動締切タイマーもクリア）
-            recruitParticipants.delete(messageId);
-            console.log('手動締切完了、メモリからデータを削除:', messageId);
+              // メモリからデータを削除
+              recruitParticipants.delete(messageId);
+              // Redisからも削除
+              try { await deleteParticipantsFromRedis(messageId); } catch (e) { console.warn('Redis参加者削除失敗:', e?.message || e); }
+              console.log('手動締切完了、メモリとRedisからデータを削除:', messageId);
           } else {
             // フォールバック
             await interaction.reply({ 

@@ -76,6 +76,22 @@ async function deleteRecruitFromRedis(recruitId) {
 	await redis.del(`recruit:${recruitId}`);
 }
 
+// 参加者リストをRedisに保存
+async function saveParticipantsToRedis(messageId, participants) {
+	await redis.set(`participants:${messageId}`, JSON.stringify(participants));
+}
+
+// 参加者リストをRedisから取得
+async function getParticipantsFromRedis(messageId) {
+	const val = await redis.get(`participants:${messageId}`);
+	return val ? JSON.parse(val) : [];
+}
+
+// 参加者リストをRedisから削除
+async function deleteParticipantsFromRedis(messageId) {
+	await redis.del(`participants:${messageId}`);
+}
+
 // Worker APIにデータをpushする汎用関数
 async function pushRecruitToWebAPI(recruitData) {
 	const res = await fetch(`${config.BACKEND_API_URL}/api/recruitment/push`, {
