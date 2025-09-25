@@ -242,10 +242,15 @@ module.exports = {
       const participantText = `🎯✨ 参加リスト ✨🎯\n🎮 <@${interaction.user.id}>`;
       const container = new ContainerBuilder();
       
-      // ギルド設定のカラーがあれば適用、なければデフォルト
-      const accentColor = guildSettings.defaultColor 
-        ? parseInt(guildSettings.defaultColor, 16) 
-        : 0xFF69B4;
+      // パネル色の優先順位: セレクト＞設定＞デフォルト
+      let accentColor = null;
+      if (panelColor && /^[0-9A-Fa-f]{6}$/.test(panelColor)) {
+        accentColor = parseInt(panelColor, 16);
+      } else if (guildSettings.defaultColor && /^[0-9A-Fa-f]{6}$/.test(guildSettings.defaultColor)) {
+        accentColor = parseInt(guildSettings.defaultColor, 16);
+      } else {
+        accentColor = 0xFF69B4;
+      }
       container.setAccentColor(accentColor);
 
       // ユーザー名表示（絵文字で豪華に装飾）
