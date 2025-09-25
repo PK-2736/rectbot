@@ -671,8 +671,16 @@ module.exports = {
           try { await saveParticipantsToRedis(messageId, participants); } catch (e) { console.warn('参加者保存失敗:', e?.message || e); }
           // 募集データを取得して募集主に通知
           if (savedRecruitData && savedRecruitData.recruiterId) {
+            // embed color should match panel accent color when available
+            const joinColor = (() => {
+              try {
+                const col = savedRecruitData?.panelColor || (guildSettings && guildSettings.defaultColor) || '000000';
+                const cleaned = (typeof col === 'string' && col.startsWith('#')) ? col.slice(1) : col;
+                return /^[0-9A-Fa-f]{6}$/.test(cleaned) ? parseInt(cleaned, 16) : 0x00FF00;
+              } catch (_) { return 0x00FF00; }
+            })();
             const joinEmbed = new EmbedBuilder()
-              .setColor(0x00FF00)
+              .setColor(joinColor)
               .setTitle('🎮 新しい参加者がいます！')
               .setDescription(`<@${interaction.user.id}> が募集に参加しました！`)
               .addFields(
@@ -744,8 +752,15 @@ module.exports = {
           
           // 募集データを取得して募集主に通知
           if (savedRecruitData && savedRecruitData.recruiterId) {
+            const cancelColor = (() => {
+              try {
+                const col = savedRecruitData?.panelColor || (guildSettings && guildSettings.defaultColor) || '000000';
+                const cleaned = (typeof col === 'string' && col.startsWith('#')) ? col.slice(1) : col;
+                return /^[0-9A-Fa-f]{6}$/.test(cleaned) ? parseInt(cleaned, 16) : 0xFF6B35;
+              } catch (_) { return 0xFF6B35; }
+            })();
             const cancelEmbed = new EmbedBuilder()
-              .setColor(0xFF6B35)
+              .setColor(cancelColor)
               .setTitle('📤 参加者がキャンセルしました')
               .setDescription(`<@${interaction.user.id}> が募集から離脱しました。`)
               .addFields(
@@ -882,8 +897,15 @@ module.exports = {
           // 締め切りメッセージをembedで送信
           if (savedRecruitData && savedRecruitData.recruiterId) {
             const finalParticipants = recruitParticipants.get(messageId) || [];
+            const closeColor = (() => {
+              try {
+                const col = savedRecruitData?.panelColor || (guildSettings && guildSettings.defaultColor) || '808080';
+                const cleaned = (typeof col === 'string' && col.startsWith('#')) ? col.slice(1) : col;
+                return /^[0-9A-Fa-f]{6}$/.test(cleaned) ? parseInt(cleaned, 16) : 0x808080;
+              } catch (_) { return 0x808080; }
+            })();
             const closeEmbed = new EmbedBuilder()
-              .setColor(0x808080)
+              .setColor(closeColor)
               .setTitle('🔒 募集締切')
               .setDescription(`**${savedRecruitData.title}** の募集を締め切りました。`)
               .addFields(
