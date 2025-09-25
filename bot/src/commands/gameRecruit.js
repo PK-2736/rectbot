@@ -25,6 +25,38 @@ async function __hydrateParticipants(messageId, participants) {
   }
 }
 
+// 安全な返信ヘルパー: reply -> followUp -> editReply の順でフォールバックし、Unknown interaction(10062) を吸収する
+async function safeReply(interaction, options) {
+  if (!interaction) return null;
+  try {
+    // 優先: まだ返信していない/deferred していない場合は reply
+    if (!interaction.replied && !interaction.deferred) {
+      return await interaction.reply(options);
+    }
+    // 既に応答済みまたは defer 済みの場合は followUp を試す
+    try {
+      return await interaction.followUp(options);
+    } catch (followErr) {
+      // followUp も失敗したら editReply を試す
+      try {
+        return await interaction.editReply(options);
+      } catch (editErr) {
+        console.warn('safeReply: all response methods failed:', editErr?.message || editErr);
+        return null;
+      }
+    }
+  } catch (err) {
+    // Discord の Unknown interaction 等は吸収して処理継続
+    if (err && err.code === 10062) {
+      console.warn('safeReply: Unknown interaction (ignored)');
+      return null;
+    }
+    console.warn('safeReply unexpected error:', err?.message || err);
+    // 最後の努力で followUp/editReply を試す
+    try { return await interaction.followUp(options); } catch (e) { try { return await interaction.editReply(options); } catch (e2) { return null; } }
+  }
+}
+
 // Redis専用 募集データAPI
 const { saveRecruitToRedis, getRecruitFromRedis, listRecruitsFromRedis, deleteRecruitFromRedis, pushRecruitToWebAPI, getGuildSettings, saveParticipantsToRedis, getParticipantsFromRedis, deleteParticipantsFromRedis } = require('../utils/db');
 
@@ -728,19 +760,13 @@ module.exports = {
 
             let notificationMessage = null;
             try {
-              notificationMessage = await interaction.reply({
+              notificationMessage = await safeReply(interaction, {
                 content: `<@${savedRecruitData.recruiterId}>`,
                 embeds: [joinEmbed],
                 allowedMentions: { users: [savedRecruitData.recruiterId] }
               });
-            } catch (replyErr) {
-              console.warn('interaction.reply failed during join handling:', replyErr?.message || replyErr);
-              try {
-                notificationMessage = await interaction.followUp({ content: `<@${savedRecruitData.recruiterId}>`, embeds: [joinEmbed], allowedMentions: { users: [savedRecruitData.recruiterId] } });
-              } catch (followErr) {
-                console.warn('interaction.followUp failed during join handling:', followErr?.message || followErr);
-                try { await interaction.editReply({ content: `募集に参加しました（通知送信失敗）` }); } catch (e) { /* ignore */ }
-              }
+            } catch (e) {
+              console.warn('safeReply failed during join handling:', e?.message || e);
             }
 
             // 3分後に通知メッセージを削除（notificationMessage が取得できた場合のみ）
@@ -755,7 +781,7 @@ module.exports = {
             }, 3 * 60 * 1000); // 3分 = 180,000ms
           } else {
             // フォールバック
-            await interaction.reply({ 
+            await safeReply(interaction, { 
               content: "✅ 参加しました！", 
               flags: MessageFlags.Ephemeral,
               allowedMentions: { roles: [], users: [] }
@@ -763,7 +789,7 @@ module.exports = {
           }
         } else {
           console.log('既に参加済み:', interaction.user.id);
-          await interaction.reply({ 
+          await safeReply(interaction, { 
             content: "❌ 既に参加済みです。", 
             flags: MessageFlags.Ephemeral,
             allowedMentions: { roles: [], users: [] }
@@ -777,7 +803,7 @@ module.exports = {
   const beforeLength = participants.length;
   // 募集主の場合は特別な処理
   if (savedRecruitData && savedRecruitData.recruiterId === interaction.user.id) {
-          await interaction.reply({ 
+          await safeReply(interaction, { 
             content: "❌ 募集主は参加をキャンセルできません。募集を締め切る場合は「締め」ボタンを使用してください。", 
             flags: MessageFlags.Ephemeral,
             allowedMentions: { roles: [], users: [] }
@@ -807,19 +833,13 @@ module.exports = {
 
             let notificationMessage = null;
             try {
-              notificationMessage = await interaction.reply({
+              notificationMessage = await safeReply(interaction, {
                 content: `<@${savedRecruitData.recruiterId}>`,
                 embeds: [cancelEmbed],
                 allowedMentions: { users: [savedRecruitData.recruiterId] }
               });
-            } catch (replyErr) {
-              console.warn('interaction.reply failed during cancel handling:', replyErr?.message || replyErr);
-              try {
-                notificationMessage = await interaction.followUp({ content: `<@${savedRecruitData.recruiterId}>`, embeds: [cancelEmbed], allowedMentions: { users: [savedRecruitData.recruiterId] } });
-              } catch (followErr) {
-                console.warn('interaction.followUp failed during cancel handling:', followErr?.message || followErr);
-                try { await interaction.editReply({ content: `参加取り消しを受け付けました（通知送信失敗）` }); } catch (e) { /* ignore */ }
-              }
+            } catch (e) {
+              console.warn('safeReply failed during cancel handling:', e?.message || e);
             }
 
             // 3分後に通知メッセージを削除（notificationMessage が取得できた場合のみ）
@@ -834,7 +854,7 @@ module.exports = {
             }, 3 * 60 * 1000); // 3分 = 180,000ms
           } else {
             // フォールバック
-            await interaction.reply({ 
+            await safeReply(interaction, { 
               content: "❌ 取り消しました。", 
               flags: MessageFlags.Ephemeral,
               allowedMentions: { roles: [], users: [] }
@@ -924,21 +944,13 @@ module.exports = {
                 { name: '最終参加者数', value: `${finalParticipants.length}/${savedRecruitData.participants}人`, inline: false }
               );
             try {
-              await interaction.reply({
+              await safeReply(interaction, {
                 content: `<@${savedRecruitData.recruiterId}>`,
                 embeds: [closeEmbed],
                 allowedMentions: { users: [savedRecruitData.recruiterId] }
               });
-            } catch (replyErr) {
-              console.warn('interaction.reply failed during close handling:', replyErr?.message || replyErr);
-              try {
-                // 既に応答済み/期限切れの場合は followUp を試す
-                await interaction.followUp({ content: `<@${savedRecruitData.recruiterId}>`, embeds: [closeEmbed], allowedMentions: { users: [savedRecruitData.recruiterId] } });
-              } catch (followErr) {
-                console.warn('interaction.followUp also failed:', followErr?.message || followErr);
-                // 最終手段として ephemereal な editReply を試す
-                try { await interaction.editReply({ content: `募集を締め切りました。` }); } catch (e) { /* ignore */ }
-              }
+            } catch (e) {
+              console.warn('safeReply failed during close handling:', e?.message || e);
             }
             // メモリからデータを削除（自動締切タイマーもクリア）
               // メモリからデータを削除
@@ -948,7 +960,7 @@ module.exports = {
               console.log('手動締切完了、メモリとRedisからデータを削除:', messageId);
           } else {
             // フォールバック
-            await interaction.reply({ 
+            await safeReply(interaction, { 
               content: "🔒 募集を締め切りました。", 
               flags: MessageFlags.Ephemeral,
               allowedMentions: { roles: [], users: [] }
