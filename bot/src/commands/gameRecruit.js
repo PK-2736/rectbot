@@ -136,6 +136,9 @@ async function updateParticipantList(interactionOrMessage, participants, savedRe
 }
 
 module.exports = {
+  // export in-memory map and hydration helper so index.js can hydrate on startup
+  recruitParticipants,
+  __hydrateParticipants,
   // 指定メッセージIDの募集データをRedisから取得
   async getRecruitData(messageId) {
     const recruit = await getRecruitFromRedis(messageId.slice(-8));
