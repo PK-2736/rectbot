@@ -52,6 +52,7 @@ module.exports = {
       // ギルド設定のセレクトメニュー
       if (interaction.customId.startsWith('channel_select_') || interaction.customId.startsWith('role_select_')) {
         const guildSettings = client.commands.get('setting');
+        console.log(`[interactionCreate] routing to guildSettings (select) - found=${Boolean(guildSettings)}`);
         if (guildSettings && typeof guildSettings.handleSelectMenuInteraction === 'function') {
           try {
             await guildSettings.handleSelectMenuInteraction(interaction);
@@ -105,6 +106,7 @@ module.exports = {
       // ギルド設定のモーダル処理
       if (interaction.customId === 'default_title_modal' || interaction.customId === 'default_color_modal') {
         const guildSettings = client.commands.get('setting');
+        console.log(`[interactionCreate] routing to guildSettings (modal) - found=${Boolean(guildSettings)}`);
         if (guildSettings && typeof guildSettings.handleModalSubmit === 'function') {
           try {
             await guildSettings.handleModalSubmit(interaction);
@@ -214,6 +216,7 @@ module.exports = {
       // ギルド設定のボタン処理
     if (interaction.customId.startsWith('set_') || interaction.customId === 'reset_all_settings' || interaction.customId === 'finalize_settings') {
   const guildSettings = client.commands.get('setting');
+  console.log(`[interactionCreate] routing to guildSettings (button) - customId=${interaction.customId}, found=${Boolean(guildSettings)}`);
         if (guildSettings) {
           try {
             if (interaction.customId === 'finalize_settings') {
