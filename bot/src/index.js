@@ -107,6 +107,7 @@ client.once('clientReady', () => {
   
   // 初回実行
   updateBotStatus();
+  console.log('[commands] runtime commands:', [...client.commands.keys()].join(', '));
   // updateGuildCount(); // 一時的にコメントアウト
 
   // --- 起動時ハイドレーション: Redis からアクティブな募集を読み込み、gameRecruit モジュールの recruitParticipants を初期化 ---
