@@ -7,11 +7,30 @@ module.exports = {
     } catch (_) {}
 
     // デデュープ: すでに処理済みのインタラクションIDなら無視
-    if (client.processedInteractions.has(interaction.id)) {
-      return;
+    try {
+      const hasSet = client && client.processedInteractions && client.processedInteractions.has && client.processedInteractions.has(interaction.id);
+      console.log(`[interactionCreate] dedupe check - interaction.id=${interaction.id}, alreadyProcessed=${hasSet}`);
+      if (hasSet) {
+        console.log(`[interactionCreate] Skipping already-processed interaction id=${interaction.id}`);
+        return;
+      }
+      if (client && client.processedInteractions && typeof client.processedInteractions.add === 'function') {
+        client.processedInteractions.add(interaction.id);
+        console.log(`[interactionCreate] Added interaction.id to processedInteractions: ${interaction.id}`);
+        setTimeout(() => {
+          try {
+            client.processedInteractions.delete(interaction.id);
+            console.log(`[interactionCreate] Removed interaction.id from processedInteractions: ${interaction.id}`);
+          } catch (e) {
+            console.warn('[interactionCreate] Failed to remove interaction id from processedInteractions', e?.message || e);
+          }
+        }, client.DEDUPE_TTL_MS);
+      } else {
+        console.warn('[interactionCreate] processedInteractions set not available on client');
+      }
+    } catch (e) {
+      console.error('[interactionCreate] Error during dedupe check:', e);
     }
-    client.processedInteractions.add(interaction.id);
-    setTimeout(() => client.processedInteractions.delete(interaction.id), client.DEDUPE_TTL_MS);
 
     // 二重応答(40060)を避けるための安全な返信関数
     const safeRespond = async (payload) => {
