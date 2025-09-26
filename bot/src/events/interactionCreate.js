@@ -32,6 +32,8 @@ module.exports = {
         throw e;
       }
     };
+  // ギルド設定コマンド解決ヘルパー（setting が優先）
+  const getGuildSettingsCommand = () => client.commands.get('setting') || client.commands.get('rect-setting');
     // スラッシュコマンドの処理
     if (interaction.isChatInputCommand()) {
       const command = client.commands.get(interaction.commandName);
@@ -51,7 +53,6 @@ module.exports = {
     if (interaction.isStringSelectMenu()) {
       // ギルド設定のセレクトメニュー
       if (interaction.customId.startsWith('channel_select_') || interaction.customId.startsWith('role_select_')) {
-        const getGuildSettingsCommand = () => client.commands.get('rect-setting') || client.commands.get('setting');
         const guildSettings = getGuildSettingsCommand();
         if (guildSettings && typeof guildSettings.handleSelectMenuInteraction === 'function') {
           try {
@@ -61,6 +62,9 @@ module.exports = {
             console.error('エラーの詳細:', error.stack);
             await safeRespond({ content: 'メニュー処理でエラーが発生しました。', flags: require('discord.js').MessageFlags.Ephemeral }).catch(()=>{});
           }
+        }
+        else {
+          console.warn('[interactionCreate] guildSettings handler not found for select menu. Available commands:', [...client.commands.keys()].join(', '));
         }
         return;
       }
@@ -87,7 +91,6 @@ module.exports = {
       
       // ギルド設定のセレクトメニュー
       if (interaction.customId.startsWith('channel_select_') || interaction.customId.startsWith('role_select_')) {
-        const getGuildSettingsCommand = () => client.commands.get('rect-setting') || client.commands.get('setting');
         const guildSettings = getGuildSettingsCommand();
         if (guildSettings && typeof guildSettings.handleSelectMenuInteraction === 'function') {
           try {
@@ -98,6 +101,9 @@ module.exports = {
             await safeRespond({ content: 'メニュー処理でエラーが発生しました。', flags: require('discord.js').MessageFlags.Ephemeral }).catch(()=>{});
           }
         }
+        else {
+          console.warn('[interactionCreate] guildSettings handler not found for role/channel select. Available commands:', [...client.commands.keys()].join(', '));
+        }
       }
       return;
     }
@@ -106,7 +112,6 @@ module.exports = {
     if ((interaction.isModalSubmit && interaction.isModalSubmit()) || interaction.type === 5) {
       // ギルド設定のモーダル処理
       if (interaction.customId === 'default_title_modal' || interaction.customId === 'default_color_modal') {
-        const getGuildSettingsCommand = () => client.commands.get('rect-setting') || client.commands.get('setting');
         const guildSettings = getGuildSettingsCommand();
         if (guildSettings && typeof guildSettings.handleModalSubmit === 'function') {
           try {
@@ -116,6 +121,9 @@ module.exports = {
             if (error && error.stack) console.error(error.stack);
             await safeRespond({ content: `モーダル処理でエラー: ${error.message || error}`, flags: require('discord.js').MessageFlags.Ephemeral }).catch(()=>{});
           }
+        }
+        else {
+          console.warn('[interactionCreate] guildSettings handler not found for modal. Available commands:', [...client.commands.keys()].join(', '));
         }
         return;
       }
@@ -216,7 +224,6 @@ module.exports = {
       }
       // ギルド設定のボタン処理
       if (interaction.customId.startsWith('set_') || interaction.customId === 'reset_all_settings' || interaction.customId === 'finalize_settings') {
-        const getGuildSettingsCommand = () => client.commands.get('rect-setting') || client.commands.get('setting');
         const guildSettings = getGuildSettingsCommand();
         if (guildSettings) {
           try {
@@ -232,6 +239,8 @@ module.exports = {
             console.error('エラーの詳細:', error.stack);
             await safeRespond({ content: 'ボタン処理でエラーが発生しました。', flags: require('discord.js').MessageFlags.Ephemeral }).catch(()=>{});
           }
+        } else {
+          console.warn('[interactionCreate] guildSettings handler not found for button. Available commands:', [...client.commands.keys()].join(', '));
         }
         return;
       }
