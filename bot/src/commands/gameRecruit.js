@@ -637,38 +637,24 @@ module.exports = {
   }
   console.log('現在の参加者リスト:', participants);
   const { getActiveRecruits, getGuildSettings } = require('../utils/db');
-  // 最新の募集データをKVまたはRedisから取得（APIの戻り値が配列でない場合に備えた防御処理）
+  // 最新の募集データはまず Redis から直接取得（外部 API 呼び出しを避け、レスポンスを高速化）
   let savedRecruitData = null;
-  let allRecruits = [];
   try {
-    const res = await getActiveRecruits();
-    if (Array.isArray(res)) {
-      allRecruits = res;
-    } else if (res && Array.isArray(res.recruits)) {
-      allRecruits = res.recruits;
-    } else if (res && Array.isArray(res.data)) {
-      allRecruits = res.data;
-    } else if (res && typeof res === 'object') {
-      allRecruits = Object.values(res);
-    } else {
-      // 期待する配列が返らない場合は Redis からのフォールバック取得を試みる
+    const recruitId = String(messageId).slice(-8);
+    savedRecruitData = await getRecruitFromRedis(recruitId);
+    if (!savedRecruitData) {
+      // フォールバックで全件から探す（稀なケース）
       try {
-        allRecruits = await listRecruitsFromRedis();
+        const all = await listRecruitsFromRedis();
+        savedRecruitData = all.find(r => r && (r.message_id === messageId || r.messageId === messageId || r.recruitId === String(messageId).slice(-8)));
       } catch (e) {
-        console.warn('listRecruitsFromRedis failed:', e?.message || e);
-        allRecruits = [];
+        console.warn('listRecruitsFromRedis fallback failed:', e?.message || e);
       }
     }
   } catch (e) {
-    console.warn('getActiveRecruits failed or returned unexpected shape:', e?.message || e);
-    try {
-      allRecruits = await listRecruitsFromRedis();
-    } catch (err) {
-      console.warn('listRecruitsFromRedis fallback failed:', err?.message || err);
-      allRecruits = [];
-    }
+    console.warn('getRecruitFromRedis failed:', e?.message || e);
+    savedRecruitData = null;
   }
-  savedRecruitData = allRecruits.find(r => r && (r.message_id === messageId || r.messageId === messageId));
 
   switch (interaction.customId) {
       case "join": {
@@ -677,56 +663,53 @@ module.exports = {
           participants.push(interaction.user.id);
           recruitParticipants.set(messageId, participants);
           console.log('参加者追加:', interaction.user.id, '現在の参加者:', participants);
-          // Redisに保存
-          try { await saveParticipantsToRedis(messageId, participants); } catch (e) { console.warn('参加者保存失敗:', e?.message || e); }
-          // 募集データを取得して募集主に通知
-          if (savedRecruitData && savedRecruitData.recruiterId) {
-            // embed color should match panel accent color when available
-            const joinColor = (() => {
-              try {
-                const col = savedRecruitData?.panelColor || (guildSettings && guildSettings.defaultColor) || '000000';
-                const cleaned = (typeof col === 'string' && col.startsWith('#')) ? col.slice(1) : col;
-                return /^[0-9A-Fa-f]{6}$/.test(cleaned) ? parseInt(cleaned, 16) : 0x00FF00;
-              } catch (_) { return 0x00FF00; }
-            })();
-            const joinEmbed = new EmbedBuilder()
-              .setColor(joinColor)
-              .setTitle('🎮 新しい参加者がいます！')
-              .setDescription(`<@${interaction.user.id}> が募集に参加しました！`)
-              .addFields(
-                { name: '募集タイトル', value: savedRecruitData.title, inline: false },
-                { name: '現在の参加者数', value: `${participants.length}/${savedRecruitData.participants}人`, inline: true }
-              )
-              .setTimestamp();
+          // Redisに保存（非同期で行い、応答をブロックしない）
+          saveParticipantsToRedis(messageId, participants).catch(e => console.warn('参加者保存失敗 (async):', e?.message || e));
 
-            let notificationMessage = null;
-            try {
-              notificationMessage = await safeReply(interaction, {
-                content: `<@${savedRecruitData.recruiterId}>`,
-                embeds: [joinEmbed],
-                allowedMentions: { users: [savedRecruitData.recruiterId] }
-              });
-            } catch (e) {
-              console.warn('safeReply failed during join handling:', e?.message || e);
+          // まずはユーザーに素早く応答
+          try {
+            if (interaction.deferred) {
+              await interaction.editReply({ content: '✅ 参加しました！' });
+            } else {
+              await safeReply(interaction, { content: '✅ 参加しました！', flags: MessageFlags.Ephemeral, allowedMentions: { roles: [], users: [] } });
             }
+          } catch (e) {
+            console.warn('quick reply failed:', e?.message || e);
+          }
 
-            // 3分後に通知メッセージを削除（notificationMessage が取得できた場合のみ）
-            setTimeout(async () => {
+          // 募集主への通知はバックグラウンドで行う（ボタンクリック応答をブロックしない）
+          if (savedRecruitData && savedRecruitData.recruiterId) {
+            (async () => {
               try {
-                if (notificationMessage && typeof notificationMessage.delete === 'function') {
-                  await notificationMessage.delete();
+                const joinColor = (() => {
+                  try {
+                    const col = savedRecruitData?.panelColor || (guildSettings && guildSettings.defaultColor) || '000000';
+                    const cleaned = (typeof col === 'string' && col.startsWith('#')) ? col.slice(1) : col;
+                    return /^[0-9A-Fa-f]{6}$/.test(cleaned) ? parseInt(cleaned, 16) : 0x00FF00;
+                  } catch (_) { return 0x00FF00; }
+                })();
+                const joinEmbed = new EmbedBuilder()
+                  .setColor(joinColor)
+                  .setTitle('🎮 新しい参加者がいます！')
+                  .setDescription(`<@${interaction.user.id}> が募集に参加しました！`)
+                  .addFields(
+                    { name: '募集タイトル', value: savedRecruitData.title, inline: false },
+                    { name: '現在の参加者数', value: `${participants.length}/${savedRecruitData.participants}人`, inline: true }
+                  )
+                  .setTimestamp();
+
+                const client = interaction.client;
+                const recruiterUser = await client.users.fetch(savedRecruitData.recruiterId).catch(() => null);
+                if (recruiterUser && recruiterUser.send) {
+                  await recruiterUser.send({ content: `あなたの募集に参加者が増えました: ${savedRecruitData.title || ''}`, embeds: [joinEmbed] }).catch(() => null);
+                } else {
+                  // as fallback, try to send ephemeral reply to interaction (non-blocking)
+                  console.log('[notify] recruiter not DMable, skipping DM');
                 }
-              } catch (error) {
-                console.log('通知メッセージの削除に失敗:', error.message);
+              } catch (e) {
+                console.warn('background recruiter notify failed:', e?.message || e);
               }
-            }, 3 * 60 * 1000); // 3分 = 180,000ms
-          } else {
-            // フォールバック
-            await safeReply(interaction, { 
-              content: "✅ 参加しました！", 
-              flags: MessageFlags.Ephemeral,
-              allowedMentions: { roles: [], users: [] }
-            });
+            })();
           }
         } else {
           console.log('既に参加済み:', interaction.user.id);
@@ -736,7 +719,8 @@ module.exports = {
             allowedMentions: { roles: [], users: [] }
           });
         }
-  await updateParticipantList(interaction, participants, savedRecruitData);
+  // 非同期で参加者リスト更新（レスポンスをブロックしない）
+  updateParticipantList(interaction, participants, savedRecruitData).catch(e => console.warn('updateParticipantList failed (async):', e?.message || e));
         break;
       }
       case "cancel": {
@@ -758,55 +742,50 @@ module.exports = {
           // 実際に削除された場合
           recruitParticipants.set(messageId, participants);
           console.log('参加者削除:', interaction.user.id, '削除前:', beforeLength, '削除後:', participants.length);
-          try { await saveParticipantsToRedis(messageId, participants); } catch (e) { console.warn('参加者保存失敗:', e?.message || e); }
-          
-          // 募集データを取得して募集主に通知
-          if (savedRecruitData && savedRecruitData.recruiterId) {
-            const cancelColor = (() => {
-              try {
-                const col = savedRecruitData?.panelColor || (guildSettings && guildSettings.defaultColor) || '000000';
-                const cleaned = (typeof col === 'string' && col.startsWith('#')) ? col.slice(1) : col;
-                return /^[0-9A-Fa-f]{6}$/.test(cleaned) ? parseInt(cleaned, 16) : 0xFF6B35;
-              } catch (_) { return 0xFF6B35; }
-            })();
-            const cancelEmbed = new EmbedBuilder()
-              .setColor(cancelColor)
-              .setTitle('📤 参加者がキャンセルしました')
-              .setDescription(`<@${interaction.user.id}> が募集から離脱しました。`)
-              .addFields(
-                { name: '募集タイトル', value: savedRecruitData.title, inline: false },
-                { name: '現在の参加者数', value: `${participants.length}/${savedRecruitData.participants}人`, inline: true }
-              )
-              .setTimestamp();
+          // Redis に非同期で保存（応答をブロックしない）
+          saveParticipantsToRedis(messageId, participants).catch(e => console.warn('参加者保存失敗 (async):', e?.message || e));
 
-            let notificationMessage = null;
-            try {
-              notificationMessage = await safeReply(interaction, {
-                content: `<@${savedRecruitData.recruiterId}>`,
-                embeds: [cancelEmbed],
-                allowedMentions: { users: [savedRecruitData.recruiterId] }
-              });
-            } catch (e) {
-              console.warn('safeReply failed during cancel handling:', e?.message || e);
+          // ユーザーへ素早く応答
+          try {
+            if (interaction.deferred) {
+              await interaction.editReply({ content: '✅ 参加を取り消しました。' });
+            } else {
+              await safeReply(interaction, { content: '✅ 参加を取り消しました。', flags: MessageFlags.Ephemeral, allowedMentions: { roles: [], users: [] } });
             }
+          } catch (e) {
+            console.warn('quick cancel reply failed:', e?.message || e);
+          }
 
-            // 3分後に通知メッセージを削除（notificationMessage が取得できた場合のみ）
-            setTimeout(async () => {
+          // 募集主への通知はバックグラウンドで行う
+          if (savedRecruitData && savedRecruitData.recruiterId) {
+            (async () => {
               try {
-                if (notificationMessage && typeof notificationMessage.delete === 'function') {
-                  await notificationMessage.delete();
+                const cancelColor = (() => {
+                  try {
+                    const col = savedRecruitData?.panelColor || (guildSettings && guildSettings.defaultColor) || '000000';
+                    const cleaned = (typeof col === 'string' && col.startsWith('#')) ? col.slice(1) : col;
+                    return /^[0-9A-Fa-f]{6}$/.test(cleaned) ? parseInt(cleaned, 16) : 0xFF6B35;
+                  } catch (_) { return 0xFF6B35; }
+                })();
+                const cancelEmbed = new EmbedBuilder()
+                  .setColor(cancelColor)
+                  .setTitle('📤 参加者がキャンセルしました')
+                  .setDescription(`<@${interaction.user.id}> が募集から離脱しました。`)
+                  .addFields(
+                    { name: '募集タイトル', value: savedRecruitData.title, inline: false },
+                    { name: '現在の参加者数', value: `${participants.length}/${savedRecruitData.participants}人`, inline: true }
+                  )
+                  .setTimestamp();
+
+                const client = interaction.client;
+                const recruiterUser = await client.users.fetch(savedRecruitData.recruiterId).catch(() => null);
+                if (recruiterUser && recruiterUser.send) {
+                  await recruiterUser.send({ content: `あなたの募集から参加者が離脱しました: ${savedRecruitData.title || ''}`, embeds: [cancelEmbed] }).catch(() => null);
                 }
-              } catch (error) {
-                console.log('通知メッセージの削除に失敗:', error.message);
+              } catch (e) {
+                console.warn('background cancel notify failed:', e?.message || e);
               }
-            }, 3 * 60 * 1000); // 3分 = 180,000ms
-          } else {
-            // フォールバック
-            await safeReply(interaction, { 
-              content: "❌ 取り消しました。", 
-              flags: MessageFlags.Ephemeral,
-              allowedMentions: { roles: [], users: [] }
-            });
+            })();
           }
         } else {
           // 元々参加していない場合
@@ -816,7 +795,8 @@ module.exports = {
             allowedMentions: { roles: [], users: [] }
           });
         }
-  await updateParticipantList(interaction, participants, savedRecruitData);
+  // 非同期で参加者リスト更新（レスポンスをブロックしない）
+  updateParticipantList(interaction, participants, savedRecruitData).catch(e => console.warn('updateParticipantList failed (async):', e?.message || e));
         break;
       }
       case "close": {
