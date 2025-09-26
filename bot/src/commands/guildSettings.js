@@ -200,6 +200,7 @@ module.exports = {
     const { customId } = interaction;
 
     try {
+      console.log(`[guildSettings] handleButtonInteraction called - customId: ${customId}`);
       switch (customId) {
         case 'set_recruit_channel':
           await this.showChannelSelect(interaction, 'recruit_channel', '📍 募集チャンネルを選択してください');
@@ -264,6 +265,7 @@ module.exports = {
   },
 
   async showTitleModal(interaction) {
+    console.log('[guildSettings] showTitleModal called');
     const modal = new ModalBuilder()
       .setCustomId('default_title_modal')
       .setTitle('📝 既定タイトル設定');
@@ -284,6 +286,7 @@ module.exports = {
   },
 
   async showColorModal(interaction) {
+    console.log('[guildSettings] showColorModal called');
     const modal = new ModalBuilder()
       .setCustomId('default_color_modal')
       .setTitle('🎨 既定カラー設定');
