@@ -65,6 +65,7 @@ module.exports = {
         }
         else {
           console.warn('[interactionCreate] guildSettings handler not found for select menu. Available commands:', [...client.commands.keys()].join(', '));
+          await safeRespond({ content: '設定ハンドラが見つかりませんでした。ボットが正しく読み込まれているか管理者に確認してください。', flags: require('discord.js').MessageFlags.Ephemeral }).catch(()=>{});
         }
         return;
       }
@@ -103,6 +104,7 @@ module.exports = {
         }
         else {
           console.warn('[interactionCreate] guildSettings handler not found for role/channel select. Available commands:', [...client.commands.keys()].join(', '));
+          await safeRespond({ content: '設定ハンドラが見つかりませんでした。ボットが正しく読み込まれているか管理者に確認してください。', flags: require('discord.js').MessageFlags.Ephemeral }).catch(()=>{});
         }
       }
       return;
@@ -124,6 +126,7 @@ module.exports = {
         }
         else {
           console.warn('[interactionCreate] guildSettings handler not found for modal. Available commands:', [...client.commands.keys()].join(', '));
+          await safeRespond({ content: '設定ハンドラが見つかりませんでした。ボットが正しく読み込まれているか管理者に確認してください。', flags: require('discord.js').MessageFlags.Ephemeral }).catch(()=>{});
         }
         return;
       }
@@ -241,6 +244,7 @@ module.exports = {
           }
         } else {
           console.warn('[interactionCreate] guildSettings handler not found for button. Available commands:', [...client.commands.keys()].join(', '));
+          await safeRespond({ content: '設定ハンドラが見つかりませんでした。ボットが正しく読み込まれているか管理者に確認してください。', flags: require('discord.js').MessageFlags.Ephemeral }).catch(()=>{});
         }
         return;
       }
