@@ -174,7 +174,22 @@ async function pushRecruitToWebAPI(recruitData) {
 
 // --- Supabase/BackendAPI経由の募集データ保存・取得・削除・更新 ---
 const { createClient } = require('@supabase/supabase-js');
-const supabase = createClient(config.SUPABASE_URL, config.SUPABASE_SERVICE_ROLE_KEY);
+// Lazy supabase client: create only when needed to avoid throwing at module load time
+let _supabaseClient = null;
+function getSupabase() {
+	if (_supabaseClient) return _supabaseClient;
+	try {
+		if (!config.SUPABASE_URL || !config.SUPABASE_SERVICE_ROLE_KEY) {
+			console.warn('getSupabase: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not configured');
+			return null;
+		}
+		_supabaseClient = createClient(config.SUPABASE_URL, config.SUPABASE_SERVICE_ROLE_KEY);
+		return _supabaseClient;
+	} catch (e) {
+		console.warn('getSupabase: failed to create client', e?.message || e);
+		return null;
+	}
+}
 
 // 募集状況を保存
 async function saveRecruitStatus(serverId, channelId, messageId, startTime) {
@@ -375,8 +390,9 @@ async function getActiveRecruits() {
 	return json;
 }
 
+
 module.exports = {
-	supabase,
+	getSupabase,
 	saveRecruitStatus,
 	deleteRecruitStatus,
 	getActiveRecruits,
@@ -402,4 +418,5 @@ module.exports = {
 	RECRUIT_TTL_SECONDS,
 	cleanupExpiredRecruits
 };
+
 
