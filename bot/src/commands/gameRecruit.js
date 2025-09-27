@@ -605,18 +605,7 @@ module.exports = {
     console.log('=== ボタンクリック処理開始 ===');
     console.log('ボタンクリック - メッセージID:', messageId);
     console.log('ボタンクリック - ボタンID:', interaction.customId);
-    // 処理に時間がかかる可能性があるため、最初に defer して Unknown interaction(10062) を減らす
-    try {
-      if (interaction && !interaction.deferred && !interaction.replied) {
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-      }
-    } catch (e) {
-      if (e && e.code === 10062) {
-        console.warn('handleButton: deferReply failed - Unknown interaction (ignored)');
-      } else {
-        console.warn('handleButton: deferReply failed:', e?.message || e);
-      }
-    }
+    // ボタン処理は可能な限り即時応答（ephemeral reply）で返す。deferReply は使用しない。
   // KV化のためrecruitDataは参照しない
   console.log('保存されている参加者データのキー:', Array.from(recruitParticipants.keys()));
     
@@ -668,11 +657,8 @@ module.exports = {
 
           // まずはユーザーに素早く応答
           try {
-            if (interaction.deferred) {
-              await interaction.editReply({ content: '✅ 参加しました！' });
-            } else {
-              await safeReply(interaction, { content: '✅ 参加しました！', flags: MessageFlags.Ephemeral, allowedMentions: { roles: [], users: [] } });
-            }
+            // 常に safeReply を使って即時（エフェメラル）に応答する。deferReply は用いない。
+            await safeReply(interaction, { content: '✅ 参加しました！', flags: MessageFlags.Ephemeral, allowedMentions: { roles: [], users: [] } });
           } catch (e) {
             console.warn('quick reply failed:', e?.message || e);
           }
@@ -747,11 +733,8 @@ module.exports = {
 
           // ユーザーへ素早く応答
           try {
-            if (interaction.deferred) {
-              await interaction.editReply({ content: '✅ 参加を取り消しました。' });
-            } else {
-              await safeReply(interaction, { content: '✅ 参加を取り消しました。', flags: MessageFlags.Ephemeral, allowedMentions: { roles: [], users: [] } });
-            }
+            // 常に safeReply を使って即時（エフェメラル）に応答する。deferReply は用いない。
+            await safeReply(interaction, { content: '✅ 参加を取り消しました。', flags: MessageFlags.Ephemeral, allowedMentions: { roles: [], users: [] } });
           } catch (e) {
             console.warn('quick cancel reply failed:', e?.message || e);
           }
