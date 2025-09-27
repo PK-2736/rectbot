@@ -47,9 +47,15 @@ const redis = new Redis({
 	db: process.env.REDIS_DB || 0
 });
 
-// 募集データをRedisに保存
+// TTL for recruit and participants keys (seconds). Default: 8 hours
+const RECRUIT_TTL_SECONDS = Number(process.env.REDIS_RECRUIT_TTL_SECONDS || 8 * 60 * 60);
+
+// 募集データをRedisに保存（TTLを設定）
 async function saveRecruitToRedis(recruitId, data) {
-	await redis.set(`recruit:${recruitId}`, JSON.stringify(data));
+	const key = `recruit:${recruitId}`;
+	const value = JSON.stringify(data);
+	// EX オプションで TTL を設定（秒）
+	await redis.set(key, value, 'EX', RECRUIT_TTL_SECONDS);
 }
 
 // 募集データをRedisから取得
@@ -76,9 +82,12 @@ async function deleteRecruitFromRedis(recruitId) {
 	await redis.del(`recruit:${recruitId}`);
 }
 
-// 参加者リストをRedisに保存
+// 参加者リストをRedisに保存（TTLを設定）
 async function saveParticipantsToRedis(messageId, participants) {
-	await redis.set(`participants:${messageId}`, JSON.stringify(participants));
+	const key = `participants:${messageId}`;
+	const value = JSON.stringify(participants);
+	// 参加者リストも募集と同じ TTL を付与
+	await redis.set(key, value, 'EX', RECRUIT_TTL_SECONDS);
 }
 
 // 参加者リストをRedisから取得
@@ -91,6 +100,53 @@ async function getParticipantsFromRedis(messageId) {
 async function deleteParticipantsFromRedis(messageId) {
 	await redis.del(`participants:${messageId}`);
 }
+
+// Cleanup: remove recruit and participant keys that are expired or stale.
+// Note: Redis will usually evict expired keys automatically, but for safety
+// we scan for keys and ensure any keys without values are removed.
+async function cleanupExpiredRecruits() {
+	try {
+		// Find all recruit keys
+		const recruitKeys = await listRecruitIdsFromRedis();
+		for (const key of recruitKeys) {
+			const ttl = await redis.ttl(key);
+			// ttl === -2 means key does not exist, -1 means no expire
+			if (ttl === -2) {
+				// already removed
+				continue;
+			}
+			// If TTL is -1 (no expiry) and we want to enforce TTL, set it now
+			if (ttl === -1) {
+				await redis.expire(key, RECRUIT_TTL_SECONDS);
+				continue;
+			}
+			// If TTL is set and <= 0, delete the key
+			if (ttl <= 0) {
+				await redis.del(key);
+			}
+		}
+
+		// Participants keys
+		const participantKeys = await redis.keys('participants:*');
+		for (const key of participantKeys) {
+			const ttl = await redis.ttl(key);
+			if (ttl === -2) continue;
+			if (ttl === -1) {
+				await redis.expire(key, RECRUIT_TTL_SECONDS);
+				continue;
+			}
+			if (ttl <= 0) {
+				await redis.del(key);
+			}
+		}
+		console.log('[db.js] cleanupExpiredRecruits: completed');
+	} catch (e) {
+		console.warn('[db.js] cleanupExpiredRecruits failed:', e?.message || e);
+	}
+}
+
+// Run one-time cleanup at startup (non-blocking)
+cleanupExpiredRecruits().catch(() => {});
 
 // Worker APIにデータをpushする汎用関数
 async function pushRecruitToWebAPI(recruitData) {
@@ -341,5 +397,9 @@ module.exports = {
 	// 参加者リスト永続化
 	saveParticipantsToRedis,
 	getParticipantsFromRedis,
-	deleteParticipantsFromRedis
+	deleteParticipantsFromRedis,
+	// TTL / cleanup utilities
+	RECRUIT_TTL_SECONDS,
+	cleanupExpiredRecruits
 };
+
