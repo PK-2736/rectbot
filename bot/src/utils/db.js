@@ -23,8 +23,16 @@ async function finalizeGuildSettings(guildId) {
 	// ここでSupabase/BackendAPIに保存するAPIを呼び出す
 	// 例: /api/guild-settings/finalize
 	const config = require('../config');
-	const url = `${config.BACKEND_API_URL.replace(/\/$/, '')}/api/guild-settings/finalize`;
-	const payload = { guildId, ...settings };
+		const url = `${config.BACKEND_API_URL.replace(/\/$/, '')}/api/guild-settings/finalize`;
+		// Build payload but exclude null/undefined values to avoid overwriting existing DB values with null
+		const payload = { guildId };
+		const allowedKeys = ['update_channel', 'recruit_channel', 'defaultColor', 'notification_role', 'defaultTitle'];
+		for (const k of allowedKeys) {
+			if (settings && Object.prototype.hasOwnProperty.call(settings, k)) {
+				const v = settings[k];
+				if (v !== undefined && v !== null) payload[k] = v;
+			}
+		}
 	try {
 		console.log('[finalizeGuildSettings] POST', url);
 		console.log('[finalizeGuildSettings] payload sample:', Object.keys(payload));
