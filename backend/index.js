@@ -652,24 +652,31 @@ export default {
           
           let supaRes;
           if (existingData && existingData.length > 0) {
-            // 更新操作
+            // 更新操作: null/undefined のフィールドは送らず、既存値を保持する
             console.log(`[finalize] Updating existing guild settings for ${guildId}`);
-            supaRes = await fetch(env.SUPABASE_URL + `/rest/v1/guild_settings?guild_id=eq.${guildId}`, {
-              method: 'PATCH',
-              headers: {
-                'apikey': env.SUPABASE_SERVICE_ROLE_KEY,
-                'Authorization': `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                recruit_channel_id: finalSettings.recruitmentChannelId,
-                notification_role_id: finalSettings.recruitmentNotificationRoleId,
-                default_title: finalSettings.defaultRecruitTitle,
-                default_color: finalSettings.defaultRecruitColor,
-                update_channel_id: finalSettings.updateNotificationChannelId,
-                updated_at: new Date().toISOString()
-              })
-            });
+            const patchBody = {};
+            if (finalSettings.recruitmentChannelId !== undefined && finalSettings.recruitmentChannelId !== null) patchBody.recruit_channel_id = finalSettings.recruitmentChannelId;
+            if (finalSettings.recruitmentNotificationRoleId !== undefined && finalSettings.recruitmentNotificationRoleId !== null) patchBody.notification_role_id = finalSettings.recruitmentNotificationRoleId;
+            if (finalSettings.defaultRecruitTitle !== undefined && finalSettings.defaultRecruitTitle !== null) patchBody.default_title = finalSettings.defaultRecruitTitle;
+            if (finalSettings.defaultRecruitColor !== undefined && finalSettings.defaultRecruitColor !== null) patchBody.default_color = finalSettings.defaultRecruitColor;
+            if (finalSettings.updateNotificationChannelId !== undefined && finalSettings.updateNotificationChannelId !== null) patchBody.update_channel_id = finalSettings.updateNotificationChannelId;
+            patchBody.updated_at = new Date().toISOString();
+
+            // If patchBody contains only updated_at (no real fields), skip patch to avoid touching DB
+            if (Object.keys(patchBody).length === 1) {
+              console.log(`[finalize] No non-null fields to update for ${guildId}, skipping PATCH`);
+              supaRes = { ok: true, status: 204, text: async () => '' };
+            } else {
+              supaRes = await fetch(env.SUPABASE_URL + `/rest/v1/guild_settings?guild_id=eq.${guildId}`, {
+                method: 'PATCH',
+                headers: {
+                  'apikey': env.SUPABASE_SERVICE_ROLE_KEY,
+                  'Authorization': `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(patchBody)
+              });
+            }
           } else {
             // 新規作成
             console.log(`[finalize] Creating new guild settings for ${guildId}`);
