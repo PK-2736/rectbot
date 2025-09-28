@@ -35,9 +35,9 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps) {
   // 募集データを取得する関数
   const fetchRecruitments = async () => {
     try {
-      // バックエンドAPIに直接アクセス
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'https://rectbot-backend.rectbot-owner.workers.dev';
-      const response = await fetch(`${backendUrl}/api/recruitment`);
+  // Express サーバの Redis キャッシュを直接取得（Workers KV を参照しない）
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:3000';
+  const response = await fetch(`${backendUrl.replace(/\/$/, '')}/api/redis/recruitment`);
       if (response.ok) {
         const data = await response.json();
         setRecruitments(Array.isArray(data) ? data : []);
@@ -50,31 +50,27 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps) {
   };
 
   // ギルド数を取得する関数
-  const fetchGuildCount = async () => {
-    try {
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'https://rectbot-backend.rectbot-owner.workers.dev';
-      const response = await fetch(`${backendUrl}/api/guild-count`);
-      if (response.ok) {
-        const data = await response.json();
-        setGuildCount(data.count || 0);
-      } else {
-        console.error('Failed to fetch guild count:', response.statusText);
-      }
-    } catch (error) {
-      console.error('Error fetching guild count:', error);
-    }
+  // ギルド数は Redis から取得した募集一覧から計算する（Worker 側の KV を使わない）
+  const computeGuildCountFromRecruitments = () => {
+    const uniqueGuilds = new Set(recruitments.map(r => r.guild_id));
+    setGuildCount(uniqueGuilds.size);
   };
 
   // 手動クリーンアップ関数
   const performCleanup = async () => {
     setIsCleaningUp(true);
     try {
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'https://rectbot-backend.rectbot-owner.workers.dev';
-      const response = await fetch(`${backendUrl}/api/recruitment/cleanup`, {
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:3000';
+  // call the server's protected cleanup runner. If NEXT_PUBLIC_DEPLOY_SECRET is set at build-time,
+  // include it as x-deploy-secret. (This is intended for admin usage; do not expose secrets publicly.)
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  const publicSecret = process.env.NEXT_PUBLIC_DEPLOY_SECRET;
+  if (publicSecret) headers['x-deploy-secret'] = publicSecret;
+
+  const response = await fetch(`${backendUrl.replace(/\/$/, '')}/internal/cleanup/run`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
+        body: JSON.stringify({}),
       });
       
       if (response.ok) {
@@ -97,12 +93,13 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps) {
   useEffect(() => {
     // 初回データ取得
     fetchRecruitments();
-    fetchGuildCount();
 
     const interval = setInterval(async () => {
       setIsLoading(true);
       try {
-        await Promise.all([fetchRecruitments(), fetchGuildCount()]);
+        await fetchRecruitments();
+        // compute derived stats from latest recruitments
+        computeGuildCountFromRecruitments();
       } catch (error) {
         console.error('Failed to fetch data:', error);
       } finally {

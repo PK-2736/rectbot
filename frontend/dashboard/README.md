@@ -13,7 +13,7 @@ DISCORD_CLIENT_SECRET=your_discord_client_secret
 NEXT_PUBLIC_DISCORD_REDIRECT_URI=https://dash.rectbot.tech/auth/callback
 
 # Backend API
-NEXT_PUBLIC_BACKEND_API_URL=https://your-backend-api.workers.dev
+NEXT_PUBLIC_BACKEND_API_URL=http://localhost:3000
 
 # 管理者ID（カンマ区切り）
 ADMIN_IDS=user_id_1,user_id_2,user_id_3
