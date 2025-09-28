@@ -184,8 +184,11 @@ module.exports = {
     const EXEMPT_GUILD_ID = '1414530004657766422';
     if (interaction.guildId !== EXEMPT_GUILD_ID) {
       const allRecruits = await listRecruitsFromRedis();
-      const guildActiveCount = allRecruits.filter(r => r.guildId === interaction.guildId && r.status === 'recruiting').length;
+      console.log('[gameRecruit.execute] listRecruitsFromRedis returned count:', Array.isArray(allRecruits) ? allRecruits.length : typeof allRecruits);
+      const guildActiveCount = Array.isArray(allRecruits) ? allRecruits.filter(r => (r.guildId === interaction.guildId || r.guild_id === interaction.guildId) && (r.status === 'recruiting' || r.status === 'active')).length : 0;
+      console.log('[gameRecruit.execute] computed guildActiveCount =', guildActiveCount);
       if (guildActiveCount >= 1) {
+        console.log('[gameRecruit.execute] blocking create due to existing active recruit');
         await safeReply(interaction, {
           content: '❌ このサーバーでは同時に実行できる募集は1件までです。既存の募集を締め切ってから新しい募集を作成してください。',
           flags: MessageFlags.Ephemeral,
@@ -197,9 +200,11 @@ module.exports = {
     try {
       // ギルド設定を取得
       const guildSettings = await getGuildSettings(interaction.guildId);
+      console.log('[gameRecruit.execute] guildSettings for', interaction.guildId, ':', guildSettings && { recruit_channel: guildSettings.recruit_channel, defaultTitle: guildSettings.defaultTitle });
 
       // 募集チャンネルが設定されている場合、そのチャンネルでのみ実行可能
       if (guildSettings.recruit_channel && guildSettings.recruit_channel !== interaction.channelId) {
+          console.log('[gameRecruit.execute] blocking create due to channel mismatch. required:', guildSettings.recruit_channel, 'current:', interaction.channelId);
           return await safeReply(interaction, {
             content: `❌ 募集はこのチャンネルでは実行できません。\n📍 募集専用チャンネル: <#${guildSettings.recruit_channel}>`,
             flags: MessageFlags.Ephemeral
