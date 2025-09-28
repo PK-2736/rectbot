@@ -44,7 +44,13 @@ async function finalizeGuildSettings(guildId) {
 
 		const res = await fetch(url, {
 			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
+			// attach service token if available so Worker that enforces SERVICE_TOKEN accepts this request
+			headers: (function(){
+				const h = { 'Content-Type': 'application/json' };
+				const svc = process.env.SERVICE_TOKEN || process.env.BACKEND_SERVICE_TOKEN || '';
+				if (svc) h['Authorization'] = `Bearer ${svc}`;
+				return h;
+			})(),
 			body: JSON.stringify(payload)
 		});
 

@@ -49,3 +49,4 @@ pnpm-debug.log*
 *.tmp
 *.lock
 .requirements.txt
+bot/pm2-server.config.js

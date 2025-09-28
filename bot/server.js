@@ -47,7 +47,7 @@ function requireInternalSecret(req, res, next) {
 }
 
 // expose cleanup endpoints
-app.get('/internal/cleanup/status', async (req, res) => {
+app.get('/internal/cleanup/status', requireInternalSecret, async (req, res) => {
   try {
     const status = db.getLastCleanupStatus ? db.getLastCleanupStatus() : { lastRun: null };
     res.json(status);
@@ -170,7 +170,7 @@ app.get('/internal/recruits/:id', async (req, res) => {
 });
 
 // Create or update recruit (body should contain recruit object)
-app.post('/internal/recruits', async (req, res) => {
+app.post('/internal/recruits', requireInternalSecret, async (req, res) => {
   try {
     const body = req.body || {};
     // determine recruitId: prefer body.recruitId, else derive from message_id or messageId
@@ -189,7 +189,7 @@ app.post('/internal/recruits', async (req, res) => {
 });
 
 // Delete recruit
-app.delete('/internal/recruits/:id', async (req, res) => {
+app.delete('/internal/recruits/:id', requireInternalSecret, async (req, res) => {
   try {
     const recruitId = normalizeRecruitId(req.params.id);
     await db.deleteRecruitFromRedis(recruitId);
@@ -201,7 +201,7 @@ app.delete('/internal/recruits/:id', async (req, res) => {
 });
 
 // Push recruit to backend API (Worker)
-app.post('/internal/recruits/:id/push', async (req, res) => {
+app.post('/internal/recruits/:id/push', requireInternalSecret, async (req, res) => {
   try {
     const recruitId = normalizeRecruitId(req.params.id);
     const recruit = await db.getRecruitFromRedis(recruitId);
@@ -215,7 +215,7 @@ app.post('/internal/recruits/:id/push', async (req, res) => {
 });
 
 // Participants: keys use full message ID
-app.get('/internal/participants/:messageId', async (req, res) => {
+app.get('/internal/participants/:messageId', requireInternalSecret, async (req, res) => {
   try {
     const messageId = req.params.messageId;
     const participants = await db.getParticipantsFromRedis(messageId);
@@ -226,7 +226,7 @@ app.get('/internal/participants/:messageId', async (req, res) => {
   }
 });
 
-app.post('/internal/participants/:messageId', async (req, res) => {
+app.post('/internal/participants/:messageId', requireInternalSecret, async (req, res) => {
   try {
     const messageId = req.params.messageId;
     const participants = Array.isArray(req.body) ? req.body : req.body.participants;
@@ -239,7 +239,7 @@ app.post('/internal/participants/:messageId', async (req, res) => {
   }
 });
 
-app.delete('/internal/participants/:messageId', async (req, res) => {
+app.delete('/internal/participants/:messageId', requireInternalSecret, async (req, res) => {
   try {
     const messageId = req.params.messageId;
     await db.deleteParticipantsFromRedis(messageId);
