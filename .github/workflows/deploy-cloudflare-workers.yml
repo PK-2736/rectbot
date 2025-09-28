@@ -45,7 +45,15 @@ jobs:
             value="${!2}"
             if [ -n "${value}" ]; then
               echo "Registering $name"
-              printf "%s" "${value}" | npx wrangler secret put "$name" --force
+              # retry up to 3 times on transient failures
+              attempts=0
+              until [ $attempts -ge 3 ]
+              do
+                printf "%s" "${value}" | npx wrangler secret put "$name" && break
+                attempts=$((attempts+1))
+                echo "Retry $attempts for $name..."
+                sleep 1
+              done
             else
               echo "Skipping $name (empty)"
             fi
@@ -90,15 +98,15 @@ jobs:
           cd backend
           # 手動トリガー時のみSecretを更新
           echo "Updating secrets..."
-          echo "${{ secrets.DISCORD_CLIENT_SECRET }}" | npx wrangler secret put DISCORD_CLIENT_SECRET --force || echo "DISCORD_CLIENT_SECRET update skipped"
-          echo "${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" | npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY --force || echo "SUPABASE_SERVICE_ROLE_KEY update skipped"
-          echo "${{ secrets.REACT_APP_DISCORD_CLIENT_ID }}" | npx wrangler secret put REACT_APP_DISCORD_CLIENT_ID --force || echo "REACT_APP_DISCORD_CLIENT_ID update skipped"
-          echo "${{ secrets.REACT_APP_DISCORD_REDIRECT_URI }}" | npx wrangler secret put REACT_APP_DISCORD_REDIRECT_URI --force || echo "REACT_APP_DISCORD_REDIRECT_URI update skipped"
-          echo "${{ secrets.SUPABASE_URL }}" | npx wrangler secret put SUPABASE_URL --force || echo "SUPABASE_URL update skipped"
+          echo "${{ secrets.DISCORD_CLIENT_SECRET }}" | npx wrangler secret put DISCORD_CLIENT_SECRET || echo "DISCORD_CLIENT_SECRET update skipped"
+          echo "${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" | npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY || echo "SUPABASE_SERVICE_ROLE_KEY update skipped"
+          echo "${{ secrets.REACT_APP_DISCORD_CLIENT_ID }}" | npx wrangler secret put REACT_APP_DISCORD_CLIENT_ID || echo "REACT_APP_DISCORD_CLIENT_ID update skipped"
+          echo "${{ secrets.REACT_APP_DISCORD_REDIRECT_URI }}" | npx wrangler secret put REACT_APP_DISCORD_REDIRECT_URI || echo "REACT_APP_DISCORD_REDIRECT_URI update skipped"
+          echo "${{ secrets.SUPABASE_URL }}" | npx wrangler secret put SUPABASE_URL || echo "SUPABASE_URL update skipped"
           # Optional: register internal secret used to authenticate Worker->Origin requests
-          echo "${{ secrets.INTERNAL_SECRET }}" | npx wrangler secret put INTERNAL_SECRET --force || echo "INTERNAL_SECRET update skipped"
+          echo "${{ secrets.INTERNAL_SECRET }}" | npx wrangler secret put INTERNAL_SECRET || echo "INTERNAL_SECRET update skipped"
           # Optional: register the origin URL as a secret/var if you prefer; useful to ensure Express origin is set in the Worker
-          echo "${{ secrets.EXPRESS_ORIGIN }}" | npx wrangler secret put EXPRESS_ORIGIN --force || echo "EXPRESS_ORIGIN update skipped"
+          echo "${{ secrets.EXPRESS_ORIGIN }}" | npx wrangler secret put EXPRESS_ORIGIN || echo "EXPRESS_ORIGIN update skipped"
           
       - name: Final deployment verification
         env:
