@@ -973,17 +973,20 @@ export default {
     // データマイグレーション用API（KV → Supabase）
     if (url.pathname === "/api/admin/migrate-guild-settings" && request.method === "POST") {
       try {
+        // オプション: ?delete_kv=true を付けると、移行成功したKVキーを削除します
+        const deleteKV = url.searchParams.get('delete_kv') === 'true';
+
         // KVから全ギルド設定を取得
         const list = await env.RECRUIT_KV.list({ prefix: 'guild_settings:' });
         const migrationResults = [];
-        
+
         for (const entry of list.keys) {
+          let guildId = entry.name.replace('guild_settings:', '');
           try {
             const kvData = await env.RECRUIT_KV.get(entry.name);
             if (kvData) {
               const settings = JSON.parse(kvData);
-              const guildId = entry.name.replace('guild_settings:', '');
-              
+
               // Supabase形式に変換
               const supabaseData = {
                 guild_id: guildId,
@@ -993,8 +996,8 @@ export default {
                 default_color: settings.defaultColor || settings.defaultRecruitColor || "#00FFFF",
                 update_channel_id: settings.update_channel || settings.updateNotificationChannelId
               };
-              
-              // Supabaseにupsert
+
+              // Supabaseにupsert（resolution=merge-duplicates で upsert 相当）
               const supaRes = await fetch(env.SUPABASE_URL + '/rest/v1/guild_settings', {
                 method: 'POST',
                 headers: {
@@ -1005,10 +1008,23 @@ export default {
                 },
                 body: JSON.stringify(supabaseData)
               });
-              
+
               if (supaRes.ok) {
                 migrationResults.push({ guildId, status: 'success' });
                 console.log(`Migrated guild settings for ${guildId}`);
+
+                // 成功した場合はオプションでKVを削除
+                if (deleteKV) {
+                  try {
+                    await env.RECRUIT_KV.delete(entry.name);
+                    console.log(`Deleted KV key ${entry.name} after migration`);
+                    migrationResults[migrationResults.length - 1].kv_deleted = true;
+                  } catch (delErr) {
+                    console.warn(`Failed to delete KV key ${entry.name}: ${delErr.message}`);
+                    migrationResults[migrationResults.length - 1].kv_deleted = false;
+                    migrationResults[migrationResults.length - 1].kv_delete_error = delErr.message;
+                  }
+                }
               } else {
                 migrationResults.push({ guildId, status: 'failed', error: supaRes.status });
                 console.error(`Failed to migrate guild ${guildId}: ${supaRes.status}`);
@@ -1019,10 +1035,11 @@ export default {
             migrationResults.push({ guildId: entry.name, status: 'error', error: entryError.message });
           }
         }
-        
+
         return new Response(JSON.stringify({ 
           ok: true, 
           message: `Migration completed. Processed ${migrationResults.length} guilds.`,
+          delete_kv: deleteKV,
           results: migrationResults 
         }), { 
           status: 200, 
