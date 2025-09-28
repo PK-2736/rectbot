@@ -32,6 +32,49 @@ jobs:
       - name: Install Wrangler
         run: cd backend && npm install wrangler
         
+      - name: Ensure wrangler secrets from GitHub Secrets
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          cd backend
+          set -euo pipefail
+          echo "Registering available secrets to Cloudflare (wrangler)..."
+          # helper function: register if non-empty
+          register_secret(){
+            name="$1"
+            value="${!2}"
+            if [ -n "${value}" ]; then
+              echo "Registering $name"
+              printf "%s" "${value}" | npx wrangler secret put "$name" --force
+            else
+              echo "Skipping $name (empty)"
+            fi
+          }
+
+          # Map of secret variable names -> GitHub secrets (environment variables expanded by Actions)
+          # Use bash indirection to read the corresponding GitHub Action secret env
+          DISCORD_CLIENT_SECRET="${{ secrets.DISCORD_CLIENT_SECRET }}"
+          SUPABASE_SERVICE_ROLE_KEY="${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}"
+          SUPABASE_URL="${{ secrets.SUPABASE_URL }}"
+          REACT_APP_DISCORD_CLIENT_ID="${{ secrets.REACT_APP_DISCORD_CLIENT_ID }}"
+          REACT_APP_DISCORD_REDIRECT_URI="${{ secrets.REACT_APP_DISCORD_REDIRECT_URI }}"
+          INTERNAL_SECRET="${{ secrets.INTERNAL_SECRET }}"
+          EXPRESS_CLIENT_ID="${{ secrets.EXPRESS_CLIENT_ID }}"
+          EXPRESS_CLIENT_SECRET="${{ secrets.EXPRESS_CLIENT_SECRET }}"
+          SERVICE_TOKEN="${{ secrets.SERVICE_TOKEN }}"
+          EXPRESS_ORIGIN="${{ secrets.EXPRESS_ORIGIN }}"
+
+          register_secret DISCORD_CLIENT_SECRET DISCORD_CLIENT_SECRET
+          register_secret SUPABASE_SERVICE_ROLE_KEY SUPABASE_SERVICE_ROLE_KEY
+          register_secret SUPABASE_URL SUPABASE_URL
+          register_secret REACT_APP_DISCORD_CLIENT_ID REACT_APP_DISCORD_CLIENT_ID
+          register_secret REACT_APP_DISCORD_REDIRECT_URI REACT_APP_DISCORD_REDIRECT_URI
+          register_secret INTERNAL_SECRET INTERNAL_SECRET
+          register_secret EXPRESS_CLIENT_ID EXPRESS_CLIENT_ID
+          register_secret EXPRESS_CLIENT_SECRET EXPRESS_CLIENT_SECRET
+          register_secret SERVICE_TOKEN SERVICE_TOKEN
+          register_secret EXPRESS_ORIGIN EXPRESS_ORIGIN
+
       - name: Deploy to Cloudflare Workers
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

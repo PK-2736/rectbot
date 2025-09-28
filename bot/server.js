@@ -17,6 +17,17 @@ function backendUrl(path) {
   return `${BACKEND_API_URL.replace(/\/$/, '')}${path.startsWith('/') ? path : '/' + path}`;
 }
 
+// helper to call backend (Worker) and automatically attach SERVICE_TOKEN if configured
+function backendFetch(pathOrUrl, opts = {}) {
+  const url = String(pathOrUrl).startsWith('http') ? pathOrUrl : backendUrl(pathOrUrl);
+  const headers = { ...(opts.headers || {}) };
+  const svc = process.env.SERVICE_TOKEN || process.env.BACKEND_SERVICE_TOKEN || '';
+  if (svc && !headers.authorization && !headers.Authorization) {
+    headers['Authorization'] = `Bearer ${svc}`;
+  }
+  return fetch(url, { ...opts, headers });
+}
+
 // Redis DB utilities from bot/src/utils/db.js
 const db = require('./src/utils/db');
 
@@ -83,7 +94,7 @@ function normalizeRecruitId(idOrMessageId) {
 // Health check - proxy to worker /api/test
 app.get('/api/health', async (req, res) => {
   try {
-    const r = await fetch(backendUrl('/api/test'));
+  const r = await backendFetch('/api/test');
     const json = await r.json();
     res.status(r.status).json(json);
   } catch (err) {
@@ -105,7 +116,7 @@ app.get('/healthz', (req, res) => {
 // Proxy recruitment POST/GET
 app.post('/api/recruitment', async (req, res) => {
   try {
-    const r = await fetch(backendUrl('/api/recruitment'), {
+    const r = await backendFetch('/api/recruitment', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(req.body)
@@ -123,7 +134,7 @@ app.get('/api/recruitment', async (req, res) => {
     const url = new URL(backendUrl('/api/recruitment'));
     // forward query params
     Object.entries(req.query).forEach(([k, v]) => url.searchParams.set(k, v));
-    const r = await fetch(url.toString());
+  const r = await backendFetch(url.toString());
     const json = await r.json();
     res.status(r.status).json(json);
   } catch (err) {
@@ -257,6 +268,12 @@ app.all('/api/*', async (req, res) => {
     if (req.method !== 'GET' && req.method !== 'HEAD') {
       opts.body = JSON.stringify(req.body);
       opts.headers['content-type'] = 'application/json';
+    }
+
+    // ensure Service Token present when proxying to backend
+    if (!opts.headers.authorization && !opts.headers.Authorization) {
+      const svc = process.env.SERVICE_TOKEN || process.env.BACKEND_SERVICE_TOKEN || '';
+      if (svc) opts.headers.authorization = `Bearer ${svc}`;
     }
 
     const r = await fetch(url, opts);

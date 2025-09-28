@@ -31,12 +31,38 @@ export default {
     const corsHeaders = {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Internal-Secret',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Internal-Secret, X-Service-Token',
     };
 
     // OPTIONS リクエスト（プリフライト）の処理
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 200, headers: corsHeaders });
+    }
+
+    // Service Token 認証
+    // 環境変数 SERVICE_TOKEN が設定されている場合、/api/* へのアクセスは
+    // Authorization: Bearer <token> または X-Service-Token: <token> を要求する
+    try {
+      const SERVICE_TOKEN = env.SERVICE_TOKEN || '';
+      const isApiPath = url.pathname.startsWith('/api');
+      // 公開で許可する簡易なパス（テストやOAuthコールバック等）は除外
+      const skipTokenPaths = ['/api/test', '/api/discord/callback', '/api/kv-test'];
+      const shouldCheck = SERVICE_TOKEN && isApiPath && !skipTokenPaths.some(p => url.pathname.startsWith(p));
+      if (shouldCheck) {
+        const authHeader = request.headers.get('authorization') || request.headers.get('Authorization') || '';
+        const tokenHeader = request.headers.get('x-service-token') || request.headers.get('X-Service-Token') || '';
+        let token = '';
+        if (authHeader && authHeader.toLowerCase().startsWith('bearer ')) token = authHeader.slice(7).trim();
+        if (!token && tokenHeader) token = tokenHeader.trim();
+        if (!token) {
+          return new Response(JSON.stringify({ error: 'unauthorized', detail: 'service token required' }), { status: 401, headers: corsHeaders });
+        }
+        if (token !== SERVICE_TOKEN) {
+          return new Response(JSON.stringify({ error: 'forbidden', detail: 'invalid service token' }), { status: 403, headers: corsHeaders });
+        }
+      }
+    } catch (e) {
+      console.warn('[worker] Service token check error:', e?.message || e);
     }
 
   // --- Proxy to Express for /api/redis/*, root and health endpoints ---
@@ -52,12 +78,16 @@ export default {
       // Build forward URL
       const forwardUrl = EXPRESS_ORIGIN + url.pathname + (url.search || '');
 
-      // Copy headers and add internal secret. Ensure Host header matches the EXPRESS_ORIGIN host
-      const forwardHeaders = new Headers(request.headers);
-      forwardHeaders.set('X-Internal-Secret', INTERNAL_SECRET);
+  // Copy headers and add internal secret and zero-trust client credentials if configured.
+  // Ensure Host header matches the EXPRESS_ORIGIN host
+  const forwardHeaders = new Headers(request.headers);
+  forwardHeaders.set('X-Internal-Secret', INTERNAL_SECRET);
+  // If the Worker has Zero Trust client credentials configured, add them for origin authentication
+  if (env.EXPRESS_CLIENT_ID) forwardHeaders.set('CF-Access-Client-Id', env.EXPRESS_CLIENT_ID);
+  if (env.EXPRESS_CLIENT_SECRET) forwardHeaders.set('CF-Access-Client-Secret', env.EXPRESS_CLIENT_SECRET);
       // Remove hop-by-hop headers
       forwardHeaders.delete('connection');
-      // Set Host header to the origin's host so SNI and certificate validation match
+  // Set Host header to the origin's host so SNI and certificate validation match
       try {
         const originHost = new URL(EXPRESS_ORIGIN).host;
         forwardHeaders.set('host', originHost);
