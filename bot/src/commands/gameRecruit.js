@@ -287,7 +287,8 @@ module.exports = {
   // モーダル送信後の処理（interactionCreateイベントで呼び出し）
   async handleModalSubmit(interaction) {
       // --- 募集数制限: 特定ギルド以外は1件まで（Redisで判定） ---
-      await interaction.deferReply({ flags: MessageFlags.Ephemeral }); // 3秒ルールを厳守
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral }); // 3秒ルールを厳守
+    console.log('[handleModalSubmit] started for guild:', interaction.guildId, 'user:', interaction.user?.id);
       const EXEMPT_GUILD_ID = '1414530004657766422';
       const { listRecruitsFromRedis, saveRecruitmentData } = require('../utils/db');
       if (interaction.guildId !== EXEMPT_GUILD_ID) {
@@ -304,6 +305,7 @@ module.exports = {
               return gid === interaction.guildId && (r.status === 'recruiting' || r.status === 'active');
             }).length
           : 0;
+        console.log('[handleModalSubmit] guildActiveCount for', interaction.guildId, '=', guildActiveCount);
         if (guildActiveCount >= 1) {
           await safeReply(interaction, {
             content: '❌ このサーバーでは同時に実行できる募集は1件までです。既存の募集を締め切ってから新しい募集を作成してください。',
@@ -313,7 +315,11 @@ module.exports = {
           return;
         }
       }
-    if (interaction.customId !== 'recruitModal') return;
+    if (interaction.customId !== 'recruitModal') {
+      console.log('[handleModalSubmit] ignored customId:', interaction.customId);
+      return;
+    }
+    console.log('[handleModalSubmit] proceeding with recruitModal for', interaction.user?.id);
     try {
       // ギルド設定を取得
       const guildSettings = await getGuildSettings(interaction.guildId);
@@ -389,8 +395,8 @@ module.exports = {
       const buffer = await generateRecruitCard(recruitDataObj, currentParticipants, interaction.client, useColor);
       const user = interaction.targetUser || interaction.user;
 
-      // 募集パネル送信前に通知メッセージを送信
-      console.log('通知ロールでの通知送信中');
+  // 募集パネル送信前に通知メッセージを送信
+  console.log('[handleModalSubmit] about to send recruit panel, recruitDataObj:', { title: recruitDataObj.title, participants: recruitDataObj.participants, recruiterId: recruitDataObj.recruiterId });
       
       // 1. メンション通知（ギルド設定があれば使用）
       if (guildSettings.notification_role) {
