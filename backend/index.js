@@ -105,14 +105,39 @@ export default {
       if (request.method === "GET") {
         // 古い募集データをクリーンアップ
         await cleanupOldRecruitments();
-        
-        // 募集データ一覧取得
+
+        // 募集データ一覧取得および正規化
         const list = await env.RECRUITMENTS.list();
         const results = [];
         for (const entry of list.keys) {
           const value = await env.RECRUITMENTS.get(entry.name);
-          if (value) results.push(JSON.parse(value));
+          if (!value) continue;
+          let parsed = null;
+          try { parsed = JSON.parse(value); } catch (_) { parsed = null; }
+          if (!parsed) continue;
+
+          // Normalize fields to the frontend-expected schema
+          const normalized = {
+            guild_id: parsed.guild_id || parsed.guildId || parsed.guild || null,
+            channel_id: parsed.channel_id || parsed.channelId || parsed.channel || null,
+            message_id: parsed.message_id || parsed.messageId || parsed.message_id || null,
+            guild_name: parsed.guild_name || parsed.guildName || parsed.guild || null,
+            channel_name: parsed.channel_name || parsed.channelName || parsed.channel || null,
+            status: parsed.status || 'recruiting',
+            start_time: parsed.start_time || parsed.startTime || null,
+            content: parsed.content || parsed.title || parsed.body || null,
+            participants_count: parsed.participants_count !== undefined ? parsed.participants_count : (parsed.participants !== undefined ? Number(parsed.participants) : null),
+            start_game_time: parsed.start_game_time || parsed.startTime || null,
+            vc: parsed.vc !== undefined ? parsed.vc : (parsed.VC !== undefined ? parsed.VC : null),
+            note: parsed.note || null,
+            recruiterId: parsed.recruiterId || parsed.recruiter_id || null,
+            recruitId: parsed.recruitId || parsed.recruit_id || (parsed.message_id ? String(parsed.message_id).slice(-8) : null),
+            end_time: parsed.end_time || parsed.endTime || null
+          };
+
+          results.push(normalized);
         }
+
         return new Response(JSON.stringify(results), {
           status: 200,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
