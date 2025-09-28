@@ -42,15 +42,15 @@ async function finalizeGuildSettings(guildId) {
 			console.log('[finalizeGuildSettings] payload json: <unable to stringify>');
 		}
 
+		const svc = process.env.SERVICE_TOKEN || process.env.BACKEND_SERVICE_TOKEN || '';
+		const headers = { 'Content-Type': 'application/json' };
+		if (svc) headers['Authorization'] = `Bearer ${svc}`;
+		console.log('[finalizeGuildSettings] svc present=', !!svc);
+		console.log('[finalizeGuildSettings] headers keys=', Object.keys(headers));
+
 		const res = await fetch(url, {
 			method: 'POST',
-			// attach service token if available so Worker that enforces SERVICE_TOKEN accepts this request
-			headers: (function(){
-				const h = { 'Content-Type': 'application/json' };
-				const svc = process.env.SERVICE_TOKEN || process.env.BACKEND_SERVICE_TOKEN || '';
-				if (svc) h['Authorization'] = `Bearer ${svc}`;
-				return h;
-			})(),
+			headers,
 			body: JSON.stringify(payload)
 		});
 
