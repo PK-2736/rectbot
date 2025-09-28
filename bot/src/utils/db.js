@@ -28,6 +28,11 @@ async function finalizeGuildSettings(guildId) {
 	try {
 		console.log('[finalizeGuildSettings] POST', url);
 		console.log('[finalizeGuildSettings] payload sample:', Object.keys(payload));
+		try {
+			console.log('[finalizeGuildSettings] payload json:', JSON.stringify(payload));
+		} catch (e) {
+			console.log('[finalizeGuildSettings] payload json: <unable to stringify>');
+		}
 
 		const res = await fetch(url, {
 			method: 'POST',
