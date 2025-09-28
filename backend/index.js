@@ -39,10 +39,11 @@ export default {
       return new Response(null, { status: 200, headers: corsHeaders });
     }
 
-    // --- Proxy to Express for /api/redis/* ---
-    // If the Worker receives requests for /api/redis/*, forward them to the Express origin
-    // The Express origin should validate X-Internal-Secret header to ensure only Worker can call it.
-    if (url.pathname.startsWith('/api/redis')) {
+  // --- Proxy to Express for /api/redis/*, root and health endpoints ---
+  // If the Worker receives requests for /api/redis/*, or requests for the origin root/healthz
+  // forward them to the Express origin. The Express origin should validate X-Internal-Secret
+  // header to ensure only Worker can call it.
+  if (url.pathname.startsWith('/api/redis') || url.pathname === '/' || url.pathname === '/healthz') {
       // Configure this origin in your Worker environment (or hardcode if needed)
       const EXPRESS_ORIGIN = env.EXPRESS_ORIGIN || 'https://152.69.202.59';
       const INTERNAL_SECRET = env.INTERNAL_SECRET || '';

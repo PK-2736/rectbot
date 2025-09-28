@@ -52,6 +52,10 @@ jobs:
           echo "${{ secrets.REACT_APP_DISCORD_CLIENT_ID }}" | npx wrangler secret put REACT_APP_DISCORD_CLIENT_ID --force || echo "REACT_APP_DISCORD_CLIENT_ID update skipped"
           echo "${{ secrets.REACT_APP_DISCORD_REDIRECT_URI }}" | npx wrangler secret put REACT_APP_DISCORD_REDIRECT_URI --force || echo "REACT_APP_DISCORD_REDIRECT_URI update skipped"
           echo "${{ secrets.SUPABASE_URL }}" | npx wrangler secret put SUPABASE_URL --force || echo "SUPABASE_URL update skipped"
+          # Optional: register internal secret used to authenticate Worker->Origin requests
+          echo "${{ secrets.INTERNAL_SECRET }}" | npx wrangler secret put INTERNAL_SECRET --force || echo "INTERNAL_SECRET update skipped"
+          # Optional: register the origin URL as a secret/var if you prefer; useful to ensure Express origin is set in the Worker
+          echo "${{ secrets.EXPRESS_ORIGIN }}" | npx wrangler secret put EXPRESS_ORIGIN --force || echo "EXPRESS_ORIGIN update skipped"
           
       - name: Final deployment verification
         env:
