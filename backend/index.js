@@ -163,27 +163,47 @@ export default {
         const updateData = await request.json();
         const { status, end_time } = updateData;
         
-        // すべての募集データから該当するメッセージIDを検索
-        const list = await env.RECRUITMENTS.list();
+        // まず直接キーで探す (効率重視)
+        const directKey = `recruit:${messageId}`;
         let updated = false;
-        
-        for (const entry of list.keys) {
-          const value = await env.RECRUITMENTS.get(entry.name);
-          if (value) {
-            const data = JSON.parse(value);
-            if (data.message_id === messageId) {
-              // データを更新
-              data.status = status;
-              if (end_time) data.end_time = end_time;
-              
-              // KVストアに保存し直す
-              await env.RECRUITMENTS.put(entry.name, JSON.stringify(data));
-              updated = true;
-              break;
+
+        try {
+          const directVal = await env.RECRUITMENTS.get(directKey);
+          if (directVal) {
+            const data = JSON.parse(directVal);
+            data.status = status;
+            if (end_time) data.end_time = end_time;
+            await env.RECRUITMENTS.put(directKey, JSON.stringify(data));
+            updated = true;
+          }
+        } catch (e) {
+          // ignore and fallback to scan
+          console.warn('PATCH direct lookup failed, will fallback to scan:', e?.message || e);
+        }
+
+        // 直接キーで見つからなかった場合、柔軟にフィールド名/型を許容して走査する
+        if (!updated) {
+          const list = await env.RECRUITMENTS.list();
+          for (const entry of list.keys) {
+            const value = await env.RECRUITMENTS.get(entry.name);
+            if (value) {
+              let data = null;
+              try { data = JSON.parse(value); } catch (_) { data = null; }
+              if (!data) continue;
+
+              const candidateIds = [data.message_id, data.messageId, data.message, entry.name && entry.name.replace(/^recruit:/, '')];
+              const matches = candidateIds.some(id => id !== undefined && id !== null && String(id) === String(messageId));
+              if (matches) {
+                data.status = status;
+                if (end_time) data.end_time = end_time;
+                await env.RECRUITMENTS.put(entry.name, JSON.stringify(data));
+                updated = true;
+                break;
+              }
             }
           }
         }
-        
+
         if (updated) {
           return new Response(JSON.stringify({ ok: true }), { 
             status: 200, 
