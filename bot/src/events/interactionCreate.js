@@ -63,7 +63,9 @@ module.exports = {
         return;
       }
       try {
+        console.log(`[interactionCreate] about to call execute for command=${interaction.commandName}, executeType=${typeof command.execute}`);
         await command.execute(interaction);
+        console.log(`[interactionCreate] execute returned for command=${interaction.commandName}`);
       } catch (error) {
         console.error(error);
         await safeRespond({ content: 'コマンド実行中にエラーが発生しました。', flags: require('discord.js').MessageFlags.Ephemeral }).catch((e) => {

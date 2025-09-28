@@ -179,6 +179,7 @@ module.exports = {
         )
     ),
   async execute(interaction) {
+    console.log('[gameRecruit.execute] invoked by', interaction.user?.id, 'guild:', interaction.guildId, 'channel:', interaction.channelId);
     // --- 募集数制限: 特定ギルド以外は1件まで（KVで判定） ---
     const EXEMPT_GUILD_ID = '1414530004657766422';
     if (interaction.guildId !== EXEMPT_GUILD_ID) {
@@ -224,6 +225,7 @@ module.exports = {
       }
 
       // モーダル表示
+      console.log('[gameRecruit.execute] showing modal for user:', interaction.user?.id);
       const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
       const modal = new ModalBuilder()
         .setCustomId('recruitModal')
@@ -271,7 +273,8 @@ module.exports = {
         new ActionRowBuilder().addComponents(vcInput)
       );
 
-      await interaction.showModal(modal);
+  await interaction.showModal(modal);
+  console.log('[gameRecruit.execute] showModal called successfully for', interaction.user?.id);
     } catch (error) {
       console.error('Modal display error:', error);
       if (!interaction.replied && !interaction.deferred) {
