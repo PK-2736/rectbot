@@ -23,15 +23,35 @@ async function finalizeGuildSettings(guildId) {
 	// ここでSupabase/BackendAPIに保存するAPIを呼び出す
 	// 例: /api/guild-settings/finalize
 	const config = require('../config');
-	const res = await fetch(`${config.BACKEND_API_URL}/api/guild-settings/finalize`, {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ guildId, ...settings })
-	});
-	if (!res.ok) {
-		throw new Error(`API error: ${res.status}`);
+	const url = `${config.BACKEND_API_URL.replace(/\/$/, '')}/api/guild-settings/finalize`;
+	const payload = { guildId, ...settings };
+	try {
+		console.log('[finalizeGuildSettings] POST', url);
+		console.log('[finalizeGuildSettings] payload sample:', Object.keys(payload));
+
+		const res = await fetch(url, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(payload)
+		});
+
+		let text = '';
+		try { text = await res.text(); } catch (e) { text = ''; }
+		let body = null;
+		try { body = text ? JSON.parse(text) : null; } catch (_) { body = text; }
+
+		console.log(`[finalizeGuildSettings] response status=${res.status}, ok=${res.ok}`);
+		console.log('[finalizeGuildSettings] response body:', typeof body === 'string' ? body.slice(0,200) : body);
+
+		if (!res.ok) {
+			throw new Error(`API error: ${res.status} - ${text}`);
+		}
+
+		return body;
+	} catch (err) {
+		console.error('[finalizeGuildSettings] failed:', err?.message || err);
+		throw err;
 	}
-	return await res.json();
 }
 
 
