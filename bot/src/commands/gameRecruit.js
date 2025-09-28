@@ -185,7 +185,20 @@ module.exports = {
     if (interaction.guildId !== EXEMPT_GUILD_ID) {
       const allRecruits = await listRecruitsFromRedis();
       console.log('[gameRecruit.execute] listRecruitsFromRedis returned count:', Array.isArray(allRecruits) ? allRecruits.length : typeof allRecruits);
-      const guildActiveCount = Array.isArray(allRecruits) ? allRecruits.filter(r => (r.guildId === interaction.guildId || r.guild_id === interaction.guildId) && (r.status === 'recruiting' || r.status === 'active')).length : 0;
+      // Normalize guild id and status when filtering to avoid type/key mismatches (number vs string, different property names)
+      const guildIdStr = String(interaction.guildId);
+      let matched = [];
+      if (Array.isArray(allRecruits)) {
+        matched = allRecruits.filter(r => {
+          const gid = String(r?.guildId ?? r?.guild_id ?? r?.guild ?? '');
+          const status = String(r?.status ?? '').toLowerCase();
+          const isGuild = gid === guildIdStr;
+          const isActive = status === 'recruiting' || status === 'active';
+          return isGuild && isActive;
+        });
+      }
+      console.log('[gameRecruit.execute] matched active recruits for guild:', matched.map(m => m?.recruitId || m?.message_id || m?.recruit_id || '(no-id)'));
+      const guildActiveCount = matched.length;
       console.log('[gameRecruit.execute] computed guildActiveCount =', guildActiveCount);
       if (guildActiveCount >= 1) {
         console.log('[gameRecruit.execute] blocking create due to existing active recruit');
@@ -307,12 +320,18 @@ module.exports = {
           console.warn('listRecruitsFromRedis failed:', e?.message || e);
           allRecruits = [];
         }
-        const guildActiveCount = Array.isArray(allRecruits)
-          ? allRecruits.filter(r => {
-              const gid = r?.guildId || r?.guild_id || r?.guild || null;
-              return gid === interaction.guildId && (r.status === 'recruiting' || r.status === 'active');
-            }).length
-          : 0;
+        // Normalize guild id and status when filtering
+        const guildIdStr = String(interaction.guildId);
+        let matched = [];
+        if (Array.isArray(allRecruits)) {
+          matched = allRecruits.filter(r => {
+            const gid = String(r?.guildId ?? r?.guild_id ?? r?.guild ?? '');
+            const status = String(r?.status ?? '').toLowerCase();
+            return gid === guildIdStr && (status === 'recruiting' || status === 'active');
+          });
+        }
+        console.log('[handleModalSubmit] matched active recruits for guild:', matched.map(m => m?.recruitId || m?.message_id || m?.recruit_id || '(no-id)'));
+        const guildActiveCount = matched.length;
         console.log('[handleModalSubmit] guildActiveCount for', interaction.guildId, '=', guildActiveCount);
         if (guildActiveCount >= 1) {
           await safeReply(interaction, {
