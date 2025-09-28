@@ -44,19 +44,26 @@ export default {
   // forward them to the Express origin. The Express origin should validate X-Internal-Secret
   // header to ensure only Worker can call it.
   if (url.pathname.startsWith('/api/redis') || url.pathname === '/' || url.pathname === '/healthz') {
-      // Configure this origin in your Worker environment (or hardcode if needed)
-      const EXPRESS_ORIGIN = env.EXPRESS_ORIGIN || 'https://152.69.202.59';
-      const INTERNAL_SECRET = env.INTERNAL_SECRET || '';
+    // Configure this origin in your Worker environment (or hardcode if needed)
+    // Use the origin domain (not a raw IP) so TLS SNI and Host header match the origin certificate.
+    const EXPRESS_ORIGIN = env.EXPRESS_ORIGIN || 'https://api.rectbot.tech';
+    const INTERNAL_SECRET = env.INTERNAL_SECRET || '';
 
       // Build forward URL
       const forwardUrl = EXPRESS_ORIGIN + url.pathname + (url.search || '');
 
-      // Copy headers and add internal secret
+      // Copy headers and add internal secret. Ensure Host header matches the EXPRESS_ORIGIN host
       const forwardHeaders = new Headers(request.headers);
       forwardHeaders.set('X-Internal-Secret', INTERNAL_SECRET);
-      // Remove hop-by-hop
+      // Remove hop-by-hop headers
       forwardHeaders.delete('connection');
-      forwardHeaders.delete('host');
+      // Set Host header to the origin's host so SNI and certificate validation match
+      try {
+        const originHost = new URL(EXPRESS_ORIGIN).host;
+        forwardHeaders.set('host', originHost);
+      } catch (e) {
+        // ignore if EXPRESS_ORIGIN is malformed
+      }
 
       let body = undefined;
       if (request.method !== 'GET' && request.method !== 'HEAD') {
