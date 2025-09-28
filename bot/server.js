@@ -288,6 +288,11 @@ app.post('/internal/deploy-commands', async (req, res) => {
   const secret = req.headers['x-deploy-secret'] || req.body?.secret;
   if (!process.env.DEPLOY_SECRET) return res.status(500).json({ error: 'server_misconfigured', detail: 'DEPLOY_SECRET not set on server' });
   if (!secret || secret !== process.env.DEPLOY_SECRET) return res.status(403).json({ error: 'forbidden' });
+  // Ensure required env (DISCORD_BOT_TOKEN) is present before spawning deploy script
+  if (!process.env.DISCORD_BOT_TOKEN) {
+    console.error('[internal/deploy-commands] DISCORD_BOT_TOKEN is not set; aborting spawn to avoid empty-token REST errors');
+    return res.status(500).json({ error: 'server_misconfigured', detail: 'DISCORD_BOT_TOKEN not set in server environment' });
+  }
 
   const scriptPath = path.join(__dirname, 'src', 'deploy-commands.js');
   const child = spawn(process.execPath, [scriptPath], { cwd: __dirname, env: { ...process.env }, stdio: ['ignore', 'pipe', 'pipe'] });
