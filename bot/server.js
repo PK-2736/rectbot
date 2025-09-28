@@ -1,7 +1,10 @@
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 const express = require('express');
 const cors = require('cors');
 const fetch = require('node-fetch');
+
+const { spawn } = require('child_process');
 
 const app = express();
 app.use(cors());
@@ -211,4 +214,26 @@ app.all('/api/*', async (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`[server] Express server listening on port ${PORT}, proxying to ${BACKEND_API_URL}`);
+  // Debug: show which env-derived values are present (do not print secrets)
+  console.log(`[server] env summary: BACKEND_API_URL=${process.env.BACKEND_API_URL || process.env.BACKEND_URL || ''}, DISCORD_BOT_TOKEN=${process.env.DISCORD_BOT_TOKEN ? 'set' : 'unset'}`);
+});
+
+// Protected endpoint to run command deployment from the server process.
+// Use DEPLOY_SECRET in environment variables to authenticate the request.
+app.post('/internal/deploy-commands', async (req, res) => {
+  const secret = req.headers['x-deploy-secret'] || req.body?.secret;
+  if (!process.env.DEPLOY_SECRET) return res.status(500).json({ error: 'server_misconfigured', detail: 'DEPLOY_SECRET not set on server' });
+  if (!secret || secret !== process.env.DEPLOY_SECRET) return res.status(403).json({ error: 'forbidden' });
+
+  const scriptPath = path.join(__dirname, 'src', 'deploy-commands.js');
+  const child = spawn(process.execPath, [scriptPath], { cwd: __dirname, env: { ...process.env }, stdio: ['ignore', 'pipe', 'pipe'] });
+
+  let stdout = '';
+  let stderr = '';
+  child.stdout.on('data', (d) => { stdout += String(d); });
+  child.stderr.on('data', (d) => { stderr += String(d); });
+
+  child.on('close', (code) => {
+    res.json({ code, stdout, stderr });
+  });
 });
