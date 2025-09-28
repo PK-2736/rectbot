@@ -577,27 +577,31 @@ export default {
     // ギルド設定最終保存API
     if (url.pathname === "/api/guild-settings/finalize" && request.method === "POST") {
       try {
-        const { guildId } = await request.json();
-        
+        // Accept payload that may contain guildId and setting fields
+        const payload = await request.json();
+        const guildId = payload && payload.guildId;
+        const incomingSettings = { ...payload };
+        delete incomingSettings.guildId;
+
         if (!guildId) {
           return new Response(JSON.stringify({ error: "Guild ID required" }), { 
             status: 400, 
             headers: { ...corsHeaders, "Content-Type": "application/json" }
           });
         }
-        
+
         console.log(`[finalize] Starting finalization for guild: ${guildId}`);
-        
+
         // KVから一時設定を取得
         let sessionSettings = await getFromKV(`guild_session:${guildId}`);
-        
+
         // セッションが存在しない場合は、既存の設定を取得するかデフォルト値を使用
         if (!sessionSettings) {
           console.log(`Session not found for guild ${guildId}, using existing settings or defaults`);
-          
+
           // 既存の設定を確認
           const existingSettings = await getFromKV(`guild_settings:${guildId}`);
-          
+
           sessionSettings = existingSettings || {
             recruitmentChannelId: null,
             recruitmentNotificationRoleId: null,
@@ -606,7 +610,22 @@ export default {
             updateNotificationChannelId: null
           };
         }
-        
+
+        // If incoming settings are provided in the request body, merge/translate them
+        if (incomingSettings && Object.keys(incomingSettings).length > 0) {
+          console.log('[finalize] Incoming settings provided in payload:', incomingSettings);
+          // Map incoming keys to sessionSettings naming
+          const mapped = {};
+          if (incomingSettings.recruit_channel !== undefined) mapped.recruit_channel = incomingSettings.recruit_channel;
+          if (incomingSettings.update_channel !== undefined) mapped.update_channel = incomingSettings.update_channel;
+          if (incomingSettings.defaultTitle !== undefined) mapped.defaultTitle = incomingSettings.defaultTitle;
+          if (incomingSettings.defaultColor !== undefined) mapped.defaultColor = incomingSettings.defaultColor;
+          if (incomingSettings.notification_role !== undefined) mapped.notification_role = incomingSettings.notification_role;
+
+          // Merge: incoming values override sessionSettings
+          sessionSettings = { ...sessionSettings, ...mapped };
+        }
+
         console.log(`[finalize] Session settings before processing:`, sessionSettings);
         
         // KVセッションの新しい形式の設定値も確認（古い形式を優先してDiscord側と整合性を保つ）
