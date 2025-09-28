@@ -286,35 +286,33 @@ module.exports = {
 
   // モーダル送信後の処理（interactionCreateイベントで呼び出し）
   async handleModalSubmit(interaction) {
-    // --- 募集数制限: 特定ギルド以外は1件まで（KVで判定） ---
-  await interaction.deferReply({ flags: MessageFlags.Ephemeral }); // 3秒ルールを厳守
-    const EXEMPT_GUILD_ID = '1414530004657766422';
-    const { getActiveRecruits, saveRecruitmentData } = require('../utils/db');
-    if (interaction.guildId !== EXEMPT_GUILD_ID) {
-      let activeRecruitsRaw = [];
-      try {
-        activeRecruitsRaw = await getActiveRecruits();
-      } catch (e) {
-        console.warn('getActiveRecruits failed:', e?.message || e);
-        activeRecruitsRaw = [];
+      // --- 募集数制限: 特定ギルド以外は1件まで（Redisで判定） ---
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral }); // 3秒ルールを厳守
+      const EXEMPT_GUILD_ID = '1414530004657766422';
+      const { listRecruitsFromRedis, saveRecruitmentData } = require('../utils/db');
+      if (interaction.guildId !== EXEMPT_GUILD_ID) {
+        let allRecruits = [];
+        try {
+          allRecruits = await listRecruitsFromRedis();
+        } catch (e) {
+          console.warn('listRecruitsFromRedis failed:', e?.message || e);
+          allRecruits = [];
+        }
+        const guildActiveCount = Array.isArray(allRecruits)
+          ? allRecruits.filter(r => {
+              const gid = r?.guildId || r?.guild_id || r?.guild || null;
+              return gid === interaction.guildId && (r.status === 'recruiting' || r.status === 'active');
+            }).length
+          : 0;
+        if (guildActiveCount >= 1) {
+          await safeReply(interaction, {
+            content: '❌ このサーバーでは同時に実行できる募集は1件までです。既存の募集を締め切ってから新しい募集を作成してください。',
+            flags: MessageFlags.Ephemeral,
+            allowedMentions: { roles: [], users: [] }
+          });
+          return;
+        }
       }
-      const recruitsArray = Array.isArray(activeRecruitsRaw)
-        ? activeRecruitsRaw
-        : (activeRecruitsRaw && Array.isArray(activeRecruitsRaw.recruits)
-          ? activeRecruitsRaw.recruits
-          : (activeRecruitsRaw && typeof activeRecruitsRaw === 'object'
-            ? Object.values(activeRecruitsRaw)
-            : []));
-      const guildActiveCount = recruitsArray.filter(r => r.guild_id === interaction.guildId && r.status === 'recruiting').length;
-      if (guildActiveCount >= 1) {
-        await safeReply(interaction, {
-          content: '❌ このサーバーでは同時に実行できる募集は1件までです。既存の募集を締め切ってから新しい募集を作成してください。',
-          flags: MessageFlags.Ephemeral,
-          allowedMentions: { roles: [], users: [] }
-        });
-        return;
-      }
-    }
     if (interaction.customId !== 'recruitModal') return;
     try {
       // ギルド設定を取得

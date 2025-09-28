@@ -212,6 +212,33 @@ app.all('/api/*', async (req, res) => {
   }
 });
 
+// --- Redis-backed recruitment endpoints for web usage ---
+// These let the frontend fetch the latest recruitment data directly from the bot's Redis cache.
+// GET /api/redis/recruitment -> list all cached recruits
+// GET /api/redis/recruitment/:id -> get single recruit by recruitId or full message id
+app.get('/api/redis/recruitment', async (req, res) => {
+  try {
+    const recruits = await db.listRecruitsFromRedis();
+    res.json(recruits || []);
+  } catch (err) {
+    console.error('[server][api/redis/recruitment][get] Error:', err.message || err);
+    res.status(500).json({ error: 'internal_error', detail: err.message });
+  }
+});
+
+app.get('/api/redis/recruitment/:id', async (req, res) => {
+  try {
+    const raw = req.params.id;
+    const recruitId = normalizeRecruitId(raw);
+    const recruit = await db.getRecruitFromRedis(recruitId);
+    if (!recruit) return res.status(404).json({ error: 'not_found' });
+    res.json(recruit);
+  } catch (err) {
+    console.error('[server][api/redis/recruitment][get:id] Error:', err.message || err);
+    res.status(500).json({ error: 'internal_error', detail: err.message });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`[server] Express server listening on port ${PORT}, proxying to ${BACKEND_API_URL}`);
   // Debug: show which env-derived values are present (do not print secrets)
