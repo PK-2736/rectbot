@@ -1,4 +1,5 @@
 // --- ギルド設定 Redis一時保存・取得 ---
+const backendFetch = require('./backendFetch');
 // ギルド設定をRedisに一時保存
 async function saveGuildSettingsToRedis(guildId, settings) {
 	const key = `guildsettings:${guildId}`;
@@ -71,11 +72,12 @@ async function finalizeGuildSettings(guildId) {
 		console.error('[finalizeGuildSettings] failed:', err?.message || err);
 		throw err;
 	}
-}
-
-
-
-const config = require('../config');
+			// Use backendFetch wrapper to ensure SERVICE_TOKEN is attached
+			console.log('[finalizeGuildSettings] using backendFetch wrapper');
+			const res = await backendFetch(url, {
+				method: 'POST',
+				body: JSON.stringify(payload)
+			});
 const Redis = require('ioredis');
 const EventEmitter = require('events');
 
@@ -237,9 +239,8 @@ async function pushRecruitToWebAPI(recruitData) {
 		console.log('[pushRecruitToWebAPI] POST', url);
 		console.log('[pushRecruitToWebAPI] payload sample:', Object.keys(recruitData).slice(0,10));
 		// send
-		const res = await fetch(url, {
+		const res = await backendFetch('/api/recruitment', {
 			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
 			body: payload
 		});
 		const status = res.status;
@@ -284,9 +285,8 @@ function getSupabase() {
 
 // 募集状況を保存
 async function saveRecruitStatus(serverId, channelId, messageId, startTime) {
-	const res = await fetch(`${config.BACKEND_API_URL}/api/recruit-status`, {
+	const res = await backendFetch('/api/recruit-status', {
 		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify({ serverId, channelId, messageId, startTime })
 	});
 	return res.json();
@@ -314,9 +314,8 @@ async function saveRecruitmentData(guildId, channelId, messageId, guildName, cha
 	};
 
 	try {
-		const res = await fetch(`${config.BACKEND_API_URL}/api/recruitment`, {
+		const res = await backendFetch('/api/recruitment', {
 			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify(data)
 		});
 		if (!res.ok) {
@@ -331,18 +330,15 @@ async function saveRecruitmentData(guildId, channelId, messageId, guildName, cha
 
 // 募集状況を削除
 async function deleteRecruitStatus(serverId) {
-	const res = await fetch(`${config.BACKEND_API_URL}/api/recruit-status?serverId=${serverId}`, {
-		method: 'DELETE'
-	});
+	const res = await backendFetch(`/api/recruit-status?serverId=${serverId}`, { method: 'DELETE' });
 	return res.json();
 }
 
 // 管理ページ用の募集データを削除
 async function deleteRecruitmentData(messageId) {
 	try {
-		const res = await fetch(`${config.BACKEND_API_URL}/api/recruitment/${messageId}`, {
-			method: 'DELETE',
-			headers: { 'Content-Type': 'application/json' }
+		const res = await backendFetch(`/api/recruitment/${messageId}`, {
+			method: 'DELETE'
 		});
 
 		const status = res.status;
@@ -384,9 +380,8 @@ async function updateRecruitmentStatus(messageId, status, endTime = null) {
 		const url = `${config.BACKEND_API_URL}/api/recruitment/${messageId}`;
 		console.log(`[updateRecruitmentStatus] リクエストURL: ${url}`);
 		
-		const res = await fetch(url, {
+		const res = await backendFetch(url, {
 			method: 'PATCH',
-			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify(updateData)
 		});
 		
@@ -442,9 +437,8 @@ async function updateRecruitmentData(messageId, recruitData) {
 		const url = `${config.BACKEND_API_URL}/api/recruitment/${messageId}`;
 		console.log(`[updateRecruitmentData] リクエストURL: ${url}`);
 		
-		const res = await fetch(url, {
+		const res = await backendFetch(url, {
 			method: 'PATCH',
-			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify(updateData)
 		});
 		
@@ -475,7 +469,7 @@ async function updateRecruitmentData(messageId, recruitData) {
 
 // 現在の募集状況一覧を取得
 async function getActiveRecruits() {
-	const res = await fetch(`${config.BACKEND_API_URL}/api/active-recruits`);
+	const res = await backendFetch('/api/active-recruits');
 	const json = await res.json();
 	console.log('[db.js/getActiveRecruits] APIレスポンス:', JSON.stringify(json));
 	return json;

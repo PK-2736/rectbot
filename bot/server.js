@@ -3,6 +3,7 @@ require('dotenv').config({ path: path.join(__dirname, '.env') });
 const express = require('express');
 const cors = require('cors');
 const fetch = require('node-fetch');
+const backendFetch = require('./src/utils/backendFetch');
 
 const { spawn } = require('child_process');
 
@@ -15,17 +16,6 @@ const BACKEND_API_URL = process.env.BACKEND_API_URL || process.env.BACKEND_URL |
 
 function backendUrl(path) {
   return `${BACKEND_API_URL.replace(/\/$/, '')}${path.startsWith('/') ? path : '/' + path}`;
-}
-
-// helper to call backend (Worker) and automatically attach SERVICE_TOKEN if configured
-function backendFetch(pathOrUrl, opts = {}) {
-  const url = String(pathOrUrl).startsWith('http') ? pathOrUrl : backendUrl(pathOrUrl);
-  const headers = { ...(opts.headers || {}) };
-  const svc = process.env.SERVICE_TOKEN || process.env.BACKEND_SERVICE_TOKEN || '';
-  if (svc && !headers.authorization && !headers.Authorization) {
-    headers['Authorization'] = `Bearer ${svc}`;
-  }
-  return fetch(url, { ...opts, headers });
 }
 
 // Redis DB utilities from bot/src/utils/db.js
