@@ -20,6 +20,21 @@ function backendUrl(path) {
 // Redis DB utilities from bot/src/utils/db.js
 const db = require('./src/utils/db');
 
+// Internal secret middleware - only allow requests that carry the internal secret header
+function requireInternalSecret(req, res, next) {
+  const internal = process.env.INTERNAL_SECRET || '';
+  const header = req.headers['x-internal-secret'];
+  if (!internal) {
+    // In development if INTERNAL_SECRET is not set, allow but log a warning
+    console.warn('[server] INTERNAL_SECRET not set; allowing internal routes for development');
+    return next();
+  }
+  if (!header || header !== internal) {
+    return res.status(403).json({ error: 'forbidden' });
+  }
+  next();
+}
+
 // expose cleanup endpoints
 app.get('/internal/cleanup/status', async (req, res) => {
   try {
@@ -75,6 +90,16 @@ app.get('/api/health', async (req, res) => {
     console.error('[server][health] Error contacting backend:', err.message || err);
     res.status(502).json({ error: 'backend_unreachable', detail: err.message });
   }
+});
+
+// Basic root and health endpoints for origin
+app.get('/', (req, res) => {
+  // Simple origin identity - useful for Cloudflare fronting to show origin is healthy
+  res.json({ ok: true, service: 'rectbot-origin', time: new Date().toISOString() });
+});
+
+app.get('/healthz', (req, res) => {
+  res.status(200).json({ ok: true, uptime: process.uptime() });
 });
 
 // Proxy recruitment POST/GET
@@ -253,7 +278,7 @@ app.all('/api/*', async (req, res) => {
 // These let the frontend fetch the latest recruitment data directly from the bot's Redis cache.
 // GET /api/redis/recruitment -> list all cached recruits
 // GET /api/redis/recruitment/:id -> get single recruit by recruitId or full message id
-app.get('/api/redis/recruitment', async (req, res) => {
+app.get('/api/redis/recruitment', requireInternalSecret, async (req, res) => {
   try {
     const recruits = await db.listRecruitsFromRedis();
     res.json(recruits || []);
@@ -263,7 +288,7 @@ app.get('/api/redis/recruitment', async (req, res) => {
   }
 });
 
-app.get('/api/redis/recruitment/:id', async (req, res) => {
+app.get('/api/redis/recruitment/:id', requireInternalSecret, async (req, res) => {
   try {
     const raw = req.params.id;
     const recruitId = normalizeRecruitId(raw);

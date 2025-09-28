@@ -31,12 +31,51 @@ export default {
     const corsHeaders = {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Internal-Secret',
     };
 
     // OPTIONS リクエスト（プリフライト）の処理
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 200, headers: corsHeaders });
+    }
+
+    // --- Proxy to Express for /api/redis/* ---
+    // If the Worker receives requests for /api/redis/*, forward them to the Express origin
+    // The Express origin should validate X-Internal-Secret header to ensure only Worker can call it.
+    if (url.pathname.startsWith('/api/redis')) {
+      // Configure this origin in your Worker environment (or hardcode if needed)
+      const EXPRESS_ORIGIN = env.EXPRESS_ORIGIN || 'https://152.69.202.59';
+      const INTERNAL_SECRET = env.INTERNAL_SECRET || '';
+
+      // Build forward URL
+      const forwardUrl = EXPRESS_ORIGIN + url.pathname + (url.search || '');
+
+      // Copy headers and add internal secret
+      const forwardHeaders = new Headers(request.headers);
+      forwardHeaders.set('X-Internal-Secret', INTERNAL_SECRET);
+      // Remove hop-by-hop
+      forwardHeaders.delete('connection');
+      forwardHeaders.delete('host');
+
+      let body = undefined;
+      if (request.method !== 'GET' && request.method !== 'HEAD') {
+        body = await request.arrayBuffer();
+      }
+
+      const init = {
+        method: request.method,
+        headers: forwardHeaders,
+        body,
+        redirect: 'follow'
+      };
+
+      const resp = await fetch(forwardUrl, init);
+      // Copy response headers but remove hop-by-hop
+      const respHeaders = new Headers(resp.headers);
+      respHeaders.delete('connection');
+
+      const buf = await resp.arrayBuffer();
+      return new Response(buf, { status: resp.status, headers: { ...corsHeaders, ...Object.fromEntries(respHeaders) } });
     }
     // KVストアへの保存
     async function saveToKV(key, value) {
