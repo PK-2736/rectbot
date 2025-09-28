@@ -125,7 +125,7 @@ export default {
     }
 
     // 募集データのステータス更新API（特定のメッセージID）
-    if (url.pathname.startsWith("/api/recruitment/") && request.method === "PATCH") {
+  if (url.pathname.startsWith("/api/recruitment/") && request.method === "PATCH") {
       const messageId = url.pathname.split("/api/recruitment/")[1];
       if (!messageId) {
         return new Response(JSON.stringify({ error: "Message ID required" }), { 
@@ -176,6 +176,49 @@ export default {
           status: 500, 
           headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
+      }
+    }
+
+    // 募集データ削除API（特定のメッセージID）
+    if (url.pathname.startsWith("/api/recruitment/") && request.method === "DELETE") {
+      const messageId = url.pathname.split("/api/recruitment/")[1];
+      if (!messageId) {
+        return new Response(JSON.stringify({ error: "Message ID required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      }
+
+      try {
+        // Search all KV entries for matching message_id and delete the corresponding key
+        const list = await env.RECRUITMENTS.list();
+        let deleted = false;
+        for (const entry of list.keys) {
+          const value = await env.RECRUITMENTS.get(entry.name);
+          if (!value) continue;
+          let data = null;
+          try { data = JSON.parse(value); } catch (_) { data = null; }
+          if (data && String(data.message_id) === String(messageId)) {
+            await env.RECRUITMENTS.delete(entry.name);
+            deleted = true;
+            break;
+          }
+        }
+
+        if (deleted) {
+          return new Response(JSON.stringify({ ok: true }), {
+            status: 200,
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
+          });
+        } else {
+          return new Response(JSON.stringify({ error: "Recruitment not found" }), {
+            status: 404,
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
+          });
+        }
+      } catch (error) {
+        console.error("Recruitment delete error:", error);
+        return new Response(JSON.stringify({ error: "Internal server error" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
     }
     
