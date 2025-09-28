@@ -54,7 +54,14 @@ module.exports = {
     // スラッシュコマンドの処理
     if (interaction.isChatInputCommand && interaction.isChatInputCommand()) {
       const command = client.commands.get(interaction.commandName);
-      if (!command) return;
+      if (!command) {
+        try {
+          console.warn(`[interactionCreate] Command handler not found for '${interaction.commandName}'. Available commands: ${[...client.commands.keys()].join(', ')}`);
+        } catch (e) {
+          console.warn('[interactionCreate] Command handler not found and failed to list available commands');
+        }
+        return;
+      }
       try {
         await command.execute(interaction);
       } catch (error) {
