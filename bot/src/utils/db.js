@@ -344,21 +344,21 @@ async function deleteRecruitmentData(messageId) {
 		try { body = await res.json(); } catch (_) { body = await res.text().catch(()=>null); }
 
 		if (!res.ok) {
-			// 404 は警告扱いで処理を続行できるよう、例外を投げずに結果を返す
+			// 404 は警告扱いで処理を続行できるように結果を返す
 			if (status === 404) {
 				console.warn(`deleteRecruitmentData: Recruitment not found (404) for messageId=${messageId}`);
 				return { ok: false, status, body, warning: 'Recruitment not found' };
 			}
-			// それ以外はエラーとして呼び出し元に伝える
+			// 5xx やその他のエラーは詳細を返し、呼び出し元が処理できるようにする
 			console.error('deleteRecruitmentData: API error', { status, body });
-			throw new Error(`API error: ${status} - ${typeof body === 'string' ? body : JSON.stringify(body)}`);
+			return { ok: false, status, body, error: typeof body === 'string' ? body : (body && body.error) || JSON.stringify(body) };
 		}
 
 		return { ok: true, status, body: body || null };
 	} catch (error) {
 		console.error('募集データの削除に失敗:', error);
-		// ネットワーク等の致命的なエラーはそのまま投げる
-		throw error;
+		// ネットワーク等の致命的なエラーは呼び出し元が処理できるよう詳細を返す
+		return { ok: false, error: error?.message || String(error) };
 	}
 }
 
