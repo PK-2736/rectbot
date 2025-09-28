@@ -929,6 +929,18 @@ module.exports = {
               recruitParticipants.delete(messageId);
               // Redisからも削除
               try { await deleteParticipantsFromRedis(messageId); } catch (e) { console.warn('Redis参加者削除失敗:', e?.message || e); }
+              // 募集オブジェクト自体も Redis から削除する（recruit:<recruitId>）
+              try {
+                const rid = savedRecruitData?.recruitId || String(messageId).slice(-8);
+                if (rid) {
+                  await deleteRecruitFromRedis(rid);
+                  console.log('Redis recruit deleted:', rid, '(messageId:', messageId, ')');
+                } else {
+                  console.warn('no recruitId found to delete for message:', messageId);
+                }
+              } catch (e) {
+                console.warn('Redis recruit削除失敗:', e?.message || e);
+              }
               console.log('手動締切完了、メモリとRedisからデータを削除:', messageId);
           } else {
             // フォールバック

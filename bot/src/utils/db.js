@@ -71,6 +71,18 @@ async function finalizeGuildSettings(guildId) {
 
 const config = require('../config');
 const Redis = require('ioredis');
+const EventEmitter = require('events');
+
+// Event emitter for cleanup / delete notifications
+const dbEvents = new EventEmitter();
+
+// Cleanup status tracking
+let lastCleanup = {
+	lastRun: null,
+	deletedRecruitCount: 0,
+	deletedParticipantCount: 0,
+	error: null
+};
 
 // Redisクライアント初期化
 const redis = new Redis({
@@ -113,6 +125,9 @@ async function listRecruitsFromRedis() {
 // Redisから募集データを削除
 async function deleteRecruitFromRedis(recruitId) {
 	await redis.del(`recruit:${recruitId}`);
+	try {
+		dbEvents.emit('recruitDeleted', { recruitId, timestamp: new Date().toISOString() });
+	} catch (e) { /* emit best-effort */ }
 }
 
 // 参加者リストをRedisに保存（TTLを設定）
@@ -132,12 +147,16 @@ async function getParticipantsFromRedis(messageId) {
 // 参加者リストをRedisから削除
 async function deleteParticipantsFromRedis(messageId) {
 	await redis.del(`participants:${messageId}`);
+	try {
+		dbEvents.emit('participantsDeleted', { messageId, timestamp: new Date().toISOString() });
+	} catch (e) { }
 }
 
 // Cleanup: remove recruit and participant keys that are expired or stale.
 // Note: Redis will usually evict expired keys automatically, but for safety
 // we scan for keys and ensure any keys without values are removed.
 async function cleanupExpiredRecruits() {
+	const result = { deletedRecruitCount: 0, deletedParticipantCount: 0, timestamp: new Date().toISOString(), error: null };
 	try {
 		// Find all recruit keys
 		const recruitKeys = await listRecruitIdsFromRedis();
@@ -145,17 +164,17 @@ async function cleanupExpiredRecruits() {
 			const ttl = await redis.ttl(key);
 			// ttl === -2 means key does not exist, -1 means no expire
 			if (ttl === -2) {
-				// already removed
 				continue;
 			}
-			// If TTL is -1 (no expiry) and we want to enforce TTL, set it now
 			if (ttl === -1) {
 				await redis.expire(key, RECRUIT_TTL_SECONDS);
 				continue;
 			}
-			// If TTL is set and <= 0, delete the key
 			if (ttl <= 0) {
 				await redis.del(key);
+				result.deletedRecruitCount += 1;
+				// emit per-recruit deletion with id derived from key
+				try { const rid = key.includes(':') ? key.split(':')[1] : key; dbEvents.emit('recruitDeleted', { recruitId: rid, key, timestamp: new Date().toISOString() }); } catch (e) {}
 			}
 		}
 
@@ -170,16 +189,39 @@ async function cleanupExpiredRecruits() {
 			}
 			if (ttl <= 0) {
 				await redis.del(key);
+				result.deletedParticipantCount += 1;
+				try { const mid = key.includes(':') ? key.split(':')[1] : key; dbEvents.emit('participantsDeleted', { messageId: mid, key, timestamp: new Date().toISOString() }); } catch (e) {}
 			}
 		}
-		console.log('[db.js] cleanupExpiredRecruits: completed');
+		console.log('[db.js] cleanupExpiredRecruits: completed', result);
+		lastCleanup = { lastRun: result.timestamp, deletedRecruitCount: result.deletedRecruitCount, deletedParticipantCount: result.deletedParticipantCount, error: null };
+		try { dbEvents.emit('cleanup', lastCleanup); } catch (e) {}
+		return result;
 	} catch (e) {
 		console.warn('[db.js] cleanupExpiredRecruits failed:', e?.message || e);
+		lastCleanup = { lastRun: new Date().toISOString(), deletedRecruitCount: result.deletedRecruitCount, deletedParticipantCount: result.deletedParticipantCount, error: e?.message || String(e) };
+		try { dbEvents.emit('cleanup', lastCleanup); } catch (e2) {}
+		return { ...result, error: e?.message || String(e) };
 	}
 }
 
 // Run one-time cleanup at startup (non-blocking)
 cleanupExpiredRecruits().catch(() => {});
+
+// Periodic cleanup runner: run every hour by default
+const CLEANUP_INTERVAL_MS = Number(process.env.CLEANUP_INTERVAL_MS || 1000 * 60 * 60);
+setInterval(() => {
+	cleanupExpiredRecruits().catch(e => console.warn('periodic cleanup failed:', e?.message || e));
+}, CLEANUP_INTERVAL_MS);
+
+// Allow manual trigger
+async function runCleanupNow() {
+	return await cleanupExpiredRecruits();
+}
+
+function getLastCleanupStatus() {
+	return lastCleanup;
+}
 
 // Worker APIにデータをpushする汎用関数
 async function pushRecruitToWebAPI(recruitData) {
@@ -460,6 +502,10 @@ module.exports = {
 	// TTL / cleanup utilities
 	RECRUIT_TTL_SECONDS,
 	cleanupExpiredRecruits
+,
+	dbEvents,
+	runCleanupNow,
+	getLastCleanupStatus
 };
 
 

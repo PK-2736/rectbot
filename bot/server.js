@@ -20,6 +20,43 @@ function backendUrl(path) {
 // Redis DB utilities from bot/src/utils/db.js
 const db = require('./src/utils/db');
 
+// expose cleanup endpoints
+app.get('/internal/cleanup/status', async (req, res) => {
+  try {
+    const status = db.getLastCleanupStatus ? db.getLastCleanupStatus() : { lastRun: null };
+    res.json(status);
+  } catch (err) {
+    console.error('[internal][cleanup][status] Error:', err.message || err);
+    res.status(500).json({ error: 'internal_error', detail: err.message });
+  }
+});
+
+// Manual cleanup trigger (protected)
+app.post('/internal/cleanup/run', async (req, res) => {
+  const secret = req.headers['x-deploy-secret'] || req.body?.secret;
+  if (!process.env.DEPLOY_SECRET) return res.status(500).json({ error: 'server_misconfigured', detail: 'DEPLOY_SECRET not set on server' });
+  if (!secret || secret !== process.env.DEPLOY_SECRET) return res.status(403).json({ error: 'forbidden' });
+  try {
+    const result = await db.runCleanupNow();
+    // Optionally notify webhook
+    if (process.env.CLEANUP_WEBHOOK_URL) {
+      try {
+        await fetch(process.env.CLEANUP_WEBHOOK_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'cleanup_run', result })
+        });
+      } catch (e) {
+        console.warn('[internal][cleanup][run] webhook notify failed:', e.message || e);
+      }
+    }
+    res.json(result);
+  } catch (err) {
+    console.error('[internal][cleanup][run] Error:', err.message || err);
+    res.status(500).json({ error: 'internal_error', detail: err.message });
+  }
+});
+
 function normalizeRecruitId(idOrMessageId) {
   if (!idOrMessageId) return null;
   // If looks like a full Discord message id (long numeric), take last 8 chars as recruitId
