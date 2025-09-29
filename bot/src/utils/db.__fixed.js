@@ -130,7 +130,7 @@ async function pushRecruitToWebAPI(recruitData) {
   const url = `${config.BACKEND_API_URL.replace(/\/$/, '')}/api/recruitment`;
   try {
     const payload = JSON.stringify(recruitData);
-    const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload });
+  const res = await backendFetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload });
     let text = '';
     try { text = await res.text(); } catch (e) { text = ''; }
     let body = null; try { body = text ? JSON.parse(text) : null; } catch (_) { body = text; }
