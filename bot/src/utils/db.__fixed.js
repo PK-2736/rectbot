@@ -3,6 +3,7 @@ const config = require('../config');
 const Redis = require('ioredis');
 const EventEmitter = require('events');
 const { createClient } = require('@supabase/supabase-js');
+const backendFetch = require('./backendFetch');
 
 const dbEvents = new EventEmitter();
 let lastCleanup = { lastRun: null, deletedRecruitCount: 0, deletedParticipantCount: 0, error: null };
@@ -45,7 +46,7 @@ async function finalizeGuildSettings(guildId) {
   const svc = process.env.SERVICE_TOKEN || process.env.BACKEND_SERVICE_TOKEN || '';
   const headers = { 'Content-Type': 'application/json' };
   if (svc) headers['Authorization'] = `Bearer ${svc}`;
-  const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(payload) });
+  const res = await backendFetch(url, { method: 'POST', headers, body: JSON.stringify(payload) });
   let text = '';
   try { text = await res.text(); } catch (e) { text = ''; }
   let body = null; try { body = text ? JSON.parse(text) : null; } catch (_) { body = text; }
@@ -156,7 +157,7 @@ async function saveRecruitStatus(serverId, channelId, messageId, startTime) {
 async function saveRecruitmentData(guildId, channelId, messageId, guildName, channelName, recruitData) {
   const recruitId = recruitData.recruitId || String(messageId).slice(-8);
   const data = { guild_id: guildId, channel_id: channelId, message_id: messageId, guild_name: guildName, channel_name: channelName, status: 'recruiting', start_time: new Date().toISOString(), content: recruitData.content, participants_count: parseInt(recruitData.participants), start_game_time: recruitData.startTime, vc: recruitData.vc, note: recruitData.note, recruiterId: recruitData.recruiterId, recruitId };
-  const res = await fetch(`${config.BACKEND_API_URL}/api/recruitment`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+  const res = await backendFetch(`${config.BACKEND_API_URL}/api/recruitment`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
   if (!res.ok) throw new Error(`API error: ${res.status}`);
   return await res.json();
 }
@@ -165,7 +166,7 @@ async function deleteRecruitStatus(serverId) { const res = await fetch(`${config
 
 async function deleteRecruitmentData(messageId) {
   try {
-    const res = await fetch(`${config.BACKEND_API_URL}/api/recruitment/${messageId}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' } });
+  const res = await backendFetch(`${config.BACKEND_API_URL}/api/recruitment/${messageId}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' } });
     const status = res.status; let body = null; try { body = await res.json(); } catch (_) { body = await res.text().catch(()=>null); }
     if (!res.ok) {
       if (status === 404) return { ok: false, status, body, warning: 'Recruitment not found' };
@@ -178,7 +179,7 @@ async function deleteRecruitmentData(messageId) {
 async function updateRecruitmentStatus(messageId, status, endTime = null) {
   const updateData = { status: status, ...(endTime && { end_time: endTime }) };
   const url = `${config.BACKEND_API_URL}/api/recruitment/${messageId}`;
-  const res = await fetch(url, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updateData) });
+  const res = await backendFetch(url, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updateData) });
   if (!res.ok) {
     const errorText = await res.text();
     if (res.status === 404) return { warning: 'Recruitment data not found', messageId };
@@ -190,7 +191,7 @@ async function updateRecruitmentStatus(messageId, status, endTime = null) {
 async function updateRecruitmentData(messageId, recruitData) {
   const updateData = { title: recruitData.title || null, content: recruitData.content, participants_count: parseInt(recruitData.participants), start_game_time: recruitData.startTime, vc: recruitData.vc, note: recruitData.note || null };
   const url = `${config.BACKEND_API_URL}/api/recruitment/${messageId}`;
-  const res = await fetch(url, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updateData) });
+  const res = await backendFetch(url, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updateData) });
   if (!res.ok) {
     const errorText = await res.text();
     if (res.status === 404) { return { warning: 'Recruitment data not found' }; }
