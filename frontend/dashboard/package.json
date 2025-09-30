@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-  "export": "next export",
+  "export": "echo 'static export is produced by `next build` (output: export); no separate CLI step required'",
     "start": "next start",
     "lint": "next lint"
   },
