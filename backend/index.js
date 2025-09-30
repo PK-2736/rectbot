@@ -43,11 +43,13 @@ export default {
     // 環境変数 SERVICE_TOKEN が設定されている場合、/api/* へのアクセスは
     // Authorization: Bearer <token> または X-Service-Token: <token> を要求する
     try {
-      const SERVICE_TOKEN = env.SERVICE_TOKEN || '';
-      const isApiPath = url.pathname.startsWith('/api');
-    // 公開で許可する簡易なパス（テストやOAuthコールバック等）は除外
-  const skipTokenPaths = ['/api/test', '/api/discord/callback', '/api/kv-test', '/api/redis', '/api/public'];
-      const shouldCheck = SERVICE_TOKEN && isApiPath && !skipTokenPaths.some(p => url.pathname.startsWith(p));
+        const SERVICE_TOKEN = env.SERVICE_TOKEN || '';
+        const isApiPath = url.pathname.startsWith('/api');
+      // 公開で許可する簡易なパス（テストやOAuthコールバック等）は除外
+    const skipTokenPaths = ['/api/test', '/api/discord/callback', '/api/kv-test', '/api/redis', '/api/public'];
+        // Defensive: explicitly allow /api/public to bypass token checks even if deployed code differs
+        const isPublicApi = url.pathname.startsWith('/api/public');
+        const shouldCheck = SERVICE_TOKEN && isApiPath && !isPublicApi && !skipTokenPaths.some(p => url.pathname.startsWith(p));
       if (shouldCheck) {
         const authHeader = request.headers.get('authorization') || request.headers.get('Authorization') || '';
         const tokenHeader = request.headers.get('x-service-token') || request.headers.get('X-Service-Token') || '';

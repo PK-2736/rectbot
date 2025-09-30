@@ -309,7 +309,9 @@ app.all('/api/*', async (req, res) => {
 // GET /api/redis/recruitment/:id -> get single recruit by recruitId or full message id
 // Public, read-only endpoints for dashboards and public pages.
 // These intentionally do NOT require the internal secret but return only non-sensitive fields.
-app.get('/api/public/recruitment', async (req, res) => {
+// Public recruitment endpoints should be served only when requested by the Worker.
+// Require the internal secret so that pages/browser cannot call origin directly.
+app.get('/api/public/recruitment', requireInternalSecret, async (req, res) => {
   try {
     if (process.env.DEBUG_REQUESTS && process.env.DEBUG_REQUESTS.toLowerCase() === 'true') {
       console.log(`[public-recruit-debug] incoming request from ${req.ip} headers snapshot:`,
@@ -339,7 +341,7 @@ app.get('/api/public/recruitment', async (req, res) => {
   }
 });
 
-app.get('/api/public/recruitment/:id', async (req, res) => {
+app.get('/api/public/recruitment/:id', requireInternalSecret, async (req, res) => {
   try {
     const raw = req.params.id;
     const recruitId = normalizeRecruitId(raw);
