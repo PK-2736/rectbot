@@ -1,21 +1,28 @@
 // Minimal local typings to satisfy TypeScript in this repo until proper @types/* are installed.
 declare module 'lucide-react' {
-  const content: any;
+  const content: unknown;
   export = content;
 }
 
 declare module 'react' {
-  const React: any;
+  const React: unknown;
   export default React;
-  export function useState<T = any>(initial?: T): [T, (v: any) => void];
-  export function useEffect(cb: () => void | (() => void), deps?: any[]): void;
-  export function useCallback<T extends (...args: any[]) => any>(fn: T, deps?: any[]): T;
+  export type ReactNode = unknown;
+  export interface Context<T = unknown> {
+    Provider: any;
+    Consumer: any;
+  }
+  export function useState<T = unknown>(initial?: T): [T, (v: T | ((prev: T) => T)) => void];
+  export function useEffect(cb: () => void | (() => void), deps?: unknown[]): void;
+  export function useCallback<T extends (...args: unknown[]) => unknown>(fn: T, deps?: unknown[]): T;
+  export function createContext<T = unknown>(defaultValue?: T): Context<T>;
+  export function useContext<T = unknown>(context: Context<T>): T;
 }
 
-declare const process: any;
+declare const process: { env?: { [k: string]: string | undefined } };
 
 declare namespace JSX {
   interface IntrinsicElements {
-    [elemName: string]: any;
+    [elemName: string]: unknown;
   }
 }

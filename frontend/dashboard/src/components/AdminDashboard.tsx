@@ -4,10 +4,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { DashboardGuild } from '@/types/dashboard';
 import { formatDateTime, formatDuration } from '@/lib/utils';
 // Use small local fallbacks for icons to avoid lucide-react type/export issues in CI/build
-const Users = (props: any) => <span {...props}>👥</span>;
-const Clock = (props: any) => <span {...props}>⏱</span>;
-const Server = (props: any) => <span {...props}>🖥️</span>;
-const Activity = (props: any) => <span {...props}>⚡</span>;
+const Users = (props: React.HTMLAttributes<HTMLSpanElement>) => <span {...props}>👥</span>;
+const Clock = (props: React.HTMLAttributes<HTMLSpanElement>) => <span {...props}>⏱</span>;
+const Server = (props: React.HTMLAttributes<HTMLSpanElement>) => <span {...props}>🖥️</span>;
+const Activity = (props: React.HTMLAttributes<HTMLSpanElement>) => <span {...props}>⚡</span>;
 
 // 募集データの型定義
 interface RecruitmentData {

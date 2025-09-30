@@ -19,7 +19,7 @@ const AuthContext = createContext<AuthContextType>({
   isLoading: true,
 });
 
-export const useAuth = () => useContext(AuthContext);
+export const useAuth = (): AuthContextType => useContext(AuthContext) as AuthContextType;
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<DiscordUser | null>(null);
