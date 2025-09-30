@@ -52,10 +52,12 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps) {
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const [isLoading, setIsLoading] = useState(false);
   const [isCleaningUp, setIsCleaningUp] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   // 募集データを取得する関数（useCallback で安定化）
   const fetchRecruitments = useCallback(async () => {
     try {
+      setFetchError(null);
       // Try a few candidate backend base URLs in order. Prefer NEXT_PUBLIC_BACKEND_API_URL if set.
   // Prefer an explicit Worker URL if provided (Pages should call the Worker, not origin directly).
   const workerUrl = process.env.NEXT_PUBLIC_WORKER_URL || '';
@@ -85,19 +87,23 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps) {
       }
 
       if (!response) {
+        const msg = lastError instanceof Error ? lastError.message : String(lastError ?? 'All candidates failed');
         console.error('All backend candidates failed to fetch recruitment data', lastError);
+        setFetchError(msg);
         return;
       }
 
       const data = await response.json();
       const list: RecruitmentData[] = Array.isArray(data) ? data : [];
       setRecruitments(list);
+      setFetchError(null);
       // ギルド数を取得
       const uniqueGuilds = new Set(list.map((r: RecruitmentData) => r.guild_id));
       setGuildCount(uniqueGuilds.size);
       setLastUpdate(new Date());
     } catch (error) {
       console.error('Error fetching recruitments:', error);
+      setFetchError(String(error));
     }
   }, []);
 
@@ -177,6 +183,12 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps) {
 
   return (
     <div className="min-h-screen bg-gray-900 p-6">
+      {fetchError && (
+        <div className="mb-6 p-4 bg-red-700 text-white rounded">
+          <strong>データ取得エラー:</strong>
+          <div className="mt-1 text-sm">{fetchError}</div>
+        </div>
+      )}
       {/* ヘッダー */}
       <div className="mb-8">
         <div className="flex items-center justify-between">
