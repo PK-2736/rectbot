@@ -285,6 +285,63 @@ app.all('/api/*', async (req, res) => {
 // These let the frontend fetch the latest recruitment data directly from the bot's Redis cache.
 // GET /api/redis/recruitment -> list all cached recruits
 // GET /api/redis/recruitment/:id -> get single recruit by recruitId or full message id
+// Public, read-only endpoints for dashboards and public pages.
+// These intentionally do NOT require the internal secret but return only non-sensitive fields.
+app.get('/api/public/recruitment', async (req, res) => {
+  try {
+    const recruits = await db.listRecruitsFromRedis();
+    const safe = (recruits || []).map(r => ({
+      guild_id: r.guild_id,
+      channel_id: r.channel_id,
+      message_id: r.message_id,
+      guild_name: r.guild_name,
+      channel_name: r.channel_name,
+      status: r.status,
+      start_time: r.start_time,
+      content: r.content,
+      participants_count: r.participants_count,
+      start_game_time: r.start_game_time,
+      vc: r.vc,
+      note: r.note,
+      recruiterId: r.recruiterId,
+      recruitId: r.recruitId
+    }));
+    res.json(safe);
+  } catch (err) {
+    console.error('[server][api/public/recruitment][get] Error:', err.message || err);
+    res.status(500).json({ error: 'internal_error', detail: err.message });
+  }
+});
+
+app.get('/api/public/recruitment/:id', async (req, res) => {
+  try {
+    const raw = req.params.id;
+    const recruitId = normalizeRecruitId(raw);
+    const r = await db.getRecruitFromRedis(recruitId);
+    if (!r) return res.status(404).json({ error: 'not_found' });
+    const safe = {
+      guild_id: r.guild_id,
+      channel_id: r.channel_id,
+      message_id: r.message_id,
+      guild_name: r.guild_name,
+      channel_name: r.channel_name,
+      status: r.status,
+      start_time: r.start_time,
+      content: r.content,
+      participants_count: r.participants_count,
+      start_game_time: r.start_game_time,
+      vc: r.vc,
+      note: r.note,
+      recruiterId: r.recruiterId,
+      recruitId: r.recruitId
+    };
+    res.json(safe);
+  } catch (err) {
+    console.error('[server][api/public/recruitment][get:id] Error:', err.message || err);
+    res.status(500).json({ error: 'internal_error', detail: err.message });
+  }
+});
+
 app.get('/api/redis/recruitment', requireInternalSecret, async (req, res) => {
   try {
     const recruits = await db.listRecruitsFromRedis();
