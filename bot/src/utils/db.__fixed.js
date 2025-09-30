@@ -150,8 +150,8 @@ function getSupabase() {
 }
 
 async function saveRecruitStatus(serverId, channelId, messageId, startTime) {
-  const res = await fetch(`${config.BACKEND_API_URL}/api/recruit-status`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ serverId, channelId, messageId, startTime }) });
-  return res.json();
+  const res = await backendFetch(`${config.BACKEND_API_URL}/api/recruit-status`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ serverId, channelId, messageId, startTime }) });
+  return await (async () => { try { return await res.json(); } catch (e) { const t = await res.text().catch(()=>null); return t; } })();
 }
 
 async function saveRecruitmentData(guildId, channelId, messageId, guildName, channelName, recruitData) {
@@ -162,7 +162,7 @@ async function saveRecruitmentData(guildId, channelId, messageId, guildName, cha
   return await res.json();
 }
 
-async function deleteRecruitStatus(serverId) { const res = await fetch(`${config.BACKEND_API_URL}/api/recruit-status?serverId=${serverId}`, { method: 'DELETE' }); return res.json(); }
+async function deleteRecruitStatus(serverId) { const res = await backendFetch(`${config.BACKEND_API_URL}/api/recruit-status?serverId=${serverId}`, { method: 'DELETE' }); try { return await res.json(); } catch (e) { return await res.text().catch(()=>null); } }
 
 async function deleteRecruitmentData(messageId) {
   try {
@@ -200,7 +200,7 @@ async function updateRecruitmentData(messageId, recruitData) {
   return await res.json();
 }
 
-async function getActiveRecruits() { const res = await fetch(`${config.BACKEND_API_URL}/api/active-recruits`); return await res.json(); }
+async function getActiveRecruits() { const res = await backendFetch(`${config.BACKEND_API_URL}/api/active-recruits`); try { return await res.json(); } catch (e) { return await res.text().catch(()=>null); } }
 
 module.exports = {
   getSupabase,

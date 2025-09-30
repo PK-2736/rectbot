@@ -11,15 +11,29 @@ module.exports = function backendFetch(pathOrUrl, opts = {}) {
     url = config.BACKEND_API_URL.replace(/\/$/, '') + (url.startsWith('/') ? url : '/' + url);
   }
 
-  const headers = Object.assign({}, opts.headers || {});
+  // Normalize provided headers to a case-insensitive map
+  const providedHeaders = opts.headers || {};
+  const normalized = {};
+  Object.keys(providedHeaders).forEach((k) => {
+    normalized[k.toLowerCase()] = providedHeaders[k];
+  });
+
   const svc = process.env.SERVICE_TOKEN || process.env.BACKEND_SERVICE_TOKEN || '';
   // Debug: do not log token itself, only presence
   try { console.log('[backendFetch] service token present=', !!svc, 'url=', url.replace(/https?:\/\//, '')); } catch (e) {}
-  if (svc) headers['Authorization'] = `Bearer ${svc}`;
-  // If body looks like JSON string and no content-type provided, set it
-  if (!headers['Content-Type'] && opts.body && typeof opts.body === 'string') {
-    headers['Content-Type'] = 'application/json';
+
+  // Only set Authorization if caller did not provide one (case-insensitive)
+  if (svc && !Object.prototype.hasOwnProperty.call(normalized, 'authorization')) {
+    normalized['authorization'] = `Bearer ${svc}`;
   }
+
+  // If body looks like JSON string and no content-type provided, set it
+  if (!Object.prototype.hasOwnProperty.call(normalized, 'content-type') && opts.body && typeof opts.body === 'string') {
+    normalized['content-type'] = 'application/json';
+  }
+
+  // Rebuild headers object (lowercase keys are acceptable for fetch)
+  const headers = Object.assign({}, normalized);
 
   const init = Object.assign({}, opts, { headers });
   return fetch(url, init);
