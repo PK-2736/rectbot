@@ -57,11 +57,14 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps) {
   const fetchRecruitments = useCallback(async () => {
     try {
       // Try a few candidate backend base URLs in order. Prefer NEXT_PUBLIC_BACKEND_API_URL if set.
-      const envUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL || '';
-      const candidates = [] as string[];
-      if (envUrl) candidates.push(envUrl.replace(/\/$/, ''));
-      // Known public backend
-      candidates.push('https://api.rectbot.tech');
+  // Prefer an explicit Worker URL if provided (Pages should call the Worker, not origin directly).
+  const workerUrl = process.env.NEXT_PUBLIC_WORKER_URL || '';
+  const envUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL || '';
+  const candidates = [] as string[];
+  if (workerUrl) candidates.push(workerUrl.replace(/\/$/, ''));
+  if (envUrl) candidates.push(envUrl.replace(/\/$/, ''));
+  // Known public backend as a fallback
+  candidates.push('https://api.rectbot.tech');
       // Local development fallback
       candidates.push('http://localhost:3000');
 
