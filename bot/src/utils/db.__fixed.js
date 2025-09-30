@@ -63,7 +63,20 @@ async function getRecruitFromRedis(recruitId) {
   return val ? JSON.parse(val) : null;
 }
 
-async function listRecruitIdsFromRedis() { return await redis.keys('recruit:*'); }
+// Use SCAN to iterate keys safely in production instead of KEYS
+async function scanKeys(pattern) {
+  const stream = redis.scanStream({ match: pattern, count: 100 });
+  const keys = [];
+  return await new Promise((resolve, reject) => {
+    stream.on('data', (resultKeys) => {
+      for (const k of resultKeys) keys.push(k);
+    });
+    stream.on('end', () => resolve(keys));
+    stream.on('error', (err) => reject(err));
+  });
+}
+
+async function listRecruitIdsFromRedis() { return await scanKeys('recruit:*'); }
 
 async function listRecruitsFromRedis() {
   const keys = await listRecruitIdsFromRedis();
@@ -101,7 +114,7 @@ async function cleanupExpiredRecruits() {
       if (ttl === -1) { await redis.expire(key, RECRUIT_TTL_SECONDS); continue; }
       if (ttl <= 0) { await redis.del(key); result.deletedRecruitCount += 1; try { const rid = key.includes(':') ? key.split(':')[1] : key; dbEvents.emit('recruitDeleted', { recruitId: rid, key, timestamp: new Date().toISOString() }); } catch (e) {} }
     }
-    const participantKeys = await redis.keys('participants:*');
+  const participantKeys = await scanKeys('participants:*');
     for (const key of participantKeys) {
       const ttl = await redis.ttl(key);
       if (ttl === -2) continue;
