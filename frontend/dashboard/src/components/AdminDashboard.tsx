@@ -71,25 +71,39 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps) {
       candidates.push('http://localhost:3000');
 
       let response: Response | null = null;
-      let lastError: unknown = null;
+      const attempts: Array<{ url: string; ok?: boolean; status?: number; error?: string }> = [];
 
       for (const base of candidates) {
+        const url = `${base}/api/public/recruitment`;
         try {
-          const url = `${base}/api/public/recruitment`;
-          response = await fetch(url, { cache: 'no-store' });
-          if (response.ok) break; // success
-          // if non-OK, keep trying other candidates
-          lastError = new Error(`Non-OK response ${response.status} from ${url}`);
-        } catch (err) {
-          lastError = err;
+          const resp = await fetch(url, { cache: 'no-store' });
+          attempts.push({ url, ok: resp.ok, status: resp.status });
+          if (resp.ok) {
+            response = resp;
+            break; // success
+          }
+          // continue to next candidate
+        } catch (err: unknown) {
+          let msg = String(err);
+          try {
+            if (err && typeof err === 'object' && 'message' in err) {
+              const e = err as { message?: unknown };
+              if (typeof e.message === 'string') msg = e.message;
+            }
+          } catch (_) {}
+          attempts.push({ url, error: msg });
           response = null;
         }
       }
 
       if (!response) {
-        const msg = lastError instanceof Error ? lastError.message : String(lastError ?? 'All candidates failed');
-        console.error('All backend candidates failed to fetch recruitment data', lastError);
-        setFetchError(msg);
+        const detail = attempts.map(a => {
+          if (a.ok) return `${a.url} -> OK (${a.status})`;
+          if (a.status) return `${a.url} -> ${a.status}`;
+          return `${a.url} -> error: ${a.error}`;
+        }).join(' ; ');
+        console.error('All backend candidates failed to fetch recruitment data', attempts);
+        setFetchError(`All attempts failed: ${detail}`);
         return;
       }
 
