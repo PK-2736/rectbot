@@ -11,47 +11,47 @@ on:
 jobs:
   oci-deploy:
     runs-on: ubuntu-latest
-    env:
-      HOST: ${{ secrets.OCI_HOST }}
-      USER: ${{ secrets.OCI_USER }}
-      KEY: ${{ secrets.OCI_SSH_KEY }}
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
-      - name: Create .env from secret
-        run: echo "$GITHUB_ENV_CONTENTS" > .env
-        env:
-          GITHUB_ENV_CONTENTS: ${{ secrets.ENV_CONTENTS }}
-      - name: Create git-auto.sh from secret
-        run: |
-          echo "$GITHUB_GIT_AUTO_SH" > git-auto.sh
-          chmod +x git-auto.sh
-        env:
-          GITHUB_GIT_AUTO_SH: ${{ secrets.GIT_AUTO_SH }}
-      - name: Create oci_ssl_check.sh from secret
-        run: |
-          echo "$GITHUB_OCI_SSL_CHECK_SH" > oci_ssl_check.sh
-          chmod +x oci_ssl_check.sh
-        env:
-          GITHUB_OCI_SSL_CHECK_SH: ${{ secrets.OCI_SSL_CHECK_SH }}
       - name: Set up SSH key (id_ed25519)
+        env:
+          OCI_SSH_KEY: ${{ secrets.OCI_SSH_KEY }}
+          OCI_HOST: ${{ secrets.OCI_HOST }}
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.OCI_SSH_KEY }}" | base64 -d > ~/.ssh/id_ed25519
+          echo "$OCI_SSH_KEY" | base64 -d > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -H ${{ secrets.OCI_HOST }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H $OCI_HOST >> ~/.ssh/known_hosts
       - name: Deploy via SSH
+        env:
+          OCI_USER: ${{ secrets.OCI_USER }}
+          OCI_HOST: ${{ secrets.OCI_HOST }}
+          SERVICE_TOKEN: ${{ secrets.SERVICE_TOKEN }}
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          INTERNAL_SECRET: ${{ secrets.INTERNAL_SECRET }}
+          BACKEND_API_URL: ${{ secrets.BACKEND_API_URL }}
+          REDIS_HOST: ${{ secrets.REDIS_HOST }}
+          REDIS_PORT: ${{ secrets.REDIS_PORT }}
         run: |
-          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no ${{ secrets.OCI_USER }}@${{ secrets.OCI_HOST }} '
-          source ~/.bashrc
-          source ~/.nvm/nvm.sh
-          cd ~/rectbot
-          git pull origin main
-          cd bot
-          node src/deploy-commands.js
-          pm2 restart rectbot || pm2 start ecosystem.config.js
-          pm2 restart rectbot-server || pm2 start pm2-server.config.js
+          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no $OCI_USER@$OCI_HOST '
+            export SERVICE_TOKEN="'"$SERVICE_TOKEN"'" || true; \
+            export DISCORD_BOT_TOKEN="'"$DISCORD_BOT_TOKEN"'" || true; \
+            export INTERNAL_SECRET="'"$INTERNAL_SECRET"'" || true; \
+            export BACKEND_API_URL="'"$BACKEND_API_URL"'" || true; \
+            export REDIS_HOST="'"$REDIS_HOST"'" || true; \
+            export REDIS_PORT="'"$REDIS_PORT"'" || true; \
+            source ~/.bashrc || true; \
+            source ~/.nvm/nvm.sh || true; \
+            cd ~/rectbot || exit 1; \
+            git pull origin main || true; \
+            cd bot || exit 1; \
+            node src/deploy-commands.js || true; \
+            pm2 restart rectbot --update-env || pm2 start ecosystem.config.js --env production; \
+            pm2 restart rectbot-server --update-env || pm2 start pm2-server.config.js --env production
           '
+    
 
 
     
+

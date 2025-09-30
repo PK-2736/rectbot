@@ -50,3 +50,4 @@ pnpm-debug.log*
 *.lock
 .requirements.txt
 bot/pm2-server.config.js
+bot/ecosystem.config.js
