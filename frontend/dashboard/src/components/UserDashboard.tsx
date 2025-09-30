@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { UserSubscription } from '@/types/dashboard';
 import { formatDateTime } from '@/lib/utils';
 import * as Icons from 'lucide-react';
@@ -14,7 +14,9 @@ type IconOrFallbackProps = {
 
 function IconOrFallback({ name, className, children }: IconOrFallbackProps) {
   // lucide-react exports icons as named exports; access dynamically and fall back if missing
-  const Comp = (Icons as any)[name];
+  // Avoid `any` by typing the icons map as a record of React component types.
+  const iconsMap = Icons as Record<string, React.ComponentType<{ className?: string }>>;
+  const Comp = iconsMap[name];
   if (Comp) return <Comp className={className} />;
   return (
     <span className={className} aria-hidden>

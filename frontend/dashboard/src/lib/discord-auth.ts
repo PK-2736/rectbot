@@ -34,7 +34,7 @@ export class DiscordAuth {
     return `https://discord.com/api/oauth2/authorize?${params.toString()}`;
   }
 
-  async exchangeCode(code: string): Promise<DiscordUser | null> {
+  async exchangeCode(_code: string): Promise<DiscordUser | null> {
     try {
       // クライアントサイドではクロスオリジンリクエストができないため、
       // バックエンドプロキシまたは別の方法が必要

@@ -9,8 +9,9 @@ declare module 'react' {
   export default React;
   export type ReactNode = unknown;
   export interface Context<T = unknown> {
-    Provider: any;
-    Consumer: any;
+    // Provider should be usable as a JSX component: <Context.Provider value={...}>{children}</Context.Provider>
+    Provider: (props: { value: T; children?: ReactNode }) => JSX.Element | null;
+    Consumer: (props: { children?: (value: T) => ReactNode }) => JSX.Element | null;
   }
   export function useState<T = unknown>(initial?: T): [T, (v: T | ((prev: T) => T)) => void];
   export function useEffect(cb: () => void | (() => void), deps?: unknown[]): void;
