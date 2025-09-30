@@ -43,6 +43,7 @@ jobs:
         run: |
           cd frontend/dashboard
           npm run build
+          npm run export
       - name: Create or Deploy Dashboard to Cloudflare Pages
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

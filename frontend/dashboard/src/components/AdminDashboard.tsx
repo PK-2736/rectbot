@@ -1,10 +1,13 @@
-// @ts-nocheck
 "use client";
 // 推奨: プロジェクトに @types/react, @types/node, lucide-react の型を導入してください。
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { DashboardGuild } from '@/types/dashboard';
 import { formatDateTime, formatDuration } from '@/lib/utils';
-import { Users, Clock, Server, Activity } from 'lucide-react';
+// Use small local fallbacks for icons to avoid lucide-react type/export issues in CI/build
+const Users = (props: any) => <span {...props}>👥</span>;
+const Clock = (props: any) => <span {...props}>⏱</span>;
+const Server = (props: any) => <span {...props}>🖥️</span>;
+const Activity = (props: any) => <span {...props}>⚡</span>;
 
 // 募集データの型定義
 interface RecruitmentData {
@@ -23,26 +26,47 @@ interface RecruitmentData {
 }
 
 interface AdminDashboardProps {
-  initialData: DashboardGuild[];
+  initialData?: DashboardGuild[];
 }
 
 export default function AdminDashboard({ initialData }: AdminDashboardProps) {
-  const [recruitments, setRecruitments] = useState<RecruitmentData[]>([]);
+  // Map incoming DashboardGuild[] (if any) to RecruitmentData[] for initial render
+  const mapInitial = (data?: DashboardGuild[]): RecruitmentData[] => {
+    if (!data) return [];
+    return data.map(d => ({
+      guild_id: d.guild_id,
+      channel_id: '',
+      message_id: '',
+      guild_name: d.guild_name,
+      channel_name: d.channel_name || '',
+      status: d.status || 'idle',
+      start_time: d.start_time || new Date().toISOString(),
+      content: '',
+      participants_count: d.current_recruits || 0,
+      start_game_time: d.start_time || '',
+    }));
+  };
+
+  const [recruitments, setRecruitments] = useState<RecruitmentData[]>(mapInitial(initialData));
   const [guildCount, setGuildCount] = useState<number>(0);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const [isLoading, setIsLoading] = useState(false);
   const [isCleaningUp, setIsCleaningUp] = useState(false);
 
-  // 募集データを取得する関数
-  const fetchRecruitments = async () => {
+  // 募集データを取得する関数（useCallback で安定化）
+  const fetchRecruitments = useCallback(async () => {
     try {
-  // Express サーバの Redis キャッシュを直接取得（Workers KV を参照しない）
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:3000';
-  // Use the public, read-only endpoint so the dashboard doesn't need internal secrets
-  const response = await fetch(`${backendUrl.replace(/\/$/, '')}/api/public/recruitment`);
+      // Express サーバの Redis キャッシュを直接取得（Workers KV を参照しない）
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:3000';
+      // Use the public, read-only endpoint so the dashboard doesn't need internal secrets
+      const response = await fetch(`${backendUrl.replace(/\/$/, '')}/api/public/recruitment`);
       if (response.ok) {
         const data = await response.json();
-        setRecruitments(Array.isArray(data) ? data : []);
+        const list: RecruitmentData[] = Array.isArray(data) ? data : [];
+        setRecruitments(list);
+        // ギルド数を取得
+        const uniqueGuilds = new Set(list.map((r: RecruitmentData) => r.guild_id));
+        setGuildCount(uniqueGuilds.size);
         setLastUpdate(new Date());
       } else {
         console.error('Failed to fetch recruitments:', response.statusText);
@@ -50,14 +74,7 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps) {
     } catch (error) {
       console.error('Error fetching recruitments:', error);
     }
-  };
-
-  // ギルド数を取得する関数
-  // ギルド数は Redis から取得した募集一覧から計算する（Worker 側の KV を使わない）
-  const computeGuildCountFromRecruitments = () => {
-    const uniqueGuilds = new Set(recruitments.map((r: RecruitmentData) => r.guild_id));
-    setGuildCount(uniqueGuilds.size);
-  };
+  }, []);
 
   // 手動クリーンアップ関数
   const performCleanup = async () => {
@@ -101,8 +118,6 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps) {
       setIsLoading(true);
       try {
         await fetchRecruitments();
-        // compute derived stats from latest recruitments
-        computeGuildCountFromRecruitments();
       } catch (error) {
         console.error('Failed to fetch data:', error);
       } finally {
@@ -111,14 +126,14 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps) {
     }, 5000); // 5秒間隔
 
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchRecruitments]);
 
-  const activeRecruitments = recruitments.filter(r => r.status === 'recruiting').length;
+  const activeRecruitments = recruitments.filter((r: RecruitmentData) => r.status === 'recruiting').length;
   const totalRecruitments = recruitments.length;
   
   // 平均経過時間を計算
   const averageElapsedTime = () => {
-    const activeRecs = recruitments.filter(r => r.status === 'recruiting');
+  const activeRecs = recruitments.filter((r: RecruitmentData) => r.status === 'recruiting');
     if (activeRecs.length === 0) return 0;
     
     const totalMinutes = activeRecs.reduce((sum: number, rec: RecruitmentData) => {
@@ -228,9 +243,9 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps) {
           <h2 className="text-xl font-semibold text-white">募集一覧</h2>
           <p className="text-gray-400 text-sm mt-1">
             {recruitments.length} 件の募集があります
-            {recruitments.filter(r => isOldRecruitment(r.start_time)).length > 0 && (
+            {recruitments.filter((r: RecruitmentData) => isOldRecruitment(r.start_time)).length > 0 && (
               <span className="text-red-400 ml-2">
-                · {recruitments.filter(r => isOldRecruitment(r.start_time)).length}件の古い募集（8時間以上経過）
+                · {recruitments.filter((r: RecruitmentData) => isOldRecruitment(r.start_time)).length}件の古い募集（8時間以上経過）
               </span>
             )}
           </p>
@@ -254,7 +269,7 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps) {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-700">
-              {recruitments.map((recruitment) => {
+              {recruitments.map((recruitment: RecruitmentData) => {
                 const isOld = isOldRecruitment(recruitment.start_time);
                 return (
                   <tr 
@@ -285,8 +300,8 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps) {
                       )}
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-center">
-                    <span className="text-white">{recruitment.participants_count}</span>
+                    <td className="px-4 py-3 text-center">
+                    <span className="text-white">{(recruitment.participants_count ?? 0)}</span>
                   </td>
                   <td className="px-4 py-3 text-center">
                     <span className="text-white">{recruitment.start_game_time}</span>
