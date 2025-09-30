@@ -11,6 +11,28 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Optional request debug logging. Enable by setting DEBUG_REQUESTS=true in the origin env.
+if (process.env.DEBUG_REQUESTS && process.env.DEBUG_REQUESTS.toLowerCase() === 'true') {
+  app.use((req, res, next) => {
+    try {
+      console.log(`[req-debug] ${new Date().toISOString()} ${req.method} ${req.originalUrl} from ${req.ip}`);
+      // Print a small subset of headers to avoid leaking secrets in logs
+      const hdrs = {
+        host: req.headers.host,
+        origin: req.headers.origin,
+        referer: req.headers.referer,
+        authorization: req.headers.authorization ? '[present]' : '[missing]',
+        'x-internal-secret': req.headers['x-internal-secret'] ? '[present]' : '[missing]',
+        'x-service-token': req.headers['x-service-token'] ? '[present]' : '[missing]'
+      };
+      console.log('[req-debug] headers:', hdrs);
+    } catch (e) {
+      console.warn('[req-debug] logging error', e && e.message);
+    }
+    next();
+  });
+}
+
 const PORT = process.env.PORT || 3000;
 const BACKEND_API_URL = process.env.BACKEND_API_URL || process.env.BACKEND_URL || 'https://api.rectbot.tech';
 
@@ -289,6 +311,10 @@ app.all('/api/*', async (req, res) => {
 // These intentionally do NOT require the internal secret but return only non-sensitive fields.
 app.get('/api/public/recruitment', async (req, res) => {
   try {
+    if (process.env.DEBUG_REQUESTS && process.env.DEBUG_REQUESTS.toLowerCase() === 'true') {
+      console.log(`[public-recruit-debug] incoming request from ${req.ip} headers snapshot:`,
+        { host: req.headers.host, authorization: req.headers.authorization ? '[present]' : '[missing]', 'x-internal-secret': req.headers['x-internal-secret'] ? '[present]' : '[missing]' });
+    }
     const recruits = await db.listRecruitsFromRedis();
     const safe = (recruits || []).map(r => ({
       guild_id: r.guild_id,

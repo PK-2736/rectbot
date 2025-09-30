@@ -95,6 +95,18 @@ export default {
         // ignore if EXPRESS_ORIGIN is malformed
       }
 
+      // Safety: avoid proxying to the same host as the incoming request to prevent accidental recursion
+      try {
+        const incomingHost = url.host;
+        const originHostCheck = new URL(EXPRESS_ORIGIN).host;
+        if (originHostCheck === incomingHost) {
+          console.error('[worker] Misconfiguration: EXPRESS_ORIGIN resolves to the same host as the Worker route (possible recursion)');
+          return new Response(JSON.stringify({ error: 'bad_gateway', detail: 'Worker configured to proxy to its own host (EXPRESS_ORIGIN mismatch)' }), { status: 502, headers: corsHeaders });
+        }
+      } catch (e) {
+        // ignore parse errors here
+      }
+
       let body = undefined;
       if (request.method !== 'GET' && request.method !== 'HEAD') {
         body = await request.arrayBuffer();
