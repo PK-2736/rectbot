@@ -45,7 +45,7 @@ export default {
     try {
       const SERVICE_TOKEN = env.SERVICE_TOKEN || '';
       const isApiPath = url.pathname.startsWith('/api');
-      // 公開で許可する簡易なパス（テストやOAuthコールバック等）は除外
+    // 公開で許可する簡易なパス（テストやOAuthコールバック等）は除外
   const skipTokenPaths = ['/api/test', '/api/discord/callback', '/api/kv-test', '/api/redis'];
       const shouldCheck = SERVICE_TOKEN && isApiPath && !skipTokenPaths.some(p => url.pathname.startsWith(p));
       if (shouldCheck) {
