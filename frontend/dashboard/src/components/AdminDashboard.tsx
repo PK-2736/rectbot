@@ -56,21 +56,43 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps) {
   // 募集データを取得する関数（useCallback で安定化）
   const fetchRecruitments = useCallback(async () => {
     try {
-      // Express サーバの Redis キャッシュを直接取得（Workers KV を参照しない）
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:3000';
-      // Use the public, read-only endpoint so the dashboard doesn't need internal secrets
-      const response = await fetch(`${backendUrl.replace(/\/$/, '')}/api/public/recruitment`);
-      if (response.ok) {
-        const data = await response.json();
-        const list: RecruitmentData[] = Array.isArray(data) ? data : [];
-        setRecruitments(list);
-        // ギルド数を取得
-        const uniqueGuilds = new Set(list.map((r: RecruitmentData) => r.guild_id));
-        setGuildCount(uniqueGuilds.size);
-        setLastUpdate(new Date());
-      } else {
-        console.error('Failed to fetch recruitments:', response.statusText);
+      // Try a few candidate backend base URLs in order. Prefer NEXT_PUBLIC_BACKEND_API_URL if set.
+      const envUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL || '';
+      const candidates = [] as string[];
+      if (envUrl) candidates.push(envUrl.replace(/\/$/, ''));
+      // Known public backend
+      candidates.push('https://api.rectbot.tech');
+      // Local development fallback
+      candidates.push('http://localhost:3000');
+
+      let response: Response | null = null;
+      let lastError: unknown = null;
+
+      for (const base of candidates) {
+        try {
+          const url = `${base}/api/public/recruitment`;
+          response = await fetch(url, { cache: 'no-store' });
+          if (response.ok) break; // success
+          // if non-OK, keep trying other candidates
+          lastError = new Error(`Non-OK response ${response.status} from ${url}`);
+        } catch (err) {
+          lastError = err;
+          response = null;
+        }
       }
+
+      if (!response) {
+        console.error('All backend candidates failed to fetch recruitment data', lastError);
+        return;
+      }
+
+      const data = await response.json();
+      const list: RecruitmentData[] = Array.isArray(data) ? data : [];
+      setRecruitments(list);
+      // ギルド数を取得
+      const uniqueGuilds = new Set(list.map((r: RecruitmentData) => r.guild_id));
+      setGuildCount(uniqueGuilds.size);
+      setLastUpdate(new Date());
     } catch (error) {
       console.error('Error fetching recruitments:', error);
     }
