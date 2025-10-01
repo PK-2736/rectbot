@@ -846,24 +846,38 @@ module.exports = {
           // === 募集状況をAPI経由で削除 ===
           const { deleteRecruitmentData, updateRecruitmentStatus } = require('../utils/db');
           // API 側で見つからない（404）などのケースがあるため例外を吸収して処理を継続する
-          try {
-            const delRes = await deleteRecruitmentData(messageId);
-            if (delRes && delRes.ok) {
-              console.log('管理API: 募集データを削除しました:', messageId);
-            } else if (delRes && delRes.status === 404) {
-              console.warn('管理APIで募集データが見つかりませんでした（404）。処理を続行します:', messageId);
-            } else {
-              console.warn('管理API: 募集データ削除の結果が不正です:', delRes);
-            }
-          } catch (err) {
-            console.error('募集データの削除に失敗:', err);
-          }
-          // === 管理ページの募集データステータスを更新 ===
+          
+          // === 管理ページの募集データステータスを更新（先に実行） ===
+          let statusUpdateSuccess = false;
           try {
             await updateRecruitmentStatus(messageId, 'ended', new Date().toISOString());
             console.log('管理ページの募集ステータスを更新しました:', messageId);
+            statusUpdateSuccess = true;
           } catch (error) {
             console.error('管理ページの募集ステータス更新に失敗:', error);
+            // タイムアウトエラーの場合は詳細をログ
+            if (error.message && (error.message.includes('522') || error.message.includes('524') || error.message.includes('timeout'))) {
+              console.error('バックエンドAPIへの接続がタイムアウトしました。後で再試行されます。');
+            }
+          }
+          
+          // === 募集データの削除（Redis + Supabase） ===
+          try {
+            // ステータス更新が成功した場合のみ削除を試行
+            if (statusUpdateSuccess) {
+              const delRes = await deleteRecruitmentData(messageId);
+              if (delRes && delRes.ok) {
+                console.log('管理API: 募集データを削除しました:', messageId);
+              } else if (delRes && delRes.status === 404) {
+                console.warn('管理APIで募集データが見つかりませんでした（404）。処理を続行します:', messageId);
+              } else {
+                console.warn('管理API: 募集データ削除の結果が不正です:', delRes);
+              }
+            } else {
+              console.log('ステータス更新に失敗したため、データ削除はスキップします:', messageId);
+            }
+          } catch (err) {
+            console.error('募集データの削除に失敗:', err);
           }
           // ボタンを無効化
           const disabledContainer = new ContainerBuilder();

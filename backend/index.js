@@ -353,25 +353,69 @@ export default {
           'Authorization': `Bearer ${env.SERVICE_TOKEN || ''}`
         };
         
-        const vpsResponse = await fetch(vpsUrl, {
-          method: 'DELETE',
-          headers
-        });
+        console.log(`[DELETE] Sending request to: ${vpsUrl}`);
         
-        const responseText = await vpsResponse.text();
-        let responseBody;
+        // タイムアウト制御付きでVPSにリクエスト送信
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10秒タイムアウト
+        
         try {
-          responseBody = JSON.parse(responseText);
-        } catch (e) {
-          responseBody = { message: responseText };
+          const vpsResponse = await fetch(vpsUrl, {
+            method: 'DELETE',
+            headers,
+            signal: controller.signal
+          });
+          
+          clearTimeout(timeoutId);
+          
+          console.log(`[DELETE] VPS Express response status: ${vpsResponse.status}`);
+          console.log(`[DELETE] VPS Express response headers:`, Object.fromEntries(vpsResponse.headers.entries()));
+          
+          if (!vpsResponse.ok) {
+            console.error(`[DELETE] VPS Express error: ${vpsResponse.status} ${vpsResponse.statusText}`);
+            
+            // 522エラーやその他のCloudflareエラーの場合は特別な処理
+            if (vpsResponse.status >= 520 && vpsResponse.status <= 530) {
+              return new Response(JSON.stringify({
+                error: "VPS Express server temporarily unavailable",
+                status: vpsResponse.status,
+                details: `Cloudflare error ${vpsResponse.status}: VPS Express server is not responding`
+              }), {
+                status: 503, // Service Unavailable
+                headers: { ...corsHeaders, "Content-Type": "application/json" }
+              });
+            }
+          }
+          
+          const responseText = await vpsResponse.text();
+          let responseBody;
+          try {
+            responseBody = JSON.parse(responseText);
+          } catch (e) {
+            responseBody = { message: responseText || `HTTP ${vpsResponse.status}` };
+          }
+          
+          return new Response(JSON.stringify(responseBody), {
+            status: vpsResponse.status,
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
+          });
+          
+        } catch (fetchError) {
+          clearTimeout(timeoutId);
+          
+          if (fetchError.name === 'AbortError') {
+            console.error('[DELETE] Request timeout to VPS Express');
+            return new Response(JSON.stringify({
+              error: "Request timeout",
+              details: "VPS Express server did not respond within 10 seconds"
+            }), {
+              status: 504, // Gateway Timeout
+              headers: { ...corsHeaders, "Content-Type": "application/json" }
+            });
+          }
+          
+          throw fetchError;
         }
-        
-        console.log(`[DELETE] VPS Express response status: ${vpsResponse.status}`);
-        
-        return new Response(JSON.stringify(responseBody), {
-          status: vpsResponse.status,
-          headers: { ...corsHeaders, "Content-Type": "application/json" }
-        });
         
       } catch (error) {
         console.error('[DELETE] Error proxying to VPS Express:', error);
@@ -516,6 +560,133 @@ export default {
         status: 200, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
+    }
+
+    // Discord OAuthコールバックAPI (GET) - DiscordからのリダイレクトURL処理
+    if (request.method === 'GET' && url.pathname === '/api/discord/callback') {
+      const code = url.searchParams.get('code');
+      if (!code) {
+        return new Response('<!DOCTYPE html><html><body><h1>認証エラー</h1><p>認証コードが見つかりません</p></body></html>', {
+          status: 400,
+          headers: { 'Content-Type': 'text/html; charset=utf-8' }
+        });
+      }
+      
+      try {
+        // 環境変数からDiscord情報取得
+        const clientId = env.REACT_APP_DISCORD_CLIENT_ID;
+        const clientSecret = env.DISCORD_CLIENT_SECRET;
+        const redirectUri = env.REACT_APP_DISCORD_REDIRECT_URI;
+        
+        // Discordトークン取得
+        const tokenData = await getDiscordToken(code, redirectUri, clientId, clientSecret);
+        if (!tokenData.access_token) {
+          return new Response('<!DOCTYPE html><html><body><h1>認証エラー</h1><p>Discordトークンの取得に失敗しました</p></body></html>', {
+            status: 400,
+            headers: { 'Content-Type': 'text/html; charset=utf-8' }
+          });
+        }
+        
+        // Discordユーザー情報取得
+        const user = await getDiscordUser(tokenData.access_token);
+        
+        // ダッシュボードにリダイレクト（ユーザー情報をクエリパラメータで渡す）
+        const dashboardUrl = new URL('https://dash.rectbot.tech/');
+        dashboardUrl.searchParams.set('auth_success', 'true');
+        dashboardUrl.searchParams.set('user_id', user.id);
+        dashboardUrl.searchParams.set('username', user.username);
+        
+        return new Response('', {
+          status: 302,
+          headers: {
+            'Location': dashboardUrl.toString(),
+            ...corsHeaders
+          }
+        });
+        
+      } catch (error) {
+        console.error('Discord OAuth error:', error);
+        return new Response('<!DOCTYPE html><html><body><h1>認証エラー</h1><p>認証処理中にエラーが発生しました</p></body></html>', {
+          status: 500,
+          headers: { 'Content-Type': 'text/html; charset=utf-8' }
+        });
+      }
+    }
+
+    // ギルド設定取得API（Supabaseメイン）
+    if (url.pathname.startsWith("/api/guild-settings/") && request.method === "GET") {
+      try {
+        const guildId = url.pathname.split("/api/guild-settings/")[1];
+        
+        if (!guildId) {
+          return new Response(JSON.stringify({ error: "Guild ID required" }), { 
+            status: 400, 
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
+          });
+        }
+        
+        // Supabaseから設定を取得
+        const supaRes = await fetch(env.SUPABASE_URL + `/rest/v1/guild_settings?guild_id=eq.${guildId}`, {
+          method: 'GET',
+          headers: {
+            'apikey': env.SUPABASE_SERVICE_ROLE_KEY,
+            'Authorization': `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        if (!supaRes.ok) {
+          throw new Error(`Supabase fetch failed: ${supaRes.status}`);
+        }
+        
+        const data = await supaRes.json();
+        
+        if (!Array.isArray(data) || data.length === 0) {
+          // 設定が見つからない場合はデフォルト値を返す
+          const defaultSettings = {
+            recruit_channel: null,
+            notification_role: null,
+            defaultTitle: "参加者募集",
+            defaultColor: "#00FFFF",
+            update_channel: null
+          };
+          
+          return new Response(JSON.stringify(defaultSettings), { 
+            status: 200, 
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
+          });
+        }
+        
+        // Supabaseのデータ形式をフロントエンド形式に変換
+        const settings = {
+          recruit_channel: data[0].recruit_channel_id,
+          notification_role: data[0].notification_role_id,
+          defaultTitle: data[0].default_title || "参加者募集",
+          defaultColor: data[0].default_color || "#00FFFF",
+          update_channel: data[0].update_channel_id
+        };
+        
+        return new Response(JSON.stringify(settings), { 
+          status: 200, 
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      } catch (error) {
+        console.error('Guild settings fetch error:', error);
+        
+        // エラー時はデフォルト値を返す
+        const defaultSettings = {
+          recruit_channel: null,
+          notification_role: null,
+          defaultTitle: "参加者募集", 
+          defaultColor: "#00FFFF",
+          update_channel: null
+        };
+        
+        return new Response(JSON.stringify(defaultSettings), { 
+          status: 200, 
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      }
     }
 
     // すべてのルートにマッチしなかった場合の404レスポンス
