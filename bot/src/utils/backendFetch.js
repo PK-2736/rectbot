@@ -12,8 +12,8 @@ async function fetchWithRetry(url, init, maxRetries = 3, timeoutMs = 30000) {
       const response = await fetch(url, fetchInit);
       clearTimeout(timeoutId);
       
-      // Retry on 522 (Connection Timed Out) or 524 (A Timeout Occurred)
-      if ((response.status === 522 || response.status === 524) && attempt < maxRetries) {
+      // Retry on 522 (Connection Timed Out), 524 (A Timeout Occurred), or 503 (Service Unavailable)
+      if ((response.status === 522 || response.status === 524 || response.status === 503) && attempt < maxRetries) {
         const delay = Math.min(1000 * Math.pow(2, attempt), 10000); // Max 10s
         console.warn(`[backendFetch] Retry ${attempt + 1}/${maxRetries} after ${delay}ms due to status ${response.status}`);
         await new Promise(resolve => setTimeout(resolve, delay));

@@ -855,9 +855,11 @@ module.exports = {
             statusUpdateSuccess = true;
           } catch (error) {
             console.error('管理ページの募集ステータス更新に失敗:', error);
-            // タイムアウトエラーの場合は詳細をログ
-            if (error.message && (error.message.includes('522') || error.message.includes('524') || error.message.includes('timeout'))) {
-              console.error('バックエンドAPIへの接続がタイムアウトしました。後で再試行されます。');
+            // タイムアウトまたはサービス利用不可エラーの場合は詳細をログ
+            if (error.message && (error.message.includes('522') || error.message.includes('524') || error.message.includes('503') || error.message.includes('timeout') || error.message.includes('unavailable'))) {
+              console.error('⚠️ バックエンドAPIへの接続に失敗しました。');
+              console.error('   原因: VPS Expressサーバーが応答していない可能性があります');
+              console.error('   対策: pm2 status で Express サーバーの状態を確認してください');
             }
           }
           
