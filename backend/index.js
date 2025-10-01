@@ -46,7 +46,8 @@ export default {
         const SERVICE_TOKEN = env.SERVICE_TOKEN || '';
         const isApiPath = url.pathname.startsWith('/api');
         // セキュリティ強化：公開APIも認証必須とし、除外パスを最小限にする
-        const skipTokenPaths = ['/api/test', '/api/discord/callback'];
+        // /api/dashboard/* はブラウザー用の認証不要エンドポイント
+        const skipTokenPaths = ['/api/test', '/api/discord/callback', '/api/dashboard'];
         const shouldCheck = SERVICE_TOKEN && isApiPath && !skipTokenPaths.some(p => url.pathname.startsWith(p));
         if (shouldCheck) {
             const authHeader = request.headers.get('authorization') || request.headers.get('Authorization') || '';
@@ -63,6 +64,66 @@ export default {
         }
     } catch (e) {
         console.warn('[worker] Service token check error:', e?.message || e);
+    }
+
+    // --- Dashboard recruitment endpoint for browser access (no auth required) ---
+    // ブラウザー用の認証不要エンドポイント
+    if (url.pathname === '/api/dashboard/recruitment') {
+        try {
+            const clientIP = request.headers.get('cf-connecting-ip') || request.headers.get('x-forwarded-for') || 'unknown';
+            const userAgent = request.headers.get('user-agent') || '';
+            
+            // 簡易レート制限（ブラウザー用は緩い）
+            const rateLimitKey = `rate_limit_dashboard_${clientIP}`;
+            let requestCount = 0;
+            try {
+                const stored = await env.RECRUIT_KV.get(rateLimitKey);
+                requestCount = stored ? parseInt(stored) : 0;
+            } catch (e) {}
+            
+            if (requestCount > 500) { // 1時間あたり500リクエスト制限
+                return new Response(JSON.stringify({ error: 'rate_limit_exceeded' }), { 
+                    status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+                });
+            }
+            
+            try {
+                await env.RECRUIT_KV.put(rateLimitKey, String(requestCount + 1), { expirationTtl: 3600 });
+            } catch (e) {}
+            
+            // モックデータを返す（ブラウザー用）
+            const mockData = [
+                {
+                    guild_id: "123456789",
+                    channel_id: "987654321",
+                    message_id: "111222333",
+                    guild_name: "テストサーバー",
+                    channel_name: "募集",
+                    status: "active",
+                    start_time: new Date().toISOString(),
+                    content: "テスト募集です",
+                    participants_count: 2,
+                    start_game_time: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+                    vc: "ボイスチャンネル1",
+                    note: "初心者歓迎",
+                    recruiterId: "user123",
+                    recruitId: "recruit456"
+                }
+            ];
+            
+            console.log(`[worker][dashboard-recruitment] Browser access from IP: ${clientIP}, UA: ${userAgent}`);
+            
+            return new Response(JSON.stringify(mockData), { 
+                status: 200, 
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            });
+            
+        } catch (err) {
+            console.error('[worker][dashboard-recruitment] Error:', err);
+            return new Response(JSON.stringify({ error: 'internal_error' }), { 
+                status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            });
+        }
     }
 
     // --- Public recruitment endpoint for authenticated access only ---

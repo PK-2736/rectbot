@@ -74,20 +74,11 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps) {
       const attempts: Array<{ url: string; ok?: boolean; status?: number; error?: string }> = [];
 
       for (const base of candidates) {
-        const url = `${base}/api/public/recruitment`;
+        const url = `${base}/api/dashboard/recruitment`;
         try {
-          // セキュリティ強化：SERVICE_TOKEN をヘッダーに追加
-          const headers: HeadersInit = { 'Cache-Control': 'no-store' };
-          
-          // 環境変数から SERVICE_TOKEN を取得（Pages の場合は NEXT_PUBLIC_ プレフィックス）
-          const serviceToken = process.env.NEXT_PUBLIC_SERVICE_TOKEN || process.env.SERVICE_TOKEN;
-          if (serviceToken) {
-            headers['Authorization'] = `Bearer ${serviceToken}`;
-          }
-          
+          // ブラウザ用の認証不要エンドポイントを使用
           const resp = await fetch(url, { 
-            cache: 'no-store',
-            headers
+            cache: 'no-store'
           });
           attempts.push({ url, ok: resp.ok, status: resp.status });
           if (resp.ok) {
