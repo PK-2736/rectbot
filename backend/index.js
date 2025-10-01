@@ -298,26 +298,67 @@ export default {
           'Authorization': `Bearer ${env.SERVICE_TOKEN || ''}`
         };
         
-        const vpsResponse = await fetch(vpsUrl, {
-          method: 'PATCH',
-          headers,
-          body: JSON.stringify(updateData)
-        });
+        console.log(`[PATCH] Sending request to: ${vpsUrl}`);
         
-        const responseText = await vpsResponse.text();
-        let responseBody;
+        // タイムアウト制御付きでVPSにリクエスト送信
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 25000); // 25秒タイムアウト
+        
+        let vpsResponse;
         try {
-          responseBody = JSON.parse(responseText);
-        } catch (e) {
-          responseBody = { message: responseText };
+          vpsResponse = await fetch(vpsUrl, {
+            method: 'PATCH',
+            headers,
+            body: JSON.stringify(updateData),
+            signal: controller.signal
+          });
+          
+          clearTimeout(timeoutId);
+          
+          console.log(`[PATCH] VPS Express response status: ${vpsResponse.status}`);
+          
+          // 522エラーやその他のCloudflareエラーの場合は特別な処理
+          if (vpsResponse.status >= 520 && vpsResponse.status <= 530) {
+            console.error(`[PATCH] Cloudflare error: ${vpsResponse.status}`);
+            return new Response(JSON.stringify({
+              error: "VPS Express server temporarily unavailable",
+              status: vpsResponse.status,
+              details: `Cloudflare error ${vpsResponse.status}: VPS Express server is not responding`
+            }), {
+              status: 503, // Service Unavailable
+              headers: { ...corsHeaders, "Content-Type": "application/json" }
+            });
+          }
+          
+          const responseText = await vpsResponse.text();
+          let responseBody;
+          try {
+            responseBody = JSON.parse(responseText);
+          } catch (e) {
+            responseBody = { message: responseText };
+          }
+          
+          return new Response(JSON.stringify(responseBody), {
+            status: vpsResponse.status,
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
+          });
+          
+        } catch (fetchError) {
+          clearTimeout(timeoutId);
+          
+          if (fetchError.name === 'AbortError') {
+            console.error('[PATCH] Request timeout (25s) to VPS Express');
+            return new Response(JSON.stringify({
+              error: "Request timeout",
+              details: "VPS Express server did not respond within 25 seconds"
+            }), {
+              status: 504, // Gateway Timeout
+              headers: { ...corsHeaders, "Content-Type": "application/json" }
+            });
+          }
+          
+          throw fetchError; // 他のエラーは外側のcatchに任せる
         }
-        
-        console.log(`[PATCH] VPS Express response status: ${vpsResponse.status}`);
-        
-        return new Response(JSON.stringify(responseBody), {
-          status: vpsResponse.status,
-          headers: { ...corsHeaders, "Content-Type": "application/json" }
-        });
         
       } catch (error) {
         console.error('[PATCH] Error proxying to VPS Express:', error);
