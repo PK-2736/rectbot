@@ -45,8 +45,8 @@ export default {
     try {
         const SERVICE_TOKEN = env.SERVICE_TOKEN || '';
         const isApiPath = url.pathname.startsWith('/api');
-        // 公開で許可する簡易なパス（テストやOAuthコールバック等）は除外
-        const skipTokenPaths = ['/api/test', '/api/discord/callback', '/api/kv-test', '/api/redis'];
+        // 公開で許可する簡易なパス（テストやOAuthコールバック、public recruitment等）は除外
+        const skipTokenPaths = ['/api/test', '/api/discord/callback', '/api/kv-test', '/api/redis', '/api/public/recruitment'];
         const shouldCheck = SERVICE_TOKEN && isApiPath && !skipTokenPaths.some(p => url.pathname.startsWith(p));
         if (shouldCheck) {
             const authHeader = request.headers.get('authorization') || request.headers.get('Authorization') || '';
@@ -63,6 +63,52 @@ export default {
         }
     } catch (e) {
         console.warn('[worker] Service token check error:', e?.message || e);
+    }
+
+    // --- Public recruitment endpoint for browser access ---
+    // Browsers can directly access /api/public/recruitment without SERVICE_TOKEN
+    if (url.pathname === '/api/public/recruitment') {
+        const EXPRESS_ORIGIN = env.EXPRESS_ORIGIN || 'https://api.rectbot.tech';
+        const SERVICE_TOKEN = env.SERVICE_TOKEN || '';
+
+        try {
+            const forwardUrl = EXPRESS_ORIGIN + '/api/recruitment';
+            const forwardHeaders = new Headers();
+            
+            // Add SERVICE_TOKEN for Express authentication
+            if (SERVICE_TOKEN) {
+                forwardHeaders.set('Authorization', `Bearer ${SERVICE_TOKEN}`);
+            }
+            
+            // Set Host header to the origin's host
+            try {
+                const originHost = new URL(EXPRESS_ORIGIN).host;
+                forwardHeaders.set('host', originHost);
+            } catch (e) {
+                // ignore if EXPRESS_ORIGIN is malformed
+            }
+
+            const resp = await fetch(forwardUrl, {
+                method: 'GET',
+                headers: forwardHeaders,
+                redirect: 'follow'
+            });
+
+            const data = await resp.json();
+            return new Response(JSON.stringify(data), { 
+                status: resp.status, 
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            });
+        } catch (err) {
+            console.error('[worker][public-recruitment] Error:', err);
+            return new Response(JSON.stringify({ 
+                error: 'backend_unreachable', 
+                detail: err.message || String(err) 
+            }), { 
+                status: 502, 
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
+        }
     }
 
     // --- Proxy to Express for /api/redis/*, /api/recruitment, root and health endpoints ---

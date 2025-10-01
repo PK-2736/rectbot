@@ -74,12 +74,11 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps) {
       const attempts: Array<{ url: string; ok?: boolean; status?: number; error?: string }> = [];
 
       for (const base of candidates) {
-        const url = `${base}/api/recruitment`;
+        const url = `${base}/api/public/recruitment`;
         try {
           const resp = await fetch(url, { 
             cache: 'no-store',
-            // For browser-initiated requests to Worker, SERVICE_TOKEN will be validated by Worker
-            // Worker will then proxy to Express with proper authentication
+            // Browser calls public endpoint, no authentication required
           });
           attempts.push({ url, ok: resp.ok, status: resp.status });
           if (resp.ok) {
