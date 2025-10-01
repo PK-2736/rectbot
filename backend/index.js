@@ -45,89 +45,87 @@ export default {
     try {
         const SERVICE_TOKEN = env.SERVICE_TOKEN || '';
         const isApiPath = url.pathname.startsWith('/api');
-      // 公開で許可する簡易なパス（テストやOAuthコールバック等）は除外
-    const skipTokenPaths = ['/api/test', '/api/discord/callback', '/api/kv-test', '/api/redis', '/api/public'];
-        // Defensive: explicitly allow /api/public to bypass token checks even if deployed code differs
-        const isPublicApi = url.pathname.startsWith('/api/public');
-        const shouldCheck = SERVICE_TOKEN && isApiPath && !isPublicApi && !skipTokenPaths.some(p => url.pathname.startsWith(p));
-      if (shouldCheck) {
-        const authHeader = request.headers.get('authorization') || request.headers.get('Authorization') || '';
-        const tokenHeader = request.headers.get('x-service-token') || request.headers.get('X-Service-Token') || '';
-        let token = '';
-        if (authHeader && authHeader.toLowerCase().startsWith('bearer ')) token = authHeader.slice(7).trim();
-        if (!token && tokenHeader) token = tokenHeader.trim();
-        if (!token) {
-          return new Response(JSON.stringify({ error: 'unauthorized', detail: 'service token required' }), { status: 401, headers: corsHeaders });
+        // 公開で許可する簡易なパス（テストやOAuthコールバック等）は除外
+        const skipTokenPaths = ['/api/test', '/api/discord/callback', '/api/kv-test', '/api/redis'];
+        const shouldCheck = SERVICE_TOKEN && isApiPath && !skipTokenPaths.some(p => url.pathname.startsWith(p));
+        if (shouldCheck) {
+            const authHeader = request.headers.get('authorization') || request.headers.get('Authorization') || '';
+            const tokenHeader = request.headers.get('x-service-token') || request.headers.get('X-Service-Token') || '';
+            let token = '';
+            if (authHeader && authHeader.toLowerCase().startsWith('bearer ')) token = authHeader.slice(7).trim();
+            if (!token && tokenHeader) token = tokenHeader.trim();
+            if (!token) {
+                return new Response(JSON.stringify({ error: 'unauthorized', detail: 'service token required' }), { status: 401, headers: corsHeaders });
+            }
+            if (token !== SERVICE_TOKEN) {
+                return new Response(JSON.stringify({ error: 'forbidden', detail: 'invalid service token' }), { status: 403, headers: corsHeaders });
+            }
         }
-        if (token !== SERVICE_TOKEN) {
-          return new Response(JSON.stringify({ error: 'forbidden', detail: 'invalid service token' }), { status: 403, headers: corsHeaders });
-        }
-      }
     } catch (e) {
-      console.warn('[worker] Service token check error:', e?.message || e);
+        console.warn('[worker] Service token check error:', e?.message || e);
     }
 
-  // --- Proxy to Express for /api/redis/*, root and health endpoints ---
-  // If the Worker receives requests for /api/redis/*, or requests for the origin root/healthz
-  // forward them to the Express origin. The Express origin should validate X-Internal-Secret
-  // header to ensure only Worker can call it.
-  if (url.pathname.startsWith('/api/redis') || url.pathname.startsWith('/api/public') || url.pathname === '/' || url.pathname === '/healthz') {
-    // Configure this origin in your Worker environment (or hardcode if needed)
-    // Use the origin domain (not a raw IP) so TLS SNI and Host header match the origin certificate.
-    const EXPRESS_ORIGIN = env.EXPRESS_ORIGIN || 'https://api.rectbot.tech';
-    const INTERNAL_SECRET = env.INTERNAL_SECRET || '';
+    // --- Proxy to Express for /api/redis/*, /api/recruitment, root and health endpoints ---
+    // If the Worker receives requests for /api/redis/*, /api/recruitment or requests for the origin root/healthz
+    // forward them to the Express origin. The Express origin should validate service token.
+    if (url.pathname.startsWith('/api/redis') || url.pathname.startsWith('/api/recruitment') || url.pathname === '/' || url.pathname === '/healthz') {
+        // Configure this origin in your Worker environment (or hardcode if needed)
+        // Use the origin domain (not a raw IP) so TLS SNI and Host header match the origin certificate.
+        const EXPRESS_ORIGIN = env.EXPRESS_ORIGIN || 'https://api.rectbot.tech';
+        const SERVICE_TOKEN = env.SERVICE_TOKEN || '';
 
-      // Build forward URL
-      const forwardUrl = EXPRESS_ORIGIN + url.pathname + (url.search || '');
+        // Build forward URL
+        const forwardUrl = EXPRESS_ORIGIN + url.pathname + (url.search || '');
 
-  // Copy headers and add internal secret and zero-trust client credentials if configured.
-  // Ensure Host header matches the EXPRESS_ORIGIN host
-  const forwardHeaders = new Headers(request.headers);
-  forwardHeaders.set('X-Internal-Secret', INTERNAL_SECRET);
-  // If the Worker has Zero Trust client credentials configured, add them for origin authentication
-  if (env.EXPRESS_CLIENT_ID) forwardHeaders.set('CF-Access-Client-Id', env.EXPRESS_CLIENT_ID);
-  if (env.EXPRESS_CLIENT_SECRET) forwardHeaders.set('CF-Access-Client-Secret', env.EXPRESS_CLIENT_SECRET);
-      // Remove hop-by-hop headers
-      forwardHeaders.delete('connection');
-  // Set Host header to the origin's host so SNI and certificate validation match
-      try {
-        const originHost = new URL(EXPRESS_ORIGIN).host;
-        forwardHeaders.set('host', originHost);
-      } catch (e) {
-        // ignore if EXPRESS_ORIGIN is malformed
-      }
-
-      // Safety: avoid proxying to the same host as the incoming request to prevent accidental recursion
-      try {
-        const incomingHost = url.host;
-        const originHostCheck = new URL(EXPRESS_ORIGIN).host;
-        if (originHostCheck === incomingHost) {
-          console.error('[worker] Misconfiguration: EXPRESS_ORIGIN resolves to the same host as the Worker route (possible recursion)');
-          return new Response(JSON.stringify({ error: 'bad_gateway', detail: 'Worker configured to proxy to its own host (EXPRESS_ORIGIN mismatch)' }), { status: 502, headers: corsHeaders });
+        // Copy headers and add service token for origin authentication
+        const forwardHeaders = new Headers(request.headers);
+        if (SERVICE_TOKEN) {
+            forwardHeaders.set('Authorization', `Bearer ${SERVICE_TOKEN}`);
         }
-      } catch (e) {
-        // ignore parse errors here
-      }
+        // If the Worker has Zero Trust client credentials configured, add them for origin authentication
+        if (env.EXPRESS_CLIENT_ID) forwardHeaders.set('CF-Access-Client-Id', env.EXPRESS_CLIENT_ID);
+        if (env.EXPRESS_CLIENT_SECRET) forwardHeaders.set('CF-Access-Client-Secret', env.EXPRESS_CLIENT_SECRET);
+        // Remove hop-by-hop headers
+        forwardHeaders.delete('connection');
+        // Set Host header to the origin's host so SNI and certificate validation match
+        try {
+            const originHost = new URL(EXPRESS_ORIGIN).host;
+            forwardHeaders.set('host', originHost);
+        } catch (e) {
+            // ignore if EXPRESS_ORIGIN is malformed
+        }
 
-      let body = undefined;
-      if (request.method !== 'GET' && request.method !== 'HEAD') {
-        body = await request.arrayBuffer();
-      }
+        // Safety: avoid proxying to the same host as the incoming request to prevent accidental recursion
+        try {
+            const incomingHost = url.host;
+            const originHostCheck = new URL(EXPRESS_ORIGIN).host;
+            if (originHostCheck === incomingHost) {
+                console.error('[worker] Misconfiguration: EXPRESS_ORIGIN resolves to the same host as the Worker route (possible recursion)');
+                return new Response(JSON.stringify({ error: 'bad_gateway', detail: 'Worker configured to proxy to its own host (EXPRESS_ORIGIN mismatch)' }), { status: 502, headers: corsHeaders });
+            }
+        } catch (e) {
+            // ignore parse errors here
+        }
 
-      const init = {
-        method: request.method,
-        headers: forwardHeaders,
-        body,
-        redirect: 'follow'
-      };
+        let body = undefined;
+        if (request.method !== 'GET' && request.method !== 'HEAD') {
+            body = await request.arrayBuffer();
+        }
 
-      const resp = await fetch(forwardUrl, init);
-      // Copy response headers but remove hop-by-hop
-      const respHeaders = new Headers(resp.headers);
-      respHeaders.delete('connection');
+        const init = {
+            method: request.method,
+            headers: forwardHeaders,
+            body,
+            redirect: 'follow'
+        };
 
-      const buf = await resp.arrayBuffer();
-      return new Response(buf, { status: resp.status, headers: { ...corsHeaders, ...Object.fromEntries(respHeaders) } });
+        const resp = await fetch(forwardUrl, init);
+        // Copy response headers but remove hop-by-hop
+        const respHeaders = new Headers(resp.headers);
+        respHeaders.delete('connection');
+
+        const buf = await resp.arrayBuffer();
+        return new Response(buf, { status: resp.status, headers: { ...corsHeaders, ...Object.fromEntries(respHeaders) } });
     }
     // KVストアへの保存
     async function saveToKV(key, value) {

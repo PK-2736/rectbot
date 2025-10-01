@@ -33,6 +33,31 @@ if (process.env.DEBUG_REQUESTS && process.env.DEBUG_REQUESTS.toLowerCase() === '
   });
 }
 
+// SERVICE_TOKEN middleware for authentication
+function requireServiceToken(req, res, next) {
+  const token = process.env.SERVICE_TOKEN;
+  if (!token) {
+    console.warn('[server] SERVICE_TOKEN not set; allowing service routes for development');
+    return next();
+  }
+  
+  const authHeader = req.headers.authorization || '';
+  const tokenHeader = req.headers['x-service-token'] || '';
+  
+  let providedToken = '';
+  if (authHeader && authHeader.toLowerCase().startsWith('bearer ')) {
+    providedToken = authHeader.slice(7).trim();
+  } else if (tokenHeader) {
+    providedToken = tokenHeader.trim();
+  }
+  
+  if (!providedToken || providedToken !== token) {
+    return res.status(403).json({ error: 'forbidden', detail: 'valid service token required' });
+  }
+  
+  next();
+}
+
 const PORT = process.env.PORT || 3000;
 const BACKEND_API_URL = process.env.BACKEND_API_URL || process.env.BACKEND_URL || 'https://api.rectbot.tech';
 
@@ -125,8 +150,8 @@ app.get('/healthz', (req, res) => {
   res.status(200).json({ ok: true, uptime: process.uptime() });
 });
 
-// Proxy recruitment POST/GET
-app.post('/api/recruitment', async (req, res) => {
+// Proxy recruitment POST/GET (protected by SERVICE_TOKEN)
+app.post('/api/recruitment', requireServiceToken, async (req, res) => {
   try {
     const r = await backendFetch('/api/recruitment', {
       method: 'POST',
@@ -141,12 +166,12 @@ app.post('/api/recruitment', async (req, res) => {
   }
 });
 
-app.get('/api/recruitment', async (req, res) => {
+app.get('/api/recruitment', requireServiceToken, async (req, res) => {
   try {
     const url = new URL(backendUrl('/api/recruitment'));
     // forward query params
     Object.entries(req.query).forEach(([k, v]) => url.searchParams.set(k, v));
-  const r = await backendFetch(url.toString());
+    const r = await backendFetch(url.toString());
     const json = await r.json();
     res.status(r.status).json(json);
   } catch (err) {
@@ -307,68 +332,7 @@ app.all('/api/*', async (req, res) => {
 // These let the frontend fetch the latest recruitment data directly from the bot's Redis cache.
 // GET /api/redis/recruitment -> list all cached recruits
 // GET /api/redis/recruitment/:id -> get single recruit by recruitId or full message id
-// Public, read-only endpoints for dashboards and public pages.
-// These intentionally do NOT require the internal secret but return only non-sensitive fields.
-// Public recruitment endpoints should be served only when requested by the Worker.
-// Require the internal secret so that pages/browser cannot call origin directly.
-app.get('/api/public/recruitment', requireInternalSecret, async (req, res) => {
-  try {
-    if (process.env.DEBUG_REQUESTS && process.env.DEBUG_REQUESTS.toLowerCase() === 'true') {
-      console.log(`[public-recruit-debug] incoming request from ${req.ip} headers snapshot:`,
-        { host: req.headers.host, authorization: req.headers.authorization ? '[present]' : '[missing]', 'x-internal-secret': req.headers['x-internal-secret'] ? '[present]' : '[missing]' });
-    }
-    const recruits = await db.listRecruitsFromRedis();
-    const safe = (recruits || []).map(r => ({
-      guild_id: r.guild_id,
-      channel_id: r.channel_id,
-      message_id: r.message_id,
-      guild_name: r.guild_name,
-      channel_name: r.channel_name,
-      status: r.status,
-      start_time: r.start_time,
-      content: r.content,
-      participants_count: r.participants_count,
-      start_game_time: r.start_game_time,
-      vc: r.vc,
-      note: r.note,
-      recruiterId: r.recruiterId,
-      recruitId: r.recruitId
-    }));
-    res.json(safe);
-  } catch (err) {
-    console.error('[server][api/public/recruitment][get] Error:', err.message || err);
-    res.status(500).json({ error: 'internal_error', detail: err.message });
-  }
-});
-
-app.get('/api/public/recruitment/:id', requireInternalSecret, async (req, res) => {
-  try {
-    const raw = req.params.id;
-    const recruitId = normalizeRecruitId(raw);
-    const r = await db.getRecruitFromRedis(recruitId);
-    if (!r) return res.status(404).json({ error: 'not_found' });
-    const safe = {
-      guild_id: r.guild_id,
-      channel_id: r.channel_id,
-      message_id: r.message_id,
-      guild_name: r.guild_name,
-      channel_name: r.channel_name,
-      status: r.status,
-      start_time: r.start_time,
-      content: r.content,
-      participants_count: r.participants_count,
-      start_game_time: r.start_game_time,
-      vc: r.vc,
-      note: r.note,
-      recruiterId: r.recruiterId,
-      recruitId: r.recruitId
-    };
-    res.json(safe);
-  } catch (err) {
-    console.error('[server][api/public/recruitment][get:id] Error:', err.message || err);
-    res.status(500).json({ error: 'internal_error', detail: err.message });
-  }
-});
+// These require internal secret for security.
 
 app.get('/api/redis/recruitment', requireInternalSecret, async (req, res) => {
   try {

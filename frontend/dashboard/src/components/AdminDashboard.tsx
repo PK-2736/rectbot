@@ -58,15 +58,15 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps) {
   const fetchRecruitments = useCallback(async () => {
     try {
       setFetchError(null);
-      // Try a few candidate backend base URLs in order. Prefer NEXT_PUBLIC_BACKEND_API_URL if set.
-  // Prefer an explicit Worker URL if provided (Pages should call the Worker, not origin directly).
-  const workerUrl = process.env.NEXT_PUBLIC_WORKER_URL || '';
-  const envUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL || '';
-  const candidates = [] as string[];
-  if (workerUrl) candidates.push(workerUrl.replace(/\/$/, ''));
-  if (envUrl) candidates.push(envUrl.replace(/\/$/, ''));
-  // Known public backend as a fallback
-  candidates.push('https://api.rectbot.tech');
+      // Try a few candidate backend base URLs in order. Prefer NEXT_PUBLIC_WORKER_URL (Worker) if set.
+      // Pages should call the Worker, not origin directly, for authentication and routing.
+      const workerUrl = process.env.NEXT_PUBLIC_WORKER_URL || '';
+      const envUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL || '';
+      const candidates = [] as string[];
+      if (workerUrl) candidates.push(workerUrl.replace(/\/$/, ''));
+      if (envUrl) candidates.push(envUrl.replace(/\/$/, ''));
+      // Known public backend as a fallback
+      candidates.push('https://api.rectbot.tech');
       // Local development fallback
       candidates.push('http://localhost:3000');
 
@@ -74,9 +74,13 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps) {
       const attempts: Array<{ url: string; ok?: boolean; status?: number; error?: string }> = [];
 
       for (const base of candidates) {
-        const url = `${base}/api/public/recruitment`;
+        const url = `${base}/api/recruitment`;
         try {
-          const resp = await fetch(url, { cache: 'no-store' });
+          const resp = await fetch(url, { 
+            cache: 'no-store',
+            // For browser-initiated requests to Worker, SERVICE_TOKEN will be validated by Worker
+            // Worker will then proxy to Express with proper authentication
+          });
           attempts.push({ url, ok: resp.ok, status: resp.status });
           if (resp.ok) {
             response = resp;
