@@ -180,6 +180,70 @@ app.get('/api/recruitment', requireServiceToken, async (req, res) => {
   }
 });
 
+// Update recruitment status (PATCH)
+app.patch('/api/recruitment/:messageId', requireServiceToken, async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    const updateData = req.body;
+    console.log(`[server][recruitment][patch] Updating recruitment: ${messageId}`, updateData);
+    
+    // Supabaseに直接更新
+    const supabase = db.getSupabase();
+    const { data, error } = await supabase
+      .from('recruitments')
+      .update(updateData)
+      .eq('message_id', messageId)
+      .select();
+    
+    if (error) {
+      console.error('[server][recruitment][patch] Supabase error:', error);
+      return res.status(500).json({ error: 'database_error', detail: error.message });
+    }
+    
+    if (!data || data.length === 0) {
+      return res.status(404).json({ error: 'not_found', message: 'Recruitment not found' });
+    }
+    
+    res.status(200).json({ ok: true, data: data[0] });
+  } catch (err) {
+    console.error('[server][recruitment][patch] Error:', err.message || err);
+    res.status(500).json({ error: 'internal_error', detail: err.message });
+  }
+});
+
+// Delete recruitment (DELETE)
+app.delete('/api/recruitment/:messageId', requireServiceToken, async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    console.log(`[server][recruitment][delete] Deleting recruitment: ${messageId}`);
+    
+    // Redisから削除
+    await db.deleteRecruitFromRedis(messageId);
+    
+    // Supabaseから削除
+    const supabase = db.getSupabase();
+    const { data, error } = await supabase
+      .from('recruitments')
+      .delete()
+      .eq('message_id', messageId)
+      .select();
+    
+    if (error) {
+      console.error('[server][recruitment][delete] Supabase error:', error);
+      return res.status(500).json({ error: 'database_error', detail: error.message });
+    }
+    
+    if (!data || data.length === 0) {
+      return res.status(404).json({ error: 'not_found', message: 'Recruitment not found' });
+    }
+    
+    res.status(200).json({ ok: true, data: data[0] });
+  } catch (err) {
+    console.error('[server][recruitment][delete] Error:', err.message || err);
+    res.status(500).json({ error: 'internal_error', detail: err.message });
+  }
+});
+
 // --- Internal Redis-backed endpoints for recruits & participants ---
 // List all recruits stored in Redis
 app.get('/internal/recruits', async (req, res) => {
