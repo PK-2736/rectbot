@@ -177,8 +177,9 @@ export default {
         try {
           console.log('[POST] Proxying recruitment save to VPS Express');
           
-          // VPS ExpressサーバーのURL構築
-          const vpsUrl = 'https://api.rectbot.tech/api/recruitment';
+          // VPS ExpressサーバーのURL構築（無限ループ防止のため、VPS IPを直接指定）
+          const vpsExpressUrl = env.VPS_EXPRESS_URL || 'http://localhost:3000';
+          const vpsUrl = `${vpsExpressUrl}/api/recruitment`;
           
           // リクエストボディを取得
           const data = await request.json();
@@ -226,8 +227,9 @@ export default {
         try {
           console.log('[GET] Proxying recruitment list to VPS Express');
           
-          // VPS ExpressサーバーのURL構築
-          const vpsUrl = 'https://api.rectbot.tech/api/recruitment';
+          // VPS ExpressサーバーのURL構築（無限ループ防止のため、VPS IPを直接指定）
+          const vpsExpressUrl = env.VPS_EXPRESS_URL || 'http://localhost:3000';
+          const vpsUrl = `${vpsExpressUrl}/api/recruitment`;
           
           // SERVICE_TOKENを使ってVPS Expressサーバーにプロキシ
           const headers = {
@@ -286,8 +288,9 @@ export default {
       try {
         console.log(`[PATCH] Proxying recruitment update to VPS Express: ${messageId}`);
         
-        // VPS ExpressサーバーのURL構築
-        const vpsUrl = `https://api.rectbot.tech/api/recruitment/${messageId}`;
+        // VPS ExpressサーバーのURL構築（無限ループ防止のため、VPS IPを直接指定）
+        const vpsExpressUrl = env.VPS_EXPRESS_URL || 'http://localhost:3000';
+        const vpsUrl = `${vpsExpressUrl}/api/recruitment/${messageId}`;
         
         // リクエストボディを取得
         const updateData = await request.json();
@@ -385,8 +388,9 @@ export default {
       try {
         console.log(`[DELETE] Proxying recruitment deletion to VPS Express: ${messageId}`);
         
-        // VPS ExpressサーバーのURL構築
-        const vpsUrl = `https://api.rectbot.tech/api/recruitment/${messageId}`;
+        // VPS ExpressサーバーのURL構築（無限ループ防止のため、VPS IPを直接指定）
+        const vpsExpressUrl = env.VPS_EXPRESS_URL || 'http://localhost:3000';
+        const vpsUrl = `${vpsExpressUrl}/api/recruitment/${messageId}`;
         
         // SERVICE_TOKENを使ってVPS Expressサーバーにプロキシ
         const headers = {

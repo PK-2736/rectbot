@@ -14,7 +14,9 @@ workers_dev = false
 # - REACT_APP_DISCORD_CLIENT_ID
 # - REACT_APP_DISCORD_REDIRECT_URI  
 # - SUPABASE_URL
+# - VPS_EXPRESS_URL (VPS上のExpressサーバーの直接URL、例: http://xxx.xxx.xxx.xxx:3000)
 #
 # シークレットは wrangler secret put コマンドで設定されます:
 # - DISCORD_CLIENT_SECRET
 # - SUPABASE_SERVICE_ROLE_KEY
+# - SERVICE_TOKEN
