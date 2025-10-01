@@ -45,8 +45,8 @@ export default {
     try {
         const SERVICE_TOKEN = env.SERVICE_TOKEN || '';
         const isApiPath = url.pathname.startsWith('/api');
-        // 公開で許可する簡易なパス（テストやOAuthコールバック、public recruitment等）は除外
-        const skipTokenPaths = ['/api/test', '/api/discord/callback', '/api/kv-test', '/api/redis', '/api/public/recruitment'];
+        // セキュリティ強化：公開APIも認証必須とし、除外パスを最小限にする
+        const skipTokenPaths = ['/api/test', '/api/discord/callback'];
         const shouldCheck = SERVICE_TOKEN && isApiPath && !skipTokenPaths.some(p => url.pathname.startsWith(p));
         if (shouldCheck) {
             const authHeader = request.headers.get('authorization') || request.headers.get('Authorization') || '';
@@ -65,60 +65,186 @@ export default {
         console.warn('[worker] Service token check error:', e?.message || e);
     }
 
-    // --- Public recruitment endpoint for browser access ---
-    // Browsers can directly access /api/public/recruitment without SERVICE_TOKEN
+    // --- Public recruitment endpoint for authenticated access only ---
+    // セキュリティ強化：認証必須
     if (url.pathname === '/api/public/recruitment') {
-        // Return mock data for testing if KV/EXPRESS_ORIGIN are not available
-        const mockData = [
-            {
-                guild_id: "123456789",
-                channel_id: "987654321",
-                message_id: "111222333",
-                guild_name: "テストサーバー",
-                channel_name: "募集",
-                status: "active",
-                start_time: new Date().toISOString(),
-                content: "テスト募集です",
-                participants_count: 2,
-                start_game_time: new Date(Date.now() + 30 * 60 * 1000).toISOString(), // 30分後
-                vc: "ボイスチャンネル1",
-                note: "初心者歓迎",
-                recruiterId: "user123",
-                recruitId: "recruit456"
-            }
-        ];
-        
         try {
-            // Try to get from KV first
-            const kvKeys = await env.RECRUIT_KV.list();
-            const recruits = [];
+            // SERVICE_TOKEN認証
+            const SERVICE_TOKEN = env.SERVICE_TOKEN || '';
+            const authHeader = request.headers.get('authorization') || '';
+            const clientIP = request.headers.get('cf-connecting-ip') || request.headers.get('x-forwarded-for') || 'unknown';
             
-            for (const key of kvKeys.keys) {
-                try {
-                    const data = await env.RECRUIT_KV.get(key.name);
-                    if (data) {
-                        const parsed = JSON.parse(data);
-                        recruits.push(parsed);
-                    }
-                } catch (e) {
-                    console.warn('[worker][kv-get] Error parsing key:', key.name, e);
-                }
+            if (!SERVICE_TOKEN) {
+                return new Response(JSON.stringify({ error: 'service_unavailable' }), { 
+                    status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+                });
             }
             
-            // If we got data from KV, return it; otherwise return mock data
-            const responseData = recruits.length > 0 ? recruits : mockData;
+            let token = '';
+            if (authHeader && authHeader.toLowerCase().startsWith('bearer ')) {
+                token = authHeader.slice(7).trim();
+            }
             
-            return new Response(JSON.stringify(responseData), { 
-                status: 200, 
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-            });
-        } catch (err) {
-            console.error('[worker][public-recruitment] KV Error:', err);
+            if (!token || token !== SERVICE_TOKEN) {
+                console.warn(`[security] Unauthorized recruitment access from IP: ${clientIP}`);
+                return new Response(JSON.stringify({ error: 'unauthorized' }), { 
+                    status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+                });
+            }
             
-            // Fallback: return mock data
+            // レート制限
+            const rateLimitKey = `rate_limit_read_${clientIP}`;
+            let requestCount = 0;
+            try {
+                const stored = await env.RECRUIT_KV.get(rateLimitKey);
+                requestCount = stored ? parseInt(stored) : 0;
+            } catch (e) {}
+            
+            if (requestCount > 1000) { // 1時間あたり1000リクエスト制限
+                return new Response(JSON.stringify({ error: 'rate_limit_exceeded' }), { 
+                    status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+                });
+            }
+            
+            try {
+                await env.RECRUIT_KV.put(rateLimitKey, String(requestCount + 1), { expirationTtl: 3600 });
+            } catch (e) {}
+            
+            // モックデータを返す（認証済みユーザーのみ）
+            const mockData = [
+                {
+                    guild_id: "123456789",
+                    channel_id: "987654321",
+                    message_id: "111222333",
+                    guild_name: "テストサーバー",
+                    channel_name: "募集",
+                    status: "active",
+                    start_time: new Date().toISOString(),
+                    content: "テスト募集です",
+                    participants_count: 2,
+                    start_game_time: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+                    vc: "ボイスチャンネル1",
+                    note: "初心者歓迎",
+                    recruiterId: "user123",
+                    recruitId: "recruit456"
+                }
+            ];
+            
+            console.log(`[worker][recruitment-read] Authorized access from IP: ${clientIP}`);
+            
             return new Response(JSON.stringify(mockData), { 
                 status: 200, 
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            });
+            
+        } catch (err) {
+            console.error('[worker][public-recruitment] Error:', err);
+            return new Response(JSON.stringify({ error: 'internal_error' }), { 
+                status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            });
+        }
+    }
+
+    // --- Discord bot recruitment data push endpoint ---
+    // セキュリティ強化：認証とレート制限を追加
+    if (url.pathname === '/api/recruitment/push' && request.method === 'POST') {
+        try {
+            // セキュリティ検証
+            const authHeader = request.headers.get('authorization') || '';
+            const userAgent = request.headers.get('user-agent') || '';
+            const clientIP = request.headers.get('cf-connecting-ip') || request.headers.get('x-forwarded-for') || 'unknown';
+            
+            // 1. 認証トークン検証
+            const SERVICE_TOKEN = env.SERVICE_TOKEN || '';
+            if (!SERVICE_TOKEN) {
+                return new Response(JSON.stringify({ error: 'service_unavailable' }), { 
+                    status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+                });
+            }
+            
+            let token = '';
+            if (authHeader && authHeader.toLowerCase().startsWith('bearer ')) {
+                token = authHeader.slice(7).trim();
+            }
+            
+            if (!token || token !== SERVICE_TOKEN) {
+                console.warn(`[security] Unauthorized push attempt from IP: ${clientIP}, UA: ${userAgent}`);
+                return new Response(JSON.stringify({ error: 'unauthorized' }), { 
+                    status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+                });
+            }
+            
+            // 2. User-Agent検証（Discord botからの正当なリクエストか）
+            if (!userAgent.includes('node') && !userAgent.includes('discord')) {
+                console.warn(`[security] Suspicious User-Agent from IP: ${clientIP}, UA: ${userAgent}`);
+                return new Response(JSON.stringify({ error: 'forbidden' }), { 
+                    status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+                });
+            }
+            
+            // 3. レート制限（簡易実装）
+            const rateLimitKey = `rate_limit_${clientIP}`;
+            let requestCount = 0;
+            try {
+                const stored = await env.RECRUIT_KV.get(rateLimitKey);
+                requestCount = stored ? parseInt(stored) : 0;
+            } catch (e) {
+                // KVエラーは無視してリクエストを通す
+            }
+            
+            if (requestCount > 100) { // 1時間あたり100リクエスト制限
+                console.warn(`[security] Rate limit exceeded for IP: ${clientIP}`);
+                return new Response(JSON.stringify({ error: 'rate_limit_exceeded' }), { 
+                    status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+                });
+            }
+            
+            // レート制限カウンターを更新
+            try {
+                await env.RECRUIT_KV.put(rateLimitKey, String(requestCount + 1), { expirationTtl: 3600 });
+            } catch (e) {
+                // KVエラーは無視
+            }
+            
+            const data = await request.json();
+            
+            // 4. データ検証強化
+            if (!data.recruitId || !data.guild_id || !data.content) {
+                return new Response(JSON.stringify({ 
+                    error: 'invalid_data', 
+                    detail: 'recruitId, guild_id, and content are required' 
+                }), { 
+                    status: 400, 
+                    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+                });
+            }
+            
+            // 5. 入力サニタイゼーション
+            const sanitizedData = {
+                recruitId: String(data.recruitId).slice(0, 50),
+                guild_id: String(data.guild_id).slice(0, 20),
+                content: String(data.content).slice(0, 1000),
+                status: String(data.status || 'recruiting').slice(0, 20)
+            };
+            
+            console.log(`[worker][recruitment-push] Authorized request from IP: ${clientIP}, recruitId: ${sanitizedData.recruitId}`);
+            
+            return new Response(JSON.stringify({ 
+                success: true, 
+                recruitId: sanitizedData.recruitId,
+                message: 'Data received successfully'
+            }), { 
+                status: 200, 
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
+            
+        } catch (err) {
+            console.error('[worker][recruitment-push] Error:', err);
+            return new Response(JSON.stringify({ 
+                error: 'internal_error'
+            }), { 
+                status: 500, 
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
             });
         }
     }

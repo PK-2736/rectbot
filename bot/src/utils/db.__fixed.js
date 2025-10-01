@@ -140,10 +140,18 @@ async function runCleanupNow() { return await cleanupExpiredRecruits(); }
 function getLastCleanupStatus() { return lastCleanup; }
 
 async function pushRecruitToWebAPI(recruitData) {
-  const url = `${config.BACKEND_API_URL.replace(/\/$/, '')}/api/recruitment`;
+  const url = `${config.BACKEND_API_URL.replace(/\/$/, '')}/api/recruitment/push`;
   try {
     const payload = JSON.stringify(recruitData);
-  const res = await backendFetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload });
+    
+    // セキュリティ強化：SERVICE_TOKEN を含むヘッダーを追加
+    const headers = { 'Content-Type': 'application/json' };
+    const svc = process.env.SERVICE_TOKEN || process.env.BACKEND_SERVICE_TOKEN || '';
+    if (svc) {
+      headers['Authorization'] = `Bearer ${svc}`;
+    }
+    
+    const res = await backendFetch(url, { method: 'POST', headers, body: payload });
     let text = '';
     try { text = await res.text(); } catch (e) { text = ''; }
     let body = null; try { body = text ? JSON.parse(text) : null; } catch (_) { body = text; }
