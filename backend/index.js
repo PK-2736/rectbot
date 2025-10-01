@@ -68,64 +68,91 @@ export default {
     // --- Public recruitment endpoint for browser access ---
     // Browsers can directly access /api/public/recruitment without SERVICE_TOKEN
     if (url.pathname === '/api/public/recruitment') {
-        const EXPRESS_ORIGIN = env.EXPRESS_ORIGIN || 'https://api.rectbot.tech';
-        const SERVICE_TOKEN = env.SERVICE_TOKEN || '';
-
+        // For now, return from KV store directly to avoid EXPRESS_ORIGIN issues
         try {
-            const forwardUrl = EXPRESS_ORIGIN + '/api/recruitment';
-            const forwardHeaders = new Headers();
+            // Try to get from KV first
+            const kvKeys = await env.RECRUIT_KV.list();
+            const recruits = [];
             
-            // Add SERVICE_TOKEN for Express authentication
-            if (SERVICE_TOKEN) {
-                forwardHeaders.set('Authorization', `Bearer ${SERVICE_TOKEN}`);
+            for (const key of kvKeys.keys) {
+                try {
+                    const data = await env.RECRUIT_KV.get(key.name);
+                    if (data) {
+                        const parsed = JSON.parse(data);
+                        recruits.push(parsed);
+                    }
+                } catch (e) {
+                    console.warn('[worker][kv-get] Error parsing key:', key.name, e);
+                }
             }
             
-            // Set Host header to the origin's host
-            try {
-                const originHost = new URL(EXPRESS_ORIGIN).host;
-                forwardHeaders.set('host', originHost);
-            } catch (e) {
-                // ignore if EXPRESS_ORIGIN is malformed
-            }
-
-            const resp = await fetch(forwardUrl, {
-                method: 'GET',
-                headers: forwardHeaders,
-                redirect: 'follow'
-            });
-
-            const data = await resp.json();
-            return new Response(JSON.stringify(data), { 
-                status: resp.status, 
+            return new Response(JSON.stringify(recruits), { 
+                status: 200, 
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
             });
         } catch (err) {
-            console.error('[worker][public-recruitment] Error:', err);
-            return new Response(JSON.stringify({ 
-                error: 'backend_unreachable', 
-                detail: err.message || String(err) 
-            }), { 
-                status: 502, 
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-            });
+            console.error('[worker][public-recruitment] KV Error:', err);
+            
+            // Fallback: try EXPRESS_ORIGIN if KV fails
+            const EXPRESS_ORIGIN = env.EXPRESS_ORIGIN;
+            if (!EXPRESS_ORIGIN) {
+                return new Response(JSON.stringify({ 
+                    error: 'service_unavailable', 
+                    detail: 'EXPRESS_ORIGIN not configured and KV access failed' 
+                }), { 
+                    status: 503, 
+                    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+                });
+            }
+            
+            try {
+                const SERVICE_TOKEN = env.SERVICE_TOKEN || '';
+                const forwardUrl = EXPRESS_ORIGIN + '/api/recruitment';
+                const forwardHeaders = new Headers();
+                
+                if (SERVICE_TOKEN) {
+                    forwardHeaders.set('Authorization', `Bearer ${SERVICE_TOKEN}`);
+                }
+                
+                const resp = await fetch(forwardUrl, {
+                    method: 'GET',
+                    headers: forwardHeaders,
+                    redirect: 'follow'
+                });
+
+                const data = await resp.json();
+                return new Response(JSON.stringify(data), { 
+                    status: resp.status, 
+                    headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+                });
+            } catch (proxyErr) {
+                console.error('[worker][public-recruitment] Proxy Error:', proxyErr);
+                return new Response(JSON.stringify({ 
+                    error: 'backend_unreachable', 
+                    detail: `KV failed: ${err.message}. Proxy failed: ${proxyErr.message}` 
+                }), { 
+                    status: 502, 
+                    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+                });
+            }
         }
     }
 
-    // --- Proxy to Express for /api/redis/*, /api/recruitment, root and health endpoints ---
-    // If the Worker receives requests for /api/redis/*, /api/recruitment or requests for the origin root/healthz
-    // forward them to the Express origin. The Express origin should validate service token.
-    if (url.pathname.startsWith('/api/redis') || url.pathname.startsWith('/api/recruitment') || url.pathname === '/' || url.pathname === '/healthz') {
+    // --- Proxy to Express for /api/redis/*, /api/recruitment, /api/public, root and health endpoints ---
+    // If the Worker receives requests for /api/redis/*, /api/recruitment, /api/public or requests for the origin root/healthz
+    // forward them to the Express origin. The Express origin should validate service token for protected endpoints.
+    if (url.pathname.startsWith('/api/redis') || url.pathname.startsWith('/api/recruitment') || url.pathname.startsWith('/api/public') || url.pathname === '/' || url.pathname === '/healthz') {
         // Configure this origin in your Worker environment (or hardcode if needed)
-        // Use the origin domain (not a raw IP) so TLS SNI and Host header match the origin certificate.
-        const EXPRESS_ORIGIN = env.EXPRESS_ORIGIN || 'https://api.rectbot.tech';
+        // For now, proxy to the same Worker host to avoid external dependencies
+        const EXPRESS_ORIGIN = env.EXPRESS_ORIGIN || url.origin;
         const SERVICE_TOKEN = env.SERVICE_TOKEN || '';
 
         // Build forward URL
         const forwardUrl = EXPRESS_ORIGIN + url.pathname + (url.search || '');
 
-        // Copy headers and add service token for origin authentication
+        // Copy headers and add service token for origin authentication (except for public endpoints)
         const forwardHeaders = new Headers(request.headers);
-        if (SERVICE_TOKEN) {
+        if (SERVICE_TOKEN && !url.pathname.startsWith('/api/public')) {
             forwardHeaders.set('Authorization', `Bearer ${SERVICE_TOKEN}`);
         }
         // If the Worker has Zero Trust client credentials configured, add them for origin authentication
