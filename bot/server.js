@@ -422,7 +422,9 @@ app.get('/api/redis/recruitment/:id', requireInternalSecret, async (req, res) =>
 });
 
 app.listen(PORT, () => {
-  console.log(`[server] Express server listening on port ${PORT}, proxying to ${BACKEND_API_URL}`);
+  console.log(`[server] Express server listening on port ${PORT}`);
+  console.log(`[server] PATCH/DELETE endpoints: Direct Supabase access`);
+  console.log(`[server] POST/GET endpoints: Proxying to ${BACKEND_API_URL}`);
   // Debug: show which env-derived values are present (do not print secrets)
   console.log(`[server] env summary: BACKEND_API_URL=${process.env.BACKEND_API_URL || process.env.BACKEND_URL || ''}, DISCORD_BOT_TOKEN=${process.env.DISCORD_BOT_TOKEN ? 'set' : 'unset'}`);
 });

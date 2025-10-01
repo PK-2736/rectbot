@@ -81,24 +81,23 @@ curl -X PATCH http://localhost:3000/api/recruitment/TEST_ID \
 
 ## 🔧 Cloudflare Workers の設定
 
-### VPS_EXPRESS_URL 環境変数の設定
+### VPS_EXPRESS_URL 環境変数の設定（Cloudflare Tunnel使用）
 
 ```bash
 cd backend
 
-# VPSのパブリックIPアドレスを設定
-wrangler deploy --var VPS_EXPRESS_URL:http://<VPS_PUBLIC_IP>:3000
-
-# 例:
-wrangler deploy --var VPS_EXPRESS_URL:http://203.0.113.50:3000
+# Cloudflare Tunnel経由のURLを設定
+wrangler deploy --var VPS_EXPRESS_URL:https://express.rectbot.tech
 ```
+
+**重要:** `express.rectbot.tech` はCloudflare Tunnel経由でVPS Express サーバー（localhost:3000）に接続します。
 
 または、GitHub Actions経由でデプロイする場合:
 
 **GitHub Secrets に追加:**
 ```
 Name: VPS_EXPRESS_URL
-Value: http://<VPS_IP>:3000
+Value: https://express.rectbot.tech
 ```
 
 **`.github/workflows/deploy-backend.yml` を更新:**
