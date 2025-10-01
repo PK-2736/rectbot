@@ -539,9 +539,14 @@ module.exports = {
         try {
           await saveRecruitToRedis(actualRecruitId, finalRecruitData);
           console.log('Redisに募集データを保存: 成功', actualRecruitId);
+          
+          console.log('Worker APIにpushするデータ:', JSON.stringify(finalRecruitData, null, 2));
           const pushRes = await pushRecruitToWebAPI(finalRecruitData);
           if (!pushRes || !pushRes.ok) {
-            console.warn('Worker APIに募集データをpushできませんでした:', pushRes && (pushRes.status || pushRes.error));
+            console.error('Worker APIに募集データをpushできませんでした:');
+            console.error('- Status:', pushRes && pushRes.status);
+            console.error('- Error:', pushRes && pushRes.error);
+            console.error('- Body:', pushRes && pushRes.body);
           } else {
             console.log('Worker APIに募集データをpush: 成功');
           }

@@ -221,12 +221,14 @@ export default {
             // Note: 本格的なレート制限が必要な場合は、Cloudflare Rate Limitingを使用
             
             const data = await request.json();
+            console.log(`[worker][recruitment-push] Received data:`, JSON.stringify(data, null, 2));
             
             // 4. データ検証強化
-            if (!data.recruitId || !data.guild_id || !data.content) {
+            if (!data.recruitId || !data.guildId) {
+                console.error(`[worker][recruitment-push] Missing required fields. recruitId: ${data.recruitId}, guildId: ${data.guildId}`);
                 return new Response(JSON.stringify({ 
                     error: 'invalid_data', 
-                    detail: 'recruitId, guild_id, and content are required' 
+                    detail: 'recruitId and guildId are required' 
                 }), { 
                     status: 400, 
                     headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -236,9 +238,11 @@ export default {
             // 5. 入力サニタイゼーション
             const sanitizedData = {
                 recruitId: String(data.recruitId).slice(0, 50),
-                guild_id: String(data.guild_id).slice(0, 20),
-                content: String(data.content).slice(0, 1000),
-                status: String(data.status || 'recruiting').slice(0, 20)
+                guildId: String(data.guildId).slice(0, 20),
+                channelId: String(data.channelId || '').slice(0, 20),
+                message_id: String(data.message_id || '').slice(0, 20),
+                status: String(data.status || 'recruiting').slice(0, 20),
+                start_time: data.start_time || new Date().toISOString()
             };
             
             console.log(`[worker][recruitment-push] Authorized request from IP: ${clientIP}, recruitId: ${sanitizedData.recruitId}`);
@@ -246,6 +250,7 @@ export default {
             return new Response(JSON.stringify({ 
                 success: true, 
                 recruitId: sanitizedData.recruitId,
+                guildId: sanitizedData.guildId,
                 message: 'Data received successfully'
             }), { 
                 status: 200, 
