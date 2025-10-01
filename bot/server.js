@@ -187,24 +187,26 @@ app.patch('/api/recruitment/:messageId', requireServiceToken, async (req, res) =
     const updateData = req.body;
     console.log(`[server][recruitment][patch] Updating recruitment: ${messageId}`, updateData);
     
-    // Supabaseに直接更新
-    const supabase = db.getSupabase();
-    const { data, error } = await supabase
-      .from('recruitments')
-      .update(updateData)
-      .eq('message_id', messageId)
-      .select();
+    // Redisから募集データを取得
+    const recruitData = await db.getRecruitFromRedis(messageId);
     
-    if (error) {
-      console.error('[server][recruitment][patch] Supabase error:', error);
-      return res.status(500).json({ error: 'database_error', detail: error.message });
-    }
-    
-    if (!data || data.length === 0) {
+    if (!recruitData) {
+      console.warn(`[server][recruitment][patch] Recruitment not found in Redis: ${messageId}`);
       return res.status(404).json({ error: 'not_found', message: 'Recruitment not found' });
     }
     
-    res.status(200).json({ ok: true, data: data[0] });
+    // ステータスを更新
+    const updatedData = {
+      ...recruitData,
+      ...updateData,
+      updated_at: new Date().toISOString()
+    };
+    
+    // Redisに保存
+    await db.saveRecruitToRedis(messageId, updatedData);
+    
+    console.log(`[server][recruitment][patch] Successfully updated recruitment in Redis: ${messageId}`);
+    res.status(200).json({ ok: true, data: updatedData });
   } catch (err) {
     console.error('[server][recruitment][patch] Error:', err.message || err);
     res.status(500).json({ error: 'internal_error', detail: err.message });
@@ -217,27 +219,19 @@ app.delete('/api/recruitment/:messageId', requireServiceToken, async (req, res) 
     const { messageId } = req.params;
     console.log(`[server][recruitment][delete] Deleting recruitment: ${messageId}`);
     
-    // Redisから削除
-    await db.deleteRecruitFromRedis(messageId);
+    // Redisから募集データを取得
+    const recruitData = await db.getRecruitFromRedis(messageId);
     
-    // Supabaseから削除
-    const supabase = db.getSupabase();
-    const { data, error } = await supabase
-      .from('recruitments')
-      .delete()
-      .eq('message_id', messageId)
-      .select();
-    
-    if (error) {
-      console.error('[server][recruitment][delete] Supabase error:', error);
-      return res.status(500).json({ error: 'database_error', detail: error.message });
-    }
-    
-    if (!data || data.length === 0) {
+    if (!recruitData) {
+      console.warn(`[server][recruitment][delete] Recruitment not found in Redis: ${messageId}`);
       return res.status(404).json({ error: 'not_found', message: 'Recruitment not found' });
     }
     
-    res.status(200).json({ ok: true, data: data[0] });
+    // Redisから削除
+    await db.deleteRecruitFromRedis(messageId);
+    
+    console.log(`[server][recruitment][delete] Successfully deleted recruitment from Redis: ${messageId}`);
+    res.status(200).json({ ok: true, data: recruitData });
   } catch (err) {
     console.error('[server][recruitment][delete] Error:', err.message || err);
     res.status(500).json({ error: 'internal_error', detail: err.message });
