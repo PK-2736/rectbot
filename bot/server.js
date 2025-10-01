@@ -150,6 +150,20 @@ app.get('/healthz', (req, res) => {
   res.status(200).json({ ok: true, uptime: process.uptime() });
 });
 
+// Dashboard API endpoint (no authentication required)
+// Returns all active recruitments from Redis for public dashboard
+app.get('/api/dashboard/recruitment', async (req, res) => {
+  try {
+    console.log('[server][dashboard][recruitment] Fetching all recruitments from Redis');
+    const recruitments = await db.listRecruitsFromRedis();
+    console.log(`[server][dashboard][recruitment] Found ${recruitments.length} recruitments`);
+    res.status(200).json(recruitments);
+  } catch (err) {
+    console.error('[server][dashboard][recruitment] Error:', err.message || err);
+    res.status(500).json({ error: 'internal_error', detail: err.message });
+  }
+});
+
 // Proxy recruitment POST/GET (protected by SERVICE_TOKEN)
 app.post('/api/recruitment', requireServiceToken, async (req, res) => {
   try {
@@ -187,12 +201,21 @@ app.patch('/api/recruitment/:messageId', requireServiceToken, async (req, res) =
     const updateData = req.body;
     console.log(`[server][recruitment][patch] Updating recruitment: ${messageId}`, updateData);
     
+    // messageIdの最後の8桁を使用（dbモジュールと同じ）
+    const shortId = String(messageId).slice(-8);
+    
     // Redisから募集データを取得
-    const recruitData = await db.getRecruitFromRedis(messageId);
+    const recruitData = await db.getRecruitFromRedis(shortId);
     
     if (!recruitData) {
-      console.warn(`[server][recruitment][patch] Recruitment not found in Redis: ${messageId}`);
-      return res.status(404).json({ error: 'not_found', message: 'Recruitment not found' });
+      console.warn(`[server][recruitment][patch] Recruitment not found in Redis: ${messageId} (shortId: ${shortId})`);
+      // 404を返すが、Bot側で処理を継続できるようにする
+      return res.status(404).json({ 
+        error: 'not_found', 
+        message: 'Recruitment not found in Redis',
+        messageId,
+        shortId 
+      });
     }
     
     // ステータスを更新
@@ -203,10 +226,10 @@ app.patch('/api/recruitment/:messageId', requireServiceToken, async (req, res) =
     };
     
     // Redisに保存
-    await db.saveRecruitToRedis(messageId, updatedData);
+    await db.saveRecruitToRedis(shortId, updatedData);
     
-    console.log(`[server][recruitment][patch] Successfully updated recruitment in Redis: ${messageId}`);
-    res.status(200).json({ ok: true, data: updatedData });
+    console.log(`[server][recruitment][patch] Successfully updated recruitment in Redis: ${messageId} (shortId: ${shortId})`);
+    res.status(200).json({ ok: true, data: updatedData, messageId, shortId });
   } catch (err) {
     console.error('[server][recruitment][patch] Error:', err.message || err);
     res.status(500).json({ error: 'internal_error', detail: err.message });
@@ -219,19 +242,28 @@ app.delete('/api/recruitment/:messageId', requireServiceToken, async (req, res) 
     const { messageId } = req.params;
     console.log(`[server][recruitment][delete] Deleting recruitment: ${messageId}`);
     
+    // messageIdの最後の8桁を使用（dbモジュールと同じ）
+    const shortId = String(messageId).slice(-8);
+    
     // Redisから募集データを取得
-    const recruitData = await db.getRecruitFromRedis(messageId);
+    const recruitData = await db.getRecruitFromRedis(shortId);
     
     if (!recruitData) {
-      console.warn(`[server][recruitment][delete] Recruitment not found in Redis: ${messageId}`);
-      return res.status(404).json({ error: 'not_found', message: 'Recruitment not found' });
+      console.warn(`[server][recruitment][delete] Recruitment not found in Redis: ${messageId} (shortId: ${shortId})`);
+      // 404を返すが、Bot側で処理を継続できるようにする
+      return res.status(404).json({ 
+        error: 'not_found', 
+        message: 'Recruitment not found in Redis',
+        messageId,
+        shortId
+      });
     }
     
     // Redisから削除
-    await db.deleteRecruitFromRedis(messageId);
+    await db.deleteRecruitFromRedis(shortId);
     
-    console.log(`[server][recruitment][delete] Successfully deleted recruitment from Redis: ${messageId}`);
-    res.status(200).json({ ok: true, data: recruitData });
+    console.log(`[server][recruitment][delete] Successfully deleted recruitment from Redis: ${messageId} (shortId: ${shortId})`);
+    res.status(200).json({ ok: true, data: recruitData, messageId, shortId });
   } catch (err) {
     console.error('[server][recruitment][delete] Error:', err.message || err);
     res.status(500).json({ error: 'internal_error', detail: err.message });

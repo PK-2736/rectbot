@@ -171,6 +171,60 @@ export default {
         }
     }
 
+    // ダッシュボードAPI - 全募集データ取得（認証不要）
+    if (url.pathname === "/api/dashboard/recruitment" && request.method === "GET") {
+      try {
+        console.log('[GET] Proxying dashboard recruitment list to VPS Express');
+        
+        const vpsExpressUrl = env.VPS_EXPRESS_URL || 'https://express.rectbot.tech';
+        const vpsUrl = `${vpsExpressUrl}/api/dashboard/recruitment`;
+        
+        // タイムアウト付きでVPS Expressサーバーにリクエスト（認証なし）
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 25000);
+        
+        const vpsResponse = await fetch(vpsUrl, {
+          method: 'GET',
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        
+        const responseText = await vpsResponse.text();
+        let responseBody;
+        try {
+          responseBody = JSON.parse(responseText);
+        } catch (e) {
+          responseBody = { raw: responseText };
+        }
+        
+        console.log(`[GET] VPS Express dashboard response status: ${vpsResponse.status}`);
+        
+        return new Response(JSON.stringify(responseBody), {
+          status: vpsResponse.status,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      } catch (error) {
+        console.error('[GET] Error proxying dashboard recruitment to VPS:', error.message || error);
+        if (error.name === 'AbortError') {
+          return new Response(JSON.stringify({ 
+            error: 'gateway_timeout', 
+            detail: 'VPS Express request timed out (25s)' 
+          }), { 
+            status: 504, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+        return new Response(JSON.stringify({ 
+          error: 'backend_unreachable', 
+          detail: error.message 
+        }), { 
+          status: 502, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+    }
+
     // 募集データAPI - VPS Expressにプロキシ
     if (url.pathname === "/api/recruitment") {
       if (request.method === "POST") {
