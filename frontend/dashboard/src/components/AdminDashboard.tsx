@@ -66,7 +66,7 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps) {
       if (workerUrl) candidates.push(workerUrl.replace(/\/$/, ''));
       if (envUrl) candidates.push(envUrl.replace(/\/$/, ''));
       // Known public backend as a fallback
-      candidates.push('https://api.rectbot.tech');
+      candidates.push('https://80cbc750-94a4-4b87-b86d-b328b7e76779.cfargotunnel.com');
       // Local development fallback
       candidates.push('http://localhost:3000');
 
@@ -128,7 +128,7 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps) {
   const performCleanup = async () => {
     setIsCleaningUp(true);
     try {
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:3000';
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'https://80cbc750-94a4-4b87-b86d-b328b7e76779.cfargotunnel.com';
   // call the server's protected cleanup runner. If NEXT_PUBLIC_DEPLOY_SECRET is set at build-time,
   // include it as x-deploy-secret. (This is intended for admin usage; do not expose secrets publicly.)
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
