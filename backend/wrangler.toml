@@ -14,7 +14,7 @@ workers_dev = false
 # - REACT_APP_DISCORD_CLIENT_ID
 # - REACT_APP_DISCORD_REDIRECT_URI  
 # - SUPABASE_URL
-# - VPS_EXPRESS_URL (Cloudflare Tunnel経由、例: https://express.rectbot.tech)
+# - VPS_EXPRESS_URL (Cloudflare Tunnel経由、例: https://80cbc750-94a4-4b87-b86d-b328b7e76779.cfargotunnel.com)
 #
 # シークレットは wrangler secret put コマンドで設定されます:
 # - DISCORD_CLIENT_SECRET

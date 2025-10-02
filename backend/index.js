@@ -176,7 +176,7 @@ export default {
       try {
         console.log('[GET] Proxying dashboard recruitment list to VPS Express');
         
-        const vpsExpressUrl = env.VPS_EXPRESS_URL || 'https://express.rectbot.tech';
+        const vpsExpressUrl = env.VPS_EXPRESS_URL || 'https://80cbc750-94a4-4b87-b86d-b328b7e76779.cfargotunnel.com';
         const vpsUrl = `${vpsExpressUrl}/api/dashboard/recruitment`;
         
         // タイムアウト付きでVPS Expressサーバーにリクエスト（認証なし）
@@ -232,7 +232,7 @@ export default {
           console.log('[POST] Proxying recruitment save to VPS Express');
           
           // VPS ExpressサーバーのURL構築（Cloudflare Tunnel経由）
-          const vpsExpressUrl = env.VPS_EXPRESS_URL || 'https://express.rectbot.tech';
+          const vpsExpressUrl = env.VPS_EXPRESS_URL || 'https://80cbc750-94a4-4b87-b86d-b328b7e76779.cfargotunnel.com';
           const vpsUrl = `${vpsExpressUrl}/api/recruitment`;
           
           // リクエストボディを取得
@@ -282,7 +282,7 @@ export default {
           console.log('[GET] Proxying recruitment list to VPS Express');
           
           // VPS ExpressサーバーのURL構築（Cloudflare Tunnel経由）
-          const vpsExpressUrl = env.VPS_EXPRESS_URL || 'https://express.rectbot.tech';
+          const vpsExpressUrl = env.VPS_EXPRESS_URL || 'https://80cbc750-94a4-4b87-b86d-b328b7e76779.cfargotunnel.com';
           const vpsUrl = `${vpsExpressUrl}/api/recruitment`;
           
           // SERVICE_TOKENを使ってVPS Expressサーバーにプロキシ
@@ -343,7 +343,7 @@ export default {
         console.log(`[PATCH] Proxying recruitment update to VPS Express: ${messageId}`);
         
         // VPS ExpressサーバーのURL構築（Cloudflare Tunnel経由）
-        const vpsExpressUrl = env.VPS_EXPRESS_URL || 'https://express.rectbot.tech';
+        const vpsExpressUrl = env.VPS_EXPRESS_URL || 'https://80cbc750-94a4-4b87-b86d-b328b7e76779.cfargotunnel.com';
         const vpsUrl = `${vpsExpressUrl}/api/recruitment/${messageId}`;
         
         // リクエストボディを取得
@@ -443,7 +443,7 @@ export default {
         console.log(`[DELETE] Proxying recruitment deletion to VPS Express: ${messageId}`);
         
         // VPS ExpressサーバーのURL構築（Cloudflare Tunnel経由）
-        const vpsExpressUrl = env.VPS_EXPRESS_URL || 'https://express.rectbot.tech';
+        const vpsExpressUrl = env.VPS_EXPRESS_URL || 'https://80cbc750-94a4-4b87-b86d-b328b7e76779.cfargotunnel.com';
         const vpsUrl = `${vpsExpressUrl}/api/recruitment/${messageId}`;
         
         // SERVICE_TOKENを使ってVPS Expressサーバーにプロキシ
