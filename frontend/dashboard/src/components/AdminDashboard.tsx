@@ -30,8 +30,8 @@ interface RecruitmentData {
   maxParticipants?: number;
   currentParticipants?: number;
   createdAt?: string;
-  participants?: any[];
-  participantsList?: any[];
+  participants?: Array<{ id: string; name: string; }>;
+  participantsList?: Array<{ id: string; name: string; }>;
 }
 
 interface AdminDashboardProps {
@@ -77,7 +77,9 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps) {
               const e = err as { message?: unknown };
               if (typeof e.message === 'string') msg = e.message;
             }
-          } catch (_) {}
+          } catch {
+            // Ignore parsing errors
+          }
           attempts.push({ url, error: msg });
           response = null;
         }
