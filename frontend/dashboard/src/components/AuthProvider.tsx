@@ -58,22 +58,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const newUrl = window.location.pathname;
         window.history.replaceState({}, '', newUrl);
       } else {
-        // 従来のコード処理（デモ用）
+        // 従来のコード処理
         const code = urlParams.get('code');
         if (code) {
           console.log('Discord auth code received (legacy):', code);
           
-          // デモ用: 固定のユーザー情報をセット
-          const demoUser: DiscordUser = {
-            id: "1048950201974542477",
-            username: "admin",
-            discriminator: "0001",
-            email: "admin@example.com"
-          };
-          
-          console.log('Demo user logged in:', demoUser);
-          setUser(demoUser);
-          discordAuth.storeUser(demoUser);
+          // 本番環境: Discord OAuth認証を完了
+          // このコードはバックエンドのcallbackエンドポイントで処理されるため、
+          // ここでは何もせず、バックエンドからのリダイレクトを待つ
+          console.log('Waiting for backend OAuth callback...');
           
           // URLからコードパラメータを削除
           const newUrl = window.location.pathname;

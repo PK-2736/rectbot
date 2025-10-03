@@ -1,3 +1,147 @@
+// JWT library (install: npm install jsonwebtoken)
+// For Worker environment, use: npm install @tsndr/cloudflare-worker-jwt
+// import jwt from '@tsndr/cloudflare-worker-jwt';
+
+/**
+ * Supabase クライアント初期化
+ */
+function getSupabaseClient(env) {
+  // Supabase クライアントは環境変数から初期化
+  // Worker 環境では @supabase/supabase-js を使用
+  // import { createClient } from '@supabase/supabase-js';
+  // return createClient(env.SUPABASE_URL, env.SUPABASE_KEY);
+  
+  // 簡易実装（実際には @supabase/supabase-js を使用）
+  return {
+    from: (table) => ({
+      upsert: async (data) => {
+        const res = await fetch(`${env.SUPABASE_URL}/rest/v1/${table}`, {
+          method: 'POST',
+          headers: {
+            'apikey': env.SUPABASE_SERVICE_ROLE_KEY,
+            'Authorization': `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'resolution=merge-duplicates'
+          },
+          body: JSON.stringify(data)
+        });
+        return res.json();
+      },
+      select: async (columns) => {
+        const res = await fetch(`${env.SUPABASE_URL}/rest/v1/${table}?select=${columns}`, {
+          headers: {
+            'apikey': env.SUPABASE_SERVICE_ROLE_KEY,
+            'Authorization': `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`
+          }
+        });
+        return res.json();
+      }
+    })
+  };
+}
+
+/**
+ * 管理者かどうかをチェック
+ */
+function isAdmin(discordId, env) {
+  const adminIds = (env.ADMIN_DISCORD_ID || '').split(',').map(id => id.trim());
+  return adminIds.includes(discordId);
+}
+
+/**
+ * JWT 発行（ログイン時）
+ * 実運用では @tsndr/cloudflare-worker-jwt を使用推奨
+ */
+async function issueJWT(userInfo, env) {
+  const payload = {
+    userId: userInfo.id,
+    username: userInfo.username,
+    role: isAdmin(userInfo.id, env) ? 'admin' : 'user',
+    iat: Math.floor(Date.now() / 1000),
+    exp: Math.floor(Date.now() / 1000) + 3600 // 1時間
+  };
+  
+  // Base64 エンコード（簡易実装）
+  const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
+  const body = btoa(JSON.stringify(payload));
+  
+  // HMAC-SHA256 署名
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(env.JWT_SECRET),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  
+  const signature = await crypto.subtle.sign(
+    'HMAC',
+    key,
+    encoder.encode(`${header}.${body}`)
+  );
+  
+  const signatureBase64 = btoa(String.fromCharCode(...new Uint8Array(signature)))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=/g, '');
+  
+  return `${header}.${body}.${signatureBase64}`;
+}
+
+/**
+ * JWT 検証
+ * 実運用では @tsndr/cloudflare-worker-jwt を使用推奨
+ */
+async function verifyJWT(token, env) {
+  try {
+    const [header, body, signature] = token.split('.');
+    
+    if (!header || !body || !signature) {
+      throw new Error('Invalid token format');
+    }
+    
+    // ペイロード解析
+    const payload = JSON.parse(atob(body));
+    
+    // 有効期限チェック
+    if (payload.exp < Math.floor(Date.now() / 1000)) {
+      throw new Error('Token expired');
+    }
+    
+    // 署名検証（簡易実装）
+    const encoder = new TextEncoder();
+    const key = await crypto.subtle.importKey(
+      'raw',
+      encoder.encode(env.JWT_SECRET),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['verify']
+    );
+    
+    const signatureBytes = Uint8Array.from(
+      atob(signature.replace(/-/g, '+').replace(/_/g, '/')),
+      c => c.charCodeAt(0)
+    );
+    
+    const isValid = await crypto.subtle.verify(
+      'HMAC',
+      key,
+      signatureBytes,
+      encoder.encode(`${header}.${body}`)
+    );
+    
+    if (!isValid) {
+      throw new Error('Invalid signature');
+    }
+    
+    return payload;
+  } catch (error) {
+    console.error('JWT verification failed:', error);
+    return null;
+  }
+}
+
 // Discord OAuth用
 async function getDiscordToken(code, redirectUri, clientId, clientSecret) {
   const params = new URLSearchParams({
@@ -24,31 +168,78 @@ async function getDiscordUser(accessToken) {
 }
 
 /**
- * Discord OAuth セッション検証
- * Authorization ヘッダーの Bearer トークンを検証
+ * Discord OAuth 認証完了後の処理
  */
-function isValidDiscordAdmin(authHeader, env) {
-  if (!authHeader) {
-    console.log('No Authorization header provided');
+async function handleDiscordCallback(code, env) {
+  try {
+    // Discord トークン取得
+    const tokenData = await getDiscordToken(
+      code,
+      env.DISCORD_REDIRECT_URI,
+      env.DISCORD_CLIENT_ID,
+      env.DISCORD_CLIENT_SECRET
+    );
+    
+    if (!tokenData.access_token) {
+      throw new Error('Failed to get Discord access token');
+    }
+    
+    // Discord ユーザー情報取得
+    const userInfo = await getDiscordUser(tokenData.access_token);
+    
+    // Supabase にユーザー情報保存
+    const supabase = getSupabaseClient(env);
+    await supabase.from('users').upsert({
+      user_id: userInfo.id,
+      discord_id: userInfo.id,
+      username: userInfo.username,
+      discriminator: userInfo.discriminator || '0',
+      avatar: userInfo.avatar,
+      role: isAdmin(userInfo.id, env) ? 'admin' : 'user',
+      last_login: new Date().toISOString()
+    });
+    
+    // JWT 発行
+    const jwt = await issueJWT(userInfo, env);
+    
+    return { jwt, userInfo };
+    
+  } catch (error) {
+    console.error('Discord OAuth callback error:', error);
+    throw error;
+  }
+}
+
+/**
+ * Discord OAuth セッション検証（JWT ベース）
+ */
+async function isValidDiscordAdmin(cookieHeader, env) {
+  if (!cookieHeader) {
+    console.log('No Cookie header provided');
     return false;
   }
   
-  const token = authHeader.replace('Bearer ', '');
-  
-  if (!token || token.length === 0) {
-    console.log('Invalid token format');
+  // Cookie から JWT 取得
+  const jwtMatch = cookieHeader.match(/jwt=([^;]+)/);
+  if (!jwtMatch) {
+    console.log('No JWT cookie found');
     return false;
   }
   
-  // TODO: 実運用では以下を実装
-  // 1. JWT トークンの検証（jwt.verify）
-  // 2. Discord API でユーザー情報取得
-  // 3. 管理者リスト（env.ADMIN_DISCORD_IDS）との照合
-  // 4. セッションストア（KV）でセッション有効期限チェック
+  const jwt = jwtMatch[1];
+  const payload = await verifyJWT(jwt, env);
   
-  // 暫定：トークンの存在チェック
-  // 実運用では JWT 検証やセッションストアとの照合を実装してください
-  console.log('Token validation passed (temporary implementation)');
+  if (!payload) {
+    console.log('Invalid JWT');
+    return false;
+  }
+  
+  if (payload.role !== 'admin') {
+    console.log('User is not admin');
+    return false;
+  }
+  
+  console.log('JWT validation passed for admin:', payload.userId);
   return true;
 }
 
@@ -86,13 +277,50 @@ export default {
       });
     }
 
-    // 管理者用 API：Discord OAuth 認証が必要
+    // Discord OAuthコールバックAPI (GET) - DiscordからのリダイレクトURL処理
+    if (request.method === 'GET' && url.pathname === '/api/discord/callback') {
+      const code = url.searchParams.get('code');
+      if (!code) {
+        return new Response('<!DOCTYPE html><html><body><h1>認証エラー</h1><p>認証コードが見つかりません</p></body></html>', {
+          status: 400,
+          headers: { 'Content-Type': 'text/html; charset=utf-8' }
+        });
+      }
+      
+      try {
+        // Discord OAuth 処理 + Supabase 保存 + JWT 発行
+        const { jwt, userInfo } = await handleDiscordCallback(code, env);
+        
+        console.log('Discord OAuth success:', userInfo.username);
+        
+        // ダッシュボードにリダイレクト（JWT を HttpOnly Cookie として設定）
+        const dashboardUrl = new URL('https://dash.rectbot.tech/');
+        
+        return new Response('', {
+          status: 302,
+          headers: {
+            'Location': dashboardUrl.toString(),
+            'Set-Cookie': `jwt=${jwt}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=3600`,
+            ...corsHeaders
+          }
+        });
+        
+      } catch (error) {
+        console.error('Discord OAuth error:', error);
+        return new Response('<!DOCTYPE html><html><body><h1>認証エラー</h1><p>認証処理中にエラーが発生しました</p></body></html>', {
+          status: 500,
+          headers: { 'Content-Type': 'text/html; charset=utf-8' }
+        });
+      }
+    }
+
+    // 管理者用 API：Discord OAuth 認証が必要（JWT ベース）
     if (url.pathname === '/api/recruitment/list') {
       console.log('Admin API: /api/recruitment/list accessed');
       
-      const authHeader = request.headers.get('Authorization');
+      const cookieHeader = request.headers.get('Cookie');
       
-      if (!isValidDiscordAdmin(authHeader, env)) {
+      if (!await isValidDiscordAdmin(cookieHeader, env)) {
         console.log('Unauthorized access attempt to admin API');
         return new Response(
           JSON.stringify({ 
@@ -784,57 +1012,6 @@ export default {
         status: 200, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
-    }
-
-    // Discord OAuthコールバックAPI (GET) - DiscordからのリダイレクトURL処理
-    if (request.method === 'GET' && url.pathname === '/api/discord/callback') {
-      const code = url.searchParams.get('code');
-      if (!code) {
-        return new Response('<!DOCTYPE html><html><body><h1>認証エラー</h1><p>認証コードが見つかりません</p></body></html>', {
-          status: 400,
-          headers: { 'Content-Type': 'text/html; charset=utf-8' }
-        });
-      }
-      
-      try {
-        // 環境変数からDiscord情報取得
-        const clientId = env.REACT_APP_DISCORD_CLIENT_ID;
-        const clientSecret = env.DISCORD_CLIENT_SECRET;
-        const redirectUri = env.REACT_APP_DISCORD_REDIRECT_URI;
-        
-        // Discordトークン取得
-        const tokenData = await getDiscordToken(code, redirectUri, clientId, clientSecret);
-        if (!tokenData.access_token) {
-          return new Response('<!DOCTYPE html><html><body><h1>認証エラー</h1><p>Discordトークンの取得に失敗しました</p></body></html>', {
-            status: 400,
-            headers: { 'Content-Type': 'text/html; charset=utf-8' }
-          });
-        }
-        
-        // Discordユーザー情報取得
-        const user = await getDiscordUser(tokenData.access_token);
-        
-        // ダッシュボードにリダイレクト（ユーザー情報をクエリパラメータで渡す）
-        const dashboardUrl = new URL('https://dash.rectbot.tech/');
-        dashboardUrl.searchParams.set('auth_success', 'true');
-        dashboardUrl.searchParams.set('user_id', user.id);
-        dashboardUrl.searchParams.set('username', user.username);
-        
-        return new Response('', {
-          status: 302,
-          headers: {
-            'Location': dashboardUrl.toString(),
-            ...corsHeaders
-          }
-        });
-        
-      } catch (error) {
-        console.error('Discord OAuth error:', error);
-        return new Response('<!DOCTYPE html><html><body><h1>認証エラー</h1><p>認証処理中にエラーが発生しました</p></body></html>', {
-          status: 500,
-          headers: { 'Content-Type': 'text/html; charset=utf-8' }
-        });
-      }
     }
 
     // ギルド設定取得API（Supabaseメイン）

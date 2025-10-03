@@ -50,12 +50,20 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps) {
   const fetchRecruitments = useCallback(async () => {
     try {
       setFetchError(null);
-      // Next.js API Route を経由してデータを取得（トークンはサーバーサイドで付与）
+      // JWT Cookie を含めてリクエスト（credentials: 'include'）
       const url = '/api/recruitment';
 
       const response = await fetch(url, { 
-        cache: 'no-store'
+        cache: 'no-store',
+        credentials: 'include' // Cookie を送信
       });
+
+      if (response.status === 401) {
+        // 認証エラー → Discord ログインにリダイレクト
+        const discordAuthUrl = `https://discord.com/api/oauth2/authorize?client_id=${process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID}&redirect_uri=${encodeURIComponent('https://api.rectbot.tech/api/discord/callback')}&response_type=code&scope=identify`;
+        window.location.href = discordAuthUrl;
+        return;
+      }
 
       if (!response.ok) {
         const errorMsg = `Failed to fetch: ${response.status} ${response.statusText}`;

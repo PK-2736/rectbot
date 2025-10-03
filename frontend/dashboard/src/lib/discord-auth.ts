@@ -20,7 +20,7 @@ export class DiscordAuth {
     const adminIdsEnv = process.env.NEXT_PUBLIC_ADMIN_IDS || process.env.ADMIN_IDS || '';
     this.adminIds = adminIdsEnv 
       ? adminIdsEnv.split(',').map(id => id.trim()).filter(id => id.length > 0)
-      : ["1048950201974542477", "726195003780628621"]; // デフォルトで両方のIDを含める
+      : []; // セキュリティのため、デフォルトは空
   }
 
   getAuthUrl(): string {
@@ -48,16 +48,16 @@ export class DiscordAuth {
   }
 
   isAdmin(userId: string): boolean {
-    // 開発モード: 環境変数でデバッグモードを有効にする
-    if (process.env.NODE_ENV === 'development' || process.env.NEXT_PUBLIC_DEBUG_MODE === 'true') {
-      console.log('Debug mode: User ID:', userId);
+    // 管理者判定（環境変数で設定された管理者IDと照合）
+    const isAdminUser = this.adminIds.includes(userId);
+    
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Admin check - User ID:', userId);
       console.log('Admin IDs:', this.adminIds);
-      
-      // デバッグモードでは一時的に全ユーザーを管理者として扱う
-      return true;
+      console.log('Is Admin:', isAdminUser);
     }
     
-    return this.adminIds.includes(userId);
+    return isAdminUser;
   }
 
   // ローカルストレージからユーザー情報を取得

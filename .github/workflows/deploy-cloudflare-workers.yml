@@ -59,29 +59,28 @@ jobs:
             fi
           }
 
-          # Map of secret variable names -> GitHub secrets (environment variables expanded by Actions)
-          # Use bash indirection to read the corresponding GitHub Action secret env
+          # SECURITY_SETUP.md に沿ったシークレット設定
           DISCORD_CLIENT_SECRET="${{ secrets.DISCORD_CLIENT_SECRET }}"
+          JWT_SECRET="${{ secrets.JWT_SECRET }}"
           SUPABASE_SERVICE_ROLE_KEY="${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}"
-          SUPABASE_URL="${{ secrets.SUPABASE_URL }}"
-          REACT_APP_DISCORD_CLIENT_ID="${{ secrets.REACT_APP_DISCORD_CLIENT_ID }}"
-          REACT_APP_DISCORD_REDIRECT_URI="${{ secrets.REACT_APP_DISCORD_REDIRECT_URI }}"
-          INTERNAL_SECRET="${{ secrets.INTERNAL_SECRET }}"
-          EXPRESS_CLIENT_ID="${{ secrets.EXPRESS_CLIENT_ID }}"
-          EXPRESS_CLIENT_SECRET="${{ secrets.EXPRESS_CLIENT_SECRET }}"
           SERVICE_TOKEN="${{ secrets.SERVICE_TOKEN }}"
-          EXPRESS_ORIGIN="${{ secrets.EXPRESS_ORIGIN }}"
 
           register_secret DISCORD_CLIENT_SECRET DISCORD_CLIENT_SECRET
+          register_secret JWT_SECRET JWT_SECRET
           register_secret SUPABASE_SERVICE_ROLE_KEY SUPABASE_SERVICE_ROLE_KEY
-          register_secret SUPABASE_URL SUPABASE_URL
-          register_secret REACT_APP_DISCORD_CLIENT_ID REACT_APP_DISCORD_CLIENT_ID
-          register_secret REACT_APP_DISCORD_REDIRECT_URI REACT_APP_DISCORD_REDIRECT_URI
-          register_secret INTERNAL_SECRET INTERNAL_SECRET
-          register_secret EXPRESS_CLIENT_ID EXPRESS_CLIENT_ID
-          register_secret EXPRESS_CLIENT_SECRET EXPRESS_CLIENT_SECRET
           register_secret SERVICE_TOKEN SERVICE_TOKEN
-          register_secret EXPRESS_ORIGIN EXPRESS_ORIGIN
+          
+          # 公開変数（vars）の設定
+          echo "Setting public variables..."
+          if [ -n "${{ secrets.DISCORD_CLIENT_ID }}" ]; then
+            npx wrangler secret put DISCORD_CLIENT_ID <<< "${{ secrets.DISCORD_CLIENT_ID }}" || echo "Already set"
+          fi
+          if [ -n "${{ secrets.SUPABASE_URL }}" ]; then
+            npx wrangler secret put SUPABASE_URL <<< "${{ secrets.SUPABASE_URL }}" || echo "Already set"
+          fi
+          if [ -n "${{ secrets.ADMIN_DISCORD_ID }}" ]; then
+            npx wrangler secret put ADMIN_DISCORD_ID <<< "${{ secrets.ADMIN_DISCORD_ID }}" || echo "Already set"
+          fi
 
       - name: Deploy to Cloudflare Workers
         env:
@@ -89,29 +88,3 @@ jobs:
         run: |
           cd backend
           npx wrangler deploy --compatibility-date=2024-01-01
-          
-      - name: Update secrets only if needed (optional)
-        if: github.event_name == 'workflow_dispatch'
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: |
-          cd backend
-          # 手動トリガー時のみSecretを更新
-          echo "Updating secrets..."
-          echo "${{ secrets.DISCORD_CLIENT_SECRET }}" | npx wrangler secret put DISCORD_CLIENT_SECRET || echo "DISCORD_CLIENT_SECRET update skipped"
-          echo "${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" | npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY || echo "SUPABASE_SERVICE_ROLE_KEY update skipped"
-          echo "${{ secrets.REACT_APP_DISCORD_CLIENT_ID }}" | npx wrangler secret put REACT_APP_DISCORD_CLIENT_ID || echo "REACT_APP_DISCORD_CLIENT_ID update skipped"
-          echo "${{ secrets.REACT_APP_DISCORD_REDIRECT_URI }}" | npx wrangler secret put REACT_APP_DISCORD_REDIRECT_URI || echo "REACT_APP_DISCORD_REDIRECT_URI update skipped"
-          echo "${{ secrets.SUPABASE_URL }}" | npx wrangler secret put SUPABASE_URL || echo "SUPABASE_URL update skipped"
-          # Optional: register internal secret used to authenticate Worker->Origin requests
-          echo "${{ secrets.INTERNAL_SECRET }}" | npx wrangler secret put INTERNAL_SECRET || echo "INTERNAL_SECRET update skipped"
-          # Optional: register the origin URL as a secret/var if you prefer; useful to ensure Express origin is set in the Worker
-          echo "${{ secrets.EXPRESS_ORIGIN }}" | npx wrangler secret put EXPRESS_ORIGIN || echo "EXPRESS_ORIGIN update skipped"
-          
-      - name: Final deployment verification
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: |
-          cd backend
-          echo "Deployment completed successfully!"
-          npx wrangler --version

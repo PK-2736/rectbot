@@ -2,122 +2,419 @@
 
 ## 概要
 
-フロントエンドにトークンを含めないセキュアな設計に変更しました。
+Cloudflare Worker を使った安全な認証・認可システムです。フロントエンドには秘密情報を含めず、すべての認証処理は Worker で行います。
 
 ### アーキテクチャ
 
 ```
-ブラウザ → Cloudflare Pages (静的) → Pages Functions (API Proxy) → Backend API
-                                       ↑ ここでトークンを付与
+ブラウザ → Cloudflare Pages (静的) → Cloudflare Worker (API) → Express API (VPS)
+                                       ↑                          ↑
+                                    JWT 検証              Service Token 検証
+                                    Supabase 連携
 ```
 
 ## ファイル構造
 
 ```
-frontend/dashboard/
-├── src/
-│   ├── components/
-│   │   └── AdminDashboard.tsx  # トークンなしで /api/* を呼び出し
-│   └── app/
-│       └── page.tsx
-├── functions/                   # Cloudflare Pages Functions
-│   └── api/
-│       ├── recruitment.ts      # GET /api/recruitment (プロキシ)
-│       └── cleanup.ts          # POST /api/cleanup (プロキシ)
-├── out/                        # ビルド出力 (静的ファイル)
-└── wrangler.toml
+rectbot/
+├── .github/
+│   └── workflows/
+│       ├── deploy-worker.yml        # Worker デプロイ
+│       ├── deploy-pages.yml         # Pages デプロイ
+│       └── deploy-bot.yml           # Bot デプロイ
+├── backend/                         # Cloudflare Worker
+│   ├── index.js                     # JWT 認証 + Supabase 連携
+│   └── wrangler.toml
+├── frontend/dashboard/              # Cloudflare Pages
+│   ├── src/
+│   │   ├── components/
+│   │   │   └── AdminDashboard.tsx
+│   │   └── app/
+│   └── out/                         # ビルド出力
+└── bot/                             # Discord Bot (VPS)
+    ├── src/
+    └── server.js                    # Express API
 ```
+
+## 認証フロー（Supabase + JWT + Service Token）
+
+### 1. Discord OAuth ログイン
+
+1. ユーザーが Discord OAuth でログイン
+2. Worker が Discord API でユーザー情報取得
+3. Supabase `users` テーブルに保存／更新
+4. JWT を発行し、HttpOnly Cookie として返却
+
+### 2. 管理者 API アクセス
+
+1. ブラウザが Cookie 付きで Worker `/api/recruitment/list` を呼び出し
+2. Worker が JWT を検証（管理者チェック）
+3. Worker が Express API に Service Token 付きでリクエスト
+4. Express がデータ返却 → Worker → ブラウザ
+
+### 3. Bot → Worker → Express のデータフロー
+
+1. Discord Bot が募集データを Redis に保存
+2. Express API が Redis からデータ取得
+3. Worker が Express API にプロキシ（Service Token 認証）
 
 ## 環境変数の設定
 
-### Cloudflare Pages の設定画面で設定する環境変数
+### GitHub Secrets（リポジトリ設定）
 
-**Production 環境:**
+**Settings → Secrets and variables → Actions → New repository secret**
+
+#### Worker 用
+
+```bash
+CLOUDFLARE_API_TOKEN=your-cloudflare-api-token
+CLOUDFLARE_ACCOUNT_ID=your-account-id
+
+# Discord OAuth
+DISCORD_CLIENT_ID=your-discord-client-id
+DISCORD_CLIENT_SECRET=your-discord-client-secret
+DISCORD_REDIRECT_URI=https://dash.rectbot.tech/callback
+
+# JWT 認証
+JWT_SECRET=your-long-random-secret-256bit
+
+# 管理者設定
+ADMIN_DISCORD_ID=admin-discord-id-1,admin-discord-id-2
+
+# Supabase
+SUPABASE_URL=https://xxxx.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
+
+# Service Token（Worker → Express）
+SERVICE_TOKEN=your-service-token
+
+# Express API URL
+VPS_EXPRESS_URL=https://80cbc750-94a4-4b87-b86d-b328b7e76779.cfargotunnel.com
 ```
+
+#### Pages 用
+
+```bash
+CLOUDFLARE_API_TOKEN=your-cloudflare-api-token
+CLOUDFLARE_ACCOUNT_ID=your-account-id
+
+# 公開変数（ビルド時に埋め込まれる）
+DISCORD_CLIENT_ID=your-discord-client-id
+DISCORD_REDIRECT_URI=https://dash.rectbot.tech/callback
+NEXT_PUBLIC_API_BASE_URL=https://api.rectbot.tech
+ADMIN_DISCORD_ID=admin-discord-id-1,admin-discord-id-2
+```
+
+#### Bot (VPS) 用
+
+```bash
+# VPS へのデプロイ用
+VPS_SSH_KEY=your-vps-ssh-private-key
+VPS_HOST=your-vps-ip-or-hostname
+VPS_USER=ubuntu
+
+# Discord Bot
+DISCORD_BOT_TOKEN=your-bot-token
+DISCORD_CLIENT_ID=your-client-id
+
+# Service Token（Worker からの認証）
+SERVICE_TOKEN=your-service-token
+
+# Redis
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_PASSWORD=your-redis-password
+REDIS_DB=0
+
+# Backend API
 BACKEND_API_URL=https://api.rectbot.tech
-CF_ACCESS_CLIENT_ID=your-client-id-here
-CF_ACCESS_CLIENT_SECRET=your-client-secret-here
-DEPLOY_SECRET=your-deploy-secret-here
 ```
 
-**Preview 環境（オプション）:**
+## デプロイ手順（GitHub Actions）
+
+### 1. Worker のデプロイ
+
+**実際のファイル:** `.github/workflows/deploy-cloudflare-workers.yml`
+
+```yaml
+name: Deploy to Cloudflare Workers
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/deploy-cloudflare-workers.yml'
+  workflow_dispatch:
+
+jobs:
+  cloudflare-deploy:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Bun
+        run: curl -fsSL https://bun.sh/install | bash
+        
+      - name: Install dependencies
+        run: |
+          cd backend
+          bun install
+          npm install wrangler
+      
+      - name: Register Secrets
+        run: |
+          cd backend
+          # シークレットの登録
+          echo "${{ secrets.DISCORD_CLIENT_SECRET }}" | npx wrangler secret put DISCORD_CLIENT_SECRET
+          echo "${{ secrets.JWT_SECRET }}" | npx wrangler secret put JWT_SECRET
+          echo "${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" | npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY
+          echo "${{ secrets.SERVICE_TOKEN }}" | npx wrangler secret put SERVICE_TOKEN
+          
+          # 公開変数の登録
+          echo "${{ secrets.DISCORD_CLIENT_ID }}" | npx wrangler secret put DISCORD_CLIENT_ID
+          echo "${{ secrets.SUPABASE_URL }}" | npx wrangler secret put SUPABASE_URL
+          echo "${{ secrets.ADMIN_DISCORD_ID }}" | npx wrangler secret put ADMIN_DISCORD_ID
+      
+      - name: Deploy to Cloudflare Workers
+        run: |
+          cd backend
+          npx wrangler deploy --compatibility-date=2024-01-01
 ```
-BACKEND_API_URL=https://api.rectbot.tech
-CF_ACCESS_CLIENT_ID=your-preview-client-id
-CF_ACCESS_CLIENT_SECRET=your-preview-client-secret
-DEPLOY_SECRET=your-preview-deploy-secret
+
+### 2. Pages のデプロイ
+
+**実際のファイル:** `.github/workflows/deploy-cloudflare-pages.yml`
+
+```yaml
+name: Deploy to Cloudflare Pages
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/deploy-cloudflare-pages.yml'
+  workflow_dispatch:
+
+jobs:
+  cloudflare-pages-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: 'frontend/dashboard/package-lock.json'
+      
+      - name: Install dependencies
+        run: |
+          cd frontend/dashboard
+          npm ci
+          npm install -g wrangler
+      
+      - name: Build Dashboard
+        env:
+          NEXT_PUBLIC_DISCORD_CLIENT_ID: ${{ secrets.DISCORD_CLIENT_ID }}
+          NEXT_PUBLIC_DISCORD_REDIRECT_URI: ${{ secrets.DISCORD_REDIRECT_URI }}
+          NEXT_PUBLIC_API_BASE_URL: ${{ secrets.NEXT_PUBLIC_API_BASE_URL }}
+          NEXT_PUBLIC_ADMIN_IDS: ${{ secrets.ADMIN_DISCORD_ID }}
+        run: |
+          cd frontend/dashboard
+          npm run build
+          npm run export
+      
+      - name: Deploy to Cloudflare Pages
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          cd frontend/dashboard
+          wrangler pages deploy ./out --project-name=rectbot-dashboard
 ```
+### 3. Bot (VPS) のデプロイ
 
-### ローカル開発用 (.env.local)
+**実際のファイル:** `.github/workflows/deploy-oci.yml`
 
-```bash
-# フロントエンド用（公開される）
-NEXT_PUBLIC_BACKEND_API_URL=http://localhost:3000
-NEXT_PUBLIC_DISCORD_CLIENT_ID=your-discord-client-id
-NEXT_PUBLIC_ADMIN_IDS=admin-user-id-1,admin-user-id-2
+```yaml
+name: Deploy to OCI
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'bot/**'
+  workflow_dispatch:
 
-# Pages Functions用（公開されない）
-BACKEND_API_URL=http://localhost:3000
-CF_ACCESS_CLIENT_ID=your-client-id
-CF_ACCESS_CLIENT_SECRET=your-client-secret
-DEPLOY_SECRET=your-deploy-secret
+jobs:
+  oci-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up SSH key
+        env:
+          OCI_SSH_KEY: ${{ secrets.OCI_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$OCI_SSH_KEY" | base64 -d > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H ${{ secrets.OCI_HOST }} >> ~/.ssh/known_hosts
+      
+      - name: Deploy to VPS
+        env:
+          OCI_USER: ${{ secrets.OCI_USER }}
+          OCI_HOST: ${{ secrets.OCI_HOST }}
+          SERVICE_TOKEN: ${{ secrets.SERVICE_TOKEN }}
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          BACKEND_API_URL: ${{ secrets.BACKEND_API_URL }}
+        run: |
+          ssh -i ~/.ssh/id_ed25519 $OCI_USER@$OCI_HOST '
+            cd ~/rectbot/bot
+            git pull
+            npm ci
+            pm2 restart rectbot --update-env
+            pm2 restart rectbot-server --update-env
+          '
 ```
-
-## デプロイ手順
-
-### 1. ビルド
-
-```bash
-cd frontend/dashboard
-npm run build
-```
-
-### 2. Cloudflare Pages へデプロイ
-
-```bash
-npx wrangler pages deploy out --project-name=rectbot-dashboard
-```
-
-### 3. 環境変数の設定
-
-Cloudflare Dashboard → Pages → rectbot-dashboard → Settings → Environment variables
-
-で、上記の環境変数を設定します。
 
 ## セキュリティポイント
 
-✅ **トークンはフロントエンドに含まれません**
-- `CF_ACCESS_CLIENT_SECRET` と `DEPLOY_SECRET` は Pages Functions でのみ使用
-- ブラウザには送信されない
+✅ **JWT は短命（1時間）**
+- 期限切れで自動的に再ログイン要求
+- HttpOnly Cookie でブラウザに保存（XSS 対策）
 
-✅ **CORS の心配なし**
-- すべてのリクエストは同じドメイン内 (`/api/*`)
+✅ **Supabase でユーザー管理**
+- Discord ID、ロール、最終ログイン時刻を保存
+- Service Role Key は Worker 内でのみ使用
 
-✅ **静的ファイル + サーバーレス関数**
-- ほとんどは静的配信（高速）
-- API 呼び出し時のみ Functions が実行
+✅ **Service Token で Express 保護**
+- Worker からのリクエストのみ許可
+- 外部からの直接アクセスを防止
+
+✅ **3層認証**
+1. ブラウザ → Worker: JWT Cookie
+2. Worker → Express: Service Token
+3. Express → Redis: ローカル接続
+
+✅ **静的ホスティング + Worker API**
+- フロントエンドは完全静的（Cloudflare Pages）
+- API 処理は Worker で実行（サーバーレス）
+
+✅ **GitHub Secrets でシークレット管理**
+- すべての秘密情報は GitHub Secrets に保存
+- ワークフロー実行時のみ環境変数として注入
+- コードに秘密情報を含めない
 
 ## トラブルシューティング
 
 ### 401 エラーが出る場合
 
-1. Cloudflare Pages の環境変数が正しく設定されているか確認
-2. `CF_ACCESS_CLIENT_ID` と `CF_ACCESS_CLIENT_SECRET` が正しいか確認
-3. Backend API のトークン設定を確認
+1. JWT Cookie が正しく設定されているか確認
+2. `ADMIN_DISCORD_ID` に自分の Discord ID が含まれているか確認
+3. ブラウザの Cookie を確認（DevTools → Application → Cookies）
 
-### Functions が動作しない場合
+### デプロイが失敗する場合
 
-1. `functions/` ディレクトリがデプロイに含まれているか確認
-2. Cloudflare Pages のログを確認
-3. `wrangler pages deploy` でデプロイされたか確認
+1. GitHub Secrets が正しく設定されているか確認
+2. Cloudflare API Token の権限を確認
+3. ワークフローのログを確認（Actions タブ）
 
-### ローカル開発で Functions をテストする場合
+### Worker のログを確認
 
 ```bash
-npx wrangler pages dev out --local
+# ローカルで確認
+npx wrangler tail
+
+# または Cloudflare Dashboard で確認
+Workers & Pages → rectbot-api → Logs
+```
+
+### ローカル開発
+
+```bash
+# Worker をローカルで起動（ポート 8787）
+cd backend
+npx wrangler dev
+
+# Pages をローカルで起動（ポート 3000）
+cd frontend/dashboard
+npm run dev
+```
+
+## Worker サンプルコード
+
+### JWT 発行（ログイン時）
+
+```javascript
+async function handleDiscordCallback(code, env) {
+  // Discord トークン取得
+  const tokenData = await getDiscordToken(code, env.DISCORD_REDIRECT_URI, env.DISCORD_CLIENT_ID, env.DISCORD_CLIENT_SECRET);
+  
+  // Discord ユーザー情報取得
+  const userInfo = await getDiscordUser(tokenData.access_token);
+  
+  // Supabase にユーザー情報保存
+  const supabase = getSupabaseClient(env);
+  await supabase.from('users').upsert({
+    user_id: userInfo.id,
+    discord_id: userInfo.id,
+    username: userInfo.username,
+    role: isAdmin(userInfo.id, env) ? 'admin' : 'user',
+    last_login: new Date().toISOString()
+  });
+  
+  // JWT 発行
+  const jwt = await issueJWT(userInfo, env);
+  
+  return { jwt, userInfo };
+}
+```
+
+### JWT 検証 + Express 呼び出し
+
+```javascript
+async function handleAdminAPI(request, env) {
+  // Cookie から JWT 取得
+  const cookieHeader = request.headers.get('Cookie');
+  const jwtMatch = cookieHeader?.match(/jwt=([^;]+)/);
+  
+  if (!jwtMatch) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+  }
+  
+  // JWT 検証
+  const payload = await verifyJWT(jwtMatch[1], env);
+  
+  if (!payload || payload.role !== 'admin') {
+    return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403 });
+  }
+  
+  // Express API 呼び出し
+  const resp = await fetch(`${env.TUNNEL_URL}/api/recruitment/list`, {
+    headers: {
+      'x-service-token': env.SERVICE_TOKEN
+    }
+  });
+  
+  return new Response(await resp.text(), {
+    status: resp.status,
+    headers: { 'Content-Type': 'application/json' }
+  });
+}
 ```
 
 ## 参考リンク
 
-- [Cloudflare Pages Functions](https://developers.cloudflare.com/pages/platform/functions/)
-- [Environment variables](https://developers.cloudflare.com/pages/platform/functions/bindings/#environment-variables)
+- [Cloudflare Workers](https://developers.cloudflare.com/workers/)
+- [Cloudflare Pages](https://developers.cloudflare.com/pages/)
+- [GitHub Actions](https://docs.github.com/en/actions)
+- [Wrangler Action](https://github.com/cloudflare/wrangler-action)
+- [Supabase JavaScript Client](https://supabase.com/docs/reference/javascript/introduction)
+- [Discord OAuth2](https://discord.com/developers/docs/topics/oauth2)
