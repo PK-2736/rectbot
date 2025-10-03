@@ -50,25 +50,16 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps) {
   const fetchRecruitments = useCallback(async () => {
     try {
       setFetchError(null);
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'https://api.rectbot.tech';
-      const url = `${backendUrl.replace(/\/$/, '')}/api/recruitment/list`;
-
-      // Service Token を設定
-      const headers: Record<string, string> = {};
-      const serviceToken = process.env.NEXT_PUBLIC_DEPLOY_SECRET;
-      if (serviceToken) {
-        headers['CF-Access-Client-Id'] = serviceToken;
-        headers['CF-Access-Client-Secret'] = serviceToken;
-      }
+      // Next.js API Route を経由してデータを取得（トークンはサーバーサイドで付与）
+      const url = '/api/recruitment';
 
       const response = await fetch(url, { 
-        cache: 'no-store',
-        headers 
+        cache: 'no-store'
       });
 
       if (!response.ok) {
         const errorMsg = `Failed to fetch: ${response.status} ${response.statusText}`;
-        console.error('Backend API error:', errorMsg);
+        console.error('API Route error:', errorMsg);
         setFetchError(errorMsg);
         return;
       }
@@ -91,14 +82,10 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps) {
   const performCleanup = async () => {
     setIsCleaningUp(true);
     try {
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:3000';
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      const publicSecret = process.env.NEXT_PUBLIC_DEPLOY_SECRET;
-      if (publicSecret) headers['x-deploy-secret'] = publicSecret;
-
-      const response = await fetch(`${backendUrl.replace(/\/$/, '')}/internal/cleanup/run`, {
+      // Next.js API Route を経由してクリーンアップを実行（トークンはサーバーサイドで付与）
+      const response = await fetch('/api/cleanup', {
         method: 'POST',
-        headers,
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
       });
       
