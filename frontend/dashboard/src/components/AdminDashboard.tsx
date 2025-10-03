@@ -50,49 +50,15 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps) {
   const fetchRecruitments = useCallback(async () => {
     try {
       setFetchError(null);
-      const workerUrl = process.env.NEXT_PUBLIC_WORKER_URL || '';
-      const envUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL || '';
-      const candidates = [] as string[];
-      if (workerUrl) candidates.push(workerUrl.replace(/\/$/, ''));
-      if (envUrl) candidates.push(envUrl.replace(/\/$/, ''));
-      candidates.push('https://api.rectbot.tech');
-      candidates.push('http://localhost:3000');
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'https://api.rectbot.tech';
+      const url = `${backendUrl.replace(/\/$/, '')}/api/recruitment/list`;
 
-      let response: Response | null = null;
-      const attempts: Array<{ url: string; ok?: boolean; status?: number; error?: string }> = [];
+      const response = await fetch(url, { cache: 'no-store' });
 
-      for (const base of candidates) {
-        const url = `${base}/api/dashboard/recruitment`;
-        try {
-          const resp = await fetch(url, { cache: 'no-store' });
-          attempts.push({ url, ok: resp.ok, status: resp.status });
-          if (resp.ok) {
-            response = resp;
-            break;
-          }
-        } catch (err: unknown) {
-          let msg = String(err);
-          try {
-            if (err && typeof err === 'object' && 'message' in err) {
-              const e = err as { message?: unknown };
-              if (typeof e.message === 'string') msg = e.message;
-            }
-          } catch {
-            // Ignore parsing errors
-          }
-          attempts.push({ url, error: msg });
-          response = null;
-        }
-      }
-
-      if (!response) {
-        const detail = attempts.map(a => {
-          if (a.ok) return `${a.url} -> OK (${a.status})`;
-          if (a.status) return `${a.url} -> ${a.status}`;
-          return `${a.url} -> error: ${a.error}`;
-        }).join(' ; ');
-        console.error('All backend candidates failed to fetch recruitment data', attempts);
-        setFetchError(`All attempts failed: ${detail}`);
+      if (!response.ok) {
+        const errorMsg = `Failed to fetch: ${response.status} ${response.statusText}`;
+        console.error('Backend API error:', errorMsg);
+        setFetchError(errorMsg);
         return;
       }
 
