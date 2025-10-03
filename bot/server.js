@@ -3,7 +3,6 @@ require('dotenv').config({ path: path.join(__dirname, '.env') });
 const express = require('express');
 const cors = require('cors');
 const fetch = require('node-fetch');
-const backendFetch = require('./src/utils/backendFetch');
 
 const { spawn } = require('child_process');
 
@@ -33,7 +32,63 @@ if (process.env.DEBUG_REQUESTS && process.env.DEBUG_REQUESTS.toLowerCase() === '
   });
 }
 
-// SERVICE_TOKEN middleware for authentication
+const PORT = process.env.PORT || 3000;
+const BACKEND_API_URL = process.env.BACKEND_API_URL || process.env.BACKEND_URL || 'https://api.rectbot.tech';
+
+function backendUrl(path) {
+  return `${BACKEND_API_URL.replace(/\/$/, '')}${path.startsWith('/') ? path : '/' + path}`;
+}
+
+// backendFetch helper function
+async function backendFetch(urlOrPath, options = {}) {
+  let url = urlOrPath;
+  if (!url.startsWith('http')) {
+    url = backendUrl(urlOrPath);
+  }
+  
+  const opts = { ...options };
+  
+  // Add service token if not present
+  if (!opts.headers) opts.headers = {};
+  if (!opts.headers.authorization && !opts.headers.Authorization) {
+    const svc = process.env.SERVICE_TOKEN || process.env.BACKEND_SERVICE_TOKEN || '';
+    if (svc) opts.headers.authorization = `Bearer ${svc}`;
+  }
+  
+  return fetch(url, opts);
+}
+
+// Redis DB utilities from bot/src/utils/db.__fixed.js
+const db = require('./src/utils/db.__fixed');
+
+// サービストークン認証ミドルウェア
+function authenticateServiceToken(req, res, next) {
+  const token = req.headers['x-service-token'];
+  
+  if (!token || token !== process.env.SERVICE_TOKEN) {
+    console.warn('[auth] Invalid service token provided');
+    return res.status(401).json({ error: 'Unauthorized - Invalid service token' });
+  }
+  
+  next();
+}
+
+// Internal secret middleware - only allow requests that carry the internal secret header
+function requireInternalSecret(req, res, next) {
+  const internal = process.env.INTERNAL_SECRET || '';
+  const header = req.headers['x-internal-secret'];
+  if (!internal) {
+    // In development if INTERNAL_SECRET is not set, allow but log a warning
+    console.warn('[server] INTERNAL_SECRET not set; allowing internal routes for development');
+    return next();
+  }
+  if (!header || header !== internal) {
+    return res.status(403).json({ error: 'forbidden' });
+  }
+  next();
+}
+
+// SERVICE_TOKEN middleware for authentication (legacy support)
 function requireServiceToken(req, res, next) {
   const token = process.env.SERVICE_TOKEN;
   if (!token) {
@@ -58,68 +113,6 @@ function requireServiceToken(req, res, next) {
   next();
 }
 
-const PORT = process.env.PORT || 3000;
-const BACKEND_API_URL = process.env.BACKEND_API_URL || process.env.BACKEND_URL || 'https://api.rectbot.tech';
-
-function backendUrl(path) {
-  return `${BACKEND_API_URL.replace(/\/$/, '')}${path.startsWith('/') ? path : '/' + path}`;
-}
-
-// Redis DB utilities from bot/src/utils/db.js
-const db = require('./src/utils/db');
-
-// Internal secret middleware - only allow requests that carry the internal secret header
-function requireInternalSecret(req, res, next) {
-  const internal = process.env.INTERNAL_SECRET || '';
-  const header = req.headers['x-internal-secret'];
-  if (!internal) {
-    // In development if INTERNAL_SECRET is not set, allow but log a warning
-    console.warn('[server] INTERNAL_SECRET not set; allowing internal routes for development');
-    return next();
-  }
-  if (!header || header !== internal) {
-    return res.status(403).json({ error: 'forbidden' });
-  }
-  next();
-}
-
-// expose cleanup endpoints
-app.get('/internal/cleanup/status', requireInternalSecret, async (req, res) => {
-  try {
-    const status = db.getLastCleanupStatus ? db.getLastCleanupStatus() : { lastRun: null };
-    res.json(status);
-  } catch (err) {
-    console.error('[internal][cleanup][status] Error:', err.message || err);
-    res.status(500).json({ error: 'internal_error', detail: err.message });
-  }
-});
-
-// Manual cleanup trigger (protected)
-app.post('/internal/cleanup/run', async (req, res) => {
-  const secret = req.headers['x-deploy-secret'] || req.body?.secret;
-  if (!process.env.DEPLOY_SECRET) return res.status(500).json({ error: 'server_misconfigured', detail: 'DEPLOY_SECRET not set on server' });
-  if (!secret || secret !== process.env.DEPLOY_SECRET) return res.status(403).json({ error: 'forbidden' });
-  try {
-    const result = await db.runCleanupNow();
-    // Optionally notify webhook
-    if (process.env.CLEANUP_WEBHOOK_URL) {
-      try {
-        await fetch(process.env.CLEANUP_WEBHOOK_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ type: 'cleanup_run', result })
-        });
-      } catch (e) {
-        console.warn('[internal][cleanup][run] webhook notify failed:', e.message || e);
-      }
-    }
-    res.json(result);
-  } catch (err) {
-    console.error('[internal][cleanup][run] Error:', err.message || err);
-    res.status(500).json({ error: 'internal_error', detail: err.message });
-  }
-});
-
 function normalizeRecruitId(idOrMessageId) {
   if (!idOrMessageId) return null;
   // If looks like a full Discord message id (long numeric), take last 8 chars as recruitId
@@ -127,18 +120,6 @@ function normalizeRecruitId(idOrMessageId) {
   if (s.length > 8) return s.slice(-8);
   return s;
 }
-
-// Health check - proxy to worker /api/test
-app.get('/api/health', async (req, res) => {
-  try {
-  const r = await backendFetch('/api/test');
-    const json = await r.json();
-    res.status(r.status).json(json);
-  } catch (err) {
-    console.error('[server][health] Error contacting backend:', err.message || err);
-    res.status(502).json({ error: 'backend_unreachable', detail: err.message });
-  }
-});
 
 // Basic root and health endpoints for origin
 app.get('/', (req, res) => {
@@ -148,6 +129,53 @@ app.get('/', (req, res) => {
 
 app.get('/healthz', (req, res) => {
   res.status(200).json({ ok: true, uptime: process.uptime() });
+});
+
+// Health check - proxy to worker /api/test
+app.get('/api/health', async (req, res) => {
+  try {
+    const r = await backendFetch('/api/test');
+    const json = await r.json();
+    res.status(r.status).json(json);
+  } catch (err) {
+    console.error('[server][health] Error contacting backend:', err.message || err);
+    res.status(502).json({ error: 'backend_unreachable', detail: err.message });
+  }
+});
+
+// 管理者用：全募集データ取得（Worker経由のみ）
+app.get('/api/recruitment/list', authenticateServiceToken, async (req, res) => {
+  try {
+    console.log('[server][recruitment][list] Fetching all recruitments for admin dashboard');
+    
+    // Redis から全募集データを取得
+    const recruitments = await db.listRecruitsFromRedis();
+    
+    // レスポンス用にデータを整形
+    const formattedRecruitments = recruitments.map(r => ({
+      id: r.recruitId || r.messageId,
+      messageId: r.messageId,
+      guildId: r.guildId,
+      channelId: r.channelId,
+      title: r.title || r.content,
+      description: r.note || '',
+      maxParticipants: parseInt(r.participants) || 0,
+      currentParticipants: r.currentParticipants || 0,
+      status: r.status || 'recruiting',
+      vc: r.vc || null,
+      startTime: r.startTime,
+      createdAt: r.createdAt || new Date().toISOString(),
+      recruiterId: r.recruiterId,
+      participants: r.participantsList || []
+    }));
+    
+    console.log(`[server][recruitment][list] Found ${formattedRecruitments.length} recruitments`);
+    res.json(formattedRecruitments);
+    
+  } catch (error) {
+    console.error('[server][recruitment][list] Error:', error);
+    res.status(500).json({ error: 'Internal server error', details: error.message });
+  }
 });
 
 // Dashboard API endpoint (no authentication required)
@@ -270,6 +298,43 @@ app.delete('/api/recruitment/:messageId', requireServiceToken, async (req, res) 
   }
 });
 
+// expose cleanup endpoints
+app.get('/internal/cleanup/status', requireInternalSecret, async (req, res) => {
+  try {
+    const status = db.getLastCleanupStatus ? db.getLastCleanupStatus() : { lastRun: null };
+    res.json(status);
+  } catch (err) {
+    console.error('[internal][cleanup][status] Error:', err.message || err);
+    res.status(500).json({ error: 'internal_error', detail: err.message });
+  }
+});
+
+// Manual cleanup trigger (protected)
+app.post('/internal/cleanup/run', async (req, res) => {
+  const secret = req.headers['x-deploy-secret'] || req.body?.secret;
+  if (!process.env.DEPLOY_SECRET) return res.status(500).json({ error: 'server_misconfigured', detail: 'DEPLOY_SECRET not set on server' });
+  if (!secret || secret !== process.env.DEPLOY_SECRET) return res.status(403).json({ error: 'forbidden' });
+  try {
+    const result = await db.runCleanupNow();
+    // Optionally notify webhook
+    if (process.env.CLEANUP_WEBHOOK_URL) {
+      try {
+        await fetch(process.env.CLEANUP_WEBHOOK_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'cleanup_run', result })
+        });
+      } catch (e) {
+        console.warn('[internal][cleanup][run] webhook notify failed:', e.message || e);
+      }
+    }
+    res.json(result);
+  } catch (err) {
+    console.error('[internal][cleanup][run] Error:', err.message || err);
+    res.status(500).json({ error: 'internal_error', detail: err.message });
+  }
+});
+
 // --- Internal Redis-backed endpoints for recruits & participants ---
 // List all recruits stored in Redis
 app.get('/internal/recruits', async (req, res) => {
@@ -377,6 +442,35 @@ app.delete('/internal/participants/:messageId', requireInternalSecret, async (re
   }
 });
 
+// --- Redis-backed recruitment endpoints for web usage ---
+// These let the frontend fetch the latest recruitment data directly from the bot's Redis cache.
+// GET /api/redis/recruitment -> list all cached recruits
+// GET /api/redis/recruitment/:id -> get single recruit by recruitId or full message id
+// These require internal secret for security.
+
+app.get('/api/redis/recruitment', requireInternalSecret, async (req, res) => {
+  try {
+    const recruits = await db.listRecruitsFromRedis();
+    res.json(recruits || []);
+  } catch (err) {
+    console.error('[server][api/redis/recruitment][get] Error:', err.message || err);
+    res.status(500).json({ error: 'internal_error', detail: err.message });
+  }
+});
+
+app.get('/api/redis/recruitment/:id', requireInternalSecret, async (req, res) => {
+  try {
+    const raw = req.params.id;
+    const recruitId = normalizeRecruitId(raw);
+    const recruit = await db.getRecruitFromRedis(recruitId);
+    if (!recruit) return res.status(404).json({ error: 'not_found' });
+    res.json(recruit);
+  } catch (err) {
+    console.error('[server][api/redis/recruitment][get:id] Error:', err.message || err);
+    res.status(500).json({ error: 'internal_error', detail: err.message });
+  }
+});
+
 // Generic proxy for other backend endpoints
 app.all('/api/*', async (req, res) => {
   try {
@@ -418,43 +512,6 @@ app.all('/api/*', async (req, res) => {
   }
 });
 
-// --- Redis-backed recruitment endpoints for web usage ---
-// These let the frontend fetch the latest recruitment data directly from the bot's Redis cache.
-// GET /api/redis/recruitment -> list all cached recruits
-// GET /api/redis/recruitment/:id -> get single recruit by recruitId or full message id
-// These require internal secret for security.
-
-app.get('/api/redis/recruitment', requireInternalSecret, async (req, res) => {
-  try {
-    const recruits = await db.listRecruitsFromRedis();
-    res.json(recruits || []);
-  } catch (err) {
-    console.error('[server][api/redis/recruitment][get] Error:', err.message || err);
-    res.status(500).json({ error: 'internal_error', detail: err.message });
-  }
-});
-
-app.get('/api/redis/recruitment/:id', requireInternalSecret, async (req, res) => {
-  try {
-    const raw = req.params.id;
-    const recruitId = normalizeRecruitId(raw);
-    const recruit = await db.getRecruitFromRedis(recruitId);
-    if (!recruit) return res.status(404).json({ error: 'not_found' });
-    res.json(recruit);
-  } catch (err) {
-    console.error('[server][api/redis/recruitment][get:id] Error:', err.message || err);
-    res.status(500).json({ error: 'internal_error', detail: err.message });
-  }
-});
-
-app.listen(PORT, () => {
-  console.log(`[server] Express server listening on port ${PORT}`);
-  console.log(`[server] PATCH/DELETE endpoints: Direct Supabase access`);
-  console.log(`[server] POST/GET endpoints: Proxying to ${BACKEND_API_URL}`);
-  // Debug: show which env-derived values are present (do not print secrets)
-  console.log(`[server] env summary: BACKEND_API_URL=${process.env.BACKEND_API_URL || process.env.BACKEND_URL || ''}, DISCORD_BOT_TOKEN=${process.env.DISCORD_BOT_TOKEN ? 'set' : 'unset'}`);
-});
-
 // Protected endpoint to run command deployment from the server process.
 // Use DEPLOY_SECRET in environment variables to authenticate the request.
 app.post('/internal/deploy-commands', async (req, res) => {
@@ -478,4 +535,12 @@ app.post('/internal/deploy-commands', async (req, res) => {
   child.on('close', (code) => {
     res.json({ code, stdout, stderr });
   });
+});
+
+app.listen(PORT, () => {
+  console.log(`[server] Express server listening on port ${PORT}`);
+  console.log(`[server] PATCH/DELETE endpoints: Direct Redis access`);
+  console.log(`[server] POST/GET endpoints: Proxying to ${BACKEND_API_URL}`);
+  // Debug: show which env-derived values are present (do not print secrets)
+  console.log(`[server] env summary: BACKEND_API_URL=${process.env.BACKEND_API_URL || process.env.BACKEND_URL || ''}, DISCORD_BOT_TOKEN=${process.env.DISCORD_BOT_TOKEN ? 'set' : 'unset'}`);
 });

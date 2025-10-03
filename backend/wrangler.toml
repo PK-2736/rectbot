@@ -20,3 +20,18 @@ workers_dev = false
 # - DISCORD_CLIENT_SECRET
 # - SUPABASE_SERVICE_ROLE_KEY
 # - SERVICE_TOKEN
+
+TUNNEL_URL = "http://localhost:3000"
+BACKEND_API_URL = "http://localhost:3000"
+
+[env.production]
+name = "rectbot-worker-prod"
+
+[env.production.vars]
+TUNNEL_URL = "https://your-tunnel-url.trycloudflare.com"
+BACKEND_API_URL = "https://your-tunnel-url.trycloudflare.com"
+
+# Secrets (run: wrangler secret put <SECRET_NAME>)
+# - SERVICE_TOKEN
+# - DISCORD_CLIENT_SECRET
+# - SESSION_SECRET

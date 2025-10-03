@@ -1,9 +1,8 @@
 "use client";
-// 推奨: プロジェクトに @types/react, @types/node, lucide-react の型を導入してください。
 import React, { useState, useEffect, useCallback } from 'react';
-import { DashboardGuild } from '@/types/dashboard';
 import { formatDateTime, formatDuration } from '@/lib/utils';
-// Use small local fallbacks for icons to avoid lucide-react type/export issues in CI/build
+
+// Use small local fallbacks for icons
 const Users = (props: React.HTMLAttributes<HTMLSpanElement>) => <span {...props}>👥</span>;
 const Clock = (props: React.HTMLAttributes<HTMLSpanElement>) => <span {...props}>⏱</span>;
 const Server = (props: React.HTMLAttributes<HTMLSpanElement>) => <span {...props}>🖥️</span>;
@@ -11,6 +10,9 @@ const Activity = (props: React.HTMLAttributes<HTMLSpanElement>) => <span {...pro
 
 // 募集データの型定義
 interface RecruitmentData {
+  id?: string;
+  recruitId?: string;
+  messageId?: string;
   guild_id: string;
   channel_id: string;
   message_id: string;
@@ -23,31 +25,21 @@ interface RecruitmentData {
   start_game_time: string;
   vc?: string;
   note?: string;
+  title?: string;
+  description?: string;
+  maxParticipants?: number;
+  currentParticipants?: number;
+  createdAt?: string;
+  participants?: any[];
+  participantsList?: any[];
 }
 
 interface AdminDashboardProps {
-  initialData?: DashboardGuild[];
+  initialData?: RecruitmentData[];
 }
 
 export default function AdminDashboard({ initialData }: AdminDashboardProps) {
-  // Map incoming DashboardGuild[] (if any) to RecruitmentData[] for initial render
-  const mapInitial = (data?: DashboardGuild[]): RecruitmentData[] => {
-    if (!data) return [];
-    return data.map(d => ({
-      guild_id: d.guild_id,
-      channel_id: '',
-      message_id: '',
-      guild_name: d.guild_name,
-      channel_name: d.channel_name || '',
-      status: d.status || 'idle',
-      start_time: d.start_time || new Date().toISOString(),
-      content: '',
-      participants_count: d.current_recruits || 0,
-      start_game_time: d.start_time || '',
-    }));
-  };
-
-  const [recruitments, setRecruitments] = useState<RecruitmentData[]>(mapInitial(initialData));
+  const [recruitments, setRecruitments] = useState<RecruitmentData[]>(initialData || []);
   const [guildCount, setGuildCount] = useState<number>(0);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const [isLoading, setIsLoading] = useState(false);
@@ -58,16 +50,12 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps) {
   const fetchRecruitments = useCallback(async () => {
     try {
       setFetchError(null);
-      // Try a few candidate backend base URLs in order. Prefer NEXT_PUBLIC_WORKER_URL (Worker) if set.
-      // Pages should call the Worker, not origin directly, for authentication and routing.
       const workerUrl = process.env.NEXT_PUBLIC_WORKER_URL || '';
       const envUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL || '';
       const candidates = [] as string[];
       if (workerUrl) candidates.push(workerUrl.replace(/\/$/, ''));
       if (envUrl) candidates.push(envUrl.replace(/\/$/, ''));
-      // Known public backend as a fallback
-      candidates.push('https://80cbc750-94a4-4b87-b86d-b328b7e76779.cfargotunnel.com');
-      // Local development fallback
+      candidates.push('https://api.rectbot.tech');
       candidates.push('http://localhost:3000');
 
       let response: Response | null = null;
@@ -76,16 +64,12 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps) {
       for (const base of candidates) {
         const url = `${base}/api/dashboard/recruitment`;
         try {
-          // ブラウザ用の認証不要エンドポイントを使用
-          const resp = await fetch(url, { 
-            cache: 'no-store'
-          });
+          const resp = await fetch(url, { cache: 'no-store' });
           attempts.push({ url, ok: resp.ok, status: resp.status });
           if (resp.ok) {
             response = resp;
-            break; // success
+            break;
           }
-          // continue to next candidate
         } catch (err: unknown) {
           let msg = String(err);
           try {
@@ -114,7 +98,7 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps) {
       const list: RecruitmentData[] = Array.isArray(data) ? data : [];
       setRecruitments(list);
       setFetchError(null);
-      // ギルド数を取得
+      
       const uniqueGuilds = new Set(list.map((r: RecruitmentData) => r.guild_id));
       setGuildCount(uniqueGuilds.size);
       setLastUpdate(new Date());
@@ -128,14 +112,12 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps) {
   const performCleanup = async () => {
     setIsCleaningUp(true);
     try {
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'https://80cbc750-94a4-4b87-b86d-b328b7e76779.cfargotunnel.com';
-  // call the server's protected cleanup runner. If NEXT_PUBLIC_DEPLOY_SECRET is set at build-time,
-  // include it as x-deploy-secret. (This is intended for admin usage; do not expose secrets publicly.)
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  const publicSecret = process.env.NEXT_PUBLIC_DEPLOY_SECRET;
-  if (publicSecret) headers['x-deploy-secret'] = publicSecret;
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:3000';
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      const publicSecret = process.env.NEXT_PUBLIC_DEPLOY_SECRET;
+      if (publicSecret) headers['x-deploy-secret'] = publicSecret;
 
-  const response = await fetch(`${backendUrl.replace(/\/$/, '')}/internal/cleanup/run`, {
+      const response = await fetch(`${backendUrl.replace(/\/$/, '')}/internal/cleanup/run`, {
         method: 'POST',
         headers,
         body: JSON.stringify({}),
@@ -144,9 +126,8 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps) {
       if (response.ok) {
         const result = await response.json();
         console.log('Cleanup result:', result);
-        // クリーンアップ後にデータを再取得
         await fetchRecruitments();
-        alert(`クリーンアップが完了しました。${result.cleaned_count}件の古い募集を削除しました。`);
+        alert(`クリーンアップが完了しました。削除件数: ${result.deletedRecruitCount || 0}件`);
       } else {
         console.error('Cleanup failed:', response.statusText);
         alert('クリーンアップに失敗しました。');
@@ -157,9 +138,10 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps) {
     } finally {
       setIsCleaningUp(false);
     }
-  };  // リアルタイム更新
+  };
+
+  // リアルタイム更新
   useEffect(() => {
-    // 初回データ取得
     fetchRecruitments();
 
     const interval = setInterval(async () => {
@@ -171,7 +153,7 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps) {
       } finally {
         setIsLoading(false);
       }
-    }, 5000); // 5秒間隔
+    }, 5000);
 
     return () => clearInterval(interval);
   }, [fetchRecruitments]);
@@ -181,7 +163,7 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps) {
   
   // 平均経過時間を計算
   const averageElapsedTime = () => {
-  const activeRecs = recruitments.filter((r: RecruitmentData) => r.status === 'recruiting');
+    const activeRecs = recruitments.filter((r: RecruitmentData) => r.status === 'recruiting');
     if (activeRecs.length === 0) return 0;
     
     const totalMinutes = activeRecs.reduce((sum: number, rec: RecruitmentData) => {
@@ -206,6 +188,7 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps) {
           <div className="mt-1 text-sm">{fetchError}</div>
         </div>
       )}
+      
       {/* ヘッダー */}
       <div className="mb-8">
         <div className="flex items-center justify-between">
@@ -325,9 +308,11 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps) {
             <tbody className="divide-y divide-gray-700">
               {recruitments.map((recruitment: RecruitmentData) => {
                 const isOld = isOldRecruitment(recruitment.start_time);
+                const recruitKey = recruitment.id || recruitment.recruitId || recruitment.message_id || `${recruitment.guild_id}-${recruitment.message_id}`;
+                
                 return (
                   <tr 
-                    key={`${recruitment.guild_id}-${recruitment.message_id}`} 
+                    key={recruitKey}
                     className={`transition-colors ${
                       isOld 
                         ? 'bg-red-900/20 hover:bg-red-900/30 border-l-4 border-red-500' 
@@ -343,57 +328,57 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps) {
                         <p className="text-xs text-gray-400">{recruitment.guild_id}</p>
                       </div>
                     </td>
-                  <td className="px-4 py-3">
-                    <p className="text-white">{recruitment.channel_name}</p>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div>
-                      <p className="text-white">{recruitment.content}</p>
-                      {recruitment.note && (
-                        <p className="text-xs text-gray-400 mt-1">{recruitment.note}</p>
-                      )}
-                    </div>
-                  </td>
+                    <td className="px-4 py-3">
+                      <p className="text-white">{recruitment.channel_name}</p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div>
+                        <p className="text-white">{recruitment.content || recruitment.title}</p>
+                        {recruitment.note && (
+                          <p className="text-xs text-gray-400 mt-1">{recruitment.note}</p>
+                        )}
+                      </div>
+                    </td>
                     <td className="px-4 py-3 text-center">
-                    <span className="text-white">{(recruitment.participants_count ?? 0)}</span>
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    <span className="text-white">{recruitment.start_game_time}</span>
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    <div className="flex flex-col items-center">
-                      <span className={`text-sm font-medium ${
-                        recruitment.status === 'recruiting' 
-                          ? 'text-blue-400' 
-                          : 'text-gray-400'
-                      }`}>
-                        {formatDuration(recruitment.start_time)}
-                      </span>
-                      {recruitment.status === 'recruiting' && (
-                        <span className="text-xs text-gray-500 mt-1">
-                          残り{Math.max(0, 8 - Math.floor((new Date().getTime() - new Date(recruitment.start_time).getTime()) / (1000 * 60 * 60)))}時間
+                      <span className="text-white">{recruitment.participants_count ?? recruitment.currentParticipants ?? 0}</span>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <span className="text-white">{recruitment.start_game_time}</span>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <div className="flex flex-col items-center">
+                        <span className={`text-sm font-medium ${
+                          recruitment.status === 'recruiting' 
+                            ? 'text-blue-400' 
+                            : 'text-gray-400'
+                        }`}>
+                          {formatDuration(recruitment.start_time)}
                         </span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      recruitment.status === 'recruiting' 
-                        ? 'bg-green-600 text-white' 
-                        : recruitment.status === 'ended'
-                        ? 'bg-gray-600 text-white'
-                        : 'bg-red-600 text-white'
-                    }`}>
-                      {recruitment.status === 'recruiting' ? '募集中' : 
-                       recruitment.status === 'ended' ? '終了' : '中止'}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    <span className="text-gray-300 text-sm">
-                      {new Date(recruitment.start_time).toLocaleString('ja-JP')}
-                    </span>
-                  </td>
-                </tr>
+                        {recruitment.status === 'recruiting' && (
+                          <span className="text-xs text-gray-500 mt-1">
+                            残り{Math.max(0, 8 - Math.floor((new Date().getTime() - new Date(recruitment.start_time).getTime()) / (1000 * 60 * 60)))}時間
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        recruitment.status === 'recruiting' 
+                          ? 'bg-green-600 text-white' 
+                          : recruitment.status === 'ended'
+                          ? 'bg-gray-600 text-white'
+                          : 'bg-red-600 text-white'
+                      }`}>
+                        {recruitment.status === 'recruiting' ? '募集中' : 
+                         recruitment.status === 'ended' ? '終了' : '中止'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <span className="text-gray-300 text-sm">
+                        {new Date(recruitment.start_time).toLocaleString('ja-JP')}
+                      </span>
+                    </td>
+                  </tr>
                 );
               })}
               {recruitments.length === 0 && (

@@ -161,7 +161,29 @@ async function listRecruitsFromRedis() {
   if (keys.length === 0) return [];
   const redisClient = await ensureRedisConnection();
   const vals = await redisClient.mget(keys);
-  return vals.map(v => v ? JSON.parse(v) : null).filter(Boolean);
+  
+  // 参加者情報も取得して統合
+  const recruits = vals.map(v => v ? JSON.parse(v) : null).filter(Boolean);
+  
+  // 各募集の参加者情報を取得
+  for (const recruit of recruits) {
+    if (recruit.messageId) {
+      try {
+        const participants = await getParticipantsFromRedis(recruit.messageId);
+        recruit.participantsList = participants;
+        recruit.currentParticipants = participants.length;
+      } catch (e) {
+        console.warn(`Failed to get participants for ${recruit.messageId}:`, e.message);
+        recruit.participantsList = [];
+        recruit.currentParticipants = 0;
+      }
+    } else {
+      recruit.participantsList = [];
+      recruit.currentParticipants = 0;
+    }
+  }
+  
+  return recruits;
 }
 
 async function deleteRecruitFromRedis(recruitId) {
