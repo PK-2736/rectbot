@@ -53,7 +53,18 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps) {
       const backendUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'https://api.rectbot.tech';
       const url = `${backendUrl.replace(/\/$/, '')}/api/recruitment/list`;
 
-      const response = await fetch(url, { cache: 'no-store' });
+      // Service Token を設定
+      const headers: Record<string, string> = {};
+      const serviceToken = process.env.NEXT_PUBLIC_DEPLOY_SECRET;
+      if (serviceToken) {
+        headers['CF-Access-Client-Id'] = serviceToken;
+        headers['CF-Access-Client-Secret'] = serviceToken;
+      }
+
+      const response = await fetch(url, { 
+        cache: 'no-store',
+        headers 
+      });
 
       if (!response.ok) {
         const errorMsg = `Failed to fetch: ${response.status} ${response.statusText}`;
