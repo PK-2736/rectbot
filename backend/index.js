@@ -309,6 +309,64 @@ export default {
       });
     }
 
+    // ユーザー情報取得API (GET) - JWTからユーザー情報を返す
+    if (request.method === 'GET' && url.pathname === '/api/auth/me') {
+      const cookieHeader = request.headers.get('Cookie');
+      
+      if (!cookieHeader) {
+        return new Response(
+          JSON.stringify({ error: 'Unauthorized', message: 'No authentication cookie' }),
+          { 
+            status: 401,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        );
+      }
+      
+      // Cookie から JWT 取得
+      const jwtMatch = cookieHeader.match(/jwt=([^;]+)/);
+      if (!jwtMatch) {
+        return new Response(
+          JSON.stringify({ error: 'Unauthorized', message: 'No JWT token found' }),
+          { 
+            status: 401,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        );
+      }
+      
+      const jwt = jwtMatch[1];
+      const payload = await verifyJWT(jwt, env);
+      
+      if (!payload) {
+        return new Response(
+          JSON.stringify({ error: 'Unauthorized', message: 'Invalid or expired token' }),
+          { 
+            status: 401,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        );
+      }
+      
+      // ユーザー情報を返す
+      const userInfo = {
+        id: payload.userId,
+        username: payload.username,
+        role: payload.role,
+        isAdmin: payload.role === 'admin'
+      };
+      
+      console.log('Auth check - User:', userInfo.username, 'Role:', userInfo.role);
+      
+      return new Response(
+        JSON.stringify(userInfo),
+        { 
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
     // Discord OAuthコールバックAPI (GET) - DiscordからのリダイレクトURL処理
     if (request.method === 'GET' && url.pathname === '/api/discord/callback') {
       const code = url.searchParams.get('code');
