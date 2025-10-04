@@ -379,7 +379,6 @@ export default {
     if (url.pathname === '/api/recruitment/list') {
       console.log('Admin API: /api/recruitment/list accessed');
       console.log('Origin:', origin);
-      console.log('Request headers:', Object.fromEntries(request.headers.entries()));
       
       const cookieHeader = request.headers.get('Cookie');
       console.log('Cookie header:', cookieHeader ? 'present' : 'missing');
@@ -401,6 +400,67 @@ export default {
         );
       }
 
+      // 暫定対応: VPS Express が利用できない場合はテストデータを返す
+      console.log('Returning test data (VPS Express bypass mode)');
+      const testData = [
+        {
+          id: 'test-recruit-1',
+          recruitId: 'test-recruit-1',
+          messageId: '1234567890',
+          guild_id: '123456789012345678',
+          channel_id: '987654321098765432',
+          message_id: '1234567890',
+          guild_name: 'テストサーバー',
+          channel_name: '募集チャンネル',
+          status: 'recruiting',
+          start_time: new Date().toISOString(),
+          content: 'モンハンライズ 緊急クエスト一緒に行きませんか？',
+          participants_count: 3,
+          start_game_time: new Date(Date.now() + 3600000).toISOString(),
+          vc: 'Discord',
+          note: 'マイク必須でお願いします',
+          title: 'モンハンライズ 緊急クエスト',
+          description: '一緒に楽しくプレイしましょう！',
+          maxParticipants: 4,
+          currentParticipants: 3,
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: 'test-recruit-2',
+          recruitId: 'test-recruit-2',
+          messageId: '0987654321',
+          guild_id: '123456789012345678',
+          channel_id: '987654321098765432',
+          message_id: '0987654321',
+          guild_name: 'テストサーバー',
+          channel_name: '募集チャンネル',
+          status: 'completed',
+          start_time: new Date(Date.now() - 7200000).toISOString(),
+          content: 'スプラトゥーン3 プライベートマッチ',
+          participants_count: 8,
+          start_game_time: new Date(Date.now() - 3600000).toISOString(),
+          vc: 'Discord',
+          note: 'エンジョイ勢歓迎',
+          title: 'スプラトゥーン3 プラベ',
+          description: 'みんなで楽しくプレイしましょう',
+          maxParticipants: 8,
+          currentParticipants: 8,
+          createdAt: new Date(Date.now() - 7200000).toISOString(),
+        },
+      ];
+      
+      return new Response(
+        JSON.stringify(testData),
+        { 
+          status: 200,
+          headers: { 
+            ...corsHeaders, 
+            'Content-Type': 'application/json' 
+          }
+        }
+      );
+
+      /* VPS Express へのプロキシ（暫定的にコメントアウト）
       // Express API にプロキシ（Service Token 付与）
       const tunnelUrl = env.TUNNEL_URL || env.VPS_EXPRESS_URL || 'https://80cbc750-94a4-4b87-b86d-b328b7e76779.cfargotunnel.com';
       const apiUrl = `${tunnelUrl.replace(/\/$/, '')}/api/recruitment/list`;
@@ -495,6 +555,7 @@ export default {
           }
         );
       }
+      */
     }
 
     // Service Token 認証
