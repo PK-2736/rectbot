@@ -309,6 +309,46 @@ export default {
       });
     }
 
+    // デバッグ用: 環境変数チェック（管理者のみ）
+    if (request.method === 'GET' && url.pathname === '/api/debug/env') {
+      const cookieHeader = request.headers.get('Cookie');
+      
+      if (!await isValidDiscordAdmin(cookieHeader, env)) {
+        return new Response(
+          JSON.stringify({ error: 'Unauthorized' }),
+          { 
+            status: 401,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        );
+      }
+      
+      // 環境変数の状態を返す（値は返さない、存在確認のみ）
+      return new Response(
+        JSON.stringify({
+          envStatus: {
+            DISCORD_CLIENT_ID: !!env.DISCORD_CLIENT_ID,
+            DISCORD_CLIENT_SECRET: !!env.DISCORD_CLIENT_SECRET,
+            DISCORD_REDIRECT_URI: !!env.DISCORD_REDIRECT_URI,
+            JWT_SECRET: !!env.JWT_SECRET,
+            ADMIN_DISCORD_ID: !!env.ADMIN_DISCORD_ID,
+            SERVICE_TOKEN: !!env.SERVICE_TOKEN,
+            TUNNEL_URL: !!env.TUNNEL_URL,
+            VPS_EXPRESS_URL: !!env.VPS_EXPRESS_URL,
+            SUPABASE_URL: !!env.SUPABASE_URL,
+            SUPABASE_SERVICE_ROLE_KEY: !!env.SUPABASE_SERVICE_ROLE_KEY
+          },
+          tunnelUrlPreview: env.TUNNEL_URL || env.VPS_EXPRESS_URL ? 
+            (env.TUNNEL_URL || env.VPS_EXPRESS_URL).substring(0, 30) + '...' : 
+            'not set'
+        }),
+        { 
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
     // ユーザー情報取得API (GET) - JWTからユーザー情報を返す
     if (request.method === 'GET' && url.pathname === '/api/auth/me') {
       const cookieHeader = request.headers.get('Cookie');
@@ -539,10 +579,22 @@ export default {
         
       } catch (error) {
         console.error('Error proxying to Express API:', error);
+        console.error('Error name:', error.name);
+        console.error('Error message:', error.message);
+        console.error('Error stack:', error.stack);
+        
+        // より詳細なエラー情報を返す
         return new Response(
           JSON.stringify({ 
             error: 'Internal server error',
-            message: error.message 
+            message: error.message,
+            errorType: error.name,
+            details: `Failed to connect to VPS Express API. Error: ${error.message}`,
+            debugInfo: {
+              tunnelUrl: env.TUNNEL_URL || env.VPS_EXPRESS_URL || 'not set',
+              serviceTokenConfigured: !!env.SERVICE_TOKEN,
+              timestamp: new Date().toISOString()
+            }
           }),
           { 
             status: 500,

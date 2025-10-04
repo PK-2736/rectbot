@@ -69,9 +69,30 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps) {
       }
 
       if (!response.ok) {
-        const errorMsg = `Failed to fetch: ${response.status} ${response.statusText}`;
-        console.error('API Route error:', errorMsg);
-        setFetchError(errorMsg);
+        // エラーレスポンスの詳細を取得
+        let errorDetails = '';
+        try {
+          const errorData = await response.json();
+          console.error('API error details:', errorData);
+          errorDetails = errorData.message || errorData.error || '';
+          
+          // デバッグ情報も表示
+          if (errorData.debugInfo) {
+            console.error('Debug info:', errorData.debugInfo);
+          }
+          if (errorData.details) {
+            console.error('Error details:', errorData.details);
+          }
+          
+          // ユーザーに表示するエラーメッセージ
+          const userMessage = errorData.message || errorData.details || response.statusText;
+          setFetchError(`Failed to fetch: ${response.status} - ${userMessage}`);
+        } catch (e) {
+          // JSONパースに失敗した場合
+          const errorMsg = `Failed to fetch: ${response.status} ${response.statusText}`;
+          console.error('API Route error:', errorMsg);
+          setFetchError(errorMsg);
+        }
         return;
       }
 
