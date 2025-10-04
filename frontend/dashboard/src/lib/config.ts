@@ -1,15 +1,14 @@
 // 管理者判定
-const ADMIN_IDS = process.env.ADMIN_IDS?.split(',') || [];
+const ADMIN_IDS = process.env.NEXT_PUBLIC_ADMIN_IDS?.split(',') || [];
 
 export function isAdmin(userId: string): boolean {
   return ADMIN_IDS.includes(userId);
 }
 
-// Discord OAuth2 設定
+// Discord OAuth2 設定（クライアントサイド用）
 export const DISCORD_CONFIG = {
-  clientId: process.env.DISCORD_CLIENT_ID!,
-  clientSecret: process.env.DISCORD_CLIENT_SECRET!,
-  redirectUri: process.env.DISCORD_REDIRECT_URI!,
+  clientId: process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID!,
+  redirectUri: process.env.NEXT_PUBLIC_DISCORD_REDIRECT_URI || 'https://api.rectbot.tech/api/discord/callback',
 };
 
 // API エンドポイント

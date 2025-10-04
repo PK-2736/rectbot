@@ -13,8 +13,8 @@ export class DiscordAuth {
 
   constructor() {
     this.clientId = process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID || '';
-    this.redirectUri = process.env.NEXT_PUBLIC_DISCORD_REDIRECT_URI || 
-      (typeof window !== 'undefined' ? `${window.location.origin}/` : 'http://localhost:3000/');
+    // リダイレクトURIは必ずWorkerのエンドポイントを使用
+    this.redirectUri = process.env.NEXT_PUBLIC_DISCORD_REDIRECT_URI || 'https://api.rectbot.tech/api/discord/callback';
     
     // 環境変数から管理者IDを取得（カンマ区切りで複数指定可能）
     const adminIdsEnv = process.env.NEXT_PUBLIC_ADMIN_IDS || process.env.ADMIN_IDS || '';

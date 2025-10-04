@@ -60,7 +60,8 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps) {
 
       if (response.status === 401) {
         // 認証エラー → Discord ログインにリダイレクト
-        const discordAuthUrl = `https://discord.com/api/oauth2/authorize?client_id=${process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID}&redirect_uri=${encodeURIComponent('https://api.rectbot.tech/api/discord/callback')}&response_type=code&scope=identify`;
+        const redirectUri = process.env.NEXT_PUBLIC_DISCORD_REDIRECT_URI || 'https://api.rectbot.tech/api/discord/callback';
+        const discordAuthUrl = `https://discord.com/api/oauth2/authorize?client_id=${process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=identify`;
         window.location.href = discordAuthUrl;
         return;
       }
