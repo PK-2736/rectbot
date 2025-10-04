@@ -58,6 +58,11 @@ jobs:
           echo "NEXT_PUBLIC_ADMIN_IDS: ${NEXT_PUBLIC_ADMIN_IDS:+SET}${NEXT_PUBLIC_ADMIN_IDS:-EMPTY}"
           echo "==================================="
           
+          # REDIRECT_URI の値をマスクして一部表示（デバッグ用）
+          if [ -n "$NEXT_PUBLIC_DISCORD_REDIRECT_URI" ]; then
+            echo "REDIRECT_URI starts with: ${NEXT_PUBLIC_DISCORD_REDIRECT_URI:0:25}..."
+          fi
+          
           # GitHub Secretsの設定を確認
           if [ -z "$NEXT_PUBLIC_DISCORD_CLIENT_ID" ]; then
             echo "⚠️ WARNING: DISCORD_CLIENT_ID secret is not set in GitHub!"
