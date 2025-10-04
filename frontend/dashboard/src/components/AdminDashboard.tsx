@@ -54,6 +54,7 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps) {
       const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://api.rectbot.tech';
       const url = `${apiBaseUrl}/api/recruitment/list`;
 
+      console.log('Fetching recruitments from:', url);
       const response = await fetch(url, { 
         cache: 'no-store',
         credentials: 'include' // Cookie を送信
@@ -76,12 +77,20 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps) {
 
       const data = await response.json();
       const list: RecruitmentData[] = Array.isArray(data) ? data : [];
+      
+      console.log(`Fetched ${list.length} recruitments from API`);
+      console.log('Recruitment data:', list);
+      
       setRecruitments(list);
       setFetchError(null);
       
       const uniqueGuilds = new Set(list.map((r: RecruitmentData) => r.guild_id));
       setGuildCount(uniqueGuilds.size);
       setLastUpdate(new Date());
+      
+      console.log(`Total recruitments: ${list.length}`);
+      console.log(`Active recruitments: ${list.filter(r => r.status === 'recruiting').length}`);
+      console.log(`Unique guilds: ${uniqueGuilds.size}`);
     } catch (error) {
       console.error('Error fetching recruitments:', error);
       setFetchError(String(error));

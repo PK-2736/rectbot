@@ -458,65 +458,153 @@ export default {
         );
       }
 
-      // 暫定対応: VPS Express が利用できない場合はテストデータを返す
-      console.log('Returning test data (VPS Express bypass mode)');
-      const testData = [
-        {
-          id: 'test-recruit-1',
-          recruitId: 'test-recruit-1',
-          messageId: '1234567890',
-          guild_id: '123456789012345678',
-          channel_id: '987654321098765432',
-          message_id: '1234567890',
-          guild_name: 'テストサーバー',
-          channel_name: '募集チャンネル',
-          status: 'recruiting',
-          start_time: new Date().toISOString(),
-          content: 'モンハンライズ 緊急クエスト一緒に行きませんか？',
-          participants_count: 3,
-          start_game_time: new Date(Date.now() + 3600000).toISOString(),
-          vc: 'Discord',
-          note: 'マイク必須でお願いします',
-          title: 'モンハンライズ 緊急クエスト',
-          description: '一緒に楽しくプレイしましょう！',
-          maxParticipants: 4,
-          currentParticipants: 3,
-          createdAt: new Date().toISOString(),
-        },
-        {
-          id: 'test-recruit-2',
-          recruitId: 'test-recruit-2',
-          messageId: '0987654321',
-          guild_id: '123456789012345678',
-          channel_id: '987654321098765432',
-          message_id: '0987654321',
-          guild_name: 'テストサーバー',
-          channel_name: '募集チャンネル',
-          status: 'completed',
-          start_time: new Date(Date.now() - 7200000).toISOString(),
-          content: 'スプラトゥーン3 プライベートマッチ',
-          participants_count: 8,
-          start_game_time: new Date(Date.now() - 3600000).toISOString(),
-          vc: 'Discord',
-          note: 'エンジョイ勢歓迎',
-          title: 'スプラトゥーン3 プラベ',
-          description: 'みんなで楽しくプレイしましょう',
-          maxParticipants: 8,
-          currentParticipants: 8,
-          createdAt: new Date(Date.now() - 7200000).toISOString(),
-        },
-      ];
-      
-      return new Response(
-        JSON.stringify(testData),
-        { 
-          status: 200,
-          headers: { 
-            ...corsHeaders, 
-            'Content-Type': 'application/json' 
+      // Redisから実際の募集データを取得
+      try {
+        console.log('Fetching recruitment data from Redis...');
+        
+        // Redis接続情報を確認
+        const redisHost = env.REDIS_HOST || env.UPSTASH_REDIS_REST_URL;
+        console.log('Redis configured:', !!redisHost);
+        
+        if (!redisHost) {
+          console.warn('Redis not configured, returning empty list');
+          return new Response(
+            JSON.stringify([]),
+            { 
+              status: 200,
+              headers: { 
+                ...corsHeaders, 
+                'Content-Type': 'application/json' 
+              }
+            }
+          );
+        }
+        
+        // Upstash Redis REST API を使用してデータを取得
+        const redisUrl = env.UPSTASH_REDIS_REST_URL;
+        const redisToken = env.UPSTASH_REDIS_REST_TOKEN;
+        
+        if (!redisUrl || !redisToken) {
+          console.warn('Upstash Redis credentials not found');
+          return new Response(
+            JSON.stringify([]),
+            { 
+              status: 200,
+              headers: { 
+                ...corsHeaders, 
+                'Content-Type': 'application/json' 
+              }
+            }
+          );
+        }
+        
+        // recruit:* パターンのキーを取得
+        const scanResponse = await fetch(`${redisUrl}/scan/0?match=recruit:*&count=1000`, {
+          headers: {
+            'Authorization': `Bearer ${redisToken}`
+          }
+        });
+        
+        if (!scanResponse.ok) {
+          console.error('Failed to scan Redis keys:', scanResponse.status);
+          return new Response(
+            JSON.stringify([]),
+            { 
+              status: 200,
+              headers: { 
+                ...corsHeaders, 
+                'Content-Type': 'application/json' 
+              }
+            }
+          );
+        }
+        
+        const scanData = await scanResponse.json();
+        const keys = scanData.result?.[1] || [];
+        console.log(`Found ${keys.length} recruitment keys in Redis`);
+        
+        if (keys.length === 0) {
+          return new Response(
+            JSON.stringify([]),
+            { 
+              status: 200,
+              headers: { 
+                ...corsHeaders, 
+                'Content-Type': 'application/json' 
+              }
+            }
+          );
+        }
+        
+        // 各キーのデータを取得
+        const recruitments = [];
+        for (const key of keys) {
+          try {
+            const getResponse = await fetch(`${redisUrl}/get/${key}`, {
+              headers: {
+                'Authorization': `Bearer ${redisToken}`
+              }
+            });
+            
+            if (getResponse.ok) {
+              const data = await getResponse.json();
+              if (data.result) {
+                const recruit = JSON.parse(data.result);
+                
+                // 参加者情報も取得
+                if (recruit.messageId) {
+                  const participantsKey = `participants:${recruit.messageId}`;
+                  const participantsResponse = await fetch(`${redisUrl}/get/${participantsKey}`, {
+                    headers: {
+                      'Authorization': `Bearer ${redisToken}`
+                    }
+                  });
+                  
+                  if (participantsResponse.ok) {
+                    const participantsData = await participantsResponse.json();
+                    if (participantsData.result) {
+                      const participants = JSON.parse(participantsData.result);
+                      recruit.participantsList = participants;
+                      recruit.currentParticipants = participants.length;
+                      recruit.participants_count = participants.length;
+                    }
+                  }
+                }
+                
+                recruitments.push(recruit);
+              }
+            }
+          } catch (error) {
+            console.error(`Failed to get data for key ${key}:`, error);
           }
         }
-      );
+        
+        console.log(`Successfully fetched ${recruitments.length} recruitments from Redis`);
+        
+        return new Response(
+          JSON.stringify(recruitments),
+          { 
+            status: 200,
+            headers: { 
+              ...corsHeaders, 
+              'Content-Type': 'application/json' 
+            }
+          }
+        );
+        
+      } catch (error) {
+        console.error('Error fetching from Redis:', error);
+        return new Response(
+          JSON.stringify({ error: 'Failed to fetch recruitment data', message: error.message }),
+          { 
+            status: 500,
+            headers: { 
+              ...corsHeaders, 
+              'Content-Type': 'application/json' 
+            }
+          }
+        );
+      }
 
       /* VPS Express へのプロキシ（暫定的にコメントアウト）
       // Express API にプロキシ（Service Token 付与）
