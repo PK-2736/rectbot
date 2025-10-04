@@ -6,20 +6,20 @@ compatibility_date = "2025-09-11"
 workers_dev = false
 
 # 環境変数（公開設定）
+# 注意: これらの値はGitHub Actionsのデプロイ時に --var オプションで上書きされます
 [vars]
-# Discord OAuth (公開情報)
-DISCORD_CLIENT_ID = ""  # GitHub Actionsで設定
-DISCORD_REDIRECT_URI = "https://dash.rectbot.tech/callback"
+# Discord OAuth (公開情報) - GitHub Actionsで設定
+DISCORD_CLIENT_ID = "placeholder"
+DISCORD_REDIRECT_URI = "https://api.rectbot.tech/api/discord/callback"
 
-# Supabase (URL)
-SUPABASE_URL = ""  # GitHub Actionsで設定
+# Supabase (URL) - GitHub Actionsで設定
+SUPABASE_URL = "placeholder"
 
-# Express API URL
-TUNNEL_URL = "http://localhost:3000"
-VPS_EXPRESS_URL = "https://80cbc750-94a4-4b87-b86d-b328b7e76779.cfargotunnel.com"
+# Express API URL - GitHub Actionsで設定
+VPS_EXPRESS_URL = "placeholder"
 
-# 管理者Discord ID（カンマ区切り）
-ADMIN_DISCORD_ID = ""  # GitHub Actionsで設定
+# 管理者Discord ID（カンマ区切り） - GitHub Actionsで設定
+ADMIN_DISCORD_ID = "placeholder"
 
 # Secrets (wrangler secret put コマンドまたはGitHub Actionsで設定)
 # 以下は機密情報のため、wrangler.tomlには記載せず、GitHub Secretsで管理:

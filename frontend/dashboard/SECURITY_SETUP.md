@@ -94,16 +94,24 @@ VPS_EXPRESS_URL=https://80cbc750-94a4-4b87-b86d-b328b7e76779.cfargotunnel.com
 
 #### Pages 用
 
+**重要**: Cloudflare Pagesは静的サイトホスティングのため、シークレット（秘密情報）を保持できません。
+ビルド時に埋め込まれる公開変数のみを使用します。
+
 ```bash
 CLOUDFLARE_API_TOKEN=your-cloudflare-api-token
 CLOUDFLARE_ACCOUNT_ID=your-account-id
 
-# 公開変数（ビルド時に埋め込まれる）
+# 公開変数（ビルド時に埋め込まれる - NEXT_PUBLIC_* プレフィックス）
 DISCORD_CLIENT_ID=your-discord-client-id
-DISCORD_REDIRECT_URI=https://dash.rectbot.tech/callback
+DISCORD_REDIRECT_URI=https://api.rectbot.tech/api/discord/callback
 NEXT_PUBLIC_API_BASE_URL=https://api.rectbot.tech
 ADMIN_DISCORD_ID=admin-discord-id-1,admin-discord-id-2
 ```
+
+**注意事項**:
+- ✅ これらの値はブラウザで見える（公開情報）
+- ❌ シークレット（JWT_SECRET、CLIENT_SECRET等）は含めない
+- ✅ 秘密情報が必要な処理はすべてWorker経由で行う
 
 #### Bot (VPS) 用
 

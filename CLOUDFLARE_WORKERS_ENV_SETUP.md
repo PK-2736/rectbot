@@ -1,23 +1,58 @@
 # Cloudflare Workers Backend - 環境変数設定ガイド
 
-## 重要な変更: VPS Express URL の設定
+## 重要な注意事項
 
-### 背景
-Cloudflare Workers (`https://api.rectbot.tech`) がVPS上のExpressサーバーにプロキシする際、**無限ループを防ぐ**ために、VPSサーバーの直接IPアドレスを使用する必要があります。
+### Cloudflare Pages と Workers の違い
+
+#### Cloudflare Pages（フロントエンド）
+- **静的サイトホスティング** - ビルド時に環境変数が埋め込まれる
+- **公開変数のみ**: `NEXT_PUBLIC_*` プレフィックスが必要
+- **シークレット不可**: 秘密情報は含められない（クライアントサイドで見える）
+
+#### Cloudflare Workers（バックエンド）
+- **サーバーレス実行環境** - ランタイムで秘密情報にアクセス可能
+- **シークレット対応**: `wrangler secret put` で安全に管理
+- **JWT、API Keys等**: 秘密情報はすべてWorkerで処理
+
+### 正しいアーキテクチャ
+```
+ブラウザ → Pages (静的HTML/JS) → Worker (API) → VPS Express
+         (公開情報のみ)        (シークレット処理)  (データベース)
+```
 
 ---
 
 ## 必要な環境変数
 
-### Cloudflare Workers で設定する変数
+### 1. Cloudflare Pages（フロントエンド）
+
+#### GitHub Secrets（ビルド時のみ）
+```bash
+DISCORD_CLIENT_ID           # 公開情報（ビルド時に埋め込み）
+DISCORD_REDIRECT_URI        # 公開情報（ビルド時に埋め込み）
+NEXT_PUBLIC_API_BASE_URL    # 公開情報（Worker API URL）
+ADMIN_DISCORD_ID            # 公開情報（管理者ID一覧）
+```
+
+**重要**: Pagesはビルド時にこれらを `NEXT_PUBLIC_*` 環境変数として埋め込みます。
+秘密情報（SECRET, TOKEN等）は**絶対に含めないでください**。
+
+---
+
+### 2. Cloudflare Workers（バックエンド）
 
 #### 1. 公開変数 (vars)
 ```bash
 # GitHub Actionsで自動設定
-wrangler deploy --var REACT_APP_DISCORD_CLIENT_ID:<value>
-wrangler deploy --var REACT_APP_DISCORD_REDIRECT_URI:<value>
+wrangler deploy --var DISCORD_CLIENT_ID:<value>
+wrangler deploy --var DISCORD_REDIRECT_URI:<value>
 wrangler deploy --var SUPABASE_URL:<value>
+wrangler deploy --var ADMIN_DISCORD_ID:<value>
 ```
+
+**重要:** `DISCORD_REDIRECT_URI` は Discord Developer Portal で設定したリダイレクトURIと完全に一致する必要があります。
+- 例: `https://api.rectbot.tech/api/discord/callback`
+- または: `https://dash.rectbot.tech/callback`
 
 #### 2. **VPS_EXPRESS_URL** (重要！)
 VPS上のExpressサーバーの**直接URL**を指定します。
@@ -44,10 +79,85 @@ wrangler deploy --var VPS_EXPRESS_URL:http://XXX.XXX.XXX.XXX:3000
 
 #### 3. シークレット (secrets)
 ```bash
-# これらは一度だけ設定すればOK
-wrangler secret put SERVICE_TOKEN
+# これらは一度だけ設定すればOK（Workerでのみ使用）
+wrangler secret put JWT_SECRET              # JWT署名用シークレット
+wrangler secret put DISCORD_CLIENT_SECRET   # Discord OAuth Client Secret
+wrangler secret put SUPABASE_SERVICE_ROLE_KEY  # Supabaseサービスロールキー
+wrangler secret put SERVICE_TOKEN           # Worker→Express認証トークン
+```
+
+**重要**: これらのシークレットは**Workerでのみ**アクセス可能で、Pagesやクライアントサイドからは**絶対にアクセスできません**。
+
+---
+
+## よくある誤解と対処法
+
+### ❌ 間違い: Pagesに秘密情報を設定しようとする
+```bash
+# これは動作しません
+wrangler pages secret put JWT_SECRET ...  # Pages にシークレット機能はない
+```
+
+### ✅ 正しい: Workerで秘密情報を処理する
+```bash
+# Workerにシークレットを設定
+cd backend
+wrangler secret put JWT_SECRET
 wrangler secret put DISCORD_CLIENT_SECRET
-wrangler secret put SUPABASE_SERVICE_ROLE_KEY
+wrangler secret put SERVICE_TOKEN
+```
+
+### 認証フローの正しい設計
+```
+1. ユーザー → Discord OAuth → Discord認証
+2. Discord → Worker (/api/discord/callback)
+   ↓ Worker内で処理:
+   - DISCORD_CLIENT_SECRET を使用してトークン交換
+   - JWT_SECRET を使用してJWT発行
+   - HttpOnly Cookie としてブラウザに返却
+3. ブラウザ → Pages (静的サイト表示)
+4. Pages → Worker API (/api/recruitment/list)
+   ↓ Worker内で処理:
+   - Cookie内のJWTを検証（JWT_SECRET使用）
+   - SERVICE_TOKEN を使用してVPS Express呼び出し
+5. Worker → レスポンス → Pages → ユーザー
+```
+
+---
+
+## GitHub Actions での正しい設定
+
+### Pages デプロイ（公開変数のみ）
+```yaml
+- name: Build Dashboard
+  env:
+    # ビルド時に埋め込まれる公開情報のみ
+    NEXT_PUBLIC_DISCORD_CLIENT_ID: ${{ secrets.DISCORD_CLIENT_ID }}
+    NEXT_PUBLIC_DISCORD_REDIRECT_URI: ${{ secrets.DISCORD_REDIRECT_URI }}
+    NEXT_PUBLIC_API_BASE_URL: ${{ secrets.NEXT_PUBLIC_API_BASE_URL }}
+    NEXT_PUBLIC_ADMIN_IDS: ${{ secrets.ADMIN_DISCORD_ID }}
+    # ⚠️ シークレット（JWT_SECRET等）は含めない
+  run: |
+    cd frontend/dashboard
+    npm run build
+    npm run export
+```
+
+### Worker デプロイ（シークレット設定）
+```yaml
+- name: Deploy to Cloudflare Workers
+  run: |
+    cd backend
+    # シークレットをWorkerに登録
+    echo "${{ secrets.JWT_SECRET }}" | npx wrangler secret put JWT_SECRET
+    echo "${{ secrets.DISCORD_CLIENT_SECRET }}" | npx wrangler secret put DISCORD_CLIENT_SECRET
+    echo "${{ secrets.SERVICE_TOKEN }}" | npx wrangler secret put SERVICE_TOKEN
+    echo "${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" | npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY
+    
+    # Workerをデプロイ
+    npx wrangler deploy
+  env:
+    CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
 ```
 
 ---
@@ -61,9 +171,10 @@ wrangler secret put SUPABASE_SERVICE_ROLE_KEY
   run: |
     cd backend
     npx wrangler deploy \
-      --var REACT_APP_DISCORD_CLIENT_ID:${{ secrets.DISCORD_CLIENT_ID }} \
-      --var REACT_APP_DISCORD_REDIRECT_URI:${{ secrets.DISCORD_REDIRECT_URI }} \
+      --var DISCORD_CLIENT_ID:${{ secrets.DISCORD_CLIENT_ID }} \
+      --var DISCORD_REDIRECT_URI:${{ secrets.DISCORD_REDIRECT_URI }} \
       --var SUPABASE_URL:${{ secrets.SUPABASE_URL }} \
+      --var ADMIN_DISCORD_ID:${{ secrets.ADMIN_DISCORD_ID }} \
       --var VPS_EXPRESS_URL:${{ secrets.VPS_EXPRESS_URL }}
   env:
     CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

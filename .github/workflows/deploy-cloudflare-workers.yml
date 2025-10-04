@@ -69,22 +69,18 @@ jobs:
           register_secret JWT_SECRET JWT_SECRET
           register_secret SUPABASE_SERVICE_ROLE_KEY SUPABASE_SERVICE_ROLE_KEY
           register_secret SERVICE_TOKEN SERVICE_TOKEN
-          
-          # 公開変数（vars）の設定
-          echo "Setting public variables..."
-          if [ -n "${{ secrets.DISCORD_CLIENT_ID }}" ]; then
-            npx wrangler secret put DISCORD_CLIENT_ID <<< "${{ secrets.DISCORD_CLIENT_ID }}" || echo "Already set"
-          fi
-          if [ -n "${{ secrets.SUPABASE_URL }}" ]; then
-            npx wrangler secret put SUPABASE_URL <<< "${{ secrets.SUPABASE_URL }}" || echo "Already set"
-          fi
-          if [ -n "${{ secrets.ADMIN_DISCORD_ID }}" ]; then
-            npx wrangler secret put ADMIN_DISCORD_ID <<< "${{ secrets.ADMIN_DISCORD_ID }}" || echo "Already set"
-          fi
 
       - name: Deploy to Cloudflare Workers
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          DISCORD_CLIENT_ID: ${{ secrets.DISCORD_CLIENT_ID }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          ADMIN_DISCORD_ID: ${{ secrets.ADMIN_DISCORD_ID }}
+          VPS_EXPRESS_URL: ${{ secrets.VPS_EXPRESS_URL }}
         run: |
           cd backend
-          npx wrangler deploy --compatibility-date=2024-01-01
+          npx wrangler deploy --compatibility-date=2024-01-01 \
+            --var DISCORD_CLIENT_ID:"${DISCORD_CLIENT_ID}" \
+            --var SUPABASE_URL:"${SUPABASE_URL}" \
+            --var ADMIN_DISCORD_ID:"${ADMIN_DISCORD_ID}" \
+            --var VPS_EXPRESS_URL:"${VPS_EXPRESS_URL}"
