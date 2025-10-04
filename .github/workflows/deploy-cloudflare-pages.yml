@@ -63,9 +63,7 @@ jobs:
           
           # デプロイ実行（環境変数はビルド時に既に埋め込み済み）
           echo "Deploying Dashboard to Pages..."
-          wrangler pages deploy ./out --project-name=rectbot-dashboard \
-            --env production \
-            --branch main
+          wrangler pages deploy ./out --project-name=rectbot-dashboard --branch main
       - name: Install Bun for Astro
         run: curl -fsSL https://bun.sh/install | bash
         shell: bash
