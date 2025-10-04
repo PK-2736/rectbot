@@ -152,12 +152,31 @@ async function getDiscordToken(code, redirectUri, clientId, clientSecret) {
     redirect_uri: redirectUri,
     scope: 'identify email',
   });
+  
+  console.log('Discord token request:', {
+    redirect_uri: redirectUri,
+    client_id: clientId,
+    client_secret_present: !!clientSecret,
+    code_present: !!code
+  });
+  
   const res = await fetch('https://discord.com/api/oauth2/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: params.toString(),
   });
-  return res.json();
+  
+  const data = await res.json();
+  
+  if (!res.ok) {
+    console.error('Discord API error:', {
+      status: res.status,
+      statusText: res.statusText,
+      error: data
+    });
+  }
+  
+  return data;
 }
 
 async function getDiscordUser(accessToken) {
@@ -172,6 +191,14 @@ async function getDiscordUser(accessToken) {
  */
 async function handleDiscordCallback(code, env) {
   try {
+    console.log('handleDiscordCallback: Starting OAuth flow');
+    console.log('Environment check:', {
+      DISCORD_CLIENT_ID: !!env.DISCORD_CLIENT_ID,
+      DISCORD_CLIENT_SECRET: !!env.DISCORD_CLIENT_SECRET,
+      DISCORD_REDIRECT_URI: !!env.DISCORD_REDIRECT_URI,
+      JWT_SECRET: !!env.JWT_SECRET
+    });
+    
     // Discord トークン取得
     const tokenData = await getDiscordToken(
       code,
@@ -181,7 +208,8 @@ async function handleDiscordCallback(code, env) {
     );
     
     if (!tokenData.access_token) {
-      throw new Error('Failed to get Discord access token');
+      console.error('Token data received:', tokenData);
+      throw new Error(`Failed to get Discord access token: ${tokenData.error || 'unknown error'} - ${tokenData.error_description || 'no description'}`);
     }
     
     // Discord ユーザー情報取得
