@@ -324,16 +324,21 @@ export default {
         const { jwt, userInfo } = await handleDiscordCallback(code, env);
         
         console.log('Discord OAuth success:', userInfo.username);
+        console.log('User ID:', userInfo.id);
+        console.log('User role:', isAdmin(userInfo.id, env) ? 'admin' : 'user');
         
         // ダッシュボードにリダイレクト（JWT を HttpOnly Cookie として設定）
         const dashboardUrl = new URL('https://dash.rectbot.tech/');
+        
+        const cookieValue = `jwt=${jwt}; Domain=.rectbot.tech; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=3600`;
+        console.log('Setting cookie:', cookieValue.substring(0, 50) + '...');
         
         // Domain属性を設定してサブドメイン間でCookieを共有
         return new Response('', {
           status: 302,
           headers: {
             'Location': dashboardUrl.toString(),
-            'Set-Cookie': `jwt=${jwt}; Domain=.rectbot.tech; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=3600`,
+            'Set-Cookie': cookieValue,
             ...corsHeaders
           }
         });
@@ -373,8 +378,11 @@ export default {
     // 管理者用 API：Discord OAuth 認証が必要（JWT ベース）
     if (url.pathname === '/api/recruitment/list') {
       console.log('Admin API: /api/recruitment/list accessed');
+      console.log('Origin:', origin);
+      console.log('Request headers:', Object.fromEntries(request.headers.entries()));
       
       const cookieHeader = request.headers.get('Cookie');
+      console.log('Cookie header:', cookieHeader ? 'present' : 'missing');
       
       if (!await isValidDiscordAdmin(cookieHeader, env)) {
         console.log('Unauthorized access attempt to admin API');
@@ -420,9 +428,48 @@ export default {
           },
         });
 
-        const data = await resp.json();
-        
         console.log(`Express API responded with status: ${resp.status}`);
+        console.log(`Express API content-type: ${resp.headers.get('content-type')}`);
+        
+        // レスポンスをテキストとして取得
+        const responseText = await resp.text();
+        console.log(`Express API response (first 200 chars): ${responseText.substring(0, 200)}`);
+        
+        // JSONとしてパース可能かチェック
+        let data;
+        try {
+          data = JSON.parse(responseText);
+        } catch (parseError) {
+          console.error('Failed to parse Express API response as JSON:', parseError);
+          console.error('Raw response:', responseText);
+          
+          // Cloudflare Tunnel エラーの可能性
+          if (responseText.includes('error code:') || responseText.includes('cloudflare')) {
+            return new Response(
+              JSON.stringify({ 
+                error: 'VPS Express unreachable',
+                message: 'VPS Express サーバーに接続できません。Cloudflare Tunnel が正しく動作しているか確認してください。',
+                details: responseText.substring(0, 200)
+              }),
+              { 
+                status: 503,
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+              }
+            );
+          }
+          
+          return new Response(
+            JSON.stringify({ 
+              error: 'Invalid response from VPS Express',
+              message: 'VPS Express が正しいJSON形式のレスポンスを返していません',
+              details: responseText.substring(0, 200)
+            }),
+            { 
+              status: 502,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            }
+          );
+        }
 
         return new Response(JSON.stringify(data), {
           status: resp.status,
