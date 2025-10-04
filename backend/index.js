@@ -153,11 +153,15 @@ async function getDiscordToken(code, redirectUri, clientId, clientSecret) {
     scope: 'identify email',
   });
   
-  console.log('Discord token request:', {
+  console.log('Discord token request - Full details:', {
     redirect_uri: redirectUri,
+    redirect_uri_length: redirectUri?.length,
+    redirect_uri_encoded: encodeURIComponent(redirectUri),
     client_id: clientId,
     client_secret_present: !!clientSecret,
-    code_present: !!code
+    code_present: !!code,
+    code_length: code?.length,
+    code_preview: code ? `${code.substring(0, 10)}...` : 'none'
   });
   
   const res = await fetch('https://discord.com/api/oauth2/token', {
