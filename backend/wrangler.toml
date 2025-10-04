@@ -1,9 +1,11 @@
 name = "rectbot-backend"
 account_id = "74749d85b9c280c0daa93e12ea5d5a14"
-route = "https://api.rectbot.tech/*"
 main = "index.js"
 compatibility_date = "2025-09-11"
 workers_dev = false
+
+# ルート設定を削除（Cloudflare Dashboardで管理）
+# route = "https://api.rectbot.tech/*"
 
 # 環境変数（公開設定）
 # 注意: これらの値はGitHub Actionsのデプロイ時に --var オプションで上書きされます
