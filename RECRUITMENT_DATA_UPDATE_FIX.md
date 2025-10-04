@@ -11,84 +11,81 @@
 ## ✅ 実施した修正
 
 ### 1. バックエンドAPIの実装変更
-`/api/recruitment/list` エンドポイントを、Redisから実際のデータを取得するように変更しました。
+`/api/recruitment/list` エンドポイントを、**VPS Express APIにプロキシ**するように変更しました。
 
 #### 変更内容:
 - **変更前**: 固定のテストデータを返す
-- **変更後**: Upstash Redis REST API を使用して実際の募集データを取得
+- **変更後**: VPS Express API（Cloudflare Tunnel経由）にService Token認証でプロキシ
 
 ### 2. フロントエンドのデバッグログ強化
 取得したデータ件数や内容をコンソールに出力するように改善しました。
 
 ---
 
-## 🔑 必要な環境変数
+## 🏗️ アーキテクチャ
 
-バックエンド（Cloudflare Workers）に以下の環境変数を設定する必要があります:
+現在のシステムは以下のような構成になっています:
 
-### Upstash Redis の設定
+```
+ブラウザ
+  ↓ JWT Cookie
+Cloudflare Worker (api.rectbot.tech)
+  ↓ Service Token
+Cloudflare Tunnel
+  ↓
+VPS Express API (server.js)
+  ↓ ローカル接続
+Redis (VPS内)
+```
 
-1. **UPSTASH_REDIS_REST_URL**
-   - Upstash Redis の REST API エンドポイント
-   - 例: `https://your-redis.upstash.io`
+### データの流れ
 
-2. **UPSTASH_REDIS_REST_TOKEN**
-   - Upstash Redis の認証トークン
-   - 例: `AXX0AAIncDE...`
+1. **Discord Bot** が募集を作成し、**VPS内のRedis**に保存
+2. **VPS Express API** がRedisからデータを読み取り
+3. **Cloudflare Worker** がExpress APIにプロキシ（Service Token認証）
+4. **ブラウザ** が管理画面でデータを表示
 
 ---
 
-## 📝 環境変数の設定手順
+## 🔑 必要な環境変数
 
-### Cloudflare Dashboard での設定
+### Cloudflare Workers に必要な環境変数
 
-1. https://dash.cloudflare.com/ にログイン
-2. **Workers & Pages** をクリック
-3. **rectbot-backend** (または該当するWorker名) をクリック
-4. **Settings** タブをクリック
-5. **Variables** セクションを開く
-6. **Add variable** をクリックして以下を追加:
+以下の環境変数が**既に設定されているはず**です。追加の環境変数は不要です。
 
-#### UPSTASH_REDIS_REST_URL の設定
-- Variable name: `UPSTASH_REDIS_REST_URL`
-- Value: Upstash Redis の REST URL（Upstash ダッシュボードから取得）
-- Type: `Text`（Secretにはしない）
+1. **SERVICE_TOKEN**
+   - Worker → Express API の認証トークン
+   - 既に設定済み
 
-#### UPSTASH_REDIS_REST_TOKEN の設定
-- Variable name: `UPSTASH_REDIS_REST_TOKEN`
-- Value: Upstash Redis の REST トークン（Upstash ダッシュボードから取得）
-- Type: `Secret`（**必ずSecretにする**）
+2. **VPS_EXPRESS_URL** または **TUNNEL_URL**
+   - Cloudflare Tunnel の URL
+   - 例: `https://80cbc750-94a4-4b87-b86d-b328b7e76779.cfargotunnel.com`
+   - 既に設定済み
 
-7. **Save** をクリック
+3. **ADMIN_DISCORD_ID**
+   - 管理者のDiscord ユーザーID（カンマ区切り）
+   - 既に設定済み
 
-### Upstash Redis の取得方法
+4. **JWT_SECRET**
+   - JWT署名用の秘密鍵
+   - 既に設定済み
 
-もしまだ Upstash Redis の認証情報を取得していない場合:
-
-1. https://console.upstash.com/ にログイン
-2. 使用しているRedisデータベースをクリック
-3. **REST API** タブを開く
-4. 以下の情報をコピー:
-   - `UPSTASH_REDIS_REST_URL`
-   - `UPSTASH_REDIS_REST_TOKEN`
+5. **DISCORD_CLIENT_ID** と **DISCORD_CLIENT_SECRET**
+   - Discord OAuth認証用
+   - 既に設定済み
 
 ---
 
 ## 🚀 デプロイ手順
 
-環境変数を設定した後、Workerを再デプロイします:
+修正をデプロイするには:
 
 ```bash
 cd /workspaces/rectbot/backend
 wrangler deploy
 ```
 
-フロントエンドも再デプロイ（必要に応じて）:
-
-```bash
-cd /workspaces/rectbot/frontend/dashboard
-# デプロイコマンドを実行
-```
+フロントエンドは変更不要（既にデバッグログ強化済み）
 
 ---
 
@@ -109,12 +106,25 @@ Active recruitments: 3
 Unique guilds: 2
 ```
 
-### 2. 自動更新の確認
+### 2. Worker のログで確認
+
+Cloudflare Dashboard でWorkerのログを確認:
+
+```
+Admin API: /api/recruitment/list accessed
+Cookie header: present
+JWT validation passed for admin: 726195003780628621
+Proxying to Express API: https://...cfargotunnel.com/api/recruitment/list
+Express API responded with status: 200
+Fetched 5 recruitments from Express API
+```
+
+### 3. 自動更新の確認
 
 - 管理画面は **5秒ごと** に自動的にデータを更新します
 - 「最終更新」の時刻が5秒ごとに更新されることを確認
 
-### 3. 新しい募集を立ててテスト
+### 4. 新しい募集を立ててテスト
 
 1. Discordで新しい募集を立てる
 2. 最大5秒待つ（自動更新のタイミング）
@@ -126,67 +136,122 @@ Unique guilds: 2
 
 ### 問題1: 「総募集数: 0」のまま変わらない
 
-#### 原因: Redis環境変数が設定されていない
+#### 原因1: Cloudflare Tunnel が動作していない
 
 **確認方法:**
-1. Cloudflare Dashboard → Workers & Pages → rectbot-backend → Settings → Variables
-2. `UPSTASH_REDIS_REST_URL` と `UPSTASH_REDIS_REST_TOKEN` が存在するか確認
+```bash
+# VPSにSSH接続して確認
+ssh user@your-vps-ip
+sudo cloudflared tunnel list
+```
 
 **解決策:**
-- 上記の「環境変数の設定手順」に従って設定
-- Workerを再デプロイ
+- Cloudflare Tunnel を再起動
+- `cloudflared` サービスが起動しているか確認
 
-### 問題2: Redisにデータが保存されていない
-
-#### 原因: Botが正しくRedisに保存していない
+#### 原因2: Express API が起動していない
 
 **確認方法:**
-1. Upstash Console にログイン
-2. Redis データベースを選択
-3. **Data Browser** タブを開く
-4. `recruit:*` パターンでキーを検索
+```bash
+# VPSにSSH接続して確認
+pm2 list
+# または
+curl http://localhost:3001/api/recruitment/list
+```
 
 **解決策:**
-- Botの環境変数（`REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD`）を確認
-- Botを再起動
+```bash
+# Express API を再起動
+pm2 restart rectbot-server
+```
 
-### 問題3: コンソールにエラーが表示される
+#### 原因3: Redis が起動していない
 
-#### エラー例1: "Failed to scan Redis keys: 401"
-- **原因**: `UPSTASH_REDIS_REST_TOKEN` が間違っている
-- **解決策**: Upstash Console から正しいトークンを再取得して設定
+**確認方法:**
+```bash
+# VPSで確認
+redis-cli ping
+# PONG と返ってくれば正常
+```
 
-#### エラー例2: "Redis not configured, returning empty list"
-- **原因**: 環境変数が設定されていない
-- **解決策**: 上記の設定手順を実行
+**解決策:**
+```bash
+# Redisを再起動
+sudo systemctl restart redis
+```
 
-#### エラー例3: "Error fetching recruitments: TypeError"
-- **原因**: API呼び出しに失敗している
-- **解決策**: ブラウザのキャッシュをクリアして再読み込み
+### 問題2: "VPS Express unreachable" エラー
+
+#### 原因: Cloudflare Tunnel の接続エラー
+
+**確認方法:**
+1. VPSにSSH接続
+2. Tunnel のステータスを確認:
+   ```bash
+   sudo cloudflared tunnel info
+   ```
+
+**解決策:**
+```bash
+# Cloudflare Tunnel を再起動
+sudo systemctl restart cloudflared
+```
+
+### 問題3: "Service token not configured" エラー
+
+#### 原因: SERVICE_TOKEN 環境変数が設定されていない
+
+**確認方法:**
+1. Cloudflare Dashboard → Workers & Pages → rectbot-backend
+2. Settings → Variables → `SERVICE_TOKEN` の存在確認
+
+**解決策:**
+- `SERVICE_TOKEN` を設定してWorkerを再デプロイ
+
+### 問題4: コンソールに「401 Unauthorized」エラー
+
+#### 原因: JWT認証エラー
+
+**解決策:**
+1. ログアウトして再ログイン
+2. ブラウザのCookieをクリア
+3. Discord IDが `ADMIN_DISCORD_ID` に含まれているか確認
 
 ---
 
-## 📊 データの流れ
+## 📊 システム全体のデータフロー
 
-正常な動作時のデータフロー:
+正常な動作時の完全なフロー:
 
 ```
 1. ユーザーがDiscordで募集を立てる
    ↓
-2. BotがRedisに募集データを保存
+2. Discord Botがイベントをキャッチ
    ↓
-3. 管理画面が5秒ごとに /api/recruitment/list を呼び出す
+3. Botが募集データをRedis（VPS内）に保存
    ↓
-4. WorkerがUpstash Redis REST APIでデータを取得
+4. 管理画面が5秒ごとに /api/recruitment/list を呼び出す
    ↓
-5. 管理画面に最新のデータが表示される
+5. Cloudflare WorkerがJWT Cookieを検証
+   ↓
+6. WorkerがVPS Express APIにService Tokenでプロキシ
+   ↓
+7. Cloudflare Tunnelが VPS Express APIにリクエストを転送
+   ↓
+8. Express APIがService Tokenを検証
+   ↓
+9. Express APIがRedis（ローカル接続）からデータを取得
+   ↓
+10. データが逆順でブラウザに返される
+   ↓
+11. 管理画面に最新のデータが表示される
 ```
 
 ---
 
 ## 🎯 期待される動作
 
-修正とRedis設定完了後:
+修正とデプロイ完了後:
 
 1. **リアルタイム更新**
    - 5秒ごとに自動でデータが更新される
@@ -209,22 +274,36 @@ Unique guilds: 2
 
 ## 📝 デバッグ用コマンド
 
-### Redisのキーを確認
+### VPSでRedisのデータを確認
 ```bash
-# Upstash Console の CLI タブで実行
-SCAN 0 MATCH recruit:* COUNT 100
-```
+# SSH接続
+ssh user@your-vps-ip
 
-### 特定の募集データを確認
-```bash
-# Upstash Console の CLI タブで実行
+# Redisに接続
+redis-cli
+
+# キーの一覧を表示
+KEYS recruit:*
+
+# 特定の募集データを確認
 GET recruit:123456789012345678
+
+# 参加者データを確認
+GET participants:123456789012345678
 ```
 
-### 環境変数を確認（ローカル開発）
+### Express API を直接テスト
 ```bash
-cd /workspaces/rectbot/backend
-cat wrangler.toml | grep -E "REDIS|UPSTASH"
+# VPS内で実行
+curl -H "x-service-token: your-service-token" \
+  http://localhost:3001/api/recruitment/list
+```
+
+### Cloudflare Tunnel の接続確認
+```bash
+# VPSで実行
+sudo cloudflared tunnel info
+sudo systemctl status cloudflared
 ```
 
 ---
@@ -233,9 +312,10 @@ cat wrangler.toml | grep -E "REDIS|UPSTASH"
 
 修正が完了したら、以下を確認してください:
 
-- [ ] `UPSTASH_REDIS_REST_URL` を Cloudflare Workers に設定した
-- [ ] `UPSTASH_REDIS_REST_TOKEN` を Cloudflare Workers に設定した（Secret として）
 - [ ] Worker を再デプロイした（`wrangler deploy`）
+- [ ] VPS で Express API が起動している（`pm2 list`）
+- [ ] VPS で Redis が起動している（`redis-cli ping`）
+- [ ] Cloudflare Tunnel が動作している（`cloudflared tunnel list`）
 - [ ] 管理画面を開いて F12 → Console を確認した
 - [ ] コンソールに「Fetched X recruitments from API」と表示される
 - [ ] Discord で新しい募集を立てた
@@ -244,21 +324,24 @@ cat wrangler.toml | grep -E "REDIS|UPSTASH"
 
 ---
 
-## 💡 補足: Redis の代わりに Supabase を使う場合
+## 💡 重要な注意点
 
-現在の実装は Redis を使用していますが、将来的に Supabase に移行する場合は、以下のような実装に変更できます:
+### ❌ 間違った理解
+- Worker が直接 Redis にアクセスする
+- Upstash Redis REST API を使用する
+- フロントエンドが直接 VPS にアクセスする
 
-```javascript
-// Supabase から募集データを取得
-const response = await fetch(
-  `${env.SUPABASE_URL}/rest/v1/recruitments?select=*&status=eq.recruiting`,
-  {
-    headers: {
-      'apikey': env.SUPABASE_SERVICE_ROLE_KEY,
-      'Authorization': `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`
-    }
-  }
-);
-```
+### ✅ 正しい理解
+- **VPS内のRedis** にデータが保存される
+- **VPS Express API** がRedisから読み取る
+- **Cloudflare Worker** がExpress APIにプロキシする（Service Token認証）
+- **Cloudflare Tunnel** がWorkerとVPSを接続する
+- **追加の環境変数は不要**（既存の設定で動作）
 
-ただし、現時点では **Redis を使用することを推奨** します（高速で、既存のBot実装と互換性があるため）。
+---
+
+## 🔗 関連ドキュメント
+
+- `SECURITY_SETUP.md` - セキュリティとアーキテクチャの詳細
+- `CLOUDFLARE_TUNNEL_SETUP.md` - Tunnel の設定方法
+- `VPS_EXPRESS_TROUBLESHOOTING.md` - Express API のトラブルシューティング
