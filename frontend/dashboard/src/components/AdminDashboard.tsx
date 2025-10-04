@@ -50,8 +50,9 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps) {
   const fetchRecruitments = useCallback(async () => {
     try {
       setFetchError(null);
-      // JWT Cookie を含めてリクエスト（credentials: 'include'）
-      const url = '/api/recruitment';
+      // WorkerのAPIエンドポイントを呼び出す（JWT Cookie を含む）
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://api.rectbot.tech';
+      const url = `${apiBaseUrl}/api/recruitment/list`;
 
       const response = await fetch(url, { 
         cache: 'no-store',

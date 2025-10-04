@@ -26,56 +26,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // 初期化時にローカルストレージから認証情報を復元
-    const storedUser = discordAuth.getStoredUser();
-    if (storedUser) {
-      setUser(storedUser);
-    }
+    // Cookie から JWT をチェック
+    const checkAuth = async () => {
+      try {
+        // Worker の /api/recruitment/list を呼び出して認証状態を確認
+        const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://api.rectbot.tech';
+        const response = await fetch(`${apiBaseUrl}/api/recruitment/list`, {
+          credentials: 'include', // Cookie を送信
+        });
 
-    // URLからDiscordの認証成功パラメータをチェック
-    if (typeof window !== 'undefined') {
-      const urlParams = new URLSearchParams(window.location.search);
-      const authSuccess = urlParams.get('auth_success');
-      const userId = urlParams.get('user_id');
-      const username = urlParams.get('username');
-      
-      if (authSuccess === 'true' && userId && username) {
-        // バックエンドから認証成功のリダイレクトを受信
-        console.log('Discord auth success received');
-        
-        const authUser: DiscordUser = {
-          id: userId,
-          username: username,
-          discriminator: "0000", // 新しいDiscordは discriminator が不要
-          email: "" // 必要に応じてバックエンドから受け取る
-        };
-        
-        console.log('Authenticated user:', authUser);
-        setUser(authUser);
-        discordAuth.storeUser(authUser);
-        
-        // URLからパラメータを削除してクリーンアップ
-        const newUrl = window.location.pathname;
-        window.history.replaceState({}, '', newUrl);
-      } else {
-        // 従来のコード処理
-        const code = urlParams.get('code');
-        if (code) {
-          console.log('Discord auth code received (legacy):', code);
-          
-          // 本番環境: Discord OAuth認証を完了
-          // このコードはバックエンドのcallbackエンドポイントで処理されるため、
-          // ここでは何もせず、バックエンドからのリダイレクトを待つ
-          console.log('Waiting for backend OAuth callback...');
-          
-          // URLからコードパラメータを削除
-          const newUrl = window.location.pathname;
-          window.history.replaceState({}, '', newUrl);
+        if (response.ok) {
+          // 認証成功 - ユーザー情報を取得
+          // 実際のユーザー情報はレスポンスから取得する必要がありますが、
+          // 今は簡易的にダミー情報を設定
+          const authUser: DiscordUser = {
+            id: 'authenticated',
+            username: 'Admin User',
+            discriminator: '0000',
+            email: '',
+          };
+          setUser(authUser);
+          console.log('User authenticated via cookie');
+        } else if (response.status === 401) {
+          // 認証失敗
+          console.log('User not authenticated');
+          setUser(null);
         }
+      } catch (error) {
+        console.error('Auth check failed:', error);
+        setUser(null);
+      } finally {
+        setIsLoading(false);
       }
-    }
+    };
 
-    setIsLoading(false);
+    checkAuth();
   }, []);
 
   const login = () => {

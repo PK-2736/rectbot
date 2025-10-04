@@ -328,11 +328,12 @@ export default {
         // ダッシュボードにリダイレクト（JWT を HttpOnly Cookie として設定）
         const dashboardUrl = new URL('https://dash.rectbot.tech/');
         
+        // Domain属性を設定してサブドメイン間でCookieを共有
         return new Response('', {
           status: 302,
           headers: {
             'Location': dashboardUrl.toString(),
-            'Set-Cookie': `jwt=${jwt}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=3600`,
+            'Set-Cookie': `jwt=${jwt}; Domain=.rectbot.tech; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=3600`,
             ...corsHeaders
           }
         });
