@@ -43,11 +43,25 @@ jobs:
           
           # 環境変数のデバッグ出力（値は表示しない）
           echo "=== Environment Variables Check ==="
-          echo "NEXT_PUBLIC_DISCORD_CLIENT_ID: ${NEXT_PUBLIC_DISCORD_CLIENT_ID:+SET}" 
-          echo "NEXT_PUBLIC_DISCORD_REDIRECT_URI: ${NEXT_PUBLIC_DISCORD_REDIRECT_URI:+SET}"
-          echo "NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:+SET}"
-          echo "NEXT_PUBLIC_ADMIN_IDS: ${NEXT_PUBLIC_ADMIN_IDS:+SET}"
+          echo "NEXT_PUBLIC_DISCORD_CLIENT_ID: ${NEXT_PUBLIC_DISCORD_CLIENT_ID:+SET}${NEXT_PUBLIC_DISCORD_CLIENT_ID:-EMPTY}"
+          echo "NEXT_PUBLIC_DISCORD_REDIRECT_URI: ${NEXT_PUBLIC_DISCORD_REDIRECT_URI:+SET}${NEXT_PUBLIC_DISCORD_REDIRECT_URI:-EMPTY}"
+          echo "NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:+SET}${NEXT_PUBLIC_API_BASE_URL:-EMPTY}"
+          echo "NEXT_PUBLIC_ADMIN_IDS: ${NEXT_PUBLIC_ADMIN_IDS:+SET}${NEXT_PUBLIC_ADMIN_IDS:-EMPTY}"
           echo "==================================="
+          
+          # GitHub Secretsの設定を確認
+          if [ -z "$NEXT_PUBLIC_DISCORD_CLIENT_ID" ]; then
+            echo "⚠️ WARNING: DISCORD_CLIENT_ID secret is not set in GitHub!"
+          fi
+          if [ -z "$NEXT_PUBLIC_DISCORD_REDIRECT_URI" ]; then
+            echo "⚠️ WARNING: DISCORD_REDIRECT_URI secret is not set in GitHub!"
+          fi
+          if [ -z "$NEXT_PUBLIC_API_BASE_URL" ]; then
+            echo "⚠️ WARNING: NEXT_PUBLIC_API_BASE_URL secret is not set in GitHub!"
+          fi
+          if [ -z "$NEXT_PUBLIC_ADMIN_IDS" ]; then
+            echo "⚠️ WARNING: ADMIN_DISCORD_ID secret is not set in GitHub!"
+          fi
           
           npm run build
           npm run export
@@ -61,8 +75,13 @@ jobs:
           echo "Creating Dashboard project if it doesn't exist..."
           wrangler pages project create rectbot-dashboard --production-branch=main --compatibility-date=2024-09-18 2>/dev/null || echo "Project already exists"
           
-          # デプロイ実行（環境変数はビルド時に既に埋め込み済み）
+          # デプロイ実行
           echo "Deploying Dashboard to Pages..."
+          wrangler pages deploy ./out --project-name=rectbot-dashboard --branch main
+          
+          echo "✅ Dashboard deployment complete!"
+          echo "Note: Environment variables are embedded at build time for static exports."
+      - name: Install Bun for Astro
           wrangler pages deploy ./out --project-name=rectbot-dashboard --branch main
       - name: Install Bun for Astro
         run: curl -fsSL https://bun.sh/install | bash
