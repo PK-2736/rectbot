@@ -41,6 +41,15 @@ jobs:
         run: |
           cd frontend/dashboard
           
+          # .env.productionファイルを生成（Next.jsが確実に読み込むように）
+          echo "Creating .env.production file..."
+          cat > .env.production << EOF
+          NEXT_PUBLIC_DISCORD_CLIENT_ID=${NEXT_PUBLIC_DISCORD_CLIENT_ID}
+          NEXT_PUBLIC_DISCORD_REDIRECT_URI=${NEXT_PUBLIC_DISCORD_REDIRECT_URI}
+          NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}
+          NEXT_PUBLIC_ADMIN_IDS=${NEXT_PUBLIC_ADMIN_IDS}
+          EOF
+          
           # 環境変数のデバッグ出力（値は表示しない）
           echo "=== Environment Variables Check ==="
           echo "NEXT_PUBLIC_DISCORD_CLIENT_ID: ${NEXT_PUBLIC_DISCORD_CLIENT_ID:+SET}${NEXT_PUBLIC_DISCORD_CLIENT_ID:-EMPTY}"
