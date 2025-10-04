@@ -307,7 +307,30 @@ export default {
         
       } catch (error) {
         console.error('Discord OAuth error:', error);
-        return new Response('<!DOCTYPE html><html><body><h1>認証エラー</h1><p>認証処理中にエラーが発生しました</p></body></html>', {
+        console.error('Error details:', {
+          message: error.message,
+          stack: error.stack,
+          env_check: {
+            DISCORD_CLIENT_ID: !!env.DISCORD_CLIENT_ID,
+            DISCORD_CLIENT_SECRET: !!env.DISCORD_CLIENT_SECRET,
+            DISCORD_REDIRECT_URI: !!env.DISCORD_REDIRECT_URI,
+            JWT_SECRET: !!env.JWT_SECRET,
+            SUPABASE_URL: !!env.SUPABASE_URL,
+            SUPABASE_SERVICE_ROLE_KEY: !!env.SUPABASE_SERVICE_ROLE_KEY
+          }
+        });
+        
+        // デバッグ用：エラーメッセージを表示（本番環境では削除すべき）
+        const errorHtml = `<!DOCTYPE html><html><body>
+          <h1>認証エラー</h1>
+          <p>認証処理中にエラーが発生しました</p>
+          <details>
+            <summary>詳細情報（デバッグ用）</summary>
+            <pre>${error.message}</pre>
+          </details>
+        </body></html>`;
+        
+        return new Response(errorHtml, {
           status: 500,
           headers: { 'Content-Type': 'text/html; charset=utf-8' }
         });
