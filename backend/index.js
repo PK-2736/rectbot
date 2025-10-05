@@ -219,17 +219,27 @@ async function handleDiscordCallback(code, env) {
     // Discord ユーザー情報取得
     const userInfo = await getDiscordUser(tokenData.access_token);
     
-    // Supabase にユーザー情報保存
-    const supabase = getSupabaseClient(env);
-    await supabase.from('users').upsert({
-      user_id: userInfo.id,
-      discord_id: userInfo.id,
-      username: userInfo.username,
-      discriminator: userInfo.discriminator || '0',
-      avatar: userInfo.avatar,
-      role: isAdmin(userInfo.id, env) ? 'admin' : 'user',
-      last_login: new Date().toISOString()
-    });
+    // Supabase にユーザー情報保存（オプショナル - エラーでも続行）
+    try {
+      if (env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY) {
+        const supabase = getSupabaseClient(env);
+        await supabase.from('users').upsert({
+          user_id: userInfo.id,
+          discord_id: userInfo.id,
+          username: userInfo.username,
+          discriminator: userInfo.discriminator || '0',
+          avatar: userInfo.avatar,
+          role: isAdmin(userInfo.id, env) ? 'admin' : 'user',
+          last_login: new Date().toISOString()
+        });
+        console.log('User info saved to Supabase');
+      } else {
+        console.log('Supabase not configured, skipping user save');
+      }
+    } catch (supabaseError) {
+      console.error('Failed to save user to Supabase (non-fatal):', supabaseError);
+      // エラーでも続行
+    }
     
     // JWT 発行
     const jwt = await issueJWT(userInfo, env);
