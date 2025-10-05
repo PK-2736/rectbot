@@ -11,17 +11,17 @@ workers_dev = false
 # 注意: これらの値はGitHub Actionsのデプロイ時に --var オプションで上書きされます
 [vars]
 # Discord OAuth (公開情報) - GitHub Actionsで設定
-DISCORD_CLIENT_ID = "placeholder"
+DISCORD_CLIENT_ID = "1048950201974542477"
 DISCORD_REDIRECT_URI = "https://api.rectbot.tech/api/discord/callback"
 
 # Supabase (URL) - GitHub Actionsで設定
-SUPABASE_URL = "placeholder"
+SUPABASE_URL = "https://placeholder.supabase.co"
 
 # Express API URL - GitHub Actionsで設定
-VPS_EXPRESS_URL = "placeholder"
+VPS_EXPRESS_URL = "https://80cbc750-94a4-4b87-b86d-b328b7e76779.cfargotunnel.com"
 
 # 管理者Discord ID（カンマ区切り） - GitHub Actionsで設定
-ADMIN_DISCORD_ID = "placeholder"
+ADMIN_DISCORD_ID = "726195003780628621"
 
 # Secrets (wrangler secret put コマンドまたはGitHub Actionsで設定)
 # 以下は機密情報のため、wrangler.tomlには記載せず、GitHub Secretsで管理:
