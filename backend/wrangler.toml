@@ -1,31 +1,20 @@
 name = "rectbot-backend"
 account_id = "74749d85b9c280c0daa93e12ea5d5a14"
+route = "https://api.rectbot.tech/*"
 main = "index.js"
 compatibility_date = "2025-09-11"
 workers_dev = false
 
-# ルート設定を削除（Cloudflare Dashboardで管理）
-# route = "https://api.rectbot.tech/*"
+# KVは使用しないため削除
+# kv_namespaces は削除済み
 
-# 環境変数（公開設定）
-# 注意: これらの値はGitHub Actionsのデプロイ時に --var オプションで上書きされます
+# 環境変数は GitHub Actions で動的に設定されます
 [vars]
-# Discord OAuth (公開情報) - GitHub Actionsで設定
-DISCORD_CLIENT_ID = "1048950201974542477"
-DISCORD_REDIRECT_URI = "https://api.rectbot.tech/api/discord/callback"
-
-# Supabase (URL) - GitHub Actionsで設定
-SUPABASE_URL = "https://placeholder.supabase.co"
-
-# Express API URL - GitHub Actionsで設定
-VPS_EXPRESS_URL = "https://80cbc750-94a4-4b87-b86d-b328b7e76779.cfargotunnel.com"
-
-# 管理者Discord ID（カンマ区切り） - GitHub Actionsで設定
-ADMIN_DISCORD_ID = "726195003780628621"
-
-# Secrets (wrangler secret put コマンドまたはGitHub Actionsで設定)
-# 以下は機密情報のため、wrangler.tomlには記載せず、GitHub Secretsで管理:
-# - DISCORD_CLIENT_SECRET: Discord OAuth Client Secret
-# - JWT_SECRET: JWT署名用シークレット（256bit推奨）
-# - SUPABASE_SERVICE_ROLE_KEY: Supabaseサービスロールキー
-# - SERVICE_TOKEN: Worker→Express間の認証トークン
+# GitHub Actions が自動で以下の環境変数を追加します:
+# - REACT_APP_DISCORD_CLIENT_ID
+# - REACT_APP_DISCORD_REDIRECT_URI  
+# - SUPABASE_URL
+#
+# シークレットは wrangler secret put コマンドで設定されます:
+# - DISCORD_CLIENT_SECRET
+# - SUPABASE_SERVICE_ROLE_KEY
