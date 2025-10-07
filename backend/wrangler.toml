@@ -1,6 +1,6 @@
 name = "rectbot-backend"
 account_id = "74749d85b9c280c0daa93e12ea5d5a14"
-route = "https://api.rectbot.tech/*"
+# route = "https://api.rectbot.tech/*"  # Custom Domainを使用するためコメントアウト
 main = "index.js"
 compatibility_date = "2025-09-11"
 workers_dev = false
