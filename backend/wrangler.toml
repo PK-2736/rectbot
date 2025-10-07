@@ -3,7 +3,7 @@ account_id = "74749d85b9c280c0daa93e12ea5d5a14"
 # route = "https://api.rectbot.tech/*"  # Custom Domainを使用するためコメントアウト
 main = "index.js"
 compatibility_date = "2025-09-11"
-workers_dev = false
+workers_dev = true  # 一時的にworkers.devで動作確認
 
 # KVは使用しないため削除
 # kv_namespaces は削除済み
