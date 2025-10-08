@@ -50,23 +50,36 @@ log "Supabase バックアップ開始"
 log "=========================================="
 
 # ===== 1. Supabase 接続情報を構築 =====
-# Connection Pooling を使用（IPv4/IPv6 両対応、より安定）
-# ポート 6543 は Transaction Mode の Pooler
-SUPABASE_DB_HOST="aws-0-ap-northeast-1.pooler.supabase.com"
-SUPABASE_DB_PORT=6543
-SUPABASE_DB_USER="postgres.${SUPABASE_PROJECT_REF}"
+# Session Mode を使用（pg_dump に必要）
+# Direct Connection (port 5432) を使用
+SUPABASE_DB_HOST="db.${SUPABASE_PROJECT_REF}.supabase.co"
+SUPABASE_DB_PORT=5432
+SUPABASE_DB_USER="postgres"
 SUPABASE_DB_NAME="postgres"
 
-log "接続先（Pooler）: ${SUPABASE_DB_HOST}:${SUPABASE_DB_PORT}"
+log "接続先: ${SUPABASE_DB_HOST}:${SUPABASE_DB_PORT}"
 log "ユーザー: ${SUPABASE_DB_USER}"
+log "データベース: ${SUPABASE_DB_NAME}"
 
-# ===== 2. PostgreSQL ダンプ（Supabase Pooler 経由） =====
+# ===== 2. PostgreSQL ダンプ（Supabase 直接接続） =====
 log "Step 1: Supabase データベースをダンプ中..."
 
 export PGPASSWORD="$SUPABASE_DB_PASSWORD"
 
+# IPv4 アドレスを解決して使用（IPv6 問題を回避）
+SUPABASE_DB_HOST_IPV4=$(getent ahostsv4 "$SUPABASE_DB_HOST" 2>/dev/null | head -n 1 | awk '{print $1}')
+
+if [ -z "$SUPABASE_DB_HOST_IPV4" ]; then
+  log "IPv4 アドレスの解決に失敗。ホスト名で接続を試みます..."
+  CONNECT_HOST="$SUPABASE_DB_HOST"
+else
+  log "IPv4 アドレスで接続: $SUPABASE_DB_HOST_IPV4"
+  CONNECT_HOST="$SUPABASE_DB_HOST_IPV4"
+fi
+
+# IPv4 を優先的に使用するため、接続文字列を明示的に指定
 if pg_dump \
-  -h "$SUPABASE_DB_HOST" \
+  -h "$CONNECT_HOST" \
   -p "$SUPABASE_DB_PORT" \
   -U "$SUPABASE_DB_USER" \
   -d "$SUPABASE_DB_NAME" \
@@ -80,7 +93,7 @@ if pg_dump \
 else
   error "❌ pg_dump 失敗"
   error "接続情報を確認してください:"
-  error "  Host: $SUPABASE_DB_HOST"
+  error "  Host: $CONNECT_HOST"
   error "  Port: $SUPABASE_DB_PORT"
   error "  User: $SUPABASE_DB_USER"
   error "  Database: $SUPABASE_DB_NAME"
