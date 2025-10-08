@@ -26,9 +26,10 @@ fi
 : "${R2_BUCKET_NAME:?R2_BUCKET_NAME が設定されていません}"
 
 # ===== Supabase 接続情報を構築 =====
-SUPABASE_DB_HOST="db.${SUPABASE_PROJECT_REF}.supabase.co"
-SUPABASE_DB_PORT=5432
-SUPABASE_DB_USER="postgres"
+# Connection Pooling を使用（IPv4/IPv6 両対応、より安定）
+SUPABASE_DB_HOST="aws-0-ap-northeast-1.pooler.supabase.com"
+SUPABASE_DB_PORT=6543
+SUPABASE_DB_USER="postgres.${SUPABASE_PROJECT_REF}"
 SUPABASE_DB_NAME="postgres"
 
 # ===== ログ関数 =====

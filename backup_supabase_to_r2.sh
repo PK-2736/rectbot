@@ -1,7 +1,15 @@
 #!/bin/bash
 
-#############################################
-# Supabase (BaaS) → Cloudflare R2 Backup
+####################################### ===== 1. Supabase 接続情報を構築 =====
+# Connection Pooling を使用（IPv4/IPv6 両対応、より安定）
+# ポート 6543 は Transaction Mode の Pooler
+SUPABASE_DB_HOST="aws-0-ap-northeast-1.pooler.supabase.com"
+SUPABASE_DB_PORT=6543
+SUPABASE_DB_USER="postgres.${SUPABASE_PROJECT_REF}"
+SUPABASE_DB_NAME="postgres"
+
+log "接続先（Pooler）: ${SUPABASE_DB_HOST}:${SUPABASE_DB_PORT}"
+log "ユーザー: ${SUPABASE_DB_USER}"(BaaS) → Cloudflare R2 Backup
 # 毎日実行してデータベースをバックアップ
 #############################################
 
@@ -50,9 +58,9 @@ log "Supabase バックアップ開始"
 log "=========================================="
 
 # ===== 1. Supabase 接続情報を構築 =====
-SUPABASE_DB_HOST="${SUPABASE_PROJECT_REF}.supabase.co"
-SUPABASE_DB_PORT=5432
-SUPABASE_DB_USER="postgres"
+SUPABASE_DB_HOST="db.${SUPABASE_PROJECT_REF}.supabase.co"
+SUPABASE_DB_PORT=6543
+SUPABASE_DB_USER="postgres.${SUPABASE_PROJECT_REF}"
 SUPABASE_DB_NAME="postgres"
 
 log "接続先: ${SUPABASE_DB_HOST}"
@@ -75,7 +83,7 @@ log "Step 1: Supabase データベースをダンプ中..."
 export PGPASSWORD="$SUPABASE_DB_PASSWORD"
 
 if pg_dump \
-  -h "$SUPABASE_DB_HOST_IPV4" \
+  -h "$SUPABASE_DB_HOST" \
   -p "$SUPABASE_DB_PORT" \
   -U "$SUPABASE_DB_USER" \
   -d "$SUPABASE_DB_NAME" \
@@ -88,6 +96,11 @@ if pg_dump \
   log "✅ pg_dump 成功: $BACKUP_PATH"
 else
   error "❌ pg_dump 失敗"
+  error "接続情報を確認してください:"
+  error "  Host: $SUPABASE_DB_HOST"
+  error "  Port: $SUPABASE_DB_PORT"
+  error "  User: $SUPABASE_DB_USER"
+  error "  Database: $SUPABASE_DB_NAME"
   exit 1
 fi
 
