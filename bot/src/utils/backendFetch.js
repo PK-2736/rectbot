@@ -61,7 +61,12 @@ module.exports = function backendFetch(pathOrUrl, opts = {}) {
   // Debug: do not log token itself, only presence
   try { console.log('[backendFetch] service token present=', !!svc, 'url=', url.replace(/https?:\/\//, '')); } catch (e) {}
 
-  // Only set Authorization if caller did not provide one (case-insensitive)
+  // Set x-service-token header for Worker API authentication (if not already provided)
+  if (svc && !Object.prototype.hasOwnProperty.call(normalized, 'x-service-token')) {
+    normalized['x-service-token'] = svc;
+  }
+  
+  // Also set Authorization header for backward compatibility (if not already provided)
   if (svc && !Object.prototype.hasOwnProperty.call(normalized, 'authorization')) {
     normalized['authorization'] = `Bearer ${svc}`;
   }

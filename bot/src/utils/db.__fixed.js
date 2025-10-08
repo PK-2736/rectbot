@@ -105,9 +105,8 @@ async function finalizeGuildSettings(guildId) {
     console.log(`Sending payload to backend:`, payload);
     console.log(`Backend URL:`, url);
     
-    const svc = process.env.SERVICE_TOKEN || process.env.BACKEND_SERVICE_TOKEN || '';
+    // backendFetch が自動的に SERVICE_TOKEN ヘッダーを追加
     const headers = { 'Content-Type': 'application/json' };
-    if (svc) headers['Authorization'] = `Bearer ${svc}`;
     
     const res = await backendFetch(url, { method: 'POST', headers, body: JSON.stringify(payload) });
     let text = '';

@@ -764,6 +764,7 @@ export default {
       try {
         // セキュリティ検証
         const authHeader = request.headers.get('authorization') || '';
+        const serviceTokenHeader = request.headers.get('x-service-token') || '';
         const userAgent = request.headers.get('user-agent') || '';
         const clientIP = request.headers.get('cf-connecting-ip') || request.headers.get('x-forwarded-for') || 'unknown';
         
@@ -775,7 +776,12 @@ export default {
         }
         
         let token = '';
-        if (authHeader && authHeader.toLowerCase().startsWith('bearer ')) {
+        // Check x-service-token header first (preferred method)
+        if (serviceTokenHeader) {
+          token = serviceTokenHeader.trim();
+        }
+        // Fall back to Authorization: Bearer if x-service-token not present
+        else if (authHeader && authHeader.toLowerCase().startsWith('bearer ')) {
           token = authHeader.slice(7).trim();
         }
         
