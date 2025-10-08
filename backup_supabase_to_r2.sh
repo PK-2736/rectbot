@@ -66,18 +66,38 @@ log "Step 1: Supabase データベースをダンプ中..."
 
 export PGPASSWORD="$SUPABASE_DB_PASSWORD"
 
-# IPv4 アドレスを解決して使用（IPv6 問題を回避）
-SUPABASE_DB_HOST_IPV4=$(getent ahostsv4 "$SUPABASE_DB_HOST" 2>/dev/null | head -n 1 | awk '{print $1}')
+# IPv4 アドレスを解決（複数の方法を試行）
+SUPABASE_DB_HOST_IPV4=""
+
+# 方法1: getent を使用
+if command -v getent &> /dev/null; then
+  SUPABASE_DB_HOST_IPV4=$(getent ahostsv4 "$SUPABASE_DB_HOST" 2>/dev/null | head -n 1 | awk '{print $1}')
+fi
+
+# 方法2: dig を使用
+if [ -z "$SUPABASE_DB_HOST_IPV4" ] && command -v dig &> /dev/null; then
+  SUPABASE_DB_HOST_IPV4=$(dig +short "$SUPABASE_DB_HOST" A | head -n 1)
+fi
+
+# 方法3: nslookup を使用
+if [ -z "$SUPABASE_DB_HOST_IPV4" ] && command -v nslookup &> /dev/null; then
+  SUPABASE_DB_HOST_IPV4=$(nslookup "$SUPABASE_DB_HOST" | grep -A1 "Name:" | grep "Address:" | awk '{print $2}' | grep -v ":" | head -n 1)
+fi
 
 if [ -z "$SUPABASE_DB_HOST_IPV4" ]; then
-  log "IPv4 アドレスの解決に失敗。ホスト名で接続を試みます..."
+  log "⚠️ IPv4 アドレスの解決に失敗。ホスト名で接続を試みます..."
   CONNECT_HOST="$SUPABASE_DB_HOST"
 else
-  log "IPv4 アドレスで接続: $SUPABASE_DB_HOST_IPV4"
+  log "✅ IPv4 アドレスで接続: $SUPABASE_DB_HOST_IPV4"
   CONNECT_HOST="$SUPABASE_DB_HOST_IPV4"
 fi
 
-# IPv4 を優先的に使用するため、接続文字列を明示的に指定
+# pg_dump 実行（IPv4 優先）
+# PGHOSTADDR を使用して IPv4 を強制
+if [ -n "$SUPABASE_DB_HOST_IPV4" ]; then
+  export PGHOSTADDR="$SUPABASE_DB_HOST_IPV4"
+fi
+
 if pg_dump \
   -h "$CONNECT_HOST" \
   -p "$SUPABASE_DB_PORT" \
@@ -94,6 +114,7 @@ else
   error "❌ pg_dump 失敗"
   error "接続情報を確認してください:"
   error "  Host: $CONNECT_HOST"
+  error "  IPv4 Address: ${SUPABASE_DB_HOST_IPV4:-N/A}"
   error "  Port: $SUPABASE_DB_PORT"
   error "  User: $SUPABASE_DB_USER"
   error "  Database: $SUPABASE_DB_NAME"
@@ -101,6 +122,7 @@ else
 fi
 
 unset PGPASSWORD
+unset PGHOSTADDR
 
 # ===== 2. 圧縮 =====
 log "Step 2: バックアップを圧縮中..."
