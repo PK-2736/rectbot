@@ -50,7 +50,7 @@ log "Supabase バックアップ開始"
 log "=========================================="
 
 # ===== 1. Supabase 接続情報を構築 =====
-SUPABASE_DB_HOST="db.${SUPABASE_PROJECT_REF}.supabase.co"
+SUPABASE_DB_HOST="${SUPABASE_PROJECT_REF}.supabase.co"
 SUPABASE_DB_PORT=5432
 SUPABASE_DB_USER="postgres"
 SUPABASE_DB_NAME="postgres"
