@@ -1,15 +1,7 @@
 #!/bin/bash
 
-####################################### ===== 1. Supabase 接続情報を構築 =====
-# Connection Pooling を使用（IPv4/IPv6 両対応、より安定）
-# ポート 6543 は Transaction Mode の Pooler
-SUPABASE_DB_HOST="aws-0-ap-northeast-1.pooler.supabase.com"
-SUPABASE_DB_PORT=6543
-SUPABASE_DB_USER="postgres.${SUPABASE_PROJECT_REF}"
-SUPABASE_DB_NAME="postgres"
-
-log "接続先（Pooler）: ${SUPABASE_DB_HOST}:${SUPABASE_DB_PORT}"
-log "ユーザー: ${SUPABASE_DB_USER}"(BaaS) → Cloudflare R2 Backup
+#############################################
+# Supabase (BaaS) → Cloudflare R2 Backup
 # 毎日実行してデータベースをバックアップ
 #############################################
 
@@ -58,26 +50,17 @@ log "Supabase バックアップ開始"
 log "=========================================="
 
 # ===== 1. Supabase 接続情報を構築 =====
-SUPABASE_DB_HOST="db.${SUPABASE_PROJECT_REF}.supabase.co"
+# Connection Pooling を使用（IPv4/IPv6 両対応、より安定）
+# ポート 6543 は Transaction Mode の Pooler
+SUPABASE_DB_HOST="aws-0-ap-northeast-1.pooler.supabase.com"
 SUPABASE_DB_PORT=6543
 SUPABASE_DB_USER="postgres.${SUPABASE_PROJECT_REF}"
 SUPABASE_DB_NAME="postgres"
 
-log "接続先: ${SUPABASE_DB_HOST}"
+log "接続先（Pooler）: ${SUPABASE_DB_HOST}:${SUPABASE_DB_PORT}"
+log "ユーザー: ${SUPABASE_DB_USER}"
 
-# IPv4 アドレスを取得（IPv6 問題を回避）
-log "Resolving IPv4 address..."
-SUPABASE_DB_HOST_IPV4=$(getent ahostsv4 "$SUPABASE_DB_HOST" | head -n 1 | awk '{print $1}')
-
-if [ -z "$SUPABASE_DB_HOST_IPV4" ]; then
-  error "❌ IPv4 アドレスの解決に失敗しました"
-  log "ホスト名で接続を試みます..."
-  SUPABASE_DB_HOST_IPV4="$SUPABASE_DB_HOST"
-else
-  log "IPv4 アドレス: $SUPABASE_DB_HOST_IPV4"
-fi
-
-# ===== 2. PostgreSQL ダンプ（Supabase 経由） =====
+# ===== 2. PostgreSQL ダンプ（Supabase Pooler 経由） =====
 log "Step 1: Supabase データベースをダンプ中..."
 
 export PGPASSWORD="$SUPABASE_DB_PASSWORD"
