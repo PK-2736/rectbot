@@ -138,10 +138,22 @@ fi
 # ===== 6. Supabase に復元 =====
 log "Step 4: Supabase データベースに復元中..."
 
+# IPv4 アドレスを取得（IPv6 問題を回避）
+log "Resolving IPv4 address..."
+SUPABASE_DB_HOST_IPV4=$(getent ahostsv4 "$SUPABASE_DB_HOST" | head -n 1 | awk '{print $1}')
+
+if [ -z "$SUPABASE_DB_HOST_IPV4" ]; then
+  error "❌ IPv4 アドレスの解決に失敗しました"
+  log "ホスト名で接続を試みます..."
+  SUPABASE_DB_HOST_IPV4="$SUPABASE_DB_HOST"
+else
+  log "IPv4 アドレス: $SUPABASE_DB_HOST_IPV4"
+fi
+
 export PGPASSWORD="$SUPABASE_DB_PASSWORD"
 
 if psql \
-  -h "$SUPABASE_DB_HOST" \
+  -h "$SUPABASE_DB_HOST_IPV4" \
   -p "$SUPABASE_DB_PORT" \
   -U "$SUPABASE_DB_USER" \
   -d "$SUPABASE_DB_NAME" \

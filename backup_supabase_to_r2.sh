@@ -57,13 +57,25 @@ SUPABASE_DB_NAME="postgres"
 
 log "接続先: ${SUPABASE_DB_HOST}"
 
+# IPv4 アドレスを取得（IPv6 問題を回避）
+log "Resolving IPv4 address..."
+SUPABASE_DB_HOST_IPV4=$(getent ahostsv4 "$SUPABASE_DB_HOST" | head -n 1 | awk '{print $1}')
+
+if [ -z "$SUPABASE_DB_HOST_IPV4" ]; then
+  error "❌ IPv4 アドレスの解決に失敗しました"
+  log "ホスト名で接続を試みます..."
+  SUPABASE_DB_HOST_IPV4="$SUPABASE_DB_HOST"
+else
+  log "IPv4 アドレス: $SUPABASE_DB_HOST_IPV4"
+fi
+
 # ===== 2. PostgreSQL ダンプ（Supabase 経由） =====
 log "Step 1: Supabase データベースをダンプ中..."
 
 export PGPASSWORD="$SUPABASE_DB_PASSWORD"
 
 if pg_dump \
-  -h "$SUPABASE_DB_HOST" \
+  -h "$SUPABASE_DB_HOST_IPV4" \
   -p "$SUPABASE_DB_PORT" \
   -U "$SUPABASE_DB_USER" \
   -d "$SUPABASE_DB_NAME" \
