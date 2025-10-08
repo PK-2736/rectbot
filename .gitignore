@@ -9,6 +9,13 @@ backend/node_modules/
 bot/node_modules/
 bot/.env
 
+# バックアップ関連
+.env.backup
+backups/
+backup.log
+*.sql
+*.sql.gz
+
 # 追加: 開発・ビルド生成物や一時ファイル
 frontend/build/
 frontend/astro/.astro/

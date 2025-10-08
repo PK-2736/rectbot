@@ -42,9 +42,10 @@
 | Web | Cloudflare Pages | Free | フロントエンドホスティング | React/Next.jsなど静的・SSG/SSR対応 |
 | API | Cloudflare Workers | Free | 軽量 API / Stripe Webhook | Serverless 関数でサブスク更新 |
 | BaaS / DB | Supabase | Free | DB + 認証 + Realtime | 200ユーザー規模なら無料枠で十分 |
-| Discord Bot | OCI Arm インスタンス | Always Free | Bot常時稼働 | Pythonで開発。サブスク権限管理 |
+| Discord Bot | OCI Arm インスタンス | Always Free | Bot常時稼働 | Node.jsで開発。サブスク権限管理 |
 | 課金 | Stripe | Free（手数料のみ） | 月額/年額サブスク課金 | 学生オファー利用可 |
 | 監視 / ログ | Sentry Free | Free | バックエンド・Botのログ管理 | 必要に応じ有料プランに切替可能 |
+| バックアップ | Cloudflare R2 | Free (10GB) | Supabase DBバックアップ | 自動バックアップ・復元システム |
 
 ---
 
@@ -224,9 +225,54 @@ PORT=3000
 - **Cloudflare Pages + Workers**: Web/API高速配信 + TLS/DDoS保護  
 - **Supabase Free**: 認証・DB・リアルタイム管理  
 - **OCI Arm VM**: Discord Bot常時稼働  
-- **Stripe**: 月額/年額サブスク課金  
+- **Stripe**: 月額/年額サブスク課金
+- **Cloudflare R2**: 自動データバックアップ（毎日実行）
 
 > 無料枠で開発・PoC → ユーザー増加に応じて有料プランに切替すれば安全に商用運用可能。
+
+---
+
+## 🔄 バックアップシステム
+
+Supabase データベースを Cloudflare R2 に自動バックアップするシステムを実装しています。
+
+### 📋 機能
+
+- ✅ **毎日自動バックアップ**: OCI VPS の Cron で午前3時に実行
+- ✅ **圧縮保存**: gzip で圧縮してストレージを節約
+- ✅ **自動削除**: 30日以前のバックアップを自動削除
+- ✅ **復元スクリプト**: ワンコマンドでバックアップから復元可能
+
+### 🚀 セットアップ
+
+詳細は [BACKUP_SETUP_GUIDE.md](./BACKUP_SETUP_GUIDE.md) を参照してください。
+
+```bash
+# VPS にデプロイ
+./deploy_backup_to_vps.sh
+
+# 環境変数を設定
+nano .env.backup
+
+# テスト実行
+./backup_supabase_to_r2.sh
+
+# Cron ジョブ設定（毎日午前3時）
+crontab -e
+# 0 3 * * * cd /home/ubuntu/rectbot && /bin/bash backup_supabase_to_r2.sh >> /home/ubuntu/rectbot/backup.log 2>&1
+```
+
+### 🔧 緊急時の復元
+
+```bash
+# インタラクティブに復元
+./restore_from_r2.sh
+
+# または、特定のバックアップを指定
+./restore_from_r2.sh 1  # 最新バックアップから復元
+```
+
+---
 
 # rectbot
 
