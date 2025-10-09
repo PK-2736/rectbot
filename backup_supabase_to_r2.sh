@@ -51,14 +51,14 @@ log "=========================================="
 
 # ===== 1. Supabase 接続情報を構築 =====
 # Connection Pooler (IPv4対応) を使用
-# Session Mode (port 5432) - pg_dumpに必要
-# ユーザー名は単に "postgres" (project_refは不要)
+# Transaction Mode (port 6543) - しかし、pg_dumpはSession Mode相当が必要
+# 回避策: --no-privileges --no-owner を使用してTransaction Modeでも動作させる
 SUPABASE_DB_HOST="aws-0-ap-northeast-1.pooler.supabase.com"
-SUPABASE_DB_PORT=5432
-SUPABASE_DB_USER="postgres"
+SUPABASE_DB_PORT=6543
+SUPABASE_DB_USER="postgres.${SUPABASE_PROJECT_REF}"
 SUPABASE_DB_NAME="postgres"
 
-log "接続先: ${SUPABASE_DB_HOST}:${SUPABASE_DB_PORT} (Connection Pooler Session Mode - IPv4)"
+log "接続先: ${SUPABASE_DB_HOST}:${SUPABASE_DB_PORT} (Connection Pooler Transaction Mode - IPv4)"
 log "ユーザー: ${SUPABASE_DB_USER}"
 log "データベース: ${SUPABASE_DB_NAME}"
 
@@ -67,7 +67,9 @@ log "Step 1: Supabase データベースをダンプ中 (Connection Pooler経由
 
 export PGPASSWORD="$SUPABASE_DB_PASSWORD"
 
-# Connection PoolerはIPv4対応なのでそのまま使用
+# Connection Pooler (Transaction Mode) 用のpg_dumpオプション
+# --serializable-deferrable: トランザクションモードでの整合性確保
+# --no-synchronized-snapshots: Transaction Mode互換
 if pg_dump \
   -h "$SUPABASE_DB_HOST" \
   -p "$SUPABASE_DB_PORT" \
@@ -75,8 +77,10 @@ if pg_dump \
   -d "$SUPABASE_DB_NAME" \
   --no-owner \
   --no-acl \
+  --no-privileges \
   --clean \
   --if-exists \
+  --serializable-deferrable \
   -F p \
   -f "$BACKUP_PATH"; then
   log "✅ pg_dump 成功: $BACKUP_PATH"
@@ -88,6 +92,7 @@ else
   error "  User: $SUPABASE_DB_USER"
   error "  Database: $SUPABASE_DB_NAME"
   exit 1
+fi
 fi
 
 unset PGPASSWORD
