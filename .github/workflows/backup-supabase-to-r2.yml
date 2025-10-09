@@ -40,25 +40,28 @@ jobs:
       - name: Create backup directory
         run: mkdir -p backups
 
-      - name: Configure IPv6 connectivity
+      - name: Test Supabase connectivity
+        env:
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
         run: |
-          echo "Checking network configuration..."
+          echo "Testing Supabase database connectivity..."
           
-          # IPv6 が有効か確認
+          # DNS 解決をテスト
+          echo "DNS Resolution:"
+          host db.${SUPABASE_PROJECT_REF}.supabase.co || true
+          dig +short AAAA db.${SUPABASE_PROJECT_REF}.supabase.co || true
+          
+          # IPv6 が利用可能か確認
           if [ -f /proc/net/if_inet6 ]; then
-            echo "✅ IPv6 is available"
-            ip -6 addr show | grep inet6
+            echo "✅ IPv6 is available on this runner"
+            ip -6 addr show | grep "inet6" | grep -v "::1" | head -3
+            
+            # IPv6 接続テスト（タイムアウト付き）
+            echo "Testing IPv6 connectivity (timeout 10s)..."
+            timeout 10 ping6 -c 2 db.${SUPABASE_PROJECT_REF}.supabase.co || echo "⚠️ IPv6 ping failed or filtered"
           else
             echo "⚠️ IPv6 is not available"
           fi
-          
-          # DNS 解決をテスト
-          echo "Testing DNS resolution..."
-          host db.${{ secrets.SUPABASE_PROJECT_REF }}.supabase.co || true
-          
-          # IPv6 接続をテスト
-          echo "Testing IPv6 connectivity..."
-          ping6 -c 2 db.${{ secrets.SUPABASE_PROJECT_REF }}.supabase.co || echo "IPv6 ping failed (may be filtered)"
 
       - name: Dump Supabase database
         env:
@@ -69,13 +72,16 @@ jobs:
           BACKUP_FILE="backups/supabase_backup_${TIMESTAMP}.sql"
           
           echo "Creating database backup: ${BACKUP_FILE}"
+          echo "Connecting to: db.${SUPABASE_PROJECT_REF}.supabase.co:5432"
           
-          # pg_dump で直接バックアップ（IPv6 サポート付き）
+          # pg_dump で Supabase データベースをバックアップ
+          # GitHub Actions ランナーは IPv6 をサポートしているため直接接続可能
           PGPASSWORD="${SUPABASE_DB_PASSWORD}" pg_dump \
             -h "db.${SUPABASE_PROJECT_REF}.supabase.co" \
             -p 5432 \
             -U postgres \
             -d postgres \
+            -v \
             --no-owner \
             --no-acl \
             --clean \
