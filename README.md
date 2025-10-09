@@ -238,36 +238,47 @@ Supabase データベースを Cloudflare R2 に自動バックアップする�
 
 ### 📋 機能
 
-- ✅ **毎日自動バックアップ**: GitHub Actions で午前3時（JST）に実行
-- ✅ **IPv6 問題を回避**: GitHub ランナーが直接 Supabase に接続
+- ✅ **毎日自動バックアップ**: VPS の Cron で午前3時に実行
+- ✅ **Cloudflare Tunnel 経由**: IPv6 制限を回避して Supabase に接続
 - ✅ **圧縮保存**: gzip で圧縮してストレージを節約
 - ✅ **自動削除**: 30日以前のバックアップを自動削除
-- ✅ **手動実行可能**: GitHub Actions UI からワンクリック実行
-- ✅ **ログ管理**: GitHub Actions でログを確認可能
+- ✅ **復元スクリプト**: ワンコマンドでバックアップから復元可能
 
 ### 🚀 セットアップ
 
-詳細は [docs/GITHUB_ACTIONS_BACKUP_SETUP.md](./docs/GITHUB_ACTIONS_BACKUP_SETUP.md) を参照してください。
+詳細は [docs/CLOUDFLARE_TUNNEL_SETUP.md](./docs/CLOUDFLARE_TUNNEL_SETUP.md) を参照してください。
 
 **クイックスタート:**
 
-1. **GitHub Secrets を設定**:
-   - `SUPABASE_PROJECT_REF`
-   - `SUPABASE_DB_PASSWORD`
-   - `R2_ACCOUNT_ID`
-   - `R2_ACCESS_KEY_ID`
-   - `R2_SECRET_ACCESS_KEY`
-   - `R2_BUCKET_NAME`
-
-2. **ワークフローファイルをプッシュ**:
+1. **Cloudflare Tunnel をセットアップ**:
    ```bash
-   git add .github/workflows/backup-supabase-to-r2.yml
-   git commit -m "Add GitHub Actions backup workflow"
-   git push
+   cd ~/rectbot
+   chmod +x setup_cloudflare_tunnel.sh
+   ./setup_cloudflare_tunnel.sh
    ```
 
-3. **手動実行でテスト**:
-   - GitHub → **Actions** → **Backup Supabase to Cloudflare R2** → **Run workflow**
+2. **Cloudflare Zero Trust Dashboard で Private Network を設定**:
+   - https://one.dash.cloudflare.com/
+   - Networks → Tunnels → Configure
+   - Add Private Network: `2406:da14:271:9901::/64`
+
+3. **WARP クライアントをインストール**:
+   ```bash
+   sudo apt-get install cloudflare-warp
+   warp-cli register
+   warp-cli connect
+   ```
+
+4. **バックアップをテスト**:
+   ```bash
+   ./backup_supabase_to_r2.sh
+   ```
+
+5. **Cron ジョブを設定**:
+   ```bash
+   crontab -e
+   # 0 3 * * * cd /home/ubuntu/rectbot && /bin/bash backup_supabase_to_r2.sh >> backup.log 2>&1
+   ```
 
 ### 🔧 緊急時の復元
 
