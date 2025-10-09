@@ -1,129 +1,38 @@
-﻿name: Backup Supabase to Cloudflare R2
+﻿# Clean GitHub Actions workflow for Supabase → Cloudflare R2 backup
+# Runs on a self-hosted runner and reads credentials from repository Secrets.
+
+name: Backup Supabase to Cloudflare R2
 
 on:
+  workflow_dispatch: {}
   schedule:
-    - cron: '0 18 * * *'
-  workflow_dispatch:
+    - cron: '0 18 * * *' # JST 03:00
 
 jobs:
   backup:
-    runs-on: ubuntu-latest
+    name: Supabase → R2 Backup
+    runs-on: self-hosted
+    env:
+      SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+
     steps:
-      - uses: actions/checkout@v4
-      
-      - name: Setup IPv6 networking
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Ensure required tools
         run: |
-          # IPv6 が利用可能か確認
-          if ip -6 addr show | grep -q "scope global"; then
-            echo "✅ IPv6 is available"
-          else
-            echo "⚠️ IPv6 is not properly configured"
-          fi
-          
-          # Docker の IPv6 設定を確認
-          docker network inspect bridge | grep EnableIPv6 || true
-      
-      - name: Install PostgreSQL client
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y postgresql-client
-      
-      - name: Test database connectivity
-        env:
-          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
-          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-        run: |
-          DB_HOST="db.${SUPABASE_PROJECT_REF}.supabase.co"
-          
-          echo "Testing connectivity to ${DB_HOST}..."
-          
-          # DNS 解決をテスト
-          echo "DNS resolution:"
-          dig +short ${DB_HOST} || nslookup ${DB_HOST}
-          
-          # ping6 テスト（タイムアウト付き）
-          echo "IPv6 ping test:"
-          timeout 5 ping6 -c 2 ${DB_HOST} || echo "⚠️ IPv6 ping failed"
-          
-          # PostgreSQL 接続テスト
-          echo "PostgreSQL connection test:"
-          PGPASSWORD="${SUPABASE_DB_PASSWORD}" timeout 10 psql \
-            -h "${DB_HOST}" \
-            -p 5432 \
-            -U postgres \
-            -d postgres \
-            -c "SELECT version();" || echo "⚠️ Direct connection failed"
-      - name: Install AWS CLI
-        run: |
-          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-          unzip awscliv2.zip
-          sudo ./aws/install --update || sudo ./aws/install
-      - name: Configure AWS CLI
-        env:
-          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-        run: |
-          aws configure set aws_access_key_id $R2_ACCESS_KEY_ID
-          aws configure set aws_secret_access_key $R2_SECRET_ACCESS_KEY
-          aws configure set region auto
-      - name: Create backup directory
-        run: mkdir -p backups
-      - name: Dump database
-        env:
-          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
-          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-        run: |
-          TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
-          BACKUP_FILE="backups/supabase_backup_${TIMESTAMP}.sql"
-          DB_HOST="db.${SUPABASE_PROJECT_REF}.supabase.co"
-          
-          echo "Creating database backup: ${BACKUP_FILE}"
-          echo "Connecting to: ${DB_HOST}:5432"
-          
-          # pg_dump を直接実行（Docker なし）
-          if PGPASSWORD="${SUPABASE_DB_PASSWORD}" pg_dump \
-            -h "${DB_HOST}" \
-            -p 5432 \
-            -U postgres \
-            -d postgres \
-            --no-owner \
-            --no-acl \
-            --clean \
-            --if-exists \
-            -v \
-            -f "${BACKUP_FILE}" 2>&1 | tee dump.log; then
-            echo "✅ Database dump successful"
-            echo "BACKUP_FILE=${BACKUP_FILE}" >> $GITHUB_ENV
-            ls -lh "${BACKUP_FILE}"
-          else
-            echo "❌ Database dump failed"
-            echo "Error log:"
-            cat dump.log
-            exit 1
-          fi
-      - name: Compress backup
-        run: |
-          gzip "${BACKUP_FILE}"
-          echo "COMPRESSED_FILE=${BACKUP_FILE}.gz" >> $GITHUB_ENV
-      - name: Upload to R2
-        env:
-          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
-          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
-        run: |
-          aws s3 cp "${COMPRESSED_FILE}" "s3://${R2_BUCKET_NAME}/$(basename ${COMPRESSED_FILE})" --endpoint-url="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
-      - name: Cleanup old backups
-        env:
-          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
-          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
-        run: |
-          ENDPOINT_URL="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
-          CUTOFF_DATE=$(date -d '30 days ago' +%Y%m%d || date -v-30d +%Y%m%d)
-          aws s3 ls "s3://${R2_BUCKET_NAME}/" --endpoint-url="${ENDPOINT_URL}" | while read -r line; do
-            BACKUP_NAME=$(echo "$line" | awk '{print $4}')
-            if [[ "$BACKUP_NAME" =~ ^supabase_backup_([0-9]{8})_ ]]; then
-              BACKUP_DATE="${BASH_REMATCH[1]}"
-              if [ "$BACKUP_DATE" -lt "$CUTOFF_DATE" ]; then
-                aws s3 rm "s3://${R2_BUCKET_NAME}/${BACKUP_NAME}" --endpoint-url="${ENDPOINT_URL}"
-              fi
-            fi
-          done
+          if ! command -v supabase >/dev/null 2>&1; then echo "ERROR: supabase CLI not installed"; exit 1; fi
+          if ! command -v aws >/dev/null 2>&1; then echo "ERROR: awscli not installed"; exit 1; fi
+
+      - name: Make backup script executable
+        run: chmod +x ./backup_supabase_to_r2.sh
+
+      - name: Run backup script
+        run: ./backup_supabase_to_r2.sh
+
+
