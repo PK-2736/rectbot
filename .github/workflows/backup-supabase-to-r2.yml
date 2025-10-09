@@ -1,252 +1,74 @@
-name: Backup Supabase to Cloudflare R2
+﻿name: Backup Supabase to Cloudflare R2
 
 on:
-  # 毎日午前3時（JST = UTC+9 なので UTC 18:00）に実行
   schedule:
     - cron: '0 18 * * *'
-  
-  # 手動実行も可能
   workflow_dispatch:
 
 jobs:
   backup:
     runs-on: ubuntu-latest
-    
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install PostgreSQL client
+      - uses: actions/checkout@v4
+      - name: Install Supabase CLI
         run: |
-          sudo apt-get update
-          sudo apt-get install -y postgresql-client
-
-      - name: Install AWS CLI for R2
+          curl -L https://github.com/supabase/cli/releases/latest/download/supabase_linux_amd64.tar.gz -o supabase.tar.gz
+          tar -xzf supabase.tar.gz
+          sudo mv supabase /usr/local/bin/
+          sudo chmod +x /usr/local/bin/supabase
+          supabase --version
+      - name: Install AWS CLI
         run: |
           curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
           unzip awscliv2.zip
-          sudo ./aws/install --update
-
-      - name: Configure AWS CLI for Cloudflare R2
+          sudo ./aws/install
+      - name: Configure AWS CLI
         env:
-          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
           R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
         run: |
           aws configure set aws_access_key_id $R2_ACCESS_KEY_ID
           aws configure set aws_secret_access_key $R2_SECRET_ACCESS_KEY
           aws configure set region auto
-
       - name: Create backup directory
         run: mkdir -p backups
-
-      - name: Test Supabase connectivity
-        env:
-          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
-        run: |
-          echo "Testing Supabase database connectivity..."
-          
-          # DNS 解決をテスト
-          echo "DNS Resolution:"
-          host db.${SUPABASE_PROJECT_REF}.supabase.co || true
-          dig +short AAAA db.${SUPABASE_PROJECT_REF}.supabase.co || true
-          
-          # IPv6 が利用可能か確認
-          if [ -f /proc/net/if_inet6 ]; then
-            echo "✅ IPv6 is available on this runner"
-            ip -6 addr show | grep "inet6" | grep -v "::1" | head -3
-            
-            # IPv6 接続テスト（タイムアウト付き）
-            echo "Testing IPv6 connectivity (timeout 10s)..."
-            timeout 10 ping6 -c 2 db.${SUPABASE_PROJECT_REF}.supabase.co || echo "⚠️ IPv6 ping failed or filtered"
-          else
-            echo "⚠️ IPv6 is not available"
-          fi
-
-      - name: Dump Supabase database
+      - name: Dump database
         env:
           SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
         run: |
           TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
           BACKUP_FILE="backups/supabase_backup_${TIMESTAMP}.sql"
-          
-          echo "Creating database backup: ${BACKUP_FILE}"
-          
-          # 複数の接続方法を試行
-          SUCCESS=false
-          
-          # 方法1: IPv4 を優先的に使用（/etc/hosts に追加）
-          echo "Attempting connection method 1: Force IPv4 via /etc/hosts"
-          DB_HOST="db.${SUPABASE_PROJECT_REF}.supabase.co"
-          
-          # DNS で IPv4 アドレスを取得（A レコード）
-          IPV4_ADDR=$(dig +short A ${DB_HOST} | head -n1)
-          
-          if [ -n "$IPV4_ADDR" ]; then
-            echo "Found IPv4 address: ${IPV4_ADDR}"
-            echo "${IPV4_ADDR} ${DB_HOST}" | sudo tee -a /etc/hosts
-            
-            echo "Connecting to: ${DB_HOST} (${IPV4_ADDR}):5432"
-            
-            if PGPASSWORD="${SUPABASE_DB_PASSWORD}" pg_dump \
-              -h "${DB_HOST}" \
-              -p 5432 \
-              -U postgres \
-              -d postgres \
-              -v \
-              --no-owner \
-              --no-acl \
-              --clean \
-              --if-exists \
-              -f "${BACKUP_FILE}" \
-              2>&1 | tee dump.log; then
-              SUCCESS=true
-              echo "✅ Method 1 succeeded (IPv4 via /etc/hosts)"
-            fi
-          else
-            echo "⚠️ No IPv4 address found for ${DB_HOST}"
-          fi
-          
-          # 方法2: Connection Pooler を使用（IPv4 サポート）
-          if [ "$SUCCESS" = false ]; then
-            echo ""
-            echo "Attempting connection method 2: Connection Pooler"
-            POOLER_HOST="aws-0-ap-northeast-1.pooler.supabase.com"
-            
-            echo "Connecting to: ${POOLER_HOST}:5432"
-            
-            if PGPASSWORD="${SUPABASE_DB_PASSWORD}" pg_dump \
-              -h "${POOLER_HOST}" \
-              -p 5432 \
-              -U "postgres.${SUPABASE_PROJECT_REF}" \
-              -d postgres \
-              -v \
-              --no-owner \
-              --no-acl \
-              --clean \
-              --if-exists \
-              -f "${BACKUP_FILE}" \
-              2>&1 | tee dump.log; then
-              SUCCESS=true
-              echo "✅ Method 2 succeeded (Connection Pooler)"
-            fi
-          fi
-          
-          # 方法3: IPv6 経由で直接接続
-          if [ "$SUCCESS" = false ]; then
-            echo ""
-            echo "Attempting connection method 3: Direct IPv6 connection"
-            
-            if PGPASSWORD="${SUPABASE_DB_PASSWORD}" pg_dump \
-              -h "db.${SUPABASE_PROJECT_REF}.supabase.co" \
-              -p 5432 \
-              -U postgres \
-              -d postgres \
-              -v \
-              --no-owner \
-              --no-acl \
-              --clean \
-              --if-exists \
-              -f "${BACKUP_FILE}" \
-              2>&1 | tee dump.log; then
-              SUCCESS=true
-              echo "✅ Method 3 succeeded (Direct IPv6)"
-            fi
-          fi
-          
-          # 結果確認
-          if [ "$SUCCESS" = true ] && [ -f "${BACKUP_FILE}" ] && [ -s "${BACKUP_FILE}" ]; then
-            echo "✅ Database dump successful"
-            ls -lh "${BACKUP_FILE}"
+          DB_URL="postgresql://postgres:${SUPABASE_DB_PASSWORD}@db.${SUPABASE_PROJECT_REF}.supabase.co:5432/postgres"
+          if supabase db dump --db-url "${DB_URL}" -f "${BACKUP_FILE}"; then
             echo "BACKUP_FILE=${BACKUP_FILE}" >> $GITHUB_ENV
+            ls -lh "${BACKUP_FILE}"
           else
-            echo "❌ All connection methods failed"
-            echo "Dump log:"
-            cat dump.log
             exit 1
           fi
-
       - name: Compress backup
         run: |
-          echo "Compressing ${BACKUP_FILE}..."
           gzip "${BACKUP_FILE}"
-          COMPRESSED_FILE="${BACKUP_FILE}.gz"
-          
-          # ファイルサイズを表示
-          ls -lh "${COMPRESSED_FILE}"
-          
-          echo "COMPRESSED_FILE=${COMPRESSED_FILE}" >> $GITHUB_ENV
-
-      - name: Upload to Cloudflare R2
+          echo "COMPRESSED_FILE=${BACKUP_FILE}.gz" >> $GITHUB_ENV
+      - name: Upload to R2
         env:
           R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
           R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
         run: |
-          ENDPOINT_URL="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
-          
-          echo "Uploading ${COMPRESSED_FILE} to R2..."
-          
-          aws s3 cp \
-            "${COMPRESSED_FILE}" \
-            "s3://${R2_BUCKET_NAME}/$(basename ${COMPRESSED_FILE})" \
-            --endpoint-url="${ENDPOINT_URL}"
-          
-          if [ $? -eq 0 ]; then
-            echo "✅ Upload to R2 successful"
-          else
-            echo "❌ Upload to R2 failed"
-            exit 1
-          fi
-
-      - name: Cleanup old backups from R2 (keep last 30 days)
+          aws s3 cp "${COMPRESSED_FILE}" "s3://${R2_BUCKET_NAME}/$(basename ${COMPRESSED_FILE})" --endpoint-url="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+      - name: Cleanup old backups
         env:
           R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
           R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
         run: |
           ENDPOINT_URL="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
           CUTOFF_DATE=$(date -d '30 days ago' +%Y%m%d || date -v-30d +%Y%m%d)
-          
-          echo "Removing backups older than ${CUTOFF_DATE}..."
-          
-          # R2 のバックアップ一覧を取得
-          aws s3 ls "s3://${R2_BUCKET_NAME}/" --endpoint-url="${ENDPOINT_URL}" | \
-          while read -r line; do
-            # ファイル名を抽出
+          aws s3 ls "s3://${R2_BUCKET_NAME}/" --endpoint-url="${ENDPOINT_URL}" | while read -r line; do
             BACKUP_NAME=$(echo "$line" | awk '{print $4}')
-            
-            # supabase_backup_ で始まるファイルのみ処理
             if [[ "$BACKUP_NAME" =~ ^supabase_backup_([0-9]{8})_ ]]; then
               BACKUP_DATE="${BASH_REMATCH[1]}"
-              
-              # 日付比較
               if [ "$BACKUP_DATE" -lt "$CUTOFF_DATE" ]; then
-                echo "Deleting old backup: ${BACKUP_NAME}"
                 aws s3 rm "s3://${R2_BUCKET_NAME}/${BACKUP_NAME}" --endpoint-url="${ENDPOINT_URL}"
               fi
             fi
           done
-          
-          echo "✅ Cleanup completed"
-
-      - name: Backup summary
-        if: always()
-        run: |
-          echo "## 📊 Backup Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Timestamp:** $(date)" >> $GITHUB_STEP_SUMMARY
-          echo "- **Backup File:** ${COMPRESSED_FILE:-N/A}" >> $GITHUB_STEP_SUMMARY
-          
-          if [ -f "${COMPRESSED_FILE}" ]; then
-            FILE_SIZE=$(ls -lh "${COMPRESSED_FILE}" | awk '{print $5}')
-            echo "- **File Size:** ${FILE_SIZE}" >> $GITHUB_STEP_SUMMARY
-            echo "- **Status:** ✅ Success" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "- **Status:** ❌ Failed" >> $GITHUB_STEP_SUMMARY
-          fi
-
-      - name: Notify on failure
-        if: failure()
-        run: |
-          echo "⚠️ Backup failed! Check the logs for details."
-          # ここに Discord や Slack への通知を追加可能
