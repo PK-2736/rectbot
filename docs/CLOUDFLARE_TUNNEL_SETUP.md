@@ -72,6 +72,42 @@ sudo systemctl status cloudflared
 
 ### ステップ2: Cloudflare Zero Trust Dashboard で Private Network を追加
 
+#### 方法A: コマンドラインで追加（推奨）
+
+VPS で以下のコマンドを実行：
+
+```bash
+cd ~/rectbot
+chmod +x add_private_network.sh
+./add_private_network.sh
+```
+
+このスクリプトは自動で以下を実行します：
+
+1. Tunnel ID を取得
+2. `cloudflared tunnel route ip add` コマンドで Private Network を追加
+3. 追加されたルートを確認
+
+**手動で実行する場合：**
+
+```bash
+# Tunnel ID を取得
+TUNNEL_ID=$(cloudflared tunnel list | grep supabase-backup-tunnel | awk '{print $1}')
+
+# Private Network を追加
+cloudflared tunnel route ip add 2406:da14:271:9901::/64 ${TUNNEL_ID}
+
+# 確認
+cloudflared tunnel route ip show ${TUNNEL_ID}
+```
+
+**出力例：**
+```
+2406:da14:271:9901::/64 via Tunnel supabase-backup-tunnel (a1b2c3d4-...)
+```
+
+#### 方法B: Cloudflare Dashboard で追加（GUI）
+
 1. ブラウザで https://one.dash.cloudflare.com/ を開く
 
 2. **Networks** → **Tunnels** をクリック
