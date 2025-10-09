@@ -72,33 +72,97 @@ jobs:
           BACKUP_FILE="backups/supabase_backup_${TIMESTAMP}.sql"
           
           echo "Creating database backup: ${BACKUP_FILE}"
-          echo "Connecting to: db.${SUPABASE_PROJECT_REF}.supabase.co:5432"
           
-          # pg_dump で Supabase データベースをバックアップ
-          # GitHub Actions ランナーは IPv6 をサポートしているため直接接続可能
-          PGPASSWORD="${SUPABASE_DB_PASSWORD}" pg_dump \
-            -h "db.${SUPABASE_PROJECT_REF}.supabase.co" \
-            -p 5432 \
-            -U postgres \
-            -d postgres \
-            -v \
-            --no-owner \
-            --no-acl \
-            --clean \
-            --if-exists \
-            -v \
-            -f "${BACKUP_FILE}" \
-            2>&1 | tee dump.log
+          # 複数の接続方法を試行
+          SUCCESS=false
           
-          DUMP_EXIT_CODE=${PIPESTATUS[0]}
+          # 方法1: IPv4 を優先的に使用（/etc/hosts に追加）
+          echo "Attempting connection method 1: Force IPv4 via /etc/hosts"
+          DB_HOST="db.${SUPABASE_PROJECT_REF}.supabase.co"
           
-          if [ $DUMP_EXIT_CODE -eq 0 ] && [ -f "${BACKUP_FILE}" ] && [ -s "${BACKUP_FILE}" ]; then
+          # DNS で IPv4 アドレスを取得（A レコード）
+          IPV4_ADDR=$(dig +short A ${DB_HOST} | head -n1)
+          
+          if [ -n "$IPV4_ADDR" ]; then
+            echo "Found IPv4 address: ${IPV4_ADDR}"
+            echo "${IPV4_ADDR} ${DB_HOST}" | sudo tee -a /etc/hosts
+            
+            echo "Connecting to: ${DB_HOST} (${IPV4_ADDR}):5432"
+            
+            if PGPASSWORD="${SUPABASE_DB_PASSWORD}" pg_dump \
+              -h "${DB_HOST}" \
+              -p 5432 \
+              -U postgres \
+              -d postgres \
+              -v \
+              --no-owner \
+              --no-acl \
+              --clean \
+              --if-exists \
+              -f "${BACKUP_FILE}" \
+              2>&1 | tee dump.log; then
+              SUCCESS=true
+              echo "✅ Method 1 succeeded (IPv4 via /etc/hosts)"
+            fi
+          else
+            echo "⚠️ No IPv4 address found for ${DB_HOST}"
+          fi
+          
+          # 方法2: Connection Pooler を使用（IPv4 サポート）
+          if [ "$SUCCESS" = false ]; then
+            echo ""
+            echo "Attempting connection method 2: Connection Pooler"
+            POOLER_HOST="aws-0-ap-northeast-1.pooler.supabase.com"
+            
+            echo "Connecting to: ${POOLER_HOST}:5432"
+            
+            if PGPASSWORD="${SUPABASE_DB_PASSWORD}" pg_dump \
+              -h "${POOLER_HOST}" \
+              -p 5432 \
+              -U "postgres.${SUPABASE_PROJECT_REF}" \
+              -d postgres \
+              -v \
+              --no-owner \
+              --no-acl \
+              --clean \
+              --if-exists \
+              -f "${BACKUP_FILE}" \
+              2>&1 | tee dump.log; then
+              SUCCESS=true
+              echo "✅ Method 2 succeeded (Connection Pooler)"
+            fi
+          fi
+          
+          # 方法3: IPv6 経由で直接接続
+          if [ "$SUCCESS" = false ]; then
+            echo ""
+            echo "Attempting connection method 3: Direct IPv6 connection"
+            
+            if PGPASSWORD="${SUPABASE_DB_PASSWORD}" pg_dump \
+              -h "db.${SUPABASE_PROJECT_REF}.supabase.co" \
+              -p 5432 \
+              -U postgres \
+              -d postgres \
+              -v \
+              --no-owner \
+              --no-acl \
+              --clean \
+              --if-exists \
+              -f "${BACKUP_FILE}" \
+              2>&1 | tee dump.log; then
+              SUCCESS=true
+              echo "✅ Method 3 succeeded (Direct IPv6)"
+            fi
+          fi
+          
+          # 結果確認
+          if [ "$SUCCESS" = true ] && [ -f "${BACKUP_FILE}" ] && [ -s "${BACKUP_FILE}" ]; then
             echo "✅ Database dump successful"
             ls -lh "${BACKUP_FILE}"
             echo "BACKUP_FILE=${BACKUP_FILE}" >> $GITHUB_ENV
           else
-            echo "❌ Database dump failed"
-            echo "Exit code: $DUMP_EXIT_CODE"
+            echo "❌ All connection methods failed"
+            echo "Dump log:"
             cat dump.log
             exit 1
           fi
