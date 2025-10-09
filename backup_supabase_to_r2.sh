@@ -57,10 +57,20 @@ log "Step 1: Supabase データベースをダンプ中 (Supabase CLI経由)..."
 
 # Supabase CLIでダンプ実行
 # --db-url で直接接続情報を指定
+# Supabase CLIはDockerを使用してIPv6接続を処理
 DB_URL="postgresql://postgres:${SUPABASE_DB_PASSWORD}@db.${SUPABASE_PROJECT_REF}.supabase.co:5432/postgres"
 
-if supabase db dump --db-url "$DB_URL" -f "$BACKUP_PATH"; then
+if supabase db dump --db-url "$DB_URL" -f "$BACKUP_PATH" 2>&1 | tee -a "$LOG_FILE"; then
   log "✅ Supabase CLI dump 成功: $BACKUP_PATH"
+  
+  # ファイルサイズを確認
+  if [ -f "$BACKUP_PATH" ] && [ -s "$BACKUP_PATH" ]; then
+    BACKUP_SIZE=$(du -h "$BACKUP_PATH" | cut -f1)
+    log "📦 バックアップサイズ: $BACKUP_SIZE"
+  else
+    error "❌ バックアップファイルが空または存在しません"
+    exit 1
+  fi
 else
   error "❌ Supabase CLI dump 失敗"
   error "プロジェクト: ${SUPABASE_PROJECT_REF}"
