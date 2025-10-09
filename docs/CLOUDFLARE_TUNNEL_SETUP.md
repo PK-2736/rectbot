@@ -1,108 +1,82 @@
-# Cloudflare Tunnel - Supabase Private Network 追加ガイド
+# Cloudflare Tunnel - Supabase 専用 Tunnel セットアップガイド
 
 ## 概要
 
-**既存の Cloudflare Tunnel** に Supabase への Private Network ルートを追加して、VPS から IPv6 の Supabase に接続できるようにします。
+Supabase バックアップ専用の新しい Cloudflare Tunnel を作成して、VPS から IPv6 の Supabase に接続できるようにします。
 
-## 前提条件
-
-✅ Cloudflare Tunnel が既にセットアップ済み（Redis → Express → Worker の構成）  
-✅ cloudflared がインストール済み  
-✅ Tunnel が正常に動作している
+**既存の `express-tunnel`（Redis → Express → Worker）には影響しません。**
 
 ## アーキテクチャ
 
 ```
 VPS (IPv4 only)
-  ↓
-既存の Cloudflare Tunnel (cloudflared)
-  ├─ Redis → Express → Worker (既存のルート)
-  └─ Supabase Database (新規追加の Private Network ルート)
-       ↓
-Cloudflare Network (IPv4/IPv6 Bridge)
-  ↓ IPv6
-Supabase Database (2406:da14:271:9901:acf1:9453:83e3:d1d0)
+  ├─ express-tunnel (既存)
+  │   └─ backend.rectbot.tech → Express (port 3000)
+  │
+  └─ supabase-backup-tunnel (新規)
+      └─ Private Network → Supabase Database (IPv6)
+           ↓
+      Cloudflare Network (IPv4/IPv6 Bridge)
+           ↓ IPv6
+      Supabase Database (2406:da14:271:9901:acf1:9453:83e3:d1d0)
 ```
 
 ## メリット
 
-- ✅ **既存の Tunnel を活用**: 新しい Tunnel を作成する必要なし
+- ✅ **既存の Tunnel に影響なし**: 完全に独立した新しい Tunnel
+- ✅ **専用設定**: Supabase 接続専用の設定ファイル
+- ✅ **独立したサービス**: `cloudflared-supabase.service` として管理
 - ✅ **IPv6 対応**: Cloudflare が IPv4→IPv6 変換を処理
-- ✅ **セキュア**: 既存の暗号化トンネルを使用
-- ✅ **追加コストなし**: 既存の無料プランで利用可能
+- ✅ **セキュア**: 暗号化されたトンネル接続
+
+## 前提条件
+
+✅ cloudflared がインストール済み  
+✅ Cloudflare アカウントでログイン済み（`cloudflared tunnel login` 実行済み）  
+✅ VPS への SSH アクセス
 
 ## セットアップ手順
 
-### ステップ1: VPS に接続して確認スクリプトを実行
+### ステップ1: VPS に接続してスクリプトを実行
 
 ```bash
 ssh ubuntu@<VPS_IP>
 cd ~/rectbot
 git pull
 
-# 確認スクリプトを実行
+# セットアップスクリプトを実行
 chmod +x setup_cloudflare_tunnel.sh
 ./setup_cloudflare_tunnel.sh
 ```
 
-このスクリプトは以下を確認します：
+このスクリプトは以下を自動で実行します：
 
-- cloudflared のインストール状態
-- 既存の Tunnel 一覧
-- 現在の設定ファイル（`/etc/cloudflared/config.yml`）
+1. ✅ cloudflared のインストール確認
+2. ✅ 既存の Tunnel 一覧表示
+3. ✅ 新しい Tunnel の作成（`supabase-backup-tunnel`）
+4. ✅ 専用設定ファイルの生成（`/etc/cloudflared-supabase/config.yml`）
+5. ✅ systemd サービスの作成と起動（`cloudflared-supabase.service`）
 
-### ステップ2: config.yml に warp-routing を追加
-
-既存の `/etc/cloudflared/config.yml` を編集：
-
-```bash
-sudo nano /etc/cloudflared/config.yml
-```
-
-以下を**追加**（既存の設定は残す）：
-
-```yaml
-# WARP モードを有効化（IPv6 サポート）
-warp-routing:
-  enabled: true
-```
-
-**例：既存の config.yml に追加後**
-
-```yaml
-tunnel: <既存のTunnel ID>
-credentials-file: /etc/cloudflared/<既存のTunnel ID>.json
-
-# 既存の ingress ルール
-ingress:
-  - hostname: your-existing-hostname.example.com
-    service: http://localhost:3000
-  - service: http_status:404
-
-# ↓ ここに追加 ↓
-# WARP モードを有効化（IPv6 サポート）
-warp-routing:
-  enabled: true
-```
-
-保存して終了（Ctrl + X → Y → Enter）
-
-### ステップ3: cloudflared サービスを再起動
+**実行後の確認：**
 
 ```bash
-sudo systemctl restart cloudflared
+# 新しい Tunnel が作成されたか確認
+cloudflared tunnel list
+
+# サービスが起動しているか確認
+sudo systemctl status cloudflared-supabase
+
+# 既存の express-tunnel も正常か確認
 sudo systemctl status cloudflared
 ```
 
-エラーがないことを確認してください。
-
-### ステップ4: Cloudflare Zero Trust Dashboard で Private Network を追加
+### ステップ2: Cloudflare Zero Trust Dashboard で Private Network を追加
 
 1. ブラウザで https://one.dash.cloudflare.com/ を開く
 
 2. **Networks** → **Tunnels** をクリック
 
-3. **既存の Tunnel 名**（Redis→Express で使用している Tunnel）を選択
+3. **`supabase-backup-tunnel`**（新しく作成された Tunnel）を選択
 
 4. **Configure** タブをクリック
 
@@ -125,7 +99,9 @@ sudo systemctl status cloudflared
 
 8. **Save** をクリック
 
-### ステップ5: VPS に WARP クライアントをインストール
+**注意**: `express-tunnel` ではなく、**`supabase-backup-tunnel`** に追加してください。
+
+### ステップ3: VPS に WARP クライアントをインストール（まだの場合）
 
 Cloudflare WARP を VPS にインストールして、Private Network 経由でルーティング：
 
@@ -155,7 +131,7 @@ Status update: Connected
 Success
 ```
 
-### ステップ6: 接続テスト
+### ステップ4: 接続テスト
 
 ```bash
 # DNS 解決テスト
@@ -186,7 +162,7 @@ PGPASSWORD="${SUPABASE_DB_PASSWORD}" psql \
   -c "SELECT version();"
 ```
 
-### ステップ7: バックアップスクリプトをテスト
+### ステップ5: バックアップスクリプトをテスト
 
 ```bash
 cd ~/rectbot
@@ -202,7 +178,7 @@ cd ~/rectbot
 ✅ Cleanup completed
 ```
 
-### ステップ8: Cron ジョブを設定
+### ステップ6: Cron ジョブを設定
 
 ```bash
 crontab -e
@@ -214,32 +190,70 @@ crontab -e
 0 3 * * * cd /home/ubuntu/rectbot && /bin/bash backup_supabase_to_r2.sh >> /home/ubuntu/rectbot/backup.log 2>&1
 ```
 
+## 2つの Tunnel の管理
+
+### Tunnel 一覧
+
+```bash
+cloudflared tunnel list
+```
+
+出力例：
+```
+ID                                   NAME                     CREATED              CONNECTIONS
+80cbc750-94a4-4b87-b86d-b328b7e76779 express-tunnel           2025-10-01T15:17:18Z 2xkix03, 1xkix05
+a1b2c3d4-... supabase-backup-tunnel 2025-10-09T05:30:00Z 2xkix03
+```
+
+### サービス管理
+
+#### express-tunnel（既存）
+
+```bash
+# ステータス確認
+sudo systemctl status cloudflared
+
+# 再起動
+sudo systemctl restart cloudflared
+
+# ログ確認
+sudo journalctl -u cloudflared -f
+```
+
+#### supabase-backup-tunnel（新規）
+
+```bash
+# ステータス確認
+sudo systemctl status cloudflared-supabase
+
+# 再起動
+sudo systemctl restart cloudflared-supabase
+
+# 停止
+sudo systemctl stop cloudflared-supabase
+
+# 起動
+sudo systemctl start cloudflared-supabase
+
+# ログ確認
+sudo journalctl -u cloudflared-supabase -f
+```
+
+### 設定ファイル
+
+| Tunnel | 設定ファイル | 用途 |
+|--------|------------|------|
+| express-tunnel | `/etc/cloudflared/config.yml` | backend.rectbot.tech 向け |
+| supabase-backup-tunnel | `/etc/cloudflared-supabase/config.yml` | Supabase IPv6 接続専用 |
+
 ## 重要なポイント
 
-### 既存の Tunnel への影響
+### 独立した構成
 
-✅ **既存のルート（Redis → Express → Worker）は影響を受けません**  
-✅ Private Network ルートは**追加**されるだけです  
-✅ 同じ Tunnel で複数のルートを管理できます
-
-### config.yml の構成例
-
-```yaml
-tunnel: <既存のTunnel ID>
-credentials-file: /etc/cloudflared/<Tunnel ID>.json
-
-# 既存の Web アプリケーション向けルート
-ingress:
-  - hostname: your-app.example.com
-    service: http://localhost:3000
-  - hostname: api.example.com
-    service: http://localhost:8080
-  - service: http_status:404
-
-# Private Network（Supabase 接続用）
-warp-routing:
-  enabled: true
-```
+✅ **express-tunnel には影響なし**  
+✅ **別々の設定ファイル**（`/etc/cloudflared/` vs `/etc/cloudflared-supabase/`）  
+✅ **別々の systemd サービス**（`cloudflared.service` vs `cloudflared-supabase.service`）  
+✅ **同時に動作可能**
 
 ## トラブルシューティング
 
