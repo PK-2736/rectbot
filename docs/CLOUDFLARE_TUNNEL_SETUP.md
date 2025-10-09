@@ -151,8 +151,8 @@ echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/cloud
 sudo apt-get update
 sudo apt-get install cloudflare-warp
 
-# WARP を登録
-warp-cli register
+# WARP を登録（新しいコマンド）
+warp-cli registration new
 
 # WARP に接続
 warp-cli connect
