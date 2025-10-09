@@ -50,56 +50,25 @@ log "Supabase バックアップ開始"
 log "=========================================="
 
 # ===== 1. Supabase 接続情報を構築 =====
-# Session Mode を使用（pg_dump に必要）
-# Direct Connection (port 5432) を使用
-SUPABASE_DB_HOST="db.${SUPABASE_PROJECT_REF}.supabase.co"
-SUPABASE_DB_PORT=5432
-SUPABASE_DB_USER="postgres"
+# Connection Pooler (IPv4対応) を使用
+# Transaction Mode (port 6543) - バックアップに適している
+SUPABASE_DB_HOST="aws-0-ap-northeast-1.pooler.supabase.com"
+SUPABASE_DB_PORT=6543
+SUPABASE_DB_USER="postgres.${SUPABASE_PROJECT_REF}"
 SUPABASE_DB_NAME="postgres"
 
-log "接続先: ${SUPABASE_DB_HOST}:${SUPABASE_DB_PORT}"
+log "接続先: ${SUPABASE_DB_HOST}:${SUPABASE_DB_PORT} (Connection Pooler - IPv4)"
 log "ユーザー: ${SUPABASE_DB_USER}"
 log "データベース: ${SUPABASE_DB_NAME}"
 
-# ===== 2. PostgreSQL ダンプ（Supabase 直接接続） =====
-log "Step 1: Supabase データベースをダンプ中..."
+# ===== 2. PostgreSQL ダンプ（Connection Pooler経由） =====
+log "Step 1: Supabase データベースをダンプ中 (Connection Pooler経由)..."
 
 export PGPASSWORD="$SUPABASE_DB_PASSWORD"
 
-# IPv4 アドレスを解決（複数の方法を試行）
-SUPABASE_DB_HOST_IPV4=""
-
-# 方法1: getent を使用
-if command -v getent &> /dev/null; then
-  SUPABASE_DB_HOST_IPV4=$(getent ahostsv4 "$SUPABASE_DB_HOST" 2>/dev/null | head -n 1 | awk '{print $1}')
-fi
-
-# 方法2: dig を使用
-if [ -z "$SUPABASE_DB_HOST_IPV4" ] && command -v dig &> /dev/null; then
-  SUPABASE_DB_HOST_IPV4=$(dig +short "$SUPABASE_DB_HOST" A | head -n 1)
-fi
-
-# 方法3: nslookup を使用
-if [ -z "$SUPABASE_DB_HOST_IPV4" ] && command -v nslookup &> /dev/null; then
-  SUPABASE_DB_HOST_IPV4=$(nslookup "$SUPABASE_DB_HOST" | grep -A1 "Name:" | grep "Address:" | awk '{print $2}' | grep -v ":" | head -n 1)
-fi
-
-if [ -z "$SUPABASE_DB_HOST_IPV4" ]; then
-  log "⚠️ IPv4 アドレスの解決に失敗。ホスト名で接続を試みます..."
-  CONNECT_HOST="$SUPABASE_DB_HOST"
-else
-  log "✅ IPv4 アドレスで接続: $SUPABASE_DB_HOST_IPV4"
-  CONNECT_HOST="$SUPABASE_DB_HOST_IPV4"
-fi
-
-# pg_dump 実行（IPv4 優先）
-# PGHOSTADDR を使用して IPv4 を強制
-if [ -n "$SUPABASE_DB_HOST_IPV4" ]; then
-  export PGHOSTADDR="$SUPABASE_DB_HOST_IPV4"
-fi
-
+# Connection PoolerはIPv4対応なのでそのまま使用
 if pg_dump \
-  -h "$CONNECT_HOST" \
+  -h "$SUPABASE_DB_HOST" \
   -p "$SUPABASE_DB_PORT" \
   -U "$SUPABASE_DB_USER" \
   -d "$SUPABASE_DB_NAME" \
@@ -113,8 +82,7 @@ if pg_dump \
 else
   error "❌ pg_dump 失敗"
   error "接続情報を確認してください:"
-  error "  Host: $CONNECT_HOST"
-  error "  IPv4 Address: ${SUPABASE_DB_HOST_IPV4:-N/A}"
+  error "  Host: $SUPABASE_DB_HOST"
   error "  Port: $SUPABASE_DB_PORT"
   error "  User: $SUPABASE_DB_USER"
   error "  Database: $SUPABASE_DB_NAME"
