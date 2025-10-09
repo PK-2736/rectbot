@@ -72,7 +72,6 @@ else
   error "❌ Supabase CLI dump 失敗"
   exit 1
 fi
-fi
 
 unset PGPASSWORD
 unset PGHOSTADDR
