@@ -45,7 +45,7 @@
 | Discord Bot | OCI Arm インスタンス | Always Free | Bot常時稼働 | Node.jsで開発。サブスク権限管理 |
 | 課金 | Stripe | Free（手数料のみ） | 月額/年額サブスク課金 | 学生オファー利用可 |
 | 監視 / ログ | Sentry Free | Free | バックエンド・Botのログ管理 | 必要に応じ有料プランに切替可能 |
-| バックアップ | Cloudflare R2 | Free (10GB) | Supabase DBバックアップ | 自動バックアップ・復元システム |
+| バックアップ | Cloudflare R2 | Free (10GB) | Supabase DBバックアップ | GitHub Actions で自動実行 |
 
 ---
 
@@ -238,31 +238,40 @@ Supabase データベースを Cloudflare R2 に自動バックアップする�
 
 ### 📋 機能
 
-- ✅ **毎日自動バックアップ**: OCI VPS の Cron で午前3時に実行
+- ✅ **毎日自動バックアップ**: GitHub Actions で午前3時（JST）に実行
+- ✅ **IPv6 問題を回避**: GitHub ランナーが直接 Supabase に接続
 - ✅ **圧縮保存**: gzip で圧縮してストレージを節約
 - ✅ **自動削除**: 30日以前のバックアップを自動削除
-- ✅ **復元スクリプト**: ワンコマンドでバックアップから復元可能
+- ✅ **手動実行可能**: GitHub Actions UI からワンクリック実行
+- ✅ **ログ管理**: GitHub Actions でログを確認可能
 
 ### 🚀 セットアップ
 
-詳細は [BACKUP_SETUP_GUIDE.md](./BACKUP_SETUP_GUIDE.md) を参照してください。
+詳細は [docs/GITHUB_ACTIONS_BACKUP_SETUP.md](./docs/GITHUB_ACTIONS_BACKUP_SETUP.md) を参照してください。
 
-```bash
-# VPS にデプロイ
-./deploy_backup_to_vps.sh
+**クイックスタート:**
 
-# 環境変数を設定
-nano .env.backup
+1. **GitHub Secrets を設定**:
+   - `SUPABASE_PROJECT_REF`
+   - `SUPABASE_DB_PASSWORD`
+   - `R2_ACCOUNT_ID`
+   - `R2_ACCESS_KEY_ID`
+   - `R2_SECRET_ACCESS_KEY`
+   - `R2_BUCKET_NAME`
 
-# テスト実行
-./backup_supabase_to_r2.sh
+2. **ワークフローファイルをプッシュ**:
+   ```bash
+   git add .github/workflows/backup-supabase-to-r2.yml
+   git commit -m "Add GitHub Actions backup workflow"
+   git push
+   ```
 
-# Cron ジョブ設定（毎日午前3時）
-crontab -e
-# 0 3 * * * cd /home/ubuntu/rectbot && /bin/bash backup_supabase_to_r2.sh >> /home/ubuntu/rectbot/backup.log 2>&1
-```
+3. **手動実行でテスト**:
+   - GitHub → **Actions** → **Backup Supabase to Cloudflare R2** → **Run workflow**
 
 ### 🔧 緊急時の復元
+
+VPS 上で既存のリストアスクリプトを使用:
 
 ```bash
 # インタラクティブに復元

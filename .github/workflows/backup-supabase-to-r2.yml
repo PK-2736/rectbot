@@ -1,0 +1,155 @@
+name: Backup Supabase to Cloudflare R2
+
+on:
+  # 毎日午前3時（JST = UTC+9 なので UTC 18:00）に実行
+  schedule:
+    - cron: '0 18 * * *'
+  
+  # 手動実行も可能
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Install AWS CLI for R2
+        run: |
+          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+          unzip awscliv2.zip
+          sudo ./aws/install
+
+      - name: Configure AWS CLI for Cloudflare R2
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        run: |
+          aws configure set aws_access_key_id $R2_ACCESS_KEY_ID
+          aws configure set aws_secret_access_key $R2_SECRET_ACCESS_KEY
+          aws configure set region auto
+
+      - name: Create backup directory
+        run: mkdir -p backups
+
+      - name: Dump Supabase database
+        env:
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
+          BACKUP_FILE="backups/supabase_backup_${TIMESTAMP}.sql"
+          
+          echo "Creating database backup: ${BACKUP_FILE}"
+          
+          # pg_dump で Supabase データベースをバックアップ
+          PGPASSWORD="${SUPABASE_DB_PASSWORD}" pg_dump \
+            -h "db.${SUPABASE_PROJECT_REF}.supabase.co" \
+            -p 5432 \
+            -U postgres \
+            -d postgres \
+            --no-owner \
+            --no-acl \
+            --clean \
+            --if-exists \
+            -f "${BACKUP_FILE}"
+          
+          if [ $? -eq 0 ]; then
+            echo "✅ Database dump successful"
+            echo "BACKUP_FILE=${BACKUP_FILE}" >> $GITHUB_ENV
+          else
+            echo "❌ Database dump failed"
+            exit 1
+          fi
+
+      - name: Compress backup
+        run: |
+          echo "Compressing ${BACKUP_FILE}..."
+          gzip "${BACKUP_FILE}"
+          COMPRESSED_FILE="${BACKUP_FILE}.gz"
+          
+          # ファイルサイズを表示
+          ls -lh "${COMPRESSED_FILE}"
+          
+          echo "COMPRESSED_FILE=${COMPRESSED_FILE}" >> $GITHUB_ENV
+
+      - name: Upload to Cloudflare R2
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+        run: |
+          ENDPOINT_URL="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          
+          echo "Uploading ${COMPRESSED_FILE} to R2..."
+          
+          aws s3 cp \
+            "${COMPRESSED_FILE}" \
+            "s3://${R2_BUCKET_NAME}/$(basename ${COMPRESSED_FILE})" \
+            --endpoint-url="${ENDPOINT_URL}"
+          
+          if [ $? -eq 0 ]; then
+            echo "✅ Upload to R2 successful"
+          else
+            echo "❌ Upload to R2 failed"
+            exit 1
+          fi
+
+      - name: Cleanup old backups from R2 (keep last 30 days)
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+        run: |
+          ENDPOINT_URL="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          CUTOFF_DATE=$(date -d '30 days ago' +%Y%m%d || date -v-30d +%Y%m%d)
+          
+          echo "Removing backups older than ${CUTOFF_DATE}..."
+          
+          # R2 のバックアップ一覧を取得
+          aws s3 ls "s3://${R2_BUCKET_NAME}/" --endpoint-url="${ENDPOINT_URL}" | \
+          while read -r line; do
+            # ファイル名を抽出
+            BACKUP_NAME=$(echo "$line" | awk '{print $4}')
+            
+            # supabase_backup_ で始まるファイルのみ処理
+            if [[ "$BACKUP_NAME" =~ ^supabase_backup_([0-9]{8})_ ]]; then
+              BACKUP_DATE="${BASH_REMATCH[1]}"
+              
+              # 日付比較
+              if [ "$BACKUP_DATE" -lt "$CUTOFF_DATE" ]; then
+                echo "Deleting old backup: ${BACKUP_NAME}"
+                aws s3 rm "s3://${R2_BUCKET_NAME}/${BACKUP_NAME}" --endpoint-url="${ENDPOINT_URL}"
+              fi
+            fi
+          done
+          
+          echo "✅ Cleanup completed"
+
+      - name: Backup summary
+        if: always()
+        run: |
+          echo "## 📊 Backup Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Timestamp:** $(date)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Backup File:** ${COMPRESSED_FILE:-N/A}" >> $GITHUB_STEP_SUMMARY
+          
+          if [ -f "${COMPRESSED_FILE}" ]; then
+            FILE_SIZE=$(ls -lh "${COMPRESSED_FILE}" | awk '{print $5}')
+            echo "- **File Size:** ${FILE_SIZE}" >> $GITHUB_STEP_SUMMARY
+            echo "- **Status:** ✅ Success" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- **Status:** ❌ Failed" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "⚠️ Backup failed! Check the logs for details."
+          # ここに Discord や Slack への通知を追加可能
