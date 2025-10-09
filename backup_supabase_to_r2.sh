@@ -49,48 +49,21 @@ log "=========================================="
 log "Supabase バックアップ開始"
 log "=========================================="
 
-# ===== 1. Supabase 接続情報を構築 =====
-# Connection Pooler (IPv4対応) を使用
-# Transaction Mode (port 6543) - しかし、pg_dumpはSession Mode相当が必要
-# 回避策: --no-privileges --no-owner を使用してTransaction Modeでも動作させる
-SUPABASE_DB_HOST="aws-0-ap-northeast-1.pooler.supabase.com"
-SUPABASE_DB_PORT=6543
-SUPABASE_DB_USER="postgres.${SUPABASE_PROJECT_REF}"
-SUPABASE_DB_NAME="postgres"
+# ===== 1. Supabase CLI でダンプ =====
+log "接続先: Project Ref: ${SUPABASE_PROJECT_REF} (Supabase CLI経由)"
 
-log "接続先: ${SUPABASE_DB_HOST}:${SUPABASE_DB_PORT} (Connection Pooler Transaction Mode - IPv4)"
-log "ユーザー: ${SUPABASE_DB_USER}"
-log "データベース: ${SUPABASE_DB_NAME}"
+# ===== 2. Supabase CLI でデータベースダンプ =====
+log "Step 1: Supabase データベースをダンプ中 (Supabase CLI経由)..."
 
-# ===== 2. PostgreSQL ダンプ（Connection Pooler経由） =====
-log "Step 1: Supabase データベースをダンプ中 (Connection Pooler経由)..."
+# Supabase CLIでダンプ実行
+# --db-url で直接接続情報を指定
+DB_URL="postgresql://postgres:${SUPABASE_DB_PASSWORD}@db.${SUPABASE_PROJECT_REF}.supabase.co:5432/postgres"
 
-export PGPASSWORD="$SUPABASE_DB_PASSWORD"
-
-# Connection Pooler (Transaction Mode) 用のpg_dumpオプション
-# --serializable-deferrable: トランザクションモードでの整合性確保
-# --no-synchronized-snapshots: Transaction Mode互換
-if pg_dump \
-  -h "$SUPABASE_DB_HOST" \
-  -p "$SUPABASE_DB_PORT" \
-  -U "$SUPABASE_DB_USER" \
-  -d "$SUPABASE_DB_NAME" \
-  --no-owner \
-  --no-acl \
-  --no-privileges \
-  --clean \
-  --if-exists \
-  --serializable-deferrable \
-  -F p \
-  -f "$BACKUP_PATH"; then
-  log "✅ pg_dump 成功: $BACKUP_PATH"
+if supabase db dump --db-url "$DB_URL" -f "$BACKUP_PATH"; then
+  log "✅ Supabase CLI dump 成功: $BACKUP_PATH"
 else
-  error "❌ pg_dump 失敗"
-  error "接続情報を確認してください:"
-  error "  Host: $SUPABASE_DB_HOST"
-  error "  Port: $SUPABASE_DB_PORT"
-  error "  User: $SUPABASE_DB_USER"
-  error "  Database: $SUPABASE_DB_NAME"
+  error "❌ Supabase CLI dump 失敗"
+  error "プロジェクト: ${SUPABASE_PROJECT_REF}"
   exit 1
 fi
 fi
