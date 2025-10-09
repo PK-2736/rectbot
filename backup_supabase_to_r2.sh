@@ -51,13 +51,14 @@ log "=========================================="
 
 # ===== 1. Supabase 接続情報を構築 =====
 # Connection Pooler (IPv4対応) を使用
-# Transaction Mode (port 6543) - バックアップに適している
+# Session Mode (port 5432) - pg_dumpに必要
+# 注: pooler.supabase.comのポート5432はSession Modeでpg_dump可能
 SUPABASE_DB_HOST="aws-0-ap-northeast-1.pooler.supabase.com"
-SUPABASE_DB_PORT=6543
+SUPABASE_DB_PORT=5432
 SUPABASE_DB_USER="postgres.${SUPABASE_PROJECT_REF}"
 SUPABASE_DB_NAME="postgres"
 
-log "接続先: ${SUPABASE_DB_HOST}:${SUPABASE_DB_PORT} (Connection Pooler - IPv4)"
+log "接続先: ${SUPABASE_DB_HOST}:${SUPABASE_DB_PORT} (Connection Pooler Session Mode - IPv4)"
 log "ユーザー: ${SUPABASE_DB_USER}"
 log "データベース: ${SUPABASE_DB_NAME}"
 
