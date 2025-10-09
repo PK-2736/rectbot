@@ -10,13 +10,49 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install Supabase CLI
+      
+      - name: Setup IPv6 networking
         run: |
-          curl -L https://github.com/supabase/cli/releases/latest/download/supabase_linux_amd64.tar.gz -o supabase.tar.gz
-          tar -xzf supabase.tar.gz
-          sudo mv supabase /usr/local/bin/
-          sudo chmod +x /usr/local/bin/supabase
-          supabase --version
+          # IPv6 が利用可能か確認
+          if ip -6 addr show | grep -q "scope global"; then
+            echo "✅ IPv6 is available"
+          else
+            echo "⚠️ IPv6 is not properly configured"
+          fi
+          
+          # Docker の IPv6 設定を確認
+          docker network inspect bridge | grep EnableIPv6 || true
+      
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+      
+      - name: Test database connectivity
+        env:
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          DB_HOST="db.${SUPABASE_PROJECT_REF}.supabase.co"
+          
+          echo "Testing connectivity to ${DB_HOST}..."
+          
+          # DNS 解決をテスト
+          echo "DNS resolution:"
+          dig +short ${DB_HOST} || nslookup ${DB_HOST}
+          
+          # ping6 テスト（タイムアウト付き）
+          echo "IPv6 ping test:"
+          timeout 5 ping6 -c 2 ${DB_HOST} || echo "⚠️ IPv6 ping failed"
+          
+          # PostgreSQL 接続テスト
+          echo "PostgreSQL connection test:"
+          PGPASSWORD="${SUPABASE_DB_PASSWORD}" timeout 10 psql \
+            -h "${DB_HOST}" \
+            -p 5432 \
+            -U postgres \
+            -d postgres \
+            -c "SELECT version();" || echo "⚠️ Direct connection failed"
       - name: Install AWS CLI
         run: |
           curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
@@ -39,11 +75,30 @@ jobs:
         run: |
           TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
           BACKUP_FILE="backups/supabase_backup_${TIMESTAMP}.sql"
-          DB_URL="postgresql://postgres:${SUPABASE_DB_PASSWORD}@db.${SUPABASE_PROJECT_REF}.supabase.co:5432/postgres"
-          if supabase db dump --db-url "${DB_URL}" -f "${BACKUP_FILE}"; then
+          DB_HOST="db.${SUPABASE_PROJECT_REF}.supabase.co"
+          
+          echo "Creating database backup: ${BACKUP_FILE}"
+          echo "Connecting to: ${DB_HOST}:5432"
+          
+          # pg_dump を直接実行（Docker なし）
+          if PGPASSWORD="${SUPABASE_DB_PASSWORD}" pg_dump \
+            -h "${DB_HOST}" \
+            -p 5432 \
+            -U postgres \
+            -d postgres \
+            --no-owner \
+            --no-acl \
+            --clean \
+            --if-exists \
+            -v \
+            -f "${BACKUP_FILE}" 2>&1 | tee dump.log; then
+            echo "✅ Database dump successful"
             echo "BACKUP_FILE=${BACKUP_FILE}" >> $GITHUB_ENV
             ls -lh "${BACKUP_FILE}"
           else
+            echo "❌ Database dump failed"
+            echo "Error log:"
+            cat dump.log
             exit 1
           fi
       - name: Compress backup
