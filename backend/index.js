@@ -41,11 +41,32 @@ function getSupabaseClient(env) {
 }
 
 // ----- Sentry minimal HTTP reporter for Cloudflare Worker when @sentry/cloudflare isn't used -----
-async function sendToSentry(env, error, extra = {}) {
+function parseStackFrames(stack) {
+  if (!stack) return [];
+  const lines = String(stack).split('\n').slice(0, 50);
+  const frames = [];
+  const re = /\s*at\s+(.*?)\s+\(?(.+?):(\d+):(\d+)\)?/;
+  for (const line of lines) {
+    const m = line.match(re);
+    if (m) {
+      const func = m[1] || '<anonymous>';
+      const filename = m[2] || '<unknown>';
+      const lineno = parseInt(m[3] || '0', 10) || 0;
+      const colno = parseInt(m[4] || '0', 10) || 0;
+      frames.push({ filename, function: func, lineno, colno, in_app: true });
+    } else {
+      // fallback: put the raw line as filename so something is visible
+      frames.push({ filename: line.trim(), function: '<unknown>', lineno: 0, colno: 0, in_app: false });
+    }
+  }
+  // Sentry expects frames from oldest to newest; reverse to keep newest last
+  return frames.reverse();
+}
+
+async function sendToSentry(env, error, extra = {}, ctx = null) {
   try {
     if (!env || !env.SENTRY_DSN) return;
     const dsn = env.SENTRY_DSN;
-    // DSN format: https://<publicKey>@o<org>.ingest.sentry.io/<projectId>
     const m = dsn.match(/^https:\/\/([^@]+)@([^\/]+)\/(\d+)$/);
     if (!m) return;
     const publicKey = m[1];
@@ -53,18 +74,51 @@ async function sendToSentry(env, error, extra = {}) {
     const projectId = m[3];
     const storeUrl = `https://${host}/api/${projectId}/store/?sentry_key=${publicKey}`;
 
+    const errMsg = (error && (error.message || String(error))) || 'Unknown error';
+    const exception = error ? {
+      values: [{
+        type: error.name || 'Error',
+        value: errMsg,
+        stacktrace: { frames: parseStackFrames(error.stack) }
+      }]
+    } : undefined;
+
     const event = {
-      message: (error && (error.message || String(error))) || 'Unknown error',
+      message: errMsg,
+      exception,
       level: 'error',
       logger: 'rectbot.backend',
+      platform: 'javascript',
+      sdk: { name: 'custom.rectbot.worker', version: '0.1' },
+      tags: { path: extra && extra.path ? String(extra.path) : undefined },
       extra: { ...extra, stack: error && error.stack },
       timestamp: new Date().toISOString(),
     };
 
+    // Optionally attach a minimal request snapshot (avoid full body unless explicitly provided)
+    if (extra && extra.requestInfo) event.request = extra.requestInfo;
+
+    const body = JSON.stringify(event);
+
+    // If a Worker context is available, send asynchronously so response isn't delayed
+    if (ctx && typeof ctx.waitUntil === 'function') {
+      try {
+        ctx.waitUntil(fetch(storeUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'User-Agent': 'rectbot-worker/0.1' },
+          body
+        }));
+      } catch (e) {
+        console.warn('sendToSentry (ctx.waitUntil) failed', e);
+      }
+      return;
+    }
+
+    // Otherwise await the send (best-effort)
     await fetch(storeUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(event),
+      headers: { 'Content-Type': 'application/json', 'User-Agent': 'rectbot-worker/0.1' },
+      body
     });
   } catch (e) {
     // avoid throwing from error reporter
@@ -1432,9 +1486,9 @@ export default {
           status: 200, 
           headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
-      } catch (error) {
-        console.error('Guild settings fetch error:', error);
-        try { await sendToSentry(env, error, { path: '/api/guild-settings/*' }); } catch(e){}
+  } catch (error) {
+  console.error('Guild settings fetch error:', error);
+  try { if (ctx && typeof ctx.waitUntil === 'function') ctx.waitUntil(sendToSentry(env, error, { path: '/api/guild-settings/*' }, ctx)); else sendToSentry(env, error, { path: '/api/guild-settings/*' }); } catch(e){}
         
         // エラー時はデフォルト値を返す
         const defaultSettings = {
@@ -1514,7 +1568,7 @@ export default {
             }, 8000);
           } catch (err) {
             console.error('reCAPTCHA verify fetch failed', err);
-            try { await sendToSentry(env, err, { path: '/api/support', stage: 'recaptcha_fetch' }); } catch(e){}
+            try { if (ctx && typeof ctx.waitUntil === 'function') ctx.waitUntil(sendToSentry(env, err, { path: '/api/support', stage: 'recaptcha_fetch', requestInfo: { url: request.url, method: request.method } }, ctx)); else sendToSentry(env, err, { path: '/api/support', stage: 'recaptcha_fetch', requestInfo: { url: request.url, method: request.method } }); } catch(e){}
             return new Response(JSON.stringify({ error: 'reCAPTCHA サービスへの接続に失敗しました' }), {
               status: 502,
               headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -1526,7 +1580,7 @@ export default {
           const score = typeof verifyJson.score === 'number' ? verifyJson.score : Number(verifyJson.score || 0);
 
           if (!success || score < scoreThreshold) {
-            try { await sendToSentry(env, new Error('reCAPTCHA failed'), { path: '/api/support', recaptcha: verifyJson }); } catch(e){}
+            try { if (ctx && typeof ctx.waitUntil === 'function') ctx.waitUntil(sendToSentry(env, new Error('reCAPTCHA failed'), { path: '/api/support', recaptcha: verifyJson, requestInfo: { url: request.url, method: request.method } }, ctx)); else sendToSentry(env, new Error('reCAPTCHA failed'), { path: '/api/support', recaptcha: verifyJson }); } catch(e){}
             return new Response(JSON.stringify({ error: 'reCAPTCHA 検証に失敗しました' }), {
               status: 403,
               headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -1566,7 +1620,7 @@ export default {
           }, 10000);
         } catch (err) {
           console.error('MailChannels fetch failed', err);
-          try { await sendToSentry(env, err, { path: '/api/support', stage: 'mailchannels_fetch' }); } catch(e){}
+          try { if (ctx && typeof ctx.waitUntil === 'function') ctx.waitUntil(sendToSentry(env, err, { path: '/api/support', stage: 'mailchannels_fetch', requestInfo: { url: request.url, method: request.method } }, ctx)); else sendToSentry(env, err, { path: '/api/support', stage: 'mailchannels_fetch' }); } catch(e){}
           return new Response(JSON.stringify({ error: 'メール送信サービスへの接続に失敗しました' }), {
             status: 502,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -1596,7 +1650,7 @@ export default {
               }
             } catch (e) {
               console.warn('Discord notify failed', e);
-              try { await sendToSentry(env, e, { path: '/api/support', stage: 'discord_notify' }); } catch(e){}
+              try { if (ctx && typeof ctx.waitUntil === 'function') ctx.waitUntil(sendToSentry(env, e, { path: '/api/support', stage: 'discord_notify', requestInfo: { url: request.url, method: request.method } }, ctx)); else sendToSentry(env, e, { path: '/api/support', stage: 'discord_notify' }); } catch(e){}
             }
           }
 
@@ -1610,7 +1664,7 @@ export default {
         const sendError = new Error('Support send failed (MailChannels)');
         const sendContext = { emailOk, emailStatus: emailRes && emailRes.status, emailBodyText };
         console.error('Support send failed', sendContext);
-        try { await sendToSentry(env, sendError, { path: '/api/support', ...sendContext }); } catch (e) {}
+  try { if (ctx && typeof ctx.waitUntil === 'function') ctx.waitUntil(sendToSentry(env, sendError, { path: '/api/support', ...sendContext, requestInfo: { url: request.url, method: request.method } }, ctx)); else sendToSentry(env, sendError, { path: '/api/support', ...sendContext }); } catch (e) {}
 
         // In debug mode include body text in response to help local troubleshooting. Don't leak secrets.
         const debugMode = !!env.DEBUG || env.NODE_ENV === 'development';
@@ -1624,7 +1678,7 @@ export default {
       } catch (error) {
         console.error('Support API error:', error);
         // send minimal event to Sentry if configured
-        try { await sendToSentry(env, error, { path: '/api/support' }); } catch(e){}
+  try { if (ctx && typeof ctx.waitUntil === 'function') ctx.waitUntil(sendToSentry(env, error, { path: '/api/support', requestInfo: { url: request.url, method: request.method } }, ctx)); else sendToSentry(env, error, { path: '/api/support' }); } catch(e){}
         return new Response(JSON.stringify({ error: '送信に失敗しました', details: error.message }), {
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
