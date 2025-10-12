@@ -27,6 +27,7 @@ jobs:
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           SERVICE_TOKEN: ${{ secrets.SERVICE_TOKEN }}
           RECAPTCHA_SECRET: ${{ secrets.RECAPTCHA_SECRET }}
+          MAILCHANNELS_API_KEY: ${{ secrets.MAILCHANNELS_API_KEY }}
           SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
           SUPPORT_EMAIL: ${{ secrets.SUPPORT_EMAIL }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
@@ -50,6 +51,13 @@ jobs:
               echo "OK: $v set"
             fi
           done
+
+          # optional - mail sending key
+          if [ -z "${MAILCHANNELS_API_KEY:-}" ]; then
+            echo "WARN: Recommended secret MAILCHANNELS_API_KEY is not set"
+          else
+            echo "OK: MAILCHANNELS_API_KEY set"
+          fi
 
           if [ ${#missing[@]} -ne 0 ]; then
             echo "One or more required secrets are missing. Aborting workflow." >&2
@@ -79,6 +87,7 @@ jobs:
           SUPPORT_EMAIL: ${{ secrets.SUPPORT_EMAIL }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           RECAPTCHA_SECRET: ${{ secrets.RECAPTCHA_SECRET }}
+          MAILCHANNELS_API_KEY: ${{ secrets.MAILCHANNELS_API_KEY }}
         run: |
           cd backend
           set -euo pipefail
@@ -112,6 +121,7 @@ jobs:
           register_secret SUPPORT_EMAIL SUPPORT_EMAIL
           register_secret DISCORD_WEBHOOK_URL DISCORD_WEBHOOK_URL
           register_secret RECAPTCHA_SECRET RECAPTCHA_SECRET
+          register_secret MAILCHANNELS_API_KEY MAILCHANNELS_API_KEY
 
       - name: Deploy to Cloudflare Workers
         env:
