@@ -6,7 +6,7 @@ const title = 'お問い合わせ - Rectbot'
 <BaseLayout title={title}>
   <main class="max-w-3xl mx-auto px-4 py-12">
     <h1 class="text-3xl font-bold mb-4">お問い合わせ</h1>
-    <p class="text-sm text-gray-600 mb-6">ご質問・ご要望・不具合報告はこちらから送信してください。送信後、確認のため Discord に通知が届きます。</p>
+  <p class="text-sm text-gray-600 mb-6">ご質問・ご要望・不具合報告はこちらから送信してください。可能な限り早く確認し、必要であればメールでご連絡します。送信後は確認のため Discord に通知が届きます。</p>
 
     <form id="support-form" class="space-y-4 bg-white p-6 rounded-lg shadow">
       <div>
@@ -21,7 +21,7 @@ const title = 'お問い合わせ - Rectbot'
 
       <div>
         <label class="block text-sm font-medium text-gray-700">お問い合わせ内容 <span class="text-red-500">*</span></label>
-        <textarea id="message" name="message" rows="6" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"></textarea>
+  <textarea id="message" name="message" rows="6" placeholder="不具合の場合は再現手順・発生時刻・環境（OS/ブラウザ/Discordアプリ等）をできるだけ詳しくご記入ください。" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"></textarea>
       </div>
 
       <div class="flex items-center justify-between">
@@ -48,11 +48,44 @@ const title = 'お問い合わせ - Rectbot'
         submitBtn.disabled = true;
         submitBtn.textContent = '送信中...';
 
-        const payload = {
-          name: document.getElementById('name').value.trim(),
-          email: document.getElementById('email').value.trim(),
-          message: document.getElementById('message').value.trim(),
+        // より堅牢にフォーム値を取得（ブラウザ差分や将来的な DOM 変更に備える）
+        const getValue = (selector) => {
+          const el = form.querySelector(selector);
+          if (!el) return '';
+          return (el.value || '').toString().trim();
         };
+
+        const payload = {
+          name: getValue('input[name="name"]'),
+          email: getValue('input[name="email"]'),
+          message: getValue('textarea[name="message"]'),
+        };
+
+        // クライアント側バリデーション
+        if (!payload.name) {
+          statusEl.textContent = 'お名前を入力してください。';
+          statusEl.className = 'text-sm text-red-600';
+          submitBtn.disabled = false;
+          submitBtn.textContent = '送信';
+          return;
+        }
+        if (!payload.email) {
+          statusEl.textContent = 'メールアドレスを入力してください。';
+          statusEl.className = 'text-sm text-red-600';
+          submitBtn.disabled = false;
+          submitBtn.textContent = '送信';
+          return;
+        }
+        if (!payload.message) {
+          statusEl.textContent = 'お問い合わせ内容を入力してください。詳しく書くほど対応が早くなります。';
+          statusEl.className = 'text-sm text-red-600';
+          submitBtn.disabled = false;
+          submitBtn.textContent = '送信';
+          return;
+        }
+
+        // デバッグ用ログ（ブラウザコンソール）
+        console.debug('Support form payload:', payload);
 
         try {
           // reCAPTCHA v3 トークンを取得してペイロードに付与
