@@ -55,11 +55,27 @@ const title = 'お問い合わせ - Rectbot'
           return (el.value || '').toString().trim();
         };
 
+        // Try to commit composition (IME) by blurring the message field, then read values via FormData
+        const messageEl = form.querySelector('textarea[name="message"]');
+        try { if (messageEl && typeof messageEl.blur === 'function') messageEl.blur(); } catch(e) { console.warn('blur failed', e); }
+
+        // Use FormData first (more reliable), fall back to getValue()
+        const fd = new FormData(form);
+        const fdName = (fd.get('name') || '').toString().trim();
+        const fdEmail = (fd.get('email') || '').toString().trim();
+        const fdMessage = (fd.get('message') || '').toString().trim();
+
         const payload = {
-          name: getValue('input[name="name"]'),
-          email: getValue('input[name="email"]'),
-          message: getValue('textarea[name="message"]'),
+          name: fdName || getValue('input[name="name"]'),
+          email: fdEmail || getValue('input[name="email"]'),
+          message: fdMessage || (messageEl ? (messageEl.value || '').toString().trim() : getValue('textarea[name="message"]')),
         };
+
+        // Detailed debug: show element and collected values
+        console.debug('messageEl', messageEl);
+        if (messageEl) console.debug('messageEl.value (raw):', messageEl.value);
+        console.debug('FormData values:', { fdName, fdEmail, fdMessage });
+        console.debug('Final payload before send:', payload);
 
         // クライアント側バリデーション
         if (!payload.name) {
