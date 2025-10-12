@@ -11,7 +11,7 @@ on:
 jobs:
   backup:
     name: Supabase → R2 Backup
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     env:
       SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
       SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
@@ -25,10 +25,29 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Ensure required tools
+      - name: Install required tools (supabase CLI, awscli)
         run: |
-          if ! command -v supabase >/dev/null 2>&1; then echo "ERROR: supabase CLI not installed"; exit 1; fi
-          if ! command -v aws >/dev/null 2>&1; then echo "ERROR: awscli not installed"; exit 1; fi
+          set -euo pipefail
+          # Install supabase CLI (release binary)
+          if ! command -v supabase >/dev/null 2>&1; then
+            echo "Installing supabase CLI..."
+            sudo curl -fsSL https://github.com/supabase/cli/releases/latest/download/supabase_$(uname -s)_$(uname -m).tar.gz -o /tmp/supabase.tar.gz
+            sudo tar -xzf /tmp/supabase.tar.gz -C /tmp
+            sudo mv /tmp/supabase /usr/local/bin/supabase || true
+          else
+            echo "supabase CLI already installed"
+          fi
+
+          # Install AWS CLI v2 (official installer)
+          if ! command -v aws >/dev/null 2>&1; then
+            echo "Installing AWS CLI v2..."
+            curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/awscliv2.zip"
+            sudo apt-get update -y && sudo apt-get install -y unzip
+            unzip -q /tmp/awscliv2.zip -d /tmp
+            sudo /tmp/aws/install
+          else
+            echo "awscli already installed"
+          fi
 
       - name: Make backup script executable
         run: chmod +x ./backup_supabase_to_r2.sh
