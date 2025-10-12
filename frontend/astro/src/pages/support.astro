@@ -49,7 +49,20 @@ const title = 'お問い合わせ - Rectbot'
     API_BASE = '';
     RECAPTCHA_SITE_KEY = null;
   }
-  const API_URL = API_BASE ? `${API_BASE.replace(/\/$/, '')}/api/support` : '/api/support';
+  let API_URL = API_BASE ? `${API_BASE.replace(/\/$/, '')}/api/support` : '/api/support';
+
+  // If no build-time API base is set and the site is running on the main domain,
+  // prefer the dedicated API subdomain so requests reach the Worker (avoid Pages returning 405).
+  try {
+    if (!API_BASE && typeof window !== 'undefined' && window.location && window.location.hostname) {
+      const host = window.location.hostname;
+      if (host === 'rectbot.tech' || host === 'www.rectbot.tech') {
+        API_URL = 'https://api.rectbot.tech/api/support';
+      }
+    }
+  } catch (e) {
+    // ignore
+  }
 
       form.addEventListener('submit', async (e) => {
         e.preventDefault();

@@ -323,6 +323,8 @@ async function isValidDiscordAdmin(cookieHeader, env) {
 function getCorsHeaders(origin) {
   const allowedOrigins = [
     'https://dash.rectbot.tech',
+    'https://rectbot.tech',
+    'https://www.rectbot.tech',
     'http://localhost:3000',
     'http://localhost:3001'
   ];
