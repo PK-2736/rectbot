@@ -23,7 +23,7 @@ jobs:
         run: |
           mkdir -p ~/.ssh
           # Support raw PEM or base64-encoded private key
-          if printf '%s' "$OCI_SSH_KEY" | grep -q "-----BEGIN"; then
+          if printf '%s' "$OCI_SSH_KEY" | grep -q -- "-----BEGIN"; then
             printf '%s' "$OCI_SSH_KEY" | sed 's/\r$//' > ~/.ssh/id_ed25519
           else
             printf '%s' "$OCI_SSH_KEY" | tr -d '\r' | base64 -d > ~/.ssh/id_ed25519

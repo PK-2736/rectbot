@@ -155,25 +155,38 @@ jobs:
           echo "PUBLIC_API_BASE_URL=${PUBLIC_API_BASE_URL:+SET}"
           echo "PUBLIC_RECAPTCHA_SITE_KEY=${PUBLIC_RECAPTCHA_SITE_KEY:+SET}"
 
+          # Show .env.production exists and print masked contents for debugging
+          echo "Listing .env.production:" && ls -l .env.production || true
+          echo "Masked .env.production content:" && sed -E 's/=.*/=MASKED/' .env.production || true
+
           bun run build
       - name: Verify Astro build embedded PUBLIC_* envs
         run: |
           set -euo pipefail
           cd frontend/astro
           echo "Verifying build does not contain literal import.meta.env references..."
-          # If import.meta.env.PUBLIC_RECAPTCHA_SITE_KEY remained in the built files, the env was not embedded
-          if grep -R "import.meta.env.PUBLIC_RECAPTCHA_SITE_KEY" dist >/dev/null 2>&1; then
-            echo "ERROR: PUBLIC_RECAPTCHA_SITE_KEY was not embedded into the build output." >&2
-            echo "This usually means the build did not receive the PUBLIC_RECAPTCHA_SITE_KEY env at build time." >&2
+          # Search for any literal references and print file/line snippets to help debugging
+          MISSING=false
+          for key in PUBLIC_RECAPTCHA_SITE_KEY PUBLIC_API_BASE_URL; do
+            pattern="import.meta.env.${key}"
+            if grep -R --line-number --fixed-strings "$pattern" dist >/tmp/grep_matches 2>/dev/null; then
+              echo "ERROR: $key was not embedded into the build output. Found occurrences:" >&2
+              cat /tmp/grep_matches >&2 || true
+              # Print small context for each match
+              while IFS=: read -r file line _; do
+                echo "---- Context from $file:$line ----" >&2
+                start=$((line>3 ? line-3 : 1))
+                end=$((line+3))
+                sed -n "${start},${end}p" "$file" >&2 || true
+              done < /tmp/grep_matches
+              MISSING=true
+            else
+              echo "OK: $key appears embedded or replaced in build output."
+            fi
+          done
+          if [ "$MISSING" = true ]; then
+            echo "This usually means the build did not receive the PUBLIC_* env at build time or the code references import.meta.env at runtime." >&2
             exit 1
-          else
-            echo "OK: PUBLIC_RECAPTCHA_SITE_KEY appears embedded or replaced in build output."
-          fi
-          if grep -R "import.meta.env.PUBLIC_API_BASE_URL" dist >/dev/null 2>&1; then
-            echo "ERROR: PUBLIC_API_BASE_URL was not embedded into the build output." >&2
-            exit 1
-          else
-            echo "OK: PUBLIC_API_BASE_URL appears embedded or replaced in build output."
           fi
       - name: Deploy Astro to Cloudflare Pages
         env:

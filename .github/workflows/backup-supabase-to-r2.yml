@@ -57,7 +57,7 @@ jobs:
           # - Raw PEM (contains "-----BEGIN")
           # - Base64-encoded single-line string
           mkdir -p ~/.ssh
-          if printf '%s' "$OCI_SSH_KEY" | grep -q "-----BEGIN"; then
+          if printf '%s' "$OCI_SSH_KEY" | grep -q -- "-----BEGIN"; then
             # Already a PEM; strip CRLF just in case and write
             printf '%s' "$OCI_SSH_KEY" | sed 's/\r$//' > ~/.ssh/id_ed25519
           else

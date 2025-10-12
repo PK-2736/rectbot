@@ -92,8 +92,8 @@ log "Supabase CLI経由でバックアップを実行"
 log "Step 1: Supabase データベースをダンプ中 (Supabase CLI経由)..."
 
 # Supabase CLIでダンプ実行
-# --db-urlオプションなしで実行すると、API経由で接続される
-if supabase db dump -f "$BACKUP_PATH" 2>&1 | tee -a "$LOG_FILE"; then
+# 指定されたプロジェクト参照を渡して、'supabase link' 未設定の環境でも動くようにする
+if supabase db dump -f "$BACKUP_PATH" --project-ref "$SUPABASE_PROJECT_REF" 2>&1 | tee -a "$LOG_FILE"; then
   log "✅ Supabase CLI dump 成功: $BACKUP_PATH"
   
   # ファイルサイズを確認
