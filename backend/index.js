@@ -1477,6 +1477,21 @@ export default {
           });
         }
 
+        // Helper: fetch with timeout
+        const fetchWithTimeout = async (resource, options = {}, ms = 8000) => {
+          const controller = new AbortController();
+          const id = setTimeout(() => controller.abort(), ms);
+          options.signal = controller.signal;
+          try {
+            const res = await fetch(resource, options);
+            clearTimeout(id);
+            return res;
+          } catch (err) {
+            clearTimeout(id);
+            throw err;
+          }
+        };
+
         // reCAPTCHA v3 検証（設定されている場合）
         const scoreThreshold = parseFloat(env.RECAPTCHA_SCORE_THRESHOLD || '0.5');
         if (env.RECAPTCHA_SECRET) {
@@ -1490,12 +1505,21 @@ export default {
           const params = new URLSearchParams();
           params.append('secret', env.RECAPTCHA_SECRET);
           params.append('response', recaptchaToken);
-
-          const verifyRes = await fetch('https://www.google.com/recaptcha/api/siteverify', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: params.toString()
-          });
+          let verifyRes;
+          try {
+            verifyRes = await fetchWithTimeout('https://www.google.com/recaptcha/api/siteverify', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+              body: params.toString()
+            }, 8000);
+          } catch (err) {
+            console.error('reCAPTCHA verify fetch failed', err);
+            try { await sendToSentry(env, err, { path: '/api/support', stage: 'recaptcha_fetch' }); } catch(e){}
+            return new Response(JSON.stringify({ error: 'reCAPTCHA サービスへの接続に失敗しました' }), {
+              status: 502,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
+          }
 
           const verifyJson = await verifyRes.json();
           const success = verifyJson.success;
@@ -1533,11 +1557,21 @@ export default {
           ]
         };
 
-        const emailRes = await fetch('https://api.mailchannels.net/tx/v1/send', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
+        let emailRes;
+        try {
+          emailRes = await fetchWithTimeout('https://api.mailchannels.net/tx/v1/send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          }, 10000);
+        } catch (err) {
+          console.error('MailChannels fetch failed', err);
+          try { await sendToSentry(env, err, { path: '/api/support', stage: 'mailchannels_fetch' }); } catch(e){}
+          return new Response(JSON.stringify({ error: 'メール送信サービスへの接続に失敗しました' }), {
+            status: 502,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
 
         // Safely read response body for debugging (don't throw)
         let emailBodyText = '';
@@ -1550,16 +1584,19 @@ export default {
           if (env.DISCORD_WEBHOOK_URL) {
             try {
               const body = { content: '📬 お問い合わせメールが届きました。' };
-              const discordRes = await fetch(env.DISCORD_WEBHOOK_URL, {
+              const discordRes = await fetchWithTimeout(env.DISCORD_WEBHOOK_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(body)
-              });
+              }, 3000);
               if (!discordRes.ok) {
-                console.warn('Discord notify returned non-ok status', await discordRes.text());
+                let discordText = '';
+                try { discordText = await discordRes.text(); } catch (e) { discordText = `<body-read-error: ${e.message}>`; }
+                console.warn('Discord notify returned non-ok status', discordRes.status, discordText);
               }
             } catch (e) {
               console.warn('Discord notify failed', e);
+              try { await sendToSentry(env, e, { path: '/api/support', stage: 'discord_notify' }); } catch(e){}
             }
           }
 
