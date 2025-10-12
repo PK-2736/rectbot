@@ -35,12 +35,21 @@ const title = 'お問い合わせ - Rectbot'
       const statusEl = document.getElementById('form-status');
       const submitBtn = document.getElementById('submit-btn');
 
-  // API エンドポイントの解決:
+  // API エンドポイントの解決（安全に読み出す）:
   // 1) build-time に PUBLIC_API_BASE_URL が設定されていればそれを使い、末尾のスラッシュを取り除いて /api/support を接続
   // 2) そうでなければ同一オリジンの /api/support を使う（開発時や Worker と同一ドメインで運用する場合）
-  const API_BASE = import.meta.env.PUBLIC_API_BASE_URL || '';
+  let API_BASE = '';
+  let RECAPTCHA_SITE_KEY = null;
+  try {
+    // import.meta.env はビルド時に埋め込まれる想定ですが、何らかの環境で未定義の可能性があるため try/catch で保護
+    API_BASE = (import.meta && import.meta.env && import.meta.env.PUBLIC_API_BASE_URL) || '';
+    RECAPTCHA_SITE_KEY = (import.meta && import.meta.env && import.meta.env.PUBLIC_RECAPTCHA_SITE_KEY) || null;
+  } catch (e) {
+    // import.meta が参照できない環境（ブラウザ拡張等）ではここに来る
+    API_BASE = '';
+    RECAPTCHA_SITE_KEY = null;
+  }
   const API_URL = API_BASE ? `${API_BASE.replace(/\/$/, '')}/api/support` : '/api/support';
-  const RECAPTCHA_SITE_KEY = import.meta.env.PUBLIC_RECAPTCHA_SITE_KEY || null;
 
       form.addEventListener('submit', async (e) => {
         e.preventDefault();
