@@ -1,6 +1,9 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro'
 const title = 'お問い合わせ - Rectbot'
+// Capture build-time env values so they are inlined by Astro during build.
+const PUBLIC_API_BASE_URL_BUILD = import.meta.env.PUBLIC_API_BASE_URL ?? '';
+const PUBLIC_RECAPTCHA_SITE_KEY_BUILD = import.meta.env.PUBLIC_RECAPTCHA_SITE_KEY ?? null;
 ---
 
 <BaseLayout title={title}>
@@ -40,15 +43,22 @@ const title = 'お問い合わせ - Rectbot'
   // 2) そうでなければ同一オリジンの /api/support を使う（開発時や Worker と同一ドメインで運用する場合）
   let API_BASE = '';
   let RECAPTCHA_SITE_KEY = null;
-  try {
-    // import.meta.env はビルド時に埋め込まれる想定ですが、何らかの環境で未定義の可能性があるため try/catch で保護
-    API_BASE = (import.meta && import.meta.env && import.meta.env.PUBLIC_API_BASE_URL) || '';
-    RECAPTCHA_SITE_KEY = (import.meta && import.meta.env && import.meta.env.PUBLIC_RECAPTCHA_SITE_KEY) || null;
-  } catch (e) {
-    // import.meta が参照できない環境（ブラウザ拡張等）ではここに来る
-    API_BASE = '';
-    RECAPTCHA_SITE_KEY = null;
+
+  // Prefer build-time injected values (inlined by Astro). Fall back to runtime import.meta.env only if
+  // build-time values are not provided. This avoids leaving literal import.meta.env.* in the built output.
+  if (PUBLIC_API_BASE_URL_BUILD) {
+    API_BASE = PUBLIC_API_BASE_URL_BUILD;
+    RECAPTCHA_SITE_KEY = PUBLIC_RECAPTCHA_SITE_KEY_BUILD;
+  } else {
+    try {
+      API_BASE = (import.meta && import.meta.env && import.meta.env.PUBLIC_API_BASE_URL) || '';
+      RECAPTCHA_SITE_KEY = (import.meta && import.meta.env && import.meta.env.PUBLIC_RECAPTCHA_SITE_KEY) || null;
+    } catch (e) {
+      API_BASE = '';
+      RECAPTCHA_SITE_KEY = null;
+    }
   }
+
   let API_URL = API_BASE ? `${API_BASE.replace(/\/$/, '')}/api/support` : '/api/support';
 
   // If no build-time API base is set and the site is running on the main domain,
@@ -170,10 +180,11 @@ const title = 'お問い合わせ - Rectbot'
       <!-- reCAPTCHA v3 を動的に読み込む（サイトキーがある場合のみ） -->
       <script>
         (function(){
-          const siteKey = import.meta.env.PUBLIC_RECAPTCHA_SITE_KEY || null;
-          if (!siteKey) return;
+          // Use build-time inlined value to avoid import.meta.env remaining in dist
+          const finalKey = ${JSON.stringify(PUBLIC_RECAPTCHA_SITE_KEY_BUILD)};
+          if (!finalKey) return;
           const s = document.createElement('script');
-          s.src = `https://www.google.com/recaptcha/api.js?render=${siteKey}`;
+          s.src = `https://www.google.com/recaptcha/api.js?render=${finalKey}`;
           s.defer = true;
           document.head.appendChild(s);
         })();

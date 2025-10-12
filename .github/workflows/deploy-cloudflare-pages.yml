@@ -43,13 +43,21 @@ jobs:
           done
 
           # recommended (warn only)
-          for v in PUBLIC_RECAPTCHA_SITE_KEY DISCORD_CLIENT_ID DISCORD_REDIRECT_URI ADMIN_DISCORD_ID; do
+          for v in DISCORD_CLIENT_ID DISCORD_REDIRECT_URI ADMIN_DISCORD_ID; do
             if [ -z "${!v}" ]; then
               echo "WARN: Recommended secret/variable $v is not set"
             else
               echo "OK: $v set"
             fi
           done
+
+          # PUBLIC_RECAPTCHA_SITE_KEY is required for the support form to function (build-time embedding)
+          if [ -z "${PUBLIC_RECAPTCHA_SITE_KEY}" ]; then
+            echo "ERROR: Required secret PUBLIC_RECAPTCHA_SITE_KEY is not set" >&2
+            missing+=("PUBLIC_RECAPTCHA_SITE_KEY")
+          else
+            echo "OK: PUBLIC_RECAPTCHA_SITE_KEY set"
+          fi
 
           if [ ${#missing[@]} -ne 0 ]; then
             echo "One or more required secrets are missing. Aborting workflow." >&2
