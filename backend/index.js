@@ -1618,9 +1618,15 @@ export default {
 
         let emailRes;
         try {
+          const mcHeaders = { 'Content-Type': 'application/json' };
+          // If a MailChannels API key is provided, include it as a Bearer token
+          if (env.MAILCHANNELS_API_KEY) {
+            mcHeaders['Authorization'] = `Bearer ${env.MAILCHANNELS_API_KEY}`;
+          }
+
           emailRes = await fetchWithTimeout('https://api.mailchannels.net/tx/v1/send', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: mcHeaders,
             body: JSON.stringify(payload),
           }, 10000);
         } catch (err) {
@@ -1666,9 +1672,9 @@ export default {
         }
 
         // If email send failed, include response details in logs/Sentry for diagnosis
-        const sendError = new Error('Support send failed (MailChannels)');
-        const sendContext = { emailOk, emailStatus: emailRes && emailRes.status, emailBodyText };
-        console.error('Support send failed', sendContext);
+  const sendError = new Error('Support send failed (MailChannels)');
+  const sendContext = { emailOk, emailStatus: emailRes && emailRes.status, emailBodyText };
+  console.error('Support send failed', sendContext, 'MailChannels response body:', emailBodyText);
   try { if (ctx && typeof ctx.waitUntil === 'function') ctx.waitUntil(sendToSentry(env, sendError, { path: '/api/support', ...sendContext, requestInfo: { url: request.url, method: request.method } }, ctx)); else sendToSentry(env, sendError, { path: '/api/support', ...sendContext }); } catch (e) {}
 
         // In debug mode include body text in response to help local troubleshooting. Don't leak secrets.
