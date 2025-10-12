@@ -1539,6 +1539,10 @@ export default {
           body: JSON.stringify(payload),
         });
 
+        // Safely read response body for debugging (don't throw)
+        let emailBodyText = '';
+        try { emailBodyText = await emailRes.clone().text(); } catch (e) { emailBodyText = `unable to read body: ${e.message}`; }
+
         const emailOk = emailRes && (typeof emailRes.ok === 'boolean' ? emailRes.ok : true);
 
         // メール送信が成功したら Discord に短い通知を送る（webhook が設定されている場合のみ）
@@ -1565,9 +1569,17 @@ export default {
           });
         }
 
-        try { await sendToSentry(env, new Error('Support send failed'), { emailOk }); } catch(e){}
-        console.error('Support send failed', { emailOk });
-        return new Response(JSON.stringify({ error: '送信に失敗しました' }), {
+        // If email send failed, include response details in logs/Sentry for diagnosis
+        const sendError = new Error('Support send failed (MailChannels)');
+        const sendContext = { emailOk, emailStatus: emailRes && emailRes.status, emailBodyText };
+        console.error('Support send failed', sendContext);
+        try { await sendToSentry(env, sendError, { path: '/api/support', ...sendContext }); } catch (e) {}
+
+        // In debug mode include body text in response to help local troubleshooting. Don't leak secrets.
+        const debugMode = !!env.DEBUG || env.NODE_ENV === 'development';
+        const respBody = debugMode ? { error: '送信に失敗しました', details: sendContext } : { error: '送信に失敗しました' };
+
+        return new Response(JSON.stringify(respBody), {
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });

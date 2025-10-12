@@ -136,11 +136,28 @@ const PUBLIC_RECAPTCHA_SITE_KEY_BUILD = import.meta.env.PUBLIC_RECAPTCHA_SITE_KE
             });
           }
 
-          const res = await fetch(API_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-          });
+          // Use AbortController to avoid hanging requests and to detect message-port-close style failures
+          const controller = new AbortController();
+          const timeoutMs = 15000; // 15s timeout
+          const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+          let res;
+          try {
+            res = await fetch(API_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload),
+              signal: controller.signal,
+            });
+          } catch (networkErr) {
+            console.error('Network/fetch error:', networkErr);
+            statusEl.textContent = '送信中にネットワークエラーが発生しました。後でもう一度お試しください。';
+            statusEl.className = 'text-sm text-red-600';
+            clearTimeout(timeoutId);
+            return;
+          } finally {
+            clearTimeout(timeoutId);
+          }
 
           if (res.ok) {
             const json = await res.json();
@@ -148,7 +165,10 @@ const PUBLIC_RECAPTCHA_SITE_KEY_BUILD = import.meta.env.PUBLIC_RECAPTCHA_SITE_KE
             statusEl.className = 'text-sm text-green-600';
             form.reset();
           } else {
-            const text = await res.text();
+            // read response body for debugging (best effort)
+            let text = '';
+            try { text = await res.text(); } catch (e) { text = `<body-read-error: ${e.message}>`; }
+            console.warn('Support API returned non-ok status', res.status, text);
             statusEl.textContent = `送信に失敗しました: ${res.status} ${text}`;
             statusEl.className = 'text-sm text-red-600';
           }
