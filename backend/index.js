@@ -751,7 +751,8 @@ export default {
     // Service Token 認証
     const SERVICE_TOKEN = env.SERVICE_TOKEN || '';
     const isApiPath = url.pathname.startsWith('/api');
-    const skipTokenPaths = ['/api/test', '/api/discord/callback', '/api/dashboard'];
+  // Paths that do not require SERVICE_TOKEN header (public endpoints)
+  const skipTokenPaths = ['/api/test', '/api/discord/callback', '/api/dashboard', '/api/support'];
     const requiresAuth = isApiPath && !skipTokenPaths.some(path => url.pathname.startsWith(path));
     
     if (requiresAuth && SERVICE_TOKEN) {
