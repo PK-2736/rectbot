@@ -2,8 +2,8 @@
 import BaseLayout from '../layouts/BaseLayout.astro'
 const title = 'お問い合わせ - Rectbot'
 // Capture build-time env values so they are inlined by Astro during build.
-const PUBLIC_API_BASE_URL_BUILD = import.meta.env.PUBLIC_API_BASE_URL ?? '';
-const PUBLIC_RECAPTCHA_SITE_KEY_BUILD = import.meta.env.PUBLIC_RECAPTCHA_SITE_KEY ?? null;
+const PUBLIC_API_BASE_URL_BUILD = import.meta.env.PUBLIC_API_BASE_URL || '';
+const PUBLIC_RECAPTCHA_SITE_KEY_BUILD = import.meta.env.PUBLIC_RECAPTCHA_SITE_KEY || null;
 ---
 
 <BaseLayout title={title}>
@@ -32,34 +32,20 @@ const PUBLIC_RECAPTCHA_SITE_KEY_BUILD = import.meta.env.PUBLIC_RECAPTCHA_SITE_KE
         <div id="form-status" class="text-sm text-gray-600"></div>
       </div>
     </form>
+    <!-- build-time values injected into data attributes to safely pass to client script -->
+    <div id="support-data" data-api-base={PUBLIC_API_BASE_URL_BUILD} data-recaptcha-key={PUBLIC_RECAPTCHA_SITE_KEY_BUILD} style="display:none"></div>
 
     <script type="module">
       const form = document.getElementById('support-form');
       const statusEl = document.getElementById('form-status');
       const submitBtn = document.getElementById('submit-btn');
 
-  // API エンドポイントの解決（安全に読み出す）:
-  // 1) build-time に PUBLIC_API_BASE_URL が設定されていればそれを使い、末尾のスラッシュを取り除いて /api/support を接続
-  // 2) そうでなければ同一オリジンの /api/support を使う（開発時や Worker と同一ドメインで運用する場合）
-  let API_BASE = '';
-  let RECAPTCHA_SITE_KEY = null;
+      // Read build-time injected values from the DOM (safe and avoids server-expression syntax in scripts)
+      const _dataEl = document.getElementById('support-data');
+      const API_BASE = (_dataEl && _dataEl.dataset && _dataEl.dataset.apiBase) ? _dataEl.dataset.apiBase : '';
+      const RECAPTCHA_SITE_KEY = (_dataEl && _dataEl.dataset) ? (_dataEl.dataset.recaptchaKey || null) : null;
 
-  // Prefer build-time injected values (inlined by Astro). Fall back to runtime import.meta.env only if
-  // build-time values are not provided. This avoids leaving literal import.meta.env.* in the built output.
-  if (PUBLIC_API_BASE_URL_BUILD) {
-    API_BASE = PUBLIC_API_BASE_URL_BUILD;
-    RECAPTCHA_SITE_KEY = PUBLIC_RECAPTCHA_SITE_KEY_BUILD;
-  } else {
-    try {
-      API_BASE = (import.meta && import.meta.env && import.meta.env.PUBLIC_API_BASE_URL) || '';
-      RECAPTCHA_SITE_KEY = (import.meta && import.meta.env && import.meta.env.PUBLIC_RECAPTCHA_SITE_KEY) || null;
-    } catch (e) {
-      API_BASE = '';
-      RECAPTCHA_SITE_KEY = null;
-    }
-  }
-
-  let API_URL = API_BASE ? `${API_BASE.replace(/\/$/, '')}/api/support` : '/api/support';
+      const API_URL = API_BASE ? `${API_BASE.replace(/\/$/, '')}/api/support` : '/api/support';
 
   // If no build-time API base is set and the site is running on the main domain,
   // prefer the dedicated API subdomain so requests reach the Worker (avoid Pages returning 405).
@@ -180,8 +166,9 @@ const PUBLIC_RECAPTCHA_SITE_KEY_BUILD = import.meta.env.PUBLIC_RECAPTCHA_SITE_KE
       <!-- reCAPTCHA v3 を動的に読み込む（サイトキーがある場合のみ） -->
       <script>
         (function(){
-          // Use build-time inlined value to avoid import.meta.env remaining in dist
-          const finalKey = ${JSON.stringify(PUBLIC_RECAPTCHA_SITE_KEY_BUILD)};
+          // Read the build-time injected key from the hidden data element to avoid server-expression syntax
+          const _dataEl = document.getElementById('support-data');
+          const finalKey = (_dataEl && _dataEl.dataset) ? (_dataEl.dataset.recaptchaKey || null) : null;
           if (!finalKey) return;
           const s = document.createElement('script');
           s.src = `https://www.google.com/recaptcha/api.js?render=${finalKey}`;
