@@ -150,6 +150,25 @@ jobs:
           echo "PUBLIC_API_BASE_URL=${PUBLIC_API_BASE_URL}"
           echo "PUBLIC_RECAPTCHA_SITE_KEY=${PUBLIC_RECAPTCHA_SITE_KEY:+SET}"
           bun run build
+      - name: Verify Astro build embedded PUBLIC_* envs
+        run: |
+          set -euo pipefail
+          cd frontend/astro
+          echo "Verifying build does not contain literal import.meta.env references..."
+          # If import.meta.env.PUBLIC_RECAPTCHA_SITE_KEY remained in the built files, the env was not embedded
+          if grep -R "import.meta.env.PUBLIC_RECAPTCHA_SITE_KEY" dist >/dev/null 2>&1; then
+            echo "ERROR: PUBLIC_RECAPTCHA_SITE_KEY was not embedded into the build output." >&2
+            echo "This usually means the build did not receive the PUBLIC_RECAPTCHA_SITE_KEY env at build time." >&2
+            exit 1
+          else
+            echo "OK: PUBLIC_RECAPTCHA_SITE_KEY appears embedded or replaced in build output."
+          fi
+          if grep -R "import.meta.env.PUBLIC_API_BASE_URL" dist >/dev/null 2>&1; then
+            echo "ERROR: PUBLIC_API_BASE_URL was not embedded into the build output." >&2
+            exit 1
+          else
+            echo "OK: PUBLIC_API_BASE_URL appears embedded or replaced in build output."
+          fi
       - name: Deploy Astro to Cloudflare Pages
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
