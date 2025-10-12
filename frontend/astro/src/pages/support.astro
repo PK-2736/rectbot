@@ -45,20 +45,30 @@ const PUBLIC_RECAPTCHA_SITE_KEY_BUILD = import.meta.env.PUBLIC_RECAPTCHA_SITE_KE
       const API_BASE = (_dataEl && _dataEl.dataset && _dataEl.dataset.apiBase) ? _dataEl.dataset.apiBase : '';
       const RECAPTCHA_SITE_KEY = (_dataEl && _dataEl.dataset) ? (_dataEl.dataset.recaptchaKey || null) : null;
 
-      const API_URL = API_BASE ? `${API_BASE.replace(/\/$/, '')}/api/support` : '/api/support';
-
-  // If no build-time API base is set and the site is running on the main domain,
-  // prefer the dedicated API subdomain so requests reach the Worker (avoid Pages returning 405).
-  try {
-    if (!API_BASE && typeof window !== 'undefined' && window.location && window.location.hostname) {
-      const host = window.location.hostname;
-      if (host === 'rectbot.tech' || host === 'www.rectbot.tech') {
-        API_URL = 'https://api.rectbot.tech/api/support';
+      // Resolve API_URL:
+      // 1) If build-time API base exists, use it.
+      // 2) Otherwise prefer the api subdomain when on the main rectbot domain (Pages origin returns 405 for worker POSTs).
+      let API_URL;
+      try {
+        if (API_BASE && API_BASE.trim()) {
+          API_URL = `${API_BASE.replace(/\/$/, '')}/api/support`;
+        } else if (typeof window !== 'undefined' && window.location && window.location.hostname) {
+          const host = window.location.hostname.toLowerCase();
+          // Match the main domain and common variants
+          if (host === 'rectbot.tech' || host === 'www.rectbot.tech' || host.endsWith('.rectbot.tech')) {
+            API_URL = 'https://api.rectbot.tech/api/support';
+          } else {
+            API_URL = '/api/support';
+          }
+        } else {
+          API_URL = '/api/support';
+        }
+      } catch (e) {
+        console.warn('API URL resolution failed, falling back to relative path', e);
+        API_URL = '/api/support';
       }
-    }
-  } catch (e) {
-    // ignore
-  }
+
+      console.debug('Resolved API_URL for support form:', API_URL);
 
       form.addEventListener('submit', async (e) => {
         e.preventDefault();
