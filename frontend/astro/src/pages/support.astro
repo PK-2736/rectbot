@@ -1,0 +1,111 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro'
+const title = 'お問い合わせ - Rectbot'
+---
+
+<BaseLayout title={title}>
+  <main class="max-w-3xl mx-auto px-4 py-12">
+    <h1 class="text-3xl font-bold mb-4">お問い合わせ</h1>
+    <p class="text-sm text-gray-600 mb-6">ご質問・ご要望・不具合報告はこちらから送信してください。送信後、確認のため Discord に通知が届きます。</p>
+
+    <form id="support-form" class="space-y-4 bg-white p-6 rounded-lg shadow">
+      <div>
+        <label class="block text-sm font-medium text-gray-700">お名前 <span class="text-red-500">*</span></label>
+        <input id="name" name="name" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500" />
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700">メールアドレス <span class="text-red-500">*</span></label>
+        <input id="email" name="email" type="email" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500" />
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700">お問い合わせ内容 <span class="text-red-500">*</span></label>
+        <textarea id="message" name="message" rows="6" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"></textarea>
+      </div>
+
+      <div class="flex items-center justify-between">
+        <button id="submit-btn" type="submit" class="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">送信</button>
+        <div id="form-status" class="text-sm text-gray-600"></div>
+      </div>
+    </form>
+
+    <script type="module">
+      const form = document.getElementById('support-form');
+      const statusEl = document.getElementById('form-status');
+      const submitBtn = document.getElementById('submit-btn');
+
+  // API エンドポイントの解決:
+  // 1) build-time に PUBLIC_API_BASE_URL が設定されていればそれを使い、末尾のスラッシュを取り除いて /api/support を接続
+  // 2) そうでなければ同一オリジンの /api/support を使う（開発時や Worker と同一ドメインで運用する場合）
+  const API_BASE = import.meta.env.PUBLIC_API_BASE_URL || '';
+  const API_URL = API_BASE ? `${API_BASE.replace(/\/$/, '')}/api/support` : '/api/support';
+  const RECAPTCHA_SITE_KEY = import.meta.env.PUBLIC_RECAPTCHA_SITE_KEY || null;
+
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        statusEl.textContent = '';
+        submitBtn.disabled = true;
+        submitBtn.textContent = '送信中...';
+
+        const payload = {
+          name: document.getElementById('name').value.trim(),
+          email: document.getElementById('email').value.trim(),
+          message: document.getElementById('message').value.trim(),
+        };
+
+        try {
+          // reCAPTCHA v3 トークンを取得してペイロードに付与
+          if (RECAPTCHA_SITE_KEY && window.grecaptcha) {
+            await new Promise((resolve) => {
+              grecaptcha.ready(async () => {
+                try {
+                  const token = await grecaptcha.execute(RECAPTCHA_SITE_KEY, { action: 'support_form' });
+                  payload.recaptchaToken = token;
+                } catch (e) {
+                  console.warn('reCAPTCHA token failed', e);
+                } finally { resolve(); }
+              });
+            });
+          }
+
+          const res = await fetch(API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+
+          if (res.ok) {
+            const json = await res.json();
+            statusEl.textContent = json.message || '送信が完了しました。ありがとうございます！';
+            statusEl.className = 'text-sm text-green-600';
+            form.reset();
+          } else {
+            const text = await res.text();
+            statusEl.textContent = `送信に失敗しました: ${res.status} ${text}`;
+            statusEl.className = 'text-sm text-red-600';
+          }
+        } catch (err) {
+          console.error(err);
+          statusEl.textContent = '送信中にエラーが発生しました。後でもう一度お試しください。';
+          statusEl.className = 'text-sm text-red-600';
+        } finally {
+          submitBtn.disabled = false;
+          submitBtn.textContent = '送信';
+        }
+      });
+    </script>
+    
+      <!-- reCAPTCHA v3 を動的に読み込む（サイトキーがある場合のみ） -->
+      <script>
+        (function(){
+          const siteKey = import.meta.env.PUBLIC_RECAPTCHA_SITE_KEY || null;
+          if (!siteKey) return;
+          const s = document.createElement('script');
+          s.src = `https://www.google.com/recaptcha/api.js?render=${siteKey}`;
+          s.defer = true;
+          document.head.appendChild(s);
+        })();
+      </script>
+  </main>
+</BaseLayout>

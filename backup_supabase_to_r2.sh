@@ -35,6 +35,42 @@ error() {
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] ERROR: $*" | tee -a "$LOG_FILE" >&2
 }
 
+# ===== Discord 通知 =====
+send_discord() {
+  # 引数: message
+  local msg="$1"
+  if [ -z "${DISCORD_WEBHOOK_URL:-}" ]; then
+    log "Discord webhook not configured; skipping notification"
+    return 0
+  fi
+
+  # エスケープ処理（簡易）: ダブルクオートと改行をエスケープ
+  local payload_content
+  payload_content=$(printf "%s" "$msg" | sed 's/\\"/\\\\"/g' | sed 's/"/\\\"/g' | sed ':a;N;$!ba;s/\n/\\n/g')
+
+  local json
+  json="{\"content\":\"${payload_content}\"}"
+
+  # 送信（失敗しても処理を止めない）
+  curl -sS -X POST -H "Content-Type: application/json" -d "$json" "$DISCORD_WEBHOOK_URL" >/dev/null 2>&1 || true
+}
+
+# エラー時に Discord 通知して終了するトラップ
+on_error() {
+  local exit_code=$?
+  local last_cmd="${BASH_COMMAND:-unknown}"
+  local tail_log
+  tail_log=$(tail -n 200 "$LOG_FILE" 2>/dev/null || true)
+
+  local msg="❌ Supabaseバックアップ失敗\nExit code: ${exit_code}\nCommand: ${last_cmd}\n\n最近のログ:\n${tail_log}"
+  send_discord "$msg"
+
+  error "Backup failed (exit ${exit_code}) at command: ${last_cmd}"
+  exit "$exit_code"
+}
+
+trap 'on_error' ERR
+
 # ===== バックアップディレクトリ作成 =====
 mkdir -p "$BACKUP_DIR"
 
@@ -154,5 +190,9 @@ log "✅ バックアップ完了"
 log "バックアップ: ${BACKUP_GZ}"
 log "R2 バケット: ${R2_BUCKET_NAME}"
 log "=========================================="
+
+# 成功通知を送る
+SUCCESS_MSG="✅ Supabaseバックアップ完了\nバックアップ: ${BACKUP_GZ}\nR2 バケット: ${R2_BUCKET_NAME}\nサイズ: ${BACKUP_SIZE}\nTimestamp: ${TIMESTAMP}"
+send_discord "$SUCCESS_MSG"
 
 exit 0

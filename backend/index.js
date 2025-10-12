@@ -40,6 +40,38 @@ function getSupabaseClient(env) {
   };
 }
 
+// ----- Sentry minimal HTTP reporter for Cloudflare Worker when @sentry/cloudflare isn't used -----
+async function sendToSentry(env, error, extra = {}) {
+  try {
+    if (!env || !env.SENTRY_DSN) return;
+    const dsn = env.SENTRY_DSN;
+    // DSN format: https://<publicKey>@o<org>.ingest.sentry.io/<projectId>
+    const m = dsn.match(/^https:\/\/([^@]+)@([^\/]+)\/(\d+)$/);
+    if (!m) return;
+    const publicKey = m[1];
+    const host = m[2];
+    const projectId = m[3];
+    const storeUrl = `https://${host}/api/${projectId}/store/?sentry_key=${publicKey}`;
+
+    const event = {
+      message: (error && (error.message || String(error))) || 'Unknown error',
+      level: 'error',
+      logger: 'rectbot.backend',
+      extra: { ...extra, stack: error && error.stack },
+      timestamp: new Date().toISOString(),
+    };
+
+    await fetch(storeUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(event),
+    });
+  } catch (e) {
+    // avoid throwing from error reporter
+    console.warn('sendToSentry failed', e);
+  }
+}
+
 /**
  * 管理者かどうかをチェック
  */
@@ -1399,6 +1431,7 @@ export default {
         });
       } catch (error) {
         console.error('Guild settings fetch error:', error);
+        try { await sendToSentry(env, error, { path: '/api/guild-settings/*' }); } catch(e){}
         
         // エラー時はデフォルト値を返す
         const defaultSettings = {
@@ -1412,6 +1445,137 @@ export default {
         return new Response(JSON.stringify(defaultSettings), { 
           status: 200, 
           headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      }
+    }
+
+    // サポート用問い合わせAPI
+    if (url.pathname === '/api/support') {
+      // プリフライト対応
+      if (request.method === 'OPTIONS') {
+        return new Response(null, { headers: corsHeaders });
+      }
+
+      if (request.method !== 'POST') {
+        return new Response(JSON.stringify({ error: 'Method Not Allowed' }), {
+          status: 405,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      try {
+        const data = await request.json();
+        const { name, email, message, recaptchaToken } = data || {};
+
+        if (!name || !email || !message) {
+          return new Response(JSON.stringify({ error: '必須項目が入力されていません' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        // reCAPTCHA v3 検証（設定されている場合）
+        const scoreThreshold = parseFloat(env.RECAPTCHA_SCORE_THRESHOLD || '0.5');
+        if (env.RECAPTCHA_SECRET) {
+          if (!recaptchaToken) {
+            return new Response(JSON.stringify({ error: 'reCAPTCHA token が必要です' }), {
+              status: 400,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
+          }
+
+          const params = new URLSearchParams();
+          params.append('secret', env.RECAPTCHA_SECRET);
+          params.append('response', recaptchaToken);
+
+          const verifyRes = await fetch('https://www.google.com/recaptcha/api/siteverify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: params.toString()
+          });
+
+          const verifyJson = await verifyRes.json();
+          const success = verifyJson.success;
+          const score = typeof verifyJson.score === 'number' ? verifyJson.score : Number(verifyJson.score || 0);
+
+          if (!success || score < scoreThreshold) {
+            try { await sendToSentry(env, new Error('reCAPTCHA failed'), { path: '/api/support', recaptcha: verifyJson }); } catch(e){}
+            return new Response(JSON.stringify({ error: 'reCAPTCHA 検証に失敗しました' }), {
+              status: 403,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
+          }
+        }
+
+        // MailChannels 経由でメール送信
+        const payload = {
+          personalizations: [
+            {
+              to: [{ email: env.SUPPORT_EMAIL || 'support@rectbot.tech' }],
+              dkim_domain: 'rectbot.tech',
+              dkim_selector: 'mailchannels',
+            }
+          ],
+          from: {
+            email: 'noreply@rectbot.tech',
+            name: 'Rectbot Support Form'
+          },
+          reply_to: { email },
+          subject: `[Rectbot] お問い合わせ - ${name}`,
+          content: [
+            {
+              type: 'text/plain',
+              value: `\nお名前: ${name}\nメールアドレス: ${email}\n\nお問い合わせ内容:\n${message}\n\n---\n送信日時: ${new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}`
+            }
+          ]
+        };
+
+        const emailRes = await fetch('https://api.mailchannels.net/tx/v1/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        const emailOk = emailRes && (typeof emailRes.ok === 'boolean' ? emailRes.ok : true);
+
+        // メール送信が成功したら Discord に短い通知を送る（webhook が設定されている場合のみ）
+        if (emailOk) {
+          if (env.DISCORD_WEBHOOK_URL) {
+            try {
+              const body = { content: '📬 お問い合わせメールが届きました。' };
+              const discordRes = await fetch(env.DISCORD_WEBHOOK_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+              });
+              if (!discordRes.ok) {
+                console.warn('Discord notify returned non-ok status', await discordRes.text());
+              }
+            } catch (e) {
+              console.warn('Discord notify failed', e);
+            }
+          }
+
+          return new Response(JSON.stringify({ success: true, message: 'お問い合わせを受け付けました。ありがとうございます！' }), {
+            status: 200,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        try { await sendToSentry(env, new Error('Support send failed'), { emailOk }); } catch(e){}
+        console.error('Support send failed', { emailOk });
+        return new Response(JSON.stringify({ error: '送信に失敗しました' }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+
+      } catch (error) {
+        console.error('Support API error:', error);
+        // send minimal event to Sentry if configured
+        try { await sendToSentry(env, error, { path: '/api/support' }); } catch(e){}
+        return new Response(JSON.stringify({ error: '送信に失敗しました', details: error.message }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
       }
     }
