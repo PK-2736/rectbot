@@ -133,17 +133,62 @@ const PUBLIC_RECAPTCHA_SITE_KEY_BUILD = import.meta.env.PUBLIC_RECAPTCHA_SITE_KE
 
         try {
           // reCAPTCHA v3 トークンを取得してペイロードに付与
-          if (RECAPTCHA_SITE_KEY && window.grecaptcha) {
-            await new Promise((resolve) => {
-              grecaptcha.ready(async () => {
-                try {
-                  const token = await grecaptcha.execute(RECAPTCHA_SITE_KEY, { action: 'support_form' });
-                  payload.recaptchaToken = token;
-                } catch (e) {
-                  console.warn('reCAPTCHA token failed', e);
-                } finally { resolve(); }
-              });
+          if (RECAPTCHA_SITE_KEY) {
+            // Ensure the recaptcha script is present (if not already added elsewhere)
+            try {
+              if (!document.querySelector('script[src*="recaptcha/api.js?render="]')) {
+                const s = document.createElement('script');
+                s.src = `https://www.google.com/recaptcha/api.js?render=${RECAPTCHA_SITE_KEY}`;
+                s.defer = true;
+                document.head.appendChild(s);
+              }
+            } catch (e) {
+              console.warn('Failed to append reCAPTCHA script tag', e);
+            }
+
+            // Wait until grecaptcha.ready is available (polling with timeout)
+            const getRecaptchaToken = (siteKey, timeoutMs = 7000) => new Promise((resolve) => {
+              const start = Date.now();
+              const tryReady = () => {
+                if (window.grecaptcha && typeof window.grecaptcha.ready === 'function') {
+                  try {
+                    grecaptcha.ready(async () => {
+                      try {
+                        const token = await grecaptcha.execute(siteKey, { action: 'support_form' });
+                        resolve(token);
+                      } catch (e) {
+                        console.warn('grecaptcha.execute failed', e);
+                        resolve(null);
+                      }
+                    });
+                  } catch (err) {
+                    console.warn('grecaptcha.ready invocation failed', err);
+                    resolve(null);
+                  }
+                  return;
+                }
+                if (Date.now() - start > timeoutMs) {
+                  // timed out
+                  resolve(null);
+                  return;
+                }
+                setTimeout(tryReady, 200);
+              };
+              tryReady();
             });
+
+            try {
+              const token = await getRecaptchaToken(RECAPTCHA_SITE_KEY, 7000);
+              if (token) {
+                payload.recaptchaToken = token;
+              } else {
+                console.warn('reCAPTCHA token not obtained within timeout');
+                // Optionally you can show a UI message instead of proceeding without token
+                // For now proceed and let server return a clear error (or adjust UX if desired)
+              }
+            } catch (e) {
+              console.warn('Error while obtaining reCAPTCHA token', e);
+            }
           }
 
           // Use AbortController to avoid hanging requests and to detect message-port-close style failures

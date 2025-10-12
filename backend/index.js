@@ -1550,6 +1550,11 @@ export default {
         const scoreThreshold = parseFloat(env.RECAPTCHA_SCORE_THRESHOLD || '0.5');
         if (env.RECAPTCHA_SECRET) {
           if (!recaptchaToken) {
+            // Record to Sentry that client didn't send recaptcha token (helpful for diagnosing client-side failures)
+            try {
+              const extra = { path: '/api/support', stage: 'missing_recaptcha', requestInfo: { url: request.url, method: request.method, ip: request.headers.get('CF-Connecting-IP') || undefined } };
+              if (ctx && typeof ctx.waitUntil === 'function') ctx.waitUntil(sendToSentry(env, new Error('recaptchaToken missing'), extra, ctx)); else sendToSentry(env, new Error('recaptchaToken missing'), extra);
+            } catch (e) {}
             return new Response(JSON.stringify({ error: 'reCAPTCHA token が必要です' }), {
               status: 400,
               headers: { ...corsHeaders, 'Content-Type': 'application/json' }
