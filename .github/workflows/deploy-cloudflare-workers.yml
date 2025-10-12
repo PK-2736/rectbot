@@ -129,6 +129,12 @@ jobs:
           DISCORD_CLIENT_ID: ${{ secrets.DISCORD_CLIENT_ID }}
           DISCORD_REDIRECT_URI: ${{ secrets.DISCORD_REDIRECT_URI }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          RECAPTCHA_SECRET: ${{ secrets.RECAPTCHA_SECRET }}
+          PUBLIC_RECAPTCHA_SITE_KEY: ${{ secrets.PUBLIC_RECAPTCHA_SITE_KEY }}
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+          SUPPORT_EMAIL: ${{ secrets.SUPPORT_EMAIL }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          MAILCHANNELS_API_KEY: ${{ secrets.MAILCHANNELS_API_KEY }}
           ADMIN_DISCORD_ID: ${{ secrets.ADMIN_DISCORD_ID }}
           VPS_EXPRESS_URL: ${{ secrets.VPS_EXPRESS_URL }}
         run: |
