@@ -35,7 +35,7 @@ const PUBLIC_RECAPTCHA_SITE_KEY_BUILD = import.meta.env.PUBLIC_RECAPTCHA_SITE_KE
     <!-- build-time values injected into data attributes to safely pass to client script -->
     <div id="support-data" data-api-base={PUBLIC_API_BASE_URL_BUILD} data-recaptcha-key={PUBLIC_RECAPTCHA_SITE_KEY_BUILD} style="display:none"></div>
 
-    <script type="module">
+  <script type="module" client:load>
       const form = document.getElementById('support-form');
       const statusEl = document.getElementById('form-status');
       const submitBtn = document.getElementById('submit-btn');
