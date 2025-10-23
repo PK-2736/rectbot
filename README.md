@@ -1137,5 +1137,255 @@ psql <database_url> -f restore.sql
 | 拡張計画 | 技術的ロードマップ |
 
 ## 🧭 技術的ロードマップ（Technical Roadmap）
+了解しました ✅
+「参考ドキュメント」ではなく、各フェーズごとに 「参考項目」（＝設計・設定・関連タスク・依存技術などの確認ポイント）を明記した Notion用完全版 技術ロードマップ を以下にまとめました。
+
+そのままNotionに貼り付ければ、トグル展開・絵文字付きで視覚的に整理された形になります👇
+
+⸻
+
+🚀 Recrubo Project 技術ロードマップ
+
+<aside>
+🧭  
+Recrubo（Rectbot）プロジェクトの全体制作手順と技術マイルストーンを整理。  
+各フェーズで確認すべき「参考項目」も明記しています。
+</aside>
+
+
+
+⸻
+
+🏗 フェーズ 1：設計・準備段階
+
+<details>
+<summary>🧩 環境構築とアーキテクチャ設計</summary>
+
+
+🎯 目的
+
+開発環境・リポジトリ・アーキテクチャを整備し、開発の基盤を固める。
+
+✅ 手順
+	•	Node.js / npm / Wrangler / Supabase CLI を導入
+	•	Docker / GitHub Actions 設定
+	•	.env に主要キーを登録
+	•	Discord Bot Token
+	•	Supabase Keys
+	•	Cloudflare API Token
+	•	Sentry DSN / Stripe Secret など
+	•	GitHub リポジトリ初期化
+	•	.gitignore, .dockerignore 設定
+	•	Secrets 設定（GitHub Actions 連携）
+	•	全体アーキテクチャ設計
+	•	Discord Bot（VPS）
+	•	Cloudflare Pages（UI）
+	•	Cloudflare Workers（API）
+	•	Supabase（DB / OAuth2）
+	•	Cloudflare R2（バックアップ）
+
+💡 参考項目
+	•	Cloudflare Workers / Pages の役割分担
+	•	Supabase の無料枠構成・Auth設定
+	•	環境変数の統一命名規則
+	•	GitHub Secrets 管理ポリシー
+	•	ネットワーク構成（VPS ↔ Worker ↔ Pages）
+
+</details>
+
+
+
+⸻
+
+⚙️ フェーズ 2：バックエンド構築
+
+<details>
+<summary>💾 API / データ管理の基盤構築</summary>
+
+
+🎯 目的
+
+リアルタイム更新に対応するAPIサーバーとデータ基盤を確立。
+
+✅ 手順
+	•	Supabase にDBスキーマ定義
+	•	Guild設定 / 募集データ / OAuth情報
+	•	Cloudflare Workers でAPI実装
+	•	backend/index.js 作成
+	•	wrangler.toml にDurable Object設定
+	•	src/utils/sentry.js にSentry組み込み
+	•	JWT / Service Token によるAPI認証
+	•	CORS設定・リクエスト検証追加
+	•	Cloudflare Pagesで管理UI構築
+	•	deploy-cloudflare-workers.yml にCI設定追加
+
+💡 参考項目
+	•	Supabase AuthとDiscord OAuth2の連携方法
+	•	Durable Objectsの永続キャッシュ用途
+	•	Sentry連携でのDSN構成
+	•	Cloudflare Pages→Worker通信の制限ポリシー
+	•	R2へのバックアップトリガー構成
+
+</details>
+
+
+
+⸻
+
+🤖 フェーズ 3：Discord Bot 実装
+
+<details>
+<summary>🪄 コマンド・通知・画像生成機能の開発</summary>
+
+
+🎯 目的
+
+ギルド募集・承認・画像生成などのBot機能を実装。
+
+✅ 手順
+	•	bot/server.js に起動処理を定義
+	•	bot/src/index.js にメインイベント処理実装
+	•	bot/src/commands/ にコマンド群作成
+	•	/gameRecruit, /editRecruit, /guildSettings, /friendCode, /help
+	•	コマンド登録／削除
+	•	deploy-commands.js, clear-commands.js
+	•	update-notify.js に更新通知処理追加
+	•	再起動時の募集リセット通知機能
+	•	軽量画像生成 (bot/images/, OTFフォント利用)
+	•	Sentryでエラートラッキング実装
+
+💡 参考項目
+	•	Discord.js v14 の Slash Command 実装仕様
+	•	Botの再接続時処理（state管理）
+	•	Sentry Breadcrumbsでのイベント追跡
+	•	Cloudflare Worker とのデータ通信制御
+	•	フォント・画像素材のライセンス確認
+
+</details>
+
+
+
+⸻
+
+☁️ フェーズ 4：デプロイ・運用基盤
+
+<details>
+<summary>🛠 自動デプロイ・バックアップ体制の構築</summary>
+
+
+🎯 目的
+
+自動デプロイとデータ保全を自律化し、安定運用を実現。
+
+✅ 手順
+	•	GitHub Actions 設定
+	•	deploy-cloudflare-pages.yml
+	•	deploy-cloudflare-workers.yml
+	•	deploy-oci.yml
+	•	Supabase / R2 バックアップスクリプト実行
+	•	backup_local_to_r2.sh
+	•	backup_supabase_to_r2.sh
+	•	restore_from_r2.sh
+	•	setup_cron.sh で定期実行
+	•	監視・通知体制構築
+	•	Sentry：エラー監視
+	•	Loki + Grafana：ログ監視
+	•	Discord通知：死活・異常検知
+
+💡 参考項目
+	•	GitHub Actions のワークフロー権限構成
+	•	Supabase→R2への転送認証（APIトークン）
+	•	Cloudflare R2のバージョニング設定
+	•	Lokiの外部非公開化（Cloudflare Tunnel活用）
+	•	Cronジョブの権限・再試行ポリシー
+
+</details>
+
+
+
+⸻
+
+🔧 フェーズ 5：最適化・拡張
+
+<details>
+<summary>⚡ パフォーマンス改善と機能拡張</summary>
+
+
+🎯 目的
+
+高速化・安定化・拡張性強化を行う。
+
+✅ 手順
+	•	Durable Objects キャッシュ導入
+	•	Redis / R2キャッシュ検討
+	•	画像処理負荷を別VPS（Vultr HF / OCI A2）へ分散
+	•	Stripeサブスク連携導入
+	•	サーバー別ダッシュボード拡張
+	•	Discord OAuth2 ロール同期実装
+	•	Cloudflare Tunnel + Access 認証強化
+	•	Service Token によるAPI通信制御
+
+💡 参考項目
+	•	キャッシュレイヤー構成（Redis or Durable Objects）
+	•	画像生成ジョブの非同期化設計
+	•	Stripe Webhook検証方法
+	•	OAuth2 ロール付与ロジック
+	•	Cloudflare Access グループ制御設計
+
+</details>
+
+
+
+⸻
+
+🌏 フェーズ 6：公開・メンテナンス
+
+<details>
+<summary>🧭 公開環境移行と安定運用</summary>
+
+
+🎯 目的
+
+公開環境での安定運用と継続的改善。
+
+✅ 手順
+	•	GitHub Release 運用
+	•	バージョン履歴管理（CHANGELOG / Notion更新履歴）
+	•	ユーザーからのバグ報告→Sentry自動収集
+	•	定期バックアップ・復元検証
+	•	安定版公開後の次フェーズ開発計画策定
+
+💡 参考項目
+	•	バージョニングポリシー（SemVer準拠）
+	•	Sentry Issueトリアージ手順
+	•	バックアップの検証頻度
+	•	Notion運用ルール（更新履歴・リリースノート）
+	•	公開後のインシデント対応フロー
+
+</details>
+
+
+
+⸻
+
+📘 補足
+	•	各フェーズは 並行進行可（特にBot開発とバックエンド構築）
+	•	Cloudflare R2・Supabase連携は、早期にテスト環境構築 推奨
+	•	Notionで進行管理する場合、各フェーズを「進行中」「完了」で分けると見やすいです
+
+⸻
+
+この形で Notion に貼り付けると：
+	•	各フェーズがトグルで折りたためる
+	•	「参考項目」で設計や依存の確認が明確
+	•	開発ロードマップとレビュー項目を同時に追える
+
+⸻
+
+希望すれば次の形式にも変換できます：
+	1.	📄 Markdownファイル（.md）出力
+	2.	🧭 Notionインポート用 JSON（階層構造保持）出力
+
+どちらで出力しますか？
 
 ## 🕒 更新履歴（Changelog）
