@@ -1137,255 +1137,165 @@ psql <database_url> -f restore.sql
 | 拡張計画 | 技術的ロードマップ |
 
 ## 🧭 技術的ロードマップ（Technical Roadmap）
-了解しました ✅
-「参考ドキュメント」ではなく、各フェーズごとに 「参考項目」（＝設計・設定・関連タスク・依存技術などの確認ポイント）を明記した Notion用完全版 技術ロードマップ を以下にまとめました。
 
-そのままNotionに貼り付ければ、トグル展開・絵文字付きで視覚的に整理された形になります👇
-
-⸻
-
-🚀 Recrubo Project 技術ロードマップ
-
-<aside>
-🧭  
-Recrubo（Rectbot）プロジェクトの全体制作手順と技術マイルストーンを整理。  
-各フェーズで確認すべき「参考項目」も明記しています。
-</aside>
-
-
-
-⸻
-
-🏗 フェーズ 1：設計・準備段階
-
-<details>
-<summary>🧩 環境構築とアーキテクチャ設計</summary>
-
-
-🎯 目的
-
-開発環境・リポジトリ・アーキテクチャを整備し、開発の基盤を固める。
-
-✅ 手順
-	•	Node.js / npm / Wrangler / Supabase CLI を導入
-	•	Docker / GitHub Actions 設定
-	•	.env に主要キーを登録
-	•	Discord Bot Token
-	•	Supabase Keys
-	•	Cloudflare API Token
-	•	Sentry DSN / Stripe Secret など
-	•	GitHub リポジトリ初期化
-	•	.gitignore, .dockerignore 設定
-	•	Secrets 設定（GitHub Actions 連携）
-	•	全体アーキテクチャ設計
-	•	Discord Bot（VPS）
-	•	Cloudflare Pages（UI）
-	•	Cloudflare Workers（API）
-	•	Supabase（DB / OAuth2）
-	•	Cloudflare R2（バックアップ）
-
-💡 参考項目
-	•	Cloudflare Workers / Pages の役割分担
-	•	Supabase の無料枠構成・Auth設定
-	•	環境変数の統一命名規則
-	•	GitHub Secrets 管理ポリシー
-	•	ネットワーク構成（VPS ↔ Worker ↔ Pages）
-
-</details>
-
-
-
-⸻
-
-⚙️ フェーズ 2：バックエンド構築
-
-<details>
-<summary>💾 API / データ管理の基盤構築</summary>
-
-
-🎯 目的
-
-リアルタイム更新に対応するAPIサーバーとデータ基盤を確立。
-
-✅ 手順
-	•	Supabase にDBスキーマ定義
-	•	Guild設定 / 募集データ / OAuth情報
-	•	Cloudflare Workers でAPI実装
-	•	backend/index.js 作成
-	•	wrangler.toml にDurable Object設定
-	•	src/utils/sentry.js にSentry組み込み
-	•	JWT / Service Token によるAPI認証
-	•	CORS設定・リクエスト検証追加
-	•	Cloudflare Pagesで管理UI構築
-	•	deploy-cloudflare-workers.yml にCI設定追加
-
-💡 参考項目
-	•	Supabase AuthとDiscord OAuth2の連携方法
-	•	Durable Objectsの永続キャッシュ用途
-	•	Sentry連携でのDSN構成
-	•	Cloudflare Pages→Worker通信の制限ポリシー
-	•	R2へのバックアップトリガー構成
-
-</details>
-
-
-
-⸻
-
-🤖 フェーズ 3：Discord Bot 実装
-
-<details>
-<summary>🪄 コマンド・通知・画像生成機能の開発</summary>
-
-
-🎯 目的
-
-ギルド募集・承認・画像生成などのBot機能を実装。
-
-✅ 手順
-	•	bot/server.js に起動処理を定義
-	•	bot/src/index.js にメインイベント処理実装
-	•	bot/src/commands/ にコマンド群作成
-	•	/gameRecruit, /editRecruit, /guildSettings, /friendCode, /help
-	•	コマンド登録／削除
-	•	deploy-commands.js, clear-commands.js
-	•	update-notify.js に更新通知処理追加
-	•	再起動時の募集リセット通知機能
-	•	軽量画像生成 (bot/images/, OTFフォント利用)
-	•	Sentryでエラートラッキング実装
-
-💡 参考項目
-	•	Discord.js v14 の Slash Command 実装仕様
-	•	Botの再接続時処理（state管理）
-	•	Sentry Breadcrumbsでのイベント追跡
-	•	Cloudflare Worker とのデータ通信制御
-	•	フォント・画像素材のライセンス確認
-
-</details>
-
-
-
-⸻
-
-☁️ フェーズ 4：デプロイ・運用基盤
-
-<details>
-<summary>🛠 自動デプロイ・バックアップ体制の構築</summary>
-
-
-🎯 目的
-
-自動デプロイとデータ保全を自律化し、安定運用を実現。
-
-✅ 手順
-	•	GitHub Actions 設定
-	•	deploy-cloudflare-pages.yml
-	•	deploy-cloudflare-workers.yml
-	•	deploy-oci.yml
-	•	Supabase / R2 バックアップスクリプト実行
-	•	backup_local_to_r2.sh
-	•	backup_supabase_to_r2.sh
-	•	restore_from_r2.sh
-	•	setup_cron.sh で定期実行
-	•	監視・通知体制構築
-	•	Sentry：エラー監視
-	•	Loki + Grafana：ログ監視
-	•	Discord通知：死活・異常検知
-
-💡 参考項目
-	•	GitHub Actions のワークフロー権限構成
-	•	Supabase→R2への転送認証（APIトークン）
-	•	Cloudflare R2のバージョニング設定
-	•	Lokiの外部非公開化（Cloudflare Tunnel活用）
-	•	Cronジョブの権限・再試行ポリシー
-
-</details>
-
-
-
-⸻
-
-🔧 フェーズ 5：最適化・拡張
-
-<details>
-<summary>⚡ パフォーマンス改善と機能拡張</summary>
-
-
-🎯 目的
-
-高速化・安定化・拡張性強化を行う。
-
-✅ 手順
-	•	Durable Objects キャッシュ導入
-	•	Redis / R2キャッシュ検討
-	•	画像処理負荷を別VPS（Vultr HF / OCI A2）へ分散
-	•	Stripeサブスク連携導入
-	•	サーバー別ダッシュボード拡張
-	•	Discord OAuth2 ロール同期実装
-	•	Cloudflare Tunnel + Access 認証強化
-	•	Service Token によるAPI通信制御
-
-💡 参考項目
-	•	キャッシュレイヤー構成（Redis or Durable Objects）
-	•	画像生成ジョブの非同期化設計
-	•	Stripe Webhook検証方法
-	•	OAuth2 ロール付与ロジック
-	•	Cloudflare Access グループ制御設計
-
-</details>
-
-
-
-⸻
-
-🌏 フェーズ 6：公開・メンテナンス
-
-<details>
-<summary>🧭 公開環境移行と安定運用</summary>
-
-
-🎯 目的
 
 公開環境での安定運用と継続的改善。
+# 🚀 Recrubo Project 技術ロードマップ
 
-✅ 手順
-	•	GitHub Release 運用
-	•	バージョン履歴管理（CHANGELOG / Notion更新履歴）
-	•	ユーザーからのバグ報告→Sentry自動収集
-	•	定期バックアップ・復元検証
-	•	安定版公開後の次フェーズ開発計画策定
+> 🧭 開発から運用までの全体像を段階的に整理。  
+> 各フェーズの「参考項目」も明記。
 
-💡 参考項目
-	•	バージョニングポリシー（SemVer準拠）
-	•	Sentry Issueトリアージ手順
-	•	バックアップの検証頻度
-	•	Notion運用ルール（更新履歴・リリースノート）
-	•	公開後のインシデント対応フロー
+---
 
-</details>
+## 🏗 フェーズ 1：設計・準備段階
+
+### 🎯 目的
+開発環境・リポジトリ・アーキテクチャを整備し、開発の基盤を確立する。
+
+### ✅ 手順
+- Node.js / npm / Wrangler / Supabase CLI の導入  
+- Docker / GitHub Actions 設定  
+- `.env` に以下のキーを設定：  
+  - Discord Bot Token  
+  - Supabase Keys  
+  - Cloudflare API Token  
+  - Sentry DSN / Stripe Secret など  
+- GitHub リポジトリ初期化  
+  - `.gitignore`, `.dockerignore` 反映  
+  - GitHub Secrets 設定（`GITHUB_SECRETS_SETUP.md` 参照）  
+- アーキテクチャ構成定義  
+  - Discord Bot（VPS）  
+  - Cloudflare Pages（UI）  
+  - Cloudflare Workers（API）  
+  - Supabase（DB）  
+  - Cloudflare R2（バックアップ）
+
+### 📚 参考項目
+- GitHub Secrets 設定と環境変数管理  
+- Docker環境最適化  
+- Supabase構造設計（ER図レベル）  
+- Cloudflare Pages × Workers 連携フロー  
+- Cloudflare Tunnel 設定・セキュリティモデル  
+
+---
+
+## ⚙️ フェーズ 2：バックエンド構築
+
+### 🎯 目的
+リアルタイムなデータ更新とAPI通信を支える基盤を整える。
+
+### ✅ 手順
+- Supabase で DB スキーマ定義  
+  - Guild設定 / 募集データ / Discord OAuth  
+- Cloudflare Workers 構築  
+  - API 実装・ルーティング設定  
+  - Durable Object / KV / R2 連携  
+  - JWT / Service Token による認証実装  
+- Cloudflare Pages セットアップ  
+  - 管理ダッシュボード / 公開ページ作成  
+  - CI/CD 構築
+
+### 📚 参考項目
+- Supabase 認証フロー (Discord OAuth対応)  
+- Worker環境変数と機密情報管理  
+- JWT・Service Token・Access認証の共存設計  
+- Cloudflare Pages でのデータ取得手順  
+- Sentry / R2 の統合運用  
+
+---
+
+## 🤖 フェーズ 3：Discord Bot 実装
+
+### 🎯 目的
+ギルド募集・承認・通知などのBot機能を構築。
+
+### ✅ 手順
+- `bot/server.js` — Bot起動スクリプト構築  
+- `bot/src/index.js` — メインイベント処理  
+- コマンド群を `bot/src/commands/` に実装  
+  - `/gameRecruit`, `/editRecruit`, `/guildSettings`, `/friendCode`, `/help`  
+- コマンド登録／削除スクリプト  
+  - `deploy-commands.js`, `clear-commands.js`  
+- 画像生成・送信 (`bot/images/`)  
+- 再起動時に進行中募集をリセット  
+- 更新通知機能 (`update-notify.js`)  
+- Sentry連携でエラー監視
+
+### 📚 参考項目
+- Discord.js v14 コンポーネント設計  
+- Embed + Component の連携実装  
+- スラッシュコマンド自動デプロイの仕組み  
+- ログ監視 / Sentry連携手順  
+- 画像生成処理の最適化 (Canvas / Sharp)  
+
+---
+
+## ☁️ フェーズ 4：デプロイ・運用基盤
+
+### 🎯 目的
+本番環境への自動デプロイとデータ保全体制を確立。
+
+### ✅ 手順
+- GitHub Actions 構築  
+  - `deploy-cloudflare-pages.yml`  
+  - `deploy-cloudflare-workers.yml`  
+- Supabase / Cloudflare R2 への自動バックアップ  
+  - `backup_supabase_to_r2.sh`  
+  - `backup_local_to_r2.sh`  
+- R2 バケット構成設計  
+- エラーモニタリングとログ集約 (Loki + Grafana)  
+- Cloudflare Tunnel による安全通信
+
+### 📚 参考項目
+- GitHub Actions ワークフロー最適化  
+- R2 バックアップ & 署名URL設計  
+- Loki / Grafana の構築と保護方法  
+- Cloudflare Tunnel の認証連携  
+- サービス監視・自動復旧スクリプト設計  
+
+---
+
+## 🔄 フェーズ 5：拡張・運用フェーズ
+
+### 🎯 目的
+スケーラブルな運用と機能拡張を見据えた改善。
+
+### ✅ 手順
+- クラスタリングによるBot高可用化  
+- Pages → Workers → Supabase 間のキャッシュ最適化  
+- レスポンス高速化 (Redis / CDN キャッシュ活用)  
+- ダッシュボード機能拡張 (Guild単位の募集分析)  
+- リリースノート・更新履歴管理 (`CHANGELOG.md`)
+
+### 📚 参考項目
+- Redis キャッシュ設計とTTL運用  
+- 分析ページ (Charts.js / ECharts) 統合  
+- 負荷試験 (k6 / autocannon)  
+- Supabase Row-Level Security (RLS) 実装  
+- Cloudflare CDN / KV キャッシュ最適化  
 
 
+## 🧭 フェーズ 6：安定運用・改善フェーズ
+
+### 🎯 目的
+安定した運用を継続しつつ、リリース管理・監視・改善サイクルを確立する。
+
+### ✅ 手順
+- GitHub Release 運用  
+- バージョン履歴管理（`CHANGELOG.md` / Notion更新履歴）  
+- ユーザーからのバグ報告 → Sentry 自動収集・通知  
+- 定期バックアップ・復元検証（R2 / Supabase）  
+- 安定版公開後の次フェーズ開発計画策定（ロードマップ更新）
+
+### 💡 参考項目
+- バージョニングポリシー（SemVer準拠）  
+- Sentry Issue トリアージ手順  
+- バックアップ検証の頻度・自動化方法  
+- Notion運用ルール（更新履歴・リリースノート整備）  
+- 公開後のインシデント対応・ロールバックフロー  
+- SLA / 稼働率目標の策定と監視（UptimeRobot / Grafana）  
+- GitHub Projects または Linear を用いた改善タスク管理  
 
 ⸻
-
-📘 補足
-	•	各フェーズは 並行進行可（特にBot開発とバックエンド構築）
-	•	Cloudflare R2・Supabase連携は、早期にテスト環境構築 推奨
-	•	Notionで進行管理する場合、各フェーズを「進行中」「完了」で分けると見やすいです
-
-⸻
-
-この形で Notion に貼り付けると：
-	•	各フェーズがトグルで折りたためる
-	•	「参考項目」で設計や依存の確認が明確
-	•	開発ロードマップとレビュー項目を同時に追える
-
-⸻
-
-希望すれば次の形式にも変換できます：
-	1.	📄 Markdownファイル（.md）出力
-	2.	🧭 Notionインポート用 JSON（階層構造保持）出力
-
-どちらで出力しますか？
 
 ## 🕒 更新履歴（Changelog）
