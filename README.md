@@ -1,4 +1,4 @@
-# Recrubo_project
+# Recrubo
 
 <aside>
 🧭
@@ -13,8 +13,8 @@
 
 ## プロジェクト概要
 
-- Discord Bot でギルド募集を管理し、軽量画像生成にも対応
-- Cloudflare Workers / Pages + Supabase + R2 によりリアルタイム更新とバックアップを提供
+- Discord での募集をdiscord component v2 + 画像生成で円滑に行うbot
+- Cloudflare Workers / Pages + Supabase + Durable Objects + R2 によりリアルタイム更新とバックアップを提供
 - 管理者とユーザーで表示を切替え、エラーは Sentry と Discord 通知で監視
 
 ### 特徴
@@ -80,7 +80,7 @@
 
 | パス | 説明 |
 | --- | --- |
-| `server.js` | Discord Botの起動スクリプト |
+| `server.js` | express起動スクリプト 未使用の予定 |
 | `package.json` / `package-lock.json` | Botの依存関係とスクリプト |
 | [`README.md`](http://README.md) | Botの概要説明 |
 
@@ -94,7 +94,7 @@
 
 | ファイル名 | 説明 |
 | --- | --- |
-| `aaa.png`, `boshu.png` | Bot用画像素材 |
+| `aaa.png`, `boshu.png` | Bot用画像素材 現在未使用|
 
 ### 📁 bot/src
 
@@ -287,6 +287,7 @@
 - DB: Supabase（テスト）
 - セキュリティ: JWT + Service Token + Cloudflare Access
 - 用途: 開発・テスト
+- domain: rectbot.tech (今現在のドメイン)
 
 ### 本番（Xserver VPS）
 
@@ -296,6 +297,7 @@
 - キャッシュ: Durable Objects
 - セキュリティ: JWT + Service Token + Cloudflare Access
 - 用途: Bot 実働の軽量環境
+- domain: recrubo.net (Xserver dmainで取得予定)
 
 ---
 
@@ -303,7 +305,7 @@
 
 ### ✅ 準備
 
-1. GitHub ActionsのSecretsに `.env` 内の値を登録
+1. GitHub ActionsのSecretsに `.env` 内の値を登録　参考：環境変数 (.env)
 2. Cloudflare Pages・WorkerをGitHub連携しておく
 3. VPS内にも `.env` を配置（SSHで転送）
 
@@ -314,7 +316,7 @@
     - **VPS**: SSH経由で再起動 or PM2再デプロイ
     - **Worker**: `wrangler deploy` で更新
     - **Pages**: Cloudflareが自動でビルド＆公開
-3. 成功後、NotionまたはDiscord Webhookに通知（任意）
+3. 成功後、Discord Webhookに通知（任意）
 
 ---
 
@@ -416,14 +418,14 @@ recruit:{募集ID}
 
 ```json
 {
-  "title": "初心者歓迎！夜の登山",
-  "description": "高尾山でナイトハイクします！",
+  "title": "splatoon3募集",
+  "description": "バンカラマッチ回します！",
   "startTime": "2025-10-22T20:00:00Z",
   "maxMembers": 5,
   "voice": true,
   "recruitId": "abc123",
-  "ownerId": "user001",
-  "currentMembers": ["userid", "userid"]
+  "ownerId": "user_id",
+  "currentMembers": ["user_id", "user_id"]
 }
 
 ```
@@ -447,12 +449,14 @@ await redis.set(`recruit:${recruitId}`, JSON.stringify(data), { EX: 8 * 3600 });
 
 ```json
 {
-  "title": "ナイトハイク",
-  "description": "初心者歓迎",
+  "title": "splatoon3募集",
+  "description": "バンカラマッチ回します！",
   "startTime": "2025-10-22T20:00:00Z",
   "maxMembers": 5,
   "voice": true,
-  "ownerId": "12345"
+  "recruitId": "abc123",
+  "ownerId": "user_id",
+  "currentMembers": ["user_id", "user_id"]
 }
 
 ```
@@ -477,14 +481,14 @@ await redis.set(`recruit:${recruitId}`, JSON.stringify(data), { EX: 8 * 3600 });
 
 ```json
 {
-  "title": "ナイトハイク",
-  "description": "初心者歓迎",
+  "title": "splatoon3募集",
+  "description": "バンカラマッチ回します！",
   "startTime": "2025-10-22T20:00:00Z",
   "maxMembers": 5,
   "voice": true,
   "recruitId": "abc123",
-  "ownerId": "12345",
-  "currentMembers": ["12345", "67890"]
+  "ownerId": "user_id",
+  "currentMembers": ["user_id", "user_id"]
 }
 
 ```
@@ -499,7 +503,7 @@ await redis.set(`recruit:${recruitId}`, JSON.stringify(data), { EX: 8 * 3600 });
 
 ```json
 {
-  "userId": "67890"
+  "user_Id": "67890"
 }
 
 ```
@@ -545,7 +549,7 @@ const recruits = await Promise.all(ids.map(id => redis.get(`recruit:${id}`)));
 
 ### HP（[recrubo.net](http://recrubo.net)）
 
-- Bot 説明、サポート、招待 URL
+- Bot 説明、サポート、招待 URL、プライバシーポリシー、商品取り扱い
 
 ### ダッシュボード（[dashboard.recrubo.net](http://dashboard.recrubo.net)）
 
@@ -580,10 +584,10 @@ const recruits = await Promise.all(ids.map(id => redis.get(`recruit:${id}`)));
 
 - Cloudflare Mail Routing
 - 送信: [`support@recrubo.net](mailto:support@recrubo.net) → [Gmail（teppei.oga.0409@gmail.com](mailto:Gmail（teppei.oga.0409@gmail.com)）`
-- Worker で送信予定（11 月）
+- Worker で送信予定（11 月）参考：(https://blog.cloudflare.com/email-service/)
 - 用途: お問い合わせフォーム、返信
 - SMTP: Cloudflare Mail + Worker または Mailchannels
-- セキュリティ: 認証必須、フォームは CAPTCHA 導入済み
+- セキュリティ: 認証必須、フォームは CAPTCHA で保護
 
 ---
 
@@ -740,7 +744,7 @@ identify guilds applications.commands
 | --- | --- | --- |
 | `Send Messages` | ✅ | 通知・案内 |
 | `Embed Links` | ✅ | 埋め込みメッセージ |
-| `Read Message History` | ✅ | クイズや募集履歴参照 |
+| `Read Message History` | ✅ | 募集履歴参照 |
 | `Manage Messages` | ⚙️ 任意 | 不要メッセージ削除など |
 | `Use Application Commands` | ✅ | `/` コマンド利用 |
 | `Attach Files` | ✅ | 画像・添付送信用 |
@@ -775,20 +779,6 @@ https://discord.com/api/oauth2/authorize?client_id=<DISCORD_CLIENT_ID>&permissio
 | Bot権限が正しい | ☐ | Discord招待リンク再確認 |
 
 ---
-
-この内容はNotionに貼ると、
-
-- 各セクションがトグルにしやすく、
-- チェックリストで運用管理が可能です。
-
----
-
-もし希望があれば、
-
-👥「管理者／一般ユーザーの操作フロー図（OAuth連携〜API操作）」も追記できます。
-
-追加しますか？
-
 ---
 
 ## 🧾 `.env`　環境変数
@@ -989,7 +979,8 @@ npx wrangler pages deploy ./out
 
 - `.env.production` の `NEXT_PUBLIC_API_BASE_URL` が Workerの公開URLになっているか確認
 - CORS設定をWorker側で確認
-
+  
+---
 ---
 
 ## 💾 4. Cloudflare R2（バックアップ復旧）
@@ -1063,37 +1054,6 @@ psql <database_url> -f restore.sql
 - Cloudflare R2 APIキーの有効性確認
 - Supabase Service Role Key / JWT Secretの漏洩チェック
 - Discord Bot Tokenの再生成（必要時）
-
----
-
-## 🧩 復旧チェックリスト（Notionで使える形式）
-
-| ✅ | 項目 | 結果 | 備考 |
-| --- | --- | --- | --- |
-| ☐ | VPSが稼働 |  |  |
-| ☐ | Worker API応答 |  |  |
-| ☐ | Redis接続正常 |  |  |
-| ☐ | Supabaseクエリ成功 |  |  |
-| ☐ | R2バックアップ確認 |  |  |
-| ☐ | Pages表示正常 |  |  |
-| ☐ | Cloudflare Access有効 |  |  |
-
----
-
-このままNotionに貼ると、
-
-- フロー図はコードブロックで見やすく、
-- 各セクションが折りたたみ可能（トグル対応）
-- チェックリスト欄をそのままタスクとして使える構成です。
-
----
-
-必要であれば次に
-
-✅ 自動バックアップ＆復旧（R2 ↔ Supabase）の **スクリプト運用フロー（cron設定付き）** も追記できます。
-
-続けて追加しますか？
-
 ---
 
 ## 運用・費用
@@ -1123,28 +1083,11 @@ psql <database_url> -f restore.sql
 - 環境情報や依存パッケージのバージョン
 - API ルートの追加
 - Dashboard UI 変更やページ追加
-- 新機能（Stripe / Mail 送信など）
-
-## 🧩 まとめ — 追記推奨項目リスト
-
-| カテゴリ | 内容 |
-| --- | --- |
-| 環境変数 | `.env.example` / Secrets 一覧 |
-| デプロイ | 手動・自動両方の手順 |
-| 障害対応 | 復旧手順 / フロー図 |
-| 権限・認証 | ユーザー権限・OAuthスコープ |
-| 更新履歴 | `CHANGELOG.md` |
-| 拡張計画 | 技術的ロードマップ |
+- 新機能（Stripe / Mail 送信など）の追加
 
 ## 🧭 技術的ロードマップ（Technical Roadmap）
 
-
-公開環境での安定運用と継続的改善。
-# 🚀 Recrubo Project 技術ロードマップ
-
-> 🧭 開発から運用までの全体像を段階的に整理。  
-> 各フェーズの「参考項目」も明記。
-
+だ
 ---
 
 ## 🏗 フェーズ 1：設計・準備段階
@@ -1207,11 +1150,10 @@ psql <database_url> -f restore.sql
 ## 🤖 フェーズ 3：Discord Bot 実装
 
 ### 🎯 目的
-ギルド募集・承認・通知などのBot機能を構築。
+ギルド募集・設定・通知などのBot機能を構築。
 
-### ✅ 手順
-- `bot/server.js` — Bot起動スクリプト構築  
-- `bot/src/index.js` — メインイベント処理  
+### ✅ 手順　 
+- `bot/src/index.js` — Bot起動スクリプト構築   
 - コマンド群を `bot/src/commands/` に実装  
   - `/gameRecruit`, `/editRecruit`, `/guildSettings`, `/friendCode`, `/help`  
 - コマンド登録／削除スクリプト  
@@ -1223,7 +1165,7 @@ psql <database_url> -f restore.sql
 
 ### 📚 参考項目
 - Discord.js v14 コンポーネント設計  
-- Embed + Component の連携実装  
+- Component v2の連携実装  
 - スラッシュコマンド自動デプロイの仕組み  
 - ログ監視 / Sentry連携手順  
 - 画像生成処理の最適化 (Canvas / Sharp)  
@@ -1238,7 +1180,8 @@ psql <database_url> -f restore.sql
 ### ✅ 手順
 - GitHub Actions 構築  
   - `deploy-cloudflare-pages.yml`  
-  - `deploy-cloudflare-workers.yml`  
+  - `deploy-cloudflare-workers.yml`
+  - `deploy-oci.yml` 
 - Supabase / Cloudflare R2 への自動バックアップ  
   - `backup_supabase_to_r2.sh`  
   - `backup_local_to_r2.sh`  
@@ -1299,3 +1242,4 @@ psql <database_url> -f restore.sql
 ⸻
 
 ## 🕒 更新履歴（Changelog）
+- 追々記述予定
