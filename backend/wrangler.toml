@@ -16,7 +16,7 @@ bindings = [
 
 [[migrations]]
 tag = "v1-recruits-do"
-new_classes = ["RecruitsDO"]
+new_sqlite_classes = ["RecruitsDO"]
 
 # 環境変数は GitHub Actions で動的に設定されます
 [vars]
