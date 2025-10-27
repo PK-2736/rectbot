@@ -248,21 +248,24 @@ async function pushRecruitToWebAPI(recruitData) {
   const url = `${config.BACKEND_API_URL.replace(/\/$/, '')}/api/recruitment/push`;
   try {
     const payload = JSON.stringify(recruitData);
-    
-    // セキュリティ強化：SERVICE_TOKEN を含むヘッダーを追加
     const headers = { 'Content-Type': 'application/json' };
     const svc = process.env.SERVICE_TOKEN || process.env.BACKEND_SERVICE_TOKEN || '';
     if (svc) {
       headers['Authorization'] = `Bearer ${svc}`;
+      headers['x-service-token'] = svc; // Worker 側の優先ヘッダー
     }
-    
-    const res = await backendFetch(url, { method: 'POST', headers, body: payload });
-    let text = '';
-    try { text = await res.text(); } catch (e) { text = ''; }
-    let body = null; try { body = text ? JSON.parse(text) : null; } catch (_) { body = text; }
-    if (!res.ok) return { ok: false, status: res.status, body };
-    return { ok: true, status: res.status, body };
-  } catch (err) { console.error('pushRecruitToWebAPI error:', err?.message || err); return { ok: false, status: null, error: err?.message || String(err) }; }
+    else {
+      console.warn('[pushRecruitToWebAPI] SERVICE_TOKEN not set in bot environment; backend will likely return 401');
+    }
+    const resp = await fetch(url, { method: 'POST', headers, body: payload });
+    const text = await resp.text().catch(() => '');
+    let body; try { body = text ? JSON.parse(text) : null; } catch { body = text; }
+    if (!resp.ok) return { ok: false, status: resp.status, body };
+    return { ok: true, status: resp.status, body };
+  } catch (err) {
+    console.error('pushRecruitToWebAPI error:', err?.message || err);
+    return { ok: false, status: null, error: err?.message || String(err) };
+  }
 }
 
 let _supabaseClient = null;
