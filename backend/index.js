@@ -73,8 +73,16 @@ function getSupabaseClient(env) {
   };
 }
 
-async function proxyGuildSettingsFinalizeToExpress(env, payload) {
+async function proxyGuildSettingsFinalizeToExpress(env, corsHeaders, payload) {
   const baseUrl = env.TUNNEL_URL || env.VPS_EXPRESS_URL || env.EXPRESS_ORIGIN || env.EXPRESS_BASE_URL;
+
+  console.log('[finalize] Express fallback configuration:', {
+    hasTunnelUrl: !!env.TUNNEL_URL,
+    hasVpsExpressUrl: !!env.VPS_EXPRESS_URL,
+    hasExpressOrigin: !!env.EXPRESS_ORIGIN,
+    hasExpressBaseUrl: !!env.EXPRESS_BASE_URL,
+    hasServiceToken: !!env.SERVICE_TOKEN
+  });
 
   if (!baseUrl) {
     console.warn('[finalize] Express fallback skipped: no tunnel/VPS/Express base URL configured');
@@ -101,17 +109,62 @@ async function proxyGuildSettingsFinalizeToExpress(env, payload) {
     });
 
     const bodyText = await response.text();
-    const contentType = response.headers.get('content-type') || (bodyText.trim().startsWith('{') ? 'application/json' : 'text/plain');
+    const headers = {
+      ...corsHeaders,
+      'X-Backend-Fallback': 'express'
+    };
+
+    const hasJsonContentType = (response.headers.get('content-type') || '').includes('application/json');
+    const seemsJson = bodyText.trim().startsWith('{');
+    const isCloudflareDnsError = response.status === 530 || /error code:\s*1016/i.test(bodyText);
+
+    if (isCloudflareDnsError) {
+      const message = 'Express fallback failed: Cloudflare could not resolve the origin (error code 1016). Check the tunnel or DNS settings for the VPS endpoint.';
+      console.error('[finalize] Express fallback Cloudflare error 1016');
+      return {
+        handled: true,
+        response: new Response(JSON.stringify({
+          error: 'Express fallback origin unreachable',
+          details: message,
+          status: 530,
+          fallback: 'express',
+          timestamp: new Date().toISOString()
+        }), {
+          status: 503,
+          headers: { ...headers, 'Content-Type': 'application/json' }
+        }),
+        status: 503,
+        reason: 'CLOUDFLARE_1016'
+      };
+    }
+
+    if (response.ok && (hasJsonContentType || seemsJson)) {
+      return {
+        handled: true,
+        response: new Response(bodyText, {
+          status: response.status,
+          headers: { ...headers, 'Content-Type': 'application/json' }
+        })
+      };
+    }
 
     return {
       handled: true,
-      status: response.status,
-      bodyText,
-      contentType,
+      response: new Response(bodyText || '', {
+        status: response.status,
+        headers: {
+          ...headers,
+          'Content-Type': hasJsonContentType ? 'application/json' : 'text/plain'
+        }
+      })
     };
   } catch (error) {
     console.error('[finalize] Express fallback failed:', error);
-    return { handled: false, reason: 'NETWORK_ERROR', error };
+    return {
+      handled: false,
+      reason: 'NETWORK_ERROR',
+      error
+    };
   }
 }
 
@@ -1231,16 +1284,11 @@ export default {
         let fallbackAttempted = false;
         let fallbackInfo = null;
         const attemptExpressFallback = async () => {
-          const result = await proxyGuildSettingsFinalizeToExpress(env, payload);
+          const result = await proxyGuildSettingsFinalizeToExpress(env, corsHeaders, payload);
           fallbackAttempted = true;
           fallbackInfo = result;
-          if (result && result.handled) {
-            const headers = {
-              ...corsHeaders,
-              'Content-Type': result.contentType,
-              'X-Backend-Fallback': 'express'
-            };
-            return new Response(result.bodyText, { status: result.status, headers });
+          if (result && result.handled && result.response) {
+            return result.response;
           }
           return null;
         };
@@ -1276,6 +1324,7 @@ export default {
             details: detailMessage,
             fallbackAttempted,
             fallbackReason,
+            fallbackStatus: fallbackInfo?.status ?? null,
             timestamp: new Date().toISOString()
           }), {
             status: 500,
@@ -1366,6 +1415,7 @@ export default {
           details: error.message,
           fallbackAttempted,
           fallbackReason,
+          fallbackStatus: fallbackInfo?.status ?? null,
           timestamp: new Date().toISOString()
         }), { 
           status: 500, 
