@@ -550,6 +550,24 @@ module.exports = {
           } else {
             console.log('Worker APIに募集データをpush: 成功');
           }
+
+          try {
+            const workerSave = await saveRecruitmentData(
+              interaction.guildId,
+              interaction.channelId,
+              actualMessageId,
+              interaction.guild?.name,
+              interaction.channel?.name,
+              finalRecruitData
+            );
+            if (!workerSave?.ok) {
+              console.error('[worker-sync] Durable Object保存に失敗しました:', workerSave);
+            } else {
+              console.log('[worker-sync] Durable Objectに保存しました:', workerSave.body);
+            }
+          } catch (saveErr) {
+            console.error('[worker-sync] saveRecruitmentData error:', saveErr?.message || saveErr);
+          }
         } catch (err) {
           console.error('Redis保存またはAPI pushエラー:', err);
         }
@@ -850,9 +868,13 @@ module.exports = {
           // === 管理ページの募集データステータスを更新（先に実行） ===
           let statusUpdateSuccess = false;
           try {
-            await updateRecruitmentStatus(messageId, 'ended', new Date().toISOString());
-            console.log('管理ページの募集ステータスを更新しました:', messageId);
-            statusUpdateSuccess = true;
+            const statusResult = await updateRecruitmentStatus(messageId, 'ended', new Date().toISOString());
+            if (!statusResult?.ok) {
+              console.warn('管理ページの募集ステータス更新が警告を返しました:', statusResult);
+            } else {
+              console.log('管理ページの募集ステータスを更新しました:', messageId);
+              statusUpdateSuccess = true;
+            }
           } catch (error) {
             console.error('管理ページの募集ステータス更新に失敗:', error);
             // タイムアウトまたはサービス利用不可エラーの場合は詳細をログ
@@ -867,7 +889,7 @@ module.exports = {
           try {
             // ステータス更新が成功した場合のみ削除を試行
             if (statusUpdateSuccess) {
-              const delRes = await deleteRecruitmentData(messageId);
+              const delRes = await deleteRecruitmentData(messageId, interaction.user.id);
               if (delRes && delRes.ok) {
                 console.log('管理API: 募集データを削除しました:', messageId);
               } else if (delRes && delRes.status === 404) {

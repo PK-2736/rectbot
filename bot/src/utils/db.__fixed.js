@@ -279,57 +279,140 @@ function getSupabase() {
 }
 
 async function saveRecruitStatus(serverId, channelId, messageId, startTime) {
-  const res = await backendFetch(`${config.BACKEND_API_URL}/api/recruit-status`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ serverId, channelId, messageId, startTime }) });
-  return await (async () => { try { return await res.json(); } catch (e) { const t = await res.text().catch(()=>null); return t; } })();
+  try {
+    const body = await backendFetch(`${config.BACKEND_API_URL.replace(/\/$/, '')}/api/recruit-status`, {
+      method: 'POST',
+      body: JSON.stringify({ serverId, channelId, messageId, startTime })
+    });
+    return { ok: true, body };
+  } catch (error) {
+    return { ok: false, status: error?.status ?? null, error: error?.body ?? error?.message ?? String(error) };
+  }
 }
 
 async function saveRecruitmentData(guildId, channelId, messageId, guildName, channelName, recruitData) {
   const recruitId = recruitData.recruitId || String(messageId).slice(-8);
-  const data = { guild_id: guildId, channel_id: channelId, message_id: messageId, guild_name: guildName, channel_name: channelName, status: 'recruiting', start_time: new Date().toISOString(), content: recruitData.content, participants_count: parseInt(recruitData.participants), start_game_time: recruitData.startTime, vc: recruitData.vc, note: recruitData.note, recruiterId: recruitData.recruiterId, recruitId };
-  const res = await backendFetch(`${config.BACKEND_API_URL}/api/recruitment`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
-  if (!res.ok) throw new Error(`API error: ${res.status}`);
-  return await res.json();
+  const ownerId = recruitData.recruiterId || recruitData.ownerId;
+  if (!ownerId) {
+    throw new Error('saveRecruitmentData: recruiterId/ownerId is required to persist recruitment');
+  }
+
+  const normalizeVoice = (value) => {
+    if (typeof value === 'boolean') return value;
+    if (typeof value !== 'string') return false;
+    const lower = value.toLowerCase();
+    return lower.includes('あり') || lower.includes('yes') || lower.includes('true');
+  };
+
+  const participantsArray = Array.isArray(recruitData.participantsList)
+    ? recruitData.participantsList.filter(Boolean)
+    : Array.isArray(recruitData.participants)
+      ? recruitData.participants.filter(Boolean)
+      : [ownerId];
+
+  if (!participantsArray.includes(ownerId)) {
+    participantsArray.unshift(ownerId);
+  }
+
+  const payload = {
+    recruitId,
+    ownerId,
+    title: recruitData.title || '',
+    description: recruitData.content || recruitData.description || '',
+    game: recruitData.game || '',
+    platform: recruitData.platform || '',
+    startTime: recruitData.startTime || recruitData.start_time || new Date().toISOString(),
+    maxMembers: Number.parseInt(recruitData.participants ?? recruitData.maxMembers ?? participantsArray.length, 10) || undefined,
+    voice: normalizeVoice(recruitData.vc ?? recruitData.voice),
+    participants: participantsArray.slice(0, 100),
+    status: (recruitData.status || 'recruiting'),
+    metadata: {
+      guildId,
+      guildName: guildName ?? null,
+      channelId,
+      channelName: channelName ?? null,
+      messageId,
+      panelColor: recruitData.panelColor || null,
+      vc: recruitData.vc ?? recruitData.voice ?? null,
+      note: recruitData.note ?? null,
+      startLabel: recruitData.startTime || null,
+      raw: recruitData
+    }
+  };
+
+  try {
+    const body = await backendFetch(`${config.BACKEND_API_URL.replace(/\/$/, '')}/api/recruitment`, {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+    return { ok: true, status: 201, body };
+  } catch (error) {
+    return {
+      ok: false,
+      status: error?.status ?? null,
+      error: error?.body ?? error?.message ?? String(error)
+    };
+  }
 }
 
-async function deleteRecruitStatus(serverId) { const res = await backendFetch(`${config.BACKEND_API_URL}/api/recruit-status?serverId=${serverId}`, { method: 'DELETE' }); try { return await res.json(); } catch (e) { return await res.text().catch(()=>null); } }
-
-async function deleteRecruitmentData(messageId) {
+async function deleteRecruitStatus(serverId) {
   try {
-  const res = await backendFetch(`${config.BACKEND_API_URL}/api/recruitment/${messageId}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' } });
-    const status = res.status; let body = null; try { body = await res.json(); } catch (_) { body = await res.text().catch(()=>null); }
-    if (!res.ok) {
-      if (status === 404) return { ok: false, status, body, warning: 'Recruitment not found' };
-      return { ok: false, status, body, error: typeof body === 'string' ? body : (body && body.error) || JSON.stringify(body) };
+    const body = await backendFetch(`${config.BACKEND_API_URL.replace(/\/$/, '')}/api/recruit-status?serverId=${serverId}`, { method: 'DELETE' });
+    return { ok: true, body };
+  } catch (error) {
+    return { ok: false, status: error?.status ?? null, error: error?.body ?? error?.message ?? String(error) };
+  }
+}
+
+async function deleteRecruitmentData(messageId, requesterId = null) {
+  try {
+    const body = await backendFetch(`${config.BACKEND_API_URL.replace(/\/$/, '')}/api/recruitment/${messageId}`, {
+      method: 'DELETE',
+      body: JSON.stringify({ userId: requesterId })
+    });
+    return { ok: true, status: 200, body: body || null };
+  } catch (error) {
+    if (error?.status === 404) {
+      return { ok: false, status: 404, body: error.body || null, warning: 'Recruitment not found' };
     }
-    return { ok: true, status, body: body || null };
-  } catch (error) { return { ok: false, error: error?.message || String(error) }; }
+    return { ok: false, status: error?.status ?? null, error: error?.body ?? error?.message ?? String(error) };
+  }
 }
 
 async function updateRecruitmentStatus(messageId, status, endTime = null) {
   const updateData = { status: status, ...(endTime && { end_time: endTime }) };
   const url = `${config.BACKEND_API_URL}/api/recruitment/${messageId}`;
-  const res = await backendFetch(url, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updateData) });
-  if (!res.ok) {
-    const errorText = await res.text();
-    if (res.status === 404) return { warning: 'Recruitment data not found', messageId };
-    throw new Error(`API error: ${res.status} - ${errorText}`);
+  try {
+    const body = await backendFetch(url, { method: 'PATCH', body: JSON.stringify(updateData) });
+    return { ok: true, body };
+  } catch (error) {
+    if (error?.status === 404) {
+      return { ok: false, status: 404, warning: 'Recruitment data not found', messageId };
+    }
+    throw error;
   }
-  return await res.json();
 }
 
 async function updateRecruitmentData(messageId, recruitData) {
   const updateData = { title: recruitData.title || null, content: recruitData.content, participants_count: parseInt(recruitData.participants), start_game_time: recruitData.startTime, vc: recruitData.vc, note: recruitData.note || null };
   const url = `${config.BACKEND_API_URL}/api/recruitment/${messageId}`;
-  const res = await backendFetch(url, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updateData) });
-  if (!res.ok) {
-    const errorText = await res.text();
-    if (res.status === 404) { return { warning: 'Recruitment data not found' }; }
-    throw new Error(`API error: ${res.status} - ${errorText}`);
+  try {
+    const body = await backendFetch(url, { method: 'PATCH', body: JSON.stringify(updateData) });
+    return { ok: true, body };
+  } catch (error) {
+    if (error?.status === 404) return { ok: false, status: 404, warning: 'Recruitment data not found' };
+    throw error;
   }
-  return await res.json();
 }
 
-async function getActiveRecruits() { const res = await backendFetch(`${config.BACKEND_API_URL}/api/active-recruits`); try { return await res.json(); } catch (e) { return await res.text().catch(()=>null); } }
+async function getActiveRecruits() {
+  try {
+    const body = await backendFetch(`${config.BACKEND_API_URL.replace(/\/$/, '')}/api/active-recruits`);
+    return { ok: true, body };
+  } catch (error) {
+    return { ok: false, status: error?.status ?? null, error: error?.body ?? error?.message ?? String(error) };
+  }
+}
 
 module.exports = {
   getSupabase,

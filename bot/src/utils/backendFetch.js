@@ -27,11 +27,11 @@ async function backendFetch(path, opts = {}) {
 }
 
 backendFetch.api = {
-  listRecruits: () => backendFetch('/api/recruitments', { method: 'GET' }),
-  createRecruit: (payload) => backendFetch('/api/recruitments', { method: 'POST', body: JSON.stringify(payload) }),
-  getRecruit: (id) => backendFetch(`/api/recruitments/${id}`, { method: 'GET' }),
-  joinRecruit: (id, userId) => backendFetch(`/api/recruitments/${id}/join`, { method: 'POST', body: JSON.stringify({ userId }) }),
-  deleteRecruit: (id, requesterId) => backendFetch(`/api/recruitments/${id}`, { method: 'DELETE', body: JSON.stringify({ userId: requesterId }) })
+  listRecruits: () => backendFetch('/api/recruitment', { method: 'GET' }),
+  createRecruit: (payload) => backendFetch('/api/recruitment', { method: 'POST', body: JSON.stringify(payload) }),
+  getRecruit: (id) => backendFetch(`/api/recruitment/${id}`, { method: 'GET' }),
+  joinRecruit: (id, userId) => backendFetch(`/api/recruits/${id}/join`, { method: 'POST', body: JSON.stringify({ userId }) }),
+  deleteRecruit: (id, requesterId) => backendFetch(`/api/recruitment/${id}`, { method: 'DELETE', body: JSON.stringify({ userId: requesterId }) })
 };
 
 module.exports = backendFetch;
