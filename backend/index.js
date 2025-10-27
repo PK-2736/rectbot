@@ -41,6 +41,150 @@ function getSupabaseClient(env) {
 }
 
 // ----- Sentry minimal HTTP reporter for Cloudflare Worker when @sentry/cloudflare isn't used -----
+// Durable Object: RecruitsDO (singleton) for ephemeral recruitment cache with TTL
+export class RecruitsDO {
+  constructor(state, env) {
+    this.state = state;
+    this.env = env;
+  }
+
+  async loadStore() {
+    const store = await this.state.storage.get('recruits');
+    return store || { items: {}, list: [] }; // items: { [id]: data }, list: [id]
+  }
+
+  async saveStore(store) {
+    await this.state.storage.put('recruits', store);
+  }
+
+  // Remove expired entries lazily
+  cleanup(store) {
+    const now = Date.now();
+    const toDelete = [];
+    for (const id of Object.keys(store.items)) {
+      const rec = store.items[id];
+      const exp = rec?.expiresAt ? Date.parse(rec.expiresAt) : 0;
+      if (exp && exp <= now) {
+        toDelete.push(id);
+      }
+    }
+    if (toDelete.length) {
+      for (const id of toDelete) {
+        delete store.items[id];
+        const idx = store.list.indexOf(id);
+        if (idx >= 0) store.list.splice(idx, 1);
+      }
+    }
+  }
+
+  async fetch(request) {
+    const url = new URL(request.url);
+    const base = '/api/recruits';
+    const method = request.method.toUpperCase();
+
+    let store = await this.loadStore();
+    this.cleanup(store);
+
+    // GET list
+    if (method === 'GET' && url.pathname === base) {
+      const result = store.list.map((id) => store.items[id]).filter(Boolean);
+      return new Response(JSON.stringify({ items: result }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
+
+    // Paths with id
+    const m = url.pathname.match(/^\/api\/recruits\/(.+?)(?:\/(join))?$/);
+    if (m) {
+      const id = decodeURIComponent(m[1]);
+      const action = m[2] || '';
+
+      if (method === 'GET' && !action) {
+        const rec = store.items[id];
+        if (!rec) return new Response(JSON.stringify({ error: 'not_found' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
+        return new Response(JSON.stringify(rec), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
+
+      if (method === 'DELETE' && !action) {
+        const body = await safeReadJson(request);
+        const requester = body?.userId || body?.ownerId;
+        const rec = store.items[id];
+        if (!rec) return new Response(JSON.stringify({ error: 'not_found' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
+        // Simple owner check (optionally allow admins via env)
+        const isOwner = requester && String(requester) === String(rec.ownerId);
+        if (!isOwner) return new Response(JSON.stringify({ error: 'forbidden' }), { status: 403, headers: { 'Content-Type': 'application/json' } });
+        delete store.items[id];
+        const idx = store.list.indexOf(id);
+        if (idx >= 0) store.list.splice(idx, 1);
+        await this.saveStore(store);
+        return new Response(JSON.stringify({ ok: true, deleted: id }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
+
+      if (action === 'join' && method === 'POST') {
+        const body = await safeReadJson(request);
+        const userId = body?.userId || body?.user_id;
+        if (!userId) return new Response(JSON.stringify({ error: 'user_id_required' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+        const rec = store.items[id];
+        if (!rec) return new Response(JSON.stringify({ error: 'not_found' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
+        rec.participants = Array.isArray(rec.participants) ? rec.participants : [];
+        if (!rec.participants.includes(userId)) {
+          if (rec.maxMembers && rec.participants.length >= Number(rec.maxMembers)) {
+            return new Response(JSON.stringify({ error: 'full' }), { status: 409, headers: { 'Content-Type': 'application/json' } });
+          }
+          rec.participants.push(userId);
+        }
+        store.items[id] = rec;
+        await this.saveStore(store);
+        return new Response(JSON.stringify({ ok: true, recruit: rec }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
+    }
+
+    // Create/Upsert
+    if (method === 'POST' && url.pathname === base) {
+      const data = await safeReadJson(request);
+      const recruitId = (data?.recruitId || data?.id || '').toString();
+      const ownerId = (data?.ownerId || data?.owner_id || '').toString();
+      if (!recruitId || !ownerId) {
+        return new Response(JSON.stringify({ error: 'recruitId_and_ownerId_required' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+      }
+      const now = new Date();
+      const ttlHours = Number(this.env.RECRUITS_TTL_HOURS || 8);
+      const expiresAt = data?.expiresAt || new Date(now.getTime() + ttlHours * 3600 * 1000).toISOString();
+      const rec = {
+        id: recruitId,
+        recruitId,
+        ownerId,
+        title: (data?.title || '').toString(),
+        description: (data?.description || '').toString(),
+        game: (data?.game || '').toString(),
+        platform: (data?.platform || '').toString(),
+        startTime: data?.startTime || now.toISOString(),
+        maxMembers: Number(data?.maxMembers || 0) || undefined,
+        voice: Boolean(data?.voice),
+        participants: Array.isArray(data?.participants) ? data.participants.slice(0, 100) : [],
+        createdAt: data?.createdAt || now.toISOString(),
+        expiresAt,
+        status: (data?.status || 'recruiting').toString(),
+        metadata: data?.metadata || {}
+      };
+
+      store.items[recruitId] = rec;
+      if (!store.list.includes(recruitId)) store.list.unshift(recruitId);
+      await this.saveStore(store);
+      return new Response(JSON.stringify({ ok: true, recruitId }), { status: 201, headers: { 'Content-Type': 'application/json' } });
+    }
+
+    return new Response(JSON.stringify({ error: 'not_found' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
+  }
+}
+
+async function safeReadJson(request) {
+  try {
+    const txt = await request.text();
+    if (!txt) return {};
+    return JSON.parse(txt);
+  } catch (_) {
+    return {};
+  }
+}
 function parseStackFrames(stack) {
   if (!stack) return [];
   const lines = String(stack).split('\n').slice(0, 50);
@@ -826,6 +970,22 @@ export default {
           status: 401, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
+      }
+    }
+
+    // RecruitsDO backed endpoints
+    if (url.pathname.startsWith('/api/recruits')) {
+      try {
+        const id = env.RECRUITS_DO.idFromName('global');
+        const stub = env.RECRUITS_DO.get(id);
+        const resp = await stub.fetch(request);
+        const text = await resp.text();
+        const contentType = resp.headers.get('content-type') || 'application/json';
+        return new Response(text, { status: resp.status, headers: { ...corsHeaders, 'Content-Type': contentType } });
+      } catch (e) {
+        console.error('[RecruitsDO proxy] Error:', e);
+        await sendToSentry(env, e, { path: url.pathname }, ctx);
+        return new Response(JSON.stringify({ error: 'internal_error' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
     }
 

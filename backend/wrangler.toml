@@ -8,6 +8,16 @@ workers_dev = true  # 一時的にworkers.devで動作確認
 # KVは使用しないため削除
 # kv_namespaces は削除済み
 
+# Durable Objects 設定
+[durable_objects]
+bindings = [
+	{ name = "RECRUITS_DO", class_name = "RecruitsDO" }
+]
+
+[[migrations]]
+tag = "v1-recruits-do"
+new_classes = ["RecruitsDO"]
+
 # 環境変数は GitHub Actions で動的に設定されます
 [vars]
 # GitHub Actions が自動で以下の環境変数を追加します:
