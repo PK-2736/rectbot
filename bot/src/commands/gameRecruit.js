@@ -28,6 +28,164 @@ async function __hydrateParticipants(messageId, participants) {
   }
 }
 
+function hydrateRecruitData(recruit) {
+  if (!recruit || typeof recruit !== 'object') return recruit;
+  try {
+    if (!recruit.guildId && recruit.metadata?.guildId) recruit.guildId = recruit.metadata.guildId;
+    if (!recruit.channelId && recruit.metadata?.channelId) recruit.channelId = recruit.metadata.channelId;
+    if (!recruit.message_id && recruit.metadata?.messageId) recruit.message_id = recruit.metadata.messageId;
+    if (!recruit.messageId && recruit.metadata?.messageId) recruit.messageId = recruit.metadata.messageId;
+    if (!recruit.recruiterId && recruit.ownerId) recruit.recruiterId = recruit.ownerId;
+    if (!recruit.ownerId && recruit.recruiterId) recruit.ownerId = recruit.recruiterId;
+    if (!recruit.panelColor && recruit.metadata?.panelColor) recruit.panelColor = recruit.metadata.panelColor;
+    if (!recruit.vc && recruit.metadata?.vc) recruit.vc = recruit.metadata.vc;
+    if (!recruit.note && recruit.metadata?.note) recruit.note = recruit.metadata.note;
+    if (!recruit.content && recruit.metadata?.raw?.content) recruit.content = recruit.metadata.raw.content;
+    if (!recruit.title) {
+      recruit.title = recruit.metadata?.raw?.title || recruit.metadata?.title || recruit.description || '募集';
+    }
+    if (!recruit.participants && Array.isArray(recruit.metadata?.raw?.participants)) {
+      recruit.participants = recruit.metadata.raw.participants;
+    }
+  } catch (e) {
+    console.warn('hydrateRecruitData failed:', e?.message || e);
+  }
+  return recruit;
+}
+
+async function autoCloseRecruitment(client, guildId, channelId, messageId) {
+  console.log('[autoClose] Triggered for message:', messageId, 'guild:', guildId, 'channel:', channelId);
+  try {
+    if (!client) throw new Error('client unavailable');
+
+    const channel = await client.channels.fetch(channelId).catch(() => null);
+    if (!channel) {
+      console.warn('[autoClose] Channel not found:', channelId);
+      return;
+    }
+
+    const message = await channel.messages.fetch(messageId).catch(() => null);
+    if (!message) {
+      console.warn('[autoClose] Message not found for auto close:', messageId);
+      return;
+    }
+
+    const db = require('../utils/db');
+    const recruitId = String(messageId).slice(-8);
+    let savedRecruitData = null;
+    try {
+      savedRecruitData = await db.getRecruitFromRedis(recruitId);
+    } catch (e) {
+      console.warn('[autoClose] getRecruitFromRedis failed:', e?.message || e);
+    }
+    if (!savedRecruitData) {
+      const workerRes = await db.getRecruitFromWorker(recruitId);
+      if (workerRes?.ok) savedRecruitData = workerRes.body;
+    }
+
+    if (!savedRecruitData) {
+      console.warn('[autoClose] No recruit data found; proceeding with cache cleanup only');
+    } else {
+      savedRecruitData = hydrateRecruitData(savedRecruitData);
+    }
+
+    let participants = recruitParticipants.get(messageId) || [];
+    if (!participants.length) {
+      try {
+        const persisted = await db.getParticipantsFromRedis(messageId);
+        if (Array.isArray(persisted)) participants = persisted;
+      } catch (e) {
+        console.warn('[autoClose] getParticipantsFromRedis failed:', e?.message || e);
+      }
+    }
+
+    const recruiterId = savedRecruitData?.recruiterId || savedRecruitData?.ownerId || null;
+
+    try {
+      const statusRes = await db.updateRecruitmentStatus(messageId, 'ended', new Date().toISOString());
+      if (!statusRes?.ok) {
+        console.warn('[autoClose] Status update returned warning:', statusRes);
+      } else {
+        console.log('[autoClose] Recruitment status set to ended for', messageId);
+      }
+    } catch (e) {
+      console.warn('[autoClose] Failed to update status:', e?.message || e);
+    }
+
+    try {
+      const deleteRes = await db.deleteRecruitmentData(messageId, recruiterId);
+      if (!deleteRes?.ok && deleteRes?.status !== 404) {
+        console.warn('[autoClose] Recruitment delete returned warning:', deleteRes);
+      } else {
+        console.log('[autoClose] Recruitment deleted from Durable Object for', messageId);
+      }
+    } catch (e) {
+      console.warn('[autoClose] Failed to delete recruitment from Durable Object:', e?.message || e);
+    }
+
+    try {
+      const disabledContainer = new ContainerBuilder();
+      const baseColor = (() => {
+        const src = (savedRecruitData && savedRecruitData.panelColor) || '808080';
+        const cleaned = typeof src === 'string' && src.startsWith('#') ? src.slice(1) : src;
+        return /^[0-9A-Fa-f]{6}$/.test(cleaned) ? parseInt(cleaned, 16) : 0x808080;
+      })();
+      disabledContainer.setAccentColor(baseColor);
+      disabledContainer.addTextDisplayComponents(
+        new TextDisplayBuilder().setContent('🎮✨ **募集締め切り済み** ✨🎮')
+      );
+      disabledContainer.addSeparatorComponents(
+        new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+      );
+      const attachmentUrl = message.attachments.first()?.url || 'attachment://recruit-card.png';
+      disabledContainer.addMediaGalleryComponents(
+        new MediaGalleryBuilder().addItems(
+          new MediaGalleryItemBuilder().setURL(attachmentUrl)
+        )
+      );
+      disabledContainer.addSeparatorComponents(
+        new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+      );
+      disabledContainer.addTextDisplayComponents(
+        new TextDisplayBuilder().setContent('🔒 この募集は自動的に締め切られました。')
+      );
+      disabledContainer.addSeparatorComponents(
+        new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+      );
+      disabledContainer.addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(`募集ID：\`${recruitId}\` | powered by **rectbot**`)
+      );
+
+      await message.edit({
+        components: [disabledContainer],
+        flags: MessageFlags.IsComponentsV2,
+        allowedMentions: { roles: [], users: [] }
+      });
+    } catch (e) {
+      console.warn('[autoClose] Failed to edit message during auto close:', e?.message || e);
+    }
+
+    try {
+      await message.reply({
+        content: `🔒 自動締切: この募集は有効期限切れのため締め切りました。`,
+        allowedMentions: { roles: [], users: recruiterId ? [recruiterId] : [] }
+      }).catch(() => null);
+    } catch (_) {}
+
+    recruitParticipants.delete(messageId);
+    try { await db.deleteParticipantsFromRedis(messageId); } catch (e) { console.warn('[autoClose] deleteParticipantsFromRedis failed:', e?.message || e); }
+    try {
+      if (recruitId) await db.deleteRecruitFromRedis(recruitId);
+    } catch (e) {
+      console.warn('[autoClose] deleteRecruitFromRedis failed:', e?.message || e);
+    }
+
+    console.log('[autoClose] Completed for message:', messageId);
+  } catch (error) {
+    console.error('[autoClose] Unexpected error:', error);
+  }
+}
+
 // 安全な返信ヘルパー: reply -> followUp -> editReply の順でフォールバックし、Unknown interaction(10062) を吸収する
 async function safeReply(interaction, options) {
   if (!interaction) return null;
@@ -118,22 +276,7 @@ async function updateParticipantList(interactionOrMessage, participants, savedRe
       return;
     }
 
-    // Worker のDOレコードでは guild/channel などが metadata に含まれているため展開
-    try {
-      if (!savedRecruitData.guildId && savedRecruitData.metadata?.guildId) savedRecruitData.guildId = savedRecruitData.metadata.guildId;
-      if (!savedRecruitData.channelId && savedRecruitData.metadata?.channelId) savedRecruitData.channelId = savedRecruitData.metadata.channelId;
-      if (!savedRecruitData.message_id && savedRecruitData.metadata?.messageId) savedRecruitData.message_id = savedRecruitData.metadata.messageId;
-      if (!savedRecruitData.recruiterId && savedRecruitData.ownerId) savedRecruitData.recruiterId = savedRecruitData.ownerId;
-      if (!savedRecruitData.panelColor && savedRecruitData.metadata?.panelColor) savedRecruitData.panelColor = savedRecruitData.metadata.panelColor;
-      if (!savedRecruitData.vc && savedRecruitData.metadata?.vc) savedRecruitData.vc = savedRecruitData.metadata.vc;
-      if (!savedRecruitData.note && savedRecruitData.metadata?.note) savedRecruitData.note = savedRecruitData.metadata.note;
-      if (!savedRecruitData.content && savedRecruitData.metadata?.raw?.content) savedRecruitData.content = savedRecruitData.metadata.raw.content;
-      if (!savedRecruitData.title) {
-        savedRecruitData.title = savedRecruitData.metadata?.raw?.title || savedRecruitData.metadata?.title || '募集';
-      }
-    } catch (e) {
-      console.warn('updateParticipantList: metadata hydration failed:', e?.message || e);
-    }
+    savedRecruitData = hydrateRecruitData(savedRecruitData);
 
     if (recruitId) {
       try {
@@ -193,6 +336,140 @@ module.exports = {
   // export in-memory map and hydration helper so index.js can hydrate on startup
   recruitParticipants,
   __hydrateParticipants,
+  autoCloseRecruitment,
+  async autoCloseRecruitment(client, guildId, channelId, messageId) {
+    console.log('[autoClose] Triggered for message:', messageId, 'guild:', guildId, 'channel:', channelId);
+    try {
+      if (!client) throw new Error('client unavailable');
+
+      const channel = await client.channels.fetch(channelId).catch(() => null);
+      if (!channel) {
+        console.warn('[autoClose] Channel not found:', channelId);
+        return;
+      }
+
+      const message = await channel.messages.fetch(messageId).catch(() => null);
+      if (!message) {
+        console.warn('[autoClose] Message not found for auto close:', messageId);
+        return;
+      }
+
+      const db = require('../utils/db');
+      const recruitId = String(messageId).slice(-8);
+      let savedRecruitData = null;
+      try {
+        savedRecruitData = await db.getRecruitFromRedis(recruitId);
+      } catch (e) {
+        console.warn('[autoClose] getRecruitFromRedis failed:', e?.message || e);
+      }
+      if (!savedRecruitData) {
+        const workerRes = await db.getRecruitFromWorker(recruitId);
+        if (workerRes?.ok) savedRecruitData = workerRes.body;
+      }
+
+      if (!savedRecruitData) {
+        console.warn('[autoClose] No recruit data found; proceeding with cache cleanup only');
+      } else {
+        savedRecruitData = hydrateRecruitData(savedRecruitData);
+      }
+
+      let participants = recruitParticipants.get(messageId) || [];
+      if (!participants.length) {
+        try {
+          const persisted = await db.getParticipantsFromRedis(messageId);
+          if (Array.isArray(persisted)) participants = persisted;
+        } catch (e) {
+          console.warn('[autoClose] getParticipantsFromRedis failed:', e?.message || e);
+        }
+      }
+
+      const recruiterId = savedRecruitData?.recruiterId || savedRecruitData?.ownerId || null;
+
+      try {
+        const statusRes = await db.updateRecruitmentStatus(messageId, 'ended', new Date().toISOString());
+        if (!statusRes?.ok) {
+          console.warn('[autoClose] Status update returned warning:', statusRes);
+        } else {
+          console.log('[autoClose] Recruitment status set to ended for', messageId);
+        }
+      } catch (e) {
+        console.warn('[autoClose] Failed to update status:', e?.message || e);
+      }
+
+      try {
+        const deleteRes = await db.deleteRecruitmentData(messageId, recruiterId);
+        if (!deleteRes?.ok && deleteRes?.status !== 404) {
+          console.warn('[autoClose] Recruitment delete returned warning:', deleteRes);
+        } else {
+          console.log('[autoClose] Recruitment deleted from Durable Object for', messageId);
+        }
+      } catch (e) {
+        console.warn('[autoClose] Failed to delete recruitment from Durable Object:', e?.message || e);
+      }
+
+      try {
+        // Disable interaction buttons and display closed notice
+        const disabledContainer = new ContainerBuilder();
+        const baseColor = (() => {
+          const src = (savedRecruitData && savedRecruitData.panelColor) || '808080';
+          const cleaned = typeof src === 'string' && src.startsWith('#') ? src.slice(1) : src;
+          return /^[0-9A-Fa-f]{6}$/.test(cleaned) ? parseInt(cleaned, 16) : 0x808080;
+        })();
+        disabledContainer.setAccentColor(baseColor);
+        disabledContainer.addTextDisplayComponents(
+          new TextDisplayBuilder().setContent('🎮✨ **募集締め切り済み** ✨🎮')
+        );
+        disabledContainer.addSeparatorComponents(
+          new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+        );
+        const attachmentUrl = message.attachments.first()?.url || 'attachment://recruit-card.png';
+        disabledContainer.addMediaGalleryComponents(
+          new MediaGalleryBuilder().addItems(
+            new MediaGalleryItemBuilder().setURL(attachmentUrl)
+          )
+        );
+        disabledContainer.addSeparatorComponents(
+          new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+        );
+        disabledContainer.addTextDisplayComponents(
+          new TextDisplayBuilder().setContent('🔒 この募集は自動的に締め切られました。')
+        );
+        disabledContainer.addSeparatorComponents(
+          new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+        );
+        disabledContainer.addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(`募集ID：\`${recruitId}\` | powered by **rectbot**`)
+        );
+
+        await message.edit({
+          components: [disabledContainer],
+          flags: MessageFlags.IsComponentsV2,
+          allowedMentions: { roles: [], users: [] }
+        });
+      } catch (e) {
+        console.warn('[autoClose] Failed to edit message during auto close:', e?.message || e);
+      }
+
+      try {
+        await message.reply({
+          content: `🔒 自動締切: この募集は有効期限切れのため締め切りました。`,
+          allowedMentions: { roles: [], users: recruiterId ? [recruiterId] : [] }
+        }).catch(() => null);
+      } catch (_) {}
+
+      recruitParticipants.delete(messageId);
+      try { await db.deleteParticipantsFromRedis(messageId); } catch (e) { console.warn('[autoClose] deleteParticipantsFromRedis failed:', e?.message || e); }
+      try {
+        if (recruitId) await db.deleteRecruitFromRedis(recruitId);
+      } catch (e) {
+        console.warn('[autoClose] deleteRecruitFromRedis failed:', e?.message || e);
+      }
+
+      console.log('[autoClose] Completed for message:', messageId);
+    } catch (error) {
+      console.error('[autoClose] Unexpected error:', error);
+    }
+  },
   // 指定メッセージIDの募集データをRedisから取得
   async getRecruitData(messageId) {
     const recruit = await getRecruitFromRedis(messageId.slice(-8));

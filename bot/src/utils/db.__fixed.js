@@ -40,6 +40,12 @@ try {
 
 const RECRUIT_TTL_SECONDS = Number(process.env.REDIS_RECRUIT_TTL_SECONDS || 8 * 60 * 60);
 
+function normalizeRecruitId(messageOrRecruitId) {
+  if (!messageOrRecruitId) return '';
+  const str = String(messageOrRecruitId);
+  return str.length > 8 ? str.slice(-8) : str;
+}
+
 // Helper function to ensure Redis connection
 async function ensureRedisConnection() {
   if (!redis) {
@@ -140,11 +146,12 @@ async function getRecruitFromRedis(recruitId) {
 }
 
 async function getRecruitFromWorker(recruitId) {
-  if (!recruitId) {
+  const rid = normalizeRecruitId(recruitId);
+  if (!rid) {
     return { ok: false, error: 'recruitId_required' };
   }
   try {
-    const body = await backendFetch(`${config.BACKEND_API_URL.replace(/\/$/, '')}/api/recruitment/${encodeURIComponent(recruitId)}`);
+    const body = await backendFetch(`${config.BACKEND_API_URL.replace(/\/$/, '')}/api/recruitment/${encodeURIComponent(rid)}`);
     return { ok: true, body };
   } catch (error) {
     return { ok: false, status: error?.status ?? null, error: error?.body ?? error?.message ?? String(error) };
@@ -378,7 +385,8 @@ async function deleteRecruitStatus(serverId) {
 
 async function deleteRecruitmentData(messageId, requesterId = null) {
   try {
-    const body = await backendFetch(`${config.BACKEND_API_URL.replace(/\/$/, '')}/api/recruitment/${messageId}`, {
+    const rid = normalizeRecruitId(messageId);
+    const body = await backendFetch(`${config.BACKEND_API_URL.replace(/\/$/, '')}/api/recruitment/${encodeURIComponent(rid)}`, {
       method: 'DELETE',
       body: JSON.stringify({ userId: requesterId })
     });
@@ -393,7 +401,8 @@ async function deleteRecruitmentData(messageId, requesterId = null) {
 
 async function updateRecruitmentStatus(messageId, status, endTime = null) {
   const updateData = { status: status, ...(endTime && { end_time: endTime }) };
-  const url = `${config.BACKEND_API_URL}/api/recruitment/${messageId}`;
+  const rid = normalizeRecruitId(messageId);
+  const url = `${config.BACKEND_API_URL.replace(/\/$/, '')}/api/recruitment/${encodeURIComponent(rid)}`;
   try {
     const body = await backendFetch(url, { method: 'PATCH', body: JSON.stringify(updateData) });
     return { ok: true, body };
@@ -407,7 +416,8 @@ async function updateRecruitmentStatus(messageId, status, endTime = null) {
 
 async function updateRecruitmentData(messageId, recruitData) {
   const updateData = { title: recruitData.title || null, content: recruitData.content, participants_count: parseInt(recruitData.participants), start_game_time: recruitData.startTime, vc: recruitData.vc, note: recruitData.note || null };
-  const url = `${config.BACKEND_API_URL}/api/recruitment/${messageId}`;
+  const rid = normalizeRecruitId(messageId);
+  const url = `${config.BACKEND_API_URL.replace(/\/$/, '')}/api/recruitment/${encodeURIComponent(rid)}`;
   try {
     const body = await backendFetch(url, { method: 'PATCH', body: JSON.stringify(updateData) });
     return { ok: true, body };
