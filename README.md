@@ -825,6 +825,7 @@ SUPABASE_PROJECT_REF=
 SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
 SUPABASE_DB_PASSWORD=
+SUPABASE_REST_URL=
 
 # ====== Database / Cache (DO) ======
 REDIS_HOST=
@@ -851,6 +852,9 @@ NODE_ENV=production
 TZ=Asia/Tokyo
 
 ```
+
+> ℹ️ `SUPABASE_URL` が利用できない場合は、`SUPABASE_REST_URL` もしくは `SUPABASE_PROJECT_REF`
+>（`fkxxxxxxxxxxxxx` 形式）を設定すると Worker 側で自動的に REST エンドポイント URL を解決します。
 
 ---
 

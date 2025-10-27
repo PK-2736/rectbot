@@ -2,10 +2,43 @@
 // For Worker environment, use: npm install @tsndr/cloudflare-worker-jwt
 // import jwt from '@tsndr/cloudflare-worker-jwt';
 
+function resolveSupabaseRestUrl(env) {
+  const candidates = [
+    env.SUPABASE_URL,
+    env.SUPABASE_REST_URL,
+    env.PUBLIC_SUPABASE_URL,
+    env.NEXT_PUBLIC_SUPABASE_URL,
+    env.VITE_SUPABASE_URL,
+    env.SUPABASE_PROJECT_URL
+  ];
+
+  if (env.SUPABASE_PROJECT_REF) {
+    candidates.push(`https://${env.SUPABASE_PROJECT_REF}.supabase.co`);
+  }
+
+  for (const value of candidates) {
+    if (typeof value === 'string' && value.trim() !== '') {
+      return value.replace(/\/+$/, '');
+    }
+  }
+
+  return null;
+}
+
 /**
  * Supabase クライアント初期化
  */
 function getSupabaseClient(env) {
+  const supabaseUrl = resolveSupabaseRestUrl(env);
+
+  if (!supabaseUrl) {
+    throw new Error('Supabase URL is not configured');
+  }
+
+  if (!env.SUPABASE_SERVICE_ROLE_KEY) {
+    throw new Error('Supabase service role key is not configured');
+  }
+
   // Supabase クライアントは環境変数から初期化
   // Worker 環境では @supabase/supabase-js を使用
   // import { createClient } from '@supabase/supabase-js';
@@ -15,7 +48,7 @@ function getSupabaseClient(env) {
   return {
     from: (table) => ({
       upsert: async (data) => {
-        const res = await fetch(`${env.SUPABASE_URL}/rest/v1/${table}`, {
+        const res = await fetch(`${supabaseUrl}/rest/v1/${table}`, {
           method: 'POST',
           headers: {
             'apikey': env.SUPABASE_SERVICE_ROLE_KEY,
@@ -28,7 +61,7 @@ function getSupabaseClient(env) {
         return res.json();
       },
       select: async (columns) => {
-        const res = await fetch(`${env.SUPABASE_URL}/rest/v1/${table}?select=${columns}`, {
+        const res = await fetch(`${supabaseUrl}/rest/v1/${table}?select=${columns}`, {
           headers: {
             'apikey': env.SUPABASE_SERVICE_ROLE_KEY,
             'Authorization': `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`
@@ -465,7 +498,8 @@ async function handleDiscordCallback(code, env) {
     
     // Supabase にユーザー情報保存（オプショナル - エラーでも続行）
     try {
-      if (env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY) {
+      const supabaseRestUrl = resolveSupabaseRestUrl(env);
+      if (supabaseRestUrl && env.SUPABASE_SERVICE_ROLE_KEY) {
         const supabase = getSupabaseClient(env);
         await supabase.from('users').upsert({
           user_id: userInfo.id,
@@ -591,7 +625,7 @@ export default {
             SERVICE_TOKEN: !!env.SERVICE_TOKEN,
             TUNNEL_URL: !!env.TUNNEL_URL,
             VPS_EXPRESS_URL: !!env.VPS_EXPRESS_URL,
-            SUPABASE_URL: !!env.SUPABASE_URL,
+            SUPABASE_URL: !!resolveSupabaseRestUrl(env),
             SUPABASE_SERVICE_ROLE_KEY: !!env.SUPABASE_SERVICE_ROLE_KEY
           },
           tunnelUrlPreview: env.TUNNEL_URL || env.VPS_EXPRESS_URL ? 
@@ -1164,15 +1198,36 @@ export default {
         };
         
         console.log(`[finalize] Supabase data to save:`, supabaseData);
+
+        const supabaseRestUrl = resolveSupabaseRestUrl(env);
+        const missingSupabaseConfig = [];
+
+        if (!supabaseRestUrl) missingSupabaseConfig.push('SUPABASE_URL');
+        if (!env.SUPABASE_SERVICE_ROLE_KEY) missingSupabaseConfig.push('SUPABASE_SERVICE_ROLE_KEY');
+
+        if (missingSupabaseConfig.length > 0) {
+          const detailMessage = `Missing Supabase configuration: ${missingSupabaseConfig.join(', ')}. Ensure SUPABASE_URL (or SUPABASE_REST_URL / SUPABASE_PROJECT_REF) and SUPABASE_SERVICE_ROLE_KEY are configured.`;
+          console.error(`[finalize] ${detailMessage}`);
+          return new Response(JSON.stringify({
+            error: "Supabase not configured",
+            details: detailMessage,
+            timestamp: new Date().toISOString()
+          }), {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
+          });
+        }
+
+        const supabaseHeaders = {
+          'apikey': env.SUPABASE_SERVICE_ROLE_KEY,
+          'Authorization': `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+          'Content-Type': 'application/json',
+        };
         
         // まず既存レコードがあるか確認
-        const existingRes = await fetch(env.SUPABASE_URL + `/rest/v1/guild_settings?guild_id=eq.${guildId}`, {
+        const existingRes = await fetch(`${supabaseRestUrl}/rest/v1/guild_settings?guild_id=eq.${guildId}`, {
           method: 'GET',
-          headers: {
-            'apikey': env.SUPABASE_SERVICE_ROLE_KEY,
-            'Authorization': `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
-            'Content-Type': 'application/json',
-          },
+          headers: supabaseHeaders,
         });
         
         if (!existingRes.ok) {
@@ -1197,25 +1252,17 @@ export default {
           if (supabaseData.default_color) patchBody.default_color = supabaseData.default_color;
           if (supabaseData.update_channel_id !== null) patchBody.update_channel_id = supabaseData.update_channel_id;
 
-          supaRes = await fetch(env.SUPABASE_URL + `/rest/v1/guild_settings?guild_id=eq.${guildId}`, {
+          supaRes = await fetch(`${supabaseRestUrl}/rest/v1/guild_settings?guild_id=eq.${guildId}`, {
             method: 'PATCH',
-            headers: {
-              'apikey': env.SUPABASE_SERVICE_ROLE_KEY,
-              'Authorization': `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
-              'Content-Type': 'application/json',
-            },
+            headers: supabaseHeaders,
             body: JSON.stringify(patchBody)
           });
         } else {
           // 新規作成
           console.log(`[finalize] Creating new guild settings for ${guildId}`);
-          supaRes = await fetch(env.SUPABASE_URL + '/rest/v1/guild_settings', {
+          supaRes = await fetch(`${supabaseRestUrl}/rest/v1/guild_settings`, {
             method: 'POST',
-            headers: {
-              'apikey': env.SUPABASE_SERVICE_ROLE_KEY,
-              'Authorization': `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
-              'Content-Type': 'application/json',
-            },
+            headers: supabaseHeaders,
             body: JSON.stringify(supabaseData)
           });
         }
@@ -1278,14 +1325,33 @@ export default {
           });
         }
         
+        const defaultSettings = {
+          recruit_channel: null,
+          notification_role: null,
+          defaultTitle: "参加者募集",
+          defaultColor: "#00FFFF",
+          update_channel: null
+        };
+
+        const supabaseRestUrl = resolveSupabaseRestUrl(env);
+        if (!supabaseRestUrl || !env.SUPABASE_SERVICE_ROLE_KEY) {
+          console.warn('[guild-settings:get] Supabase not configured, returning defaults');
+          return new Response(JSON.stringify(defaultSettings), { 
+            status: 200, 
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
+          });
+        }
+
+        const supabaseHeaders = {
+          'apikey': env.SUPABASE_SERVICE_ROLE_KEY,
+          'Authorization': `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+          'Content-Type': 'application/json',
+        };
+
         // Supabaseから設定を取得
-        const supaRes = await fetch(env.SUPABASE_URL + `/rest/v1/guild_settings?guild_id=eq.${guildId}`, {
+        const supaRes = await fetch(`${supabaseRestUrl}/rest/v1/guild_settings?guild_id=eq.${guildId}`, {
           method: 'GET',
-          headers: {
-            'apikey': env.SUPABASE_SERVICE_ROLE_KEY,
-            'Authorization': `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
-            'Content-Type': 'application/json',
-          },
+          headers: supabaseHeaders,
         });
         
         if (!supaRes.ok) {
@@ -1296,14 +1362,6 @@ export default {
         
         if (!Array.isArray(data) || data.length === 0) {
           // 設定が見つからない場合はデフォルト値を返す
-          const defaultSettings = {
-            recruit_channel: null,
-            notification_role: null,
-            defaultTitle: "参加者募集",
-            defaultColor: "#00FFFF",
-            update_channel: null
-          };
-          
           return new Response(JSON.stringify(defaultSettings), { 
             status: 200, 
             headers: { ...corsHeaders, "Content-Type": "application/json" }
@@ -1328,14 +1386,6 @@ export default {
   try { if (ctx && typeof ctx.waitUntil === 'function') ctx.waitUntil(sendToSentry(env, error, { path: '/api/guild-settings/*' }, ctx)); else sendToSentry(env, error, { path: '/api/guild-settings/*' }); } catch(e){}
         
         // エラー時はデフォルト値を返す
-        const defaultSettings = {
-          recruit_channel: null,
-          notification_role: null,
-          defaultTitle: "参加者募集", 
-          defaultColor: "#00FFFF",
-          update_channel: null
-        };
-        
         return new Response(JSON.stringify(defaultSettings), { 
           status: 200, 
           headers: { ...corsHeaders, "Content-Type": "application/json" }
