@@ -103,6 +103,20 @@ export class RecruitsDO {
         return new Response(JSON.stringify(rec), { status: 200, headers: { 'Content-Type': 'application/json' } });
       }
 
+      if (method === 'PATCH' && !action) {
+        const update = await safeReadJson(request);
+        const rec = store.items[id];
+        if (!rec) return new Response(JSON.stringify({ error: 'not_found' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
+        // update selected fields
+        const allowed = ['title','description','game','platform','status','maxMembers','voice','metadata','expiresAt'];
+        for (const k of allowed) {
+          if (k in update) rec[k] = k === 'maxMembers' ? Number(update[k]) : update[k];
+        }
+        store.items[id] = rec;
+        await this.saveStore(store);
+        return new Response(JSON.stringify({ ok: true, recruit: rec }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
+
       if (method === 'DELETE' && !action) {
         const body = await safeReadJson(request);
         const requester = body?.userId || body?.ownerId;
@@ -606,138 +620,25 @@ export default {
       }
       
       // Cookie から JWT 取得
-      const jwtMatch = cookieHeader.match(/jwt=([^;]+)/);
-      if (!jwtMatch) {
-        return new Response(
-          JSON.stringify({ error: 'Unauthorized', message: 'No JWT token found' }),
-          { 
-            status: 401,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          }
-        );
-      }
-      
-      const jwt = jwtMatch[1];
-      const payload = await verifyJWT(jwt, env);
-      
-      if (!payload) {
-        return new Response(
-          JSON.stringify({ error: 'Unauthorized', message: 'Invalid or expired token' }),
-          { 
-            status: 401,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          }
-        );
-      }
-      
-      // ユーザー情報を返す
-      const userInfo = {
-        id: payload.userId,
-        username: payload.username,
-        role: payload.role,
-        isAdmin: payload.role === 'admin'
-      };
-      
-      console.log('Auth check - User:', userInfo.username, 'Role:', userInfo.role);
-      
-      return new Response(
-        JSON.stringify(userInfo),
-        { 
-          status: 200,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      // 管理者用 API：Discord OAuth 認証が必要（JWT ベース）
+      if (url.pathname === '/api/recruitment/list') {
+        console.log('Admin API: /api/recruitment/list accessed');
+        const cookieHeader = request.headers.get('Cookie');
+        if (!await isValidDiscordAdmin(cookieHeader, env)) {
+          return new Response(JSON.stringify({ error: 'Unauthorized', message: 'Discord authentication required' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         }
-      );
-    }
-
-    // Discord OAuthコールバックAPI (GET) - DiscordからのリダイレクトURL処理
-    if (request.method === 'GET' && url.pathname === '/api/discord/callback') {
-      const code = url.searchParams.get('code');
-      if (!code) {
-        return new Response('<!DOCTYPE html><html><body><h1>認証エラー</h1><p>認証コードが見つかりません</p></body></html>', {
-          status: 400,
-          headers: { 'Content-Type': 'text/html; charset=utf-8' }
-        });
-      }
-      
-      try {
-        // Discord OAuth 処理 + Supabase 保存 + JWT 発行
-        const { jwt, userInfo } = await handleDiscordCallback(code, env);
-        
-        console.log('Discord OAuth success:', userInfo.username);
-        console.log('User ID:', userInfo.id);
-        console.log('User role:', isAdmin(userInfo.id, env) ? 'admin' : 'user');
-        
-        // ダッシュボードにリダイレクト（JWT を HttpOnly Cookie として設定）
-        const dashboardUrl = new URL('https://dash.rectbot.tech/');
-        
-        const cookieValue = `jwt=${jwt}; Domain=.rectbot.tech; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=3600`;
-        console.log('Setting cookie:', cookieValue.substring(0, 50) + '...');
-        
-        // Domain属性を設定してサブドメイン間でCookieを共有
-        return new Response('', {
-          status: 302,
-          headers: {
-            'Location': dashboardUrl.toString(),
-            'Set-Cookie': cookieValue,
-            ...corsHeaders
-          }
-        });
-        
-      } catch (error) {
-        console.error('Discord OAuth error:', error);
-        console.error('Error details:', {
-          message: error.message,
-          stack: error.stack,
-          env_check: {
-            DISCORD_CLIENT_ID: !!env.DISCORD_CLIENT_ID,
-            DISCORD_CLIENT_SECRET: !!env.DISCORD_CLIENT_SECRET,
-            DISCORD_REDIRECT_URI: !!env.DISCORD_REDIRECT_URI,
-            JWT_SECRET: !!env.JWT_SECRET,
-            SUPABASE_URL: !!env.SUPABASE_URL,
-            SUPABASE_SERVICE_ROLE_KEY: !!env.SUPABASE_SERVICE_ROLE_KEY
-          }
-        });
-        
-        // デバッグ用：エラーメッセージを表示（本番環境では削除すべき）
-        const errorHtml = `<!DOCTYPE html><html><body>
-          <h1>認証エラー</h1>
-          <p>認証処理中にエラーが発生しました</p>
-          <details>
-            <summary>詳細情報（デバッグ用）</summary>
-            <pre>${error.message}</pre>
-          </details>
-        </body></html>`;
-        
-        return new Response(errorHtml, {
-          status: 500,
-          headers: { 'Content-Type': 'text/html; charset=utf-8' }
-        });
-      }
-    }
-
-    // 管理者用 API：Discord OAuth 認証が必要（JWT ベース）
-    if (url.pathname === '/api/recruitment/list') {
-      console.log('Admin API: /api/recruitment/list accessed');
-      console.log('Origin:', origin);
-      
-      const cookieHeader = request.headers.get('Cookie');
-      console.log('Cookie header:', cookieHeader ? 'present' : 'missing');
-      
-      if (!await isValidDiscordAdmin(cookieHeader, env)) {
-        console.log('Unauthorized access attempt to admin API');
-        return new Response(
-          JSON.stringify({ 
-            error: 'Unauthorized',
-            message: 'Discord authentication required'
-          }),
-          { 
-            status: 401,
-            headers: { 
-              ...corsHeaders, 
-              'Content-Type': 'application/json' 
-            }
-          }
-        );
+        // Reuse DO list (no Redis requirement for admin)
+        try {
+          const id = env.RECRUITS_DO.idFromName('global');
+          const stub = env.RECRUITS_DO.get(id);
+          const resp = await stub.fetch(new Request(new URL('/api/recruits', url).toString(), { method: 'GET' }));
+          const text = await resp.text();
+          return new Response(text, { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        } catch (e) {
+          console.error('Admin list via DO failed:', e);
+          await sendToSentry(env, e, { path: url.pathname }, ctx);
+          return new Response(JSON.stringify({ error: 'internal_error' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
       }
 
       // VPS Express へのプロキシ（Service Token 付与）
@@ -1102,357 +1003,133 @@ export default {
     // ダッシュボードAPI - 全募集データ取得（認証不要）
     if (url.pathname === "/api/dashboard/recruitment" && request.method === "GET") {
       try {
-        console.log('[GET] Proxying dashboard recruitment list to VPS Express');
-        
-        const vpsExpressUrl = env.VPS_EXPRESS_URL || 'https://80cbc750-94a4-4b87-b86d-b328b7e76779.cfargotunnel.com';
-        const vpsUrl = `${vpsExpressUrl}/api/dashboard/recruitment`;
-        
-        // タイムアウト付きでVPS Expressサーバーにリクエスト（認証なし）
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 25000);
-        
-        const vpsResponse = await fetch(vpsUrl, {
-          method: 'GET',
-          signal: controller.signal
-        });
-        
-        clearTimeout(timeoutId);
-        
-        const responseText = await vpsResponse.text();
-        let responseBody;
-        try {
-          responseBody = JSON.parse(responseText);
-        } catch (e) {
-          responseBody = { raw: responseText };
-        }
-        
-        console.log(`[GET] VPS Express dashboard response status: ${vpsResponse.status}`);
-        
-        return new Response(JSON.stringify(responseBody), {
-          status: vpsResponse.status,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
+        console.log('[GET] dashboard recruitment via DO');
+        const id = env.RECRUITS_DO.idFromName('global');
+        const stub = env.RECRUITS_DO.get(id);
+        const resp = await stub.fetch(new Request(new URL('/api/recruits', url).toString(), { method: 'GET' }));
+        const text = await resp.text();
+        return new Response(text, { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       } catch (error) {
-        console.error('[GET] Error proxying dashboard recruitment to VPS:', error.message || error);
-        if (error.name === 'AbortError') {
-          return new Response(JSON.stringify({ 
-            error: 'gateway_timeout', 
-            detail: 'VPS Express request timed out (25s)' 
-          }), { 
-            status: 504, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          });
-        }
-        return new Response(JSON.stringify({ 
-          error: 'backend_unreachable', 
-          detail: error.message 
-        }), { 
-          status: 502, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
+        console.error('[GET] DO fetch error:', error);
+        return new Response(JSON.stringify({ error: 'internal_error' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
     }
 
-    // 募集データAPI - VPS Expressにプロキシ
+    // 募集データAPI - DO + Redis キャッシュ（二重）
     if (url.pathname === "/api/recruitment") {
+      // helper: Upstash Redis REST
+      const hasUpstash = !!(env.UPSTASH_REDIS_REST_URL && env.UPSTASH_REDIS_REST_TOKEN);
+      const redisPost = async (cmd) => {
+        if (!hasUpstash) return null;
+        try {
+          const r = await fetch(env.UPSTASH_REDIS_REST_URL, { method: 'POST', headers: { 'Authorization': `Bearer ${env.UPSTASH_REDIS_REST_TOKEN}`, 'Content-Type': 'application/json' }, body: JSON.stringify(cmd) });
+          return r.ok ? r.json() : null;
+        } catch { return null; }
+      };
+      const setJson = async (key, obj, ttl) => {
+        if (!hasUpstash) return;
+        await redisPost(['SET', key, JSON.stringify(obj), 'EX', String(ttl || 8*3600)]);
+      };
+      const getJson = async (key) => {
+        if (!hasUpstash) return null;
+        const res = await redisPost(['GET', key]);
+        try { return res && res.result ? JSON.parse(res.result) : null; } catch { return null; }
+      };
+      const ttlHours = Number(env.RECRUITS_TTL_HOURS || 8);
+      const ttlSec = ttlHours * 3600;
+
       if (request.method === "POST") {
         try {
-          console.log('[POST] Proxying recruitment save to VPS Express');
-          
-          // VPS ExpressサーバーのURL構築（Cloudflare Tunnel経由）
-          const vpsExpressUrl = env.VPS_EXPRESS_URL || 'https://80cbc750-94a4-4b87-b86d-b328b7e76779.cfargotunnel.com';
-          const vpsUrl = `${vpsExpressUrl}/api/recruitment`;
-          
-          // リクエストボディを取得
           const data = await request.json();
-          
-          // SERVICE_TOKENを使ってVPS Expressサーバーにプロキシ
-          const headers = {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${env.SERVICE_TOKEN || ''}`
-          };
-          
-          const vpsResponse = await fetch(vpsUrl, {
-            method: 'POST',
-            headers,
-            body: JSON.stringify(data)
-          });
-          
-          const responseText = await vpsResponse.text();
-          let responseBody;
-          try {
-            responseBody = JSON.parse(responseText);
-          } catch (e) {
-            responseBody = { message: responseText };
+          const idDo = env.RECRUITS_DO.idFromName('global');
+          const stub = env.RECRUITS_DO.get(idDo);
+          const resp = await stub.fetch(new Request(new URL('/api/recruits', url).toString(), { method: 'POST', body: JSON.stringify(data) }));
+          const bodyText = await resp.text();
+          let parsed; try { parsed = JSON.parse(bodyText); } catch { parsed = { ok: false, raw: bodyText }; }
+          if (parsed?.ok && data?.recruitId) {
+            await setJson(`recruit:${data.recruitId}`, { ...data, createdAt: new Date().toISOString() }, ttlSec);
+            // 更新が重いので list は DO のみ信頼（必要なら追加で保持）
           }
-          
-          console.log(`[POST] VPS Express response status: ${vpsResponse.status}`);
-          
-          return new Response(JSON.stringify(responseBody), {
-            status: vpsResponse.status,
-            headers: { ...corsHeaders, "Content-Type": "application/json" }
-          });
-          
+          return new Response(JSON.stringify(parsed), { status: resp.status || 201, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         } catch (error) {
-          console.error('[POST] Error proxying to VPS Express:', error);
-          return new Response(JSON.stringify({ 
-            error: "Internal server error",
-            details: error.message 
-          }), { 
-            status: 500, 
-            headers: { ...corsHeaders, "Content-Type": "application/json" }
-          });
+          console.error('[POST]/api/recruitment error:', error);
+          return new Response(JSON.stringify({ error: 'internal_error' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         }
       }
-      
+
       if (request.method === "GET") {
         try {
-          console.log('[GET] Proxying recruitment list to VPS Express');
-          
-          // VPS ExpressサーバーのURL構築（Cloudflare Tunnel経由）
-          const vpsExpressUrl = env.VPS_EXPRESS_URL || 'https://80cbc750-94a4-4b87-b86d-b328b7e76779.cfargotunnel.com';
-          const vpsUrl = `${vpsExpressUrl}/api/recruitment`;
-          
-          // SERVICE_TOKENを使ってVPS Expressサーバーにプロキシ
-          const headers = {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${env.SERVICE_TOKEN || ''}`
-          };
-          
-          const vpsResponse = await fetch(vpsUrl, {
-            method: 'GET',
-            headers
-          });
-          
-          const responseText = await vpsResponse.text();
-          let responseBody;
-          try {
-            responseBody = JSON.parse(responseText);
-          } catch (e) {
-            responseBody = { message: responseText };
-          }
-          
-          console.log(`[GET] VPS Express response status: ${vpsResponse.status}`);
-          
-          return new Response(JSON.stringify(responseBody), {
-            status: vpsResponse.status,
-            headers: { ...corsHeaders, "Content-Type": "application/json" }
-          });
-          
+          // まず Redis の一覧キーを見ない運用（単純化）。DO から取得。
+          const idDo = env.RECRUITS_DO.idFromName('global');
+          const stub = env.RECRUITS_DO.get(idDo);
+          const resp = await stub.fetch(new Request(new URL('/api/recruits', url).toString(), { method: 'GET' }));
+          const text = await resp.text();
+          return new Response(text, { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         } catch (error) {
-          console.error('[GET] Error proxying to VPS Express:', error);
-          return new Response(JSON.stringify({ 
-            error: "Internal server error",
-            details: error.message 
-          }), { 
-            status: 500, 
-            headers: { ...corsHeaders, "Content-Type": "application/json" }
-          });
+          console.error('[GET]/api/recruitment error:', error);
+          return new Response(JSON.stringify({ error: 'internal_error' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         }
       }
-      
-      return new Response("Method Not Allowed", { 
-        status: 405, 
-        headers: corsHeaders 
-      });
+
+      return new Response("Method Not Allowed", { status: 405, headers: corsHeaders });
     }
 
-    // 募集データのステータス更新API（特定のメッセージID）- VPS Expressにプロキシ
+    // 募集データのステータス更新API（特定のメッセージID）- DO に委譲
     if (url.pathname.startsWith("/api/recruitment/") && request.method === "PATCH") {
       const messageId = url.pathname.split("/api/recruitment/")[1];
       if (!messageId) {
-        return new Response(JSON.stringify({ error: "Message ID required" }), { 
-          status: 400, 
-          headers: { ...corsHeaders, "Content-Type": "application/json" }
-        });
+        return new Response(JSON.stringify({ error: "Message ID required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
-      
       try {
-        console.log(`[PATCH] Proxying recruitment update to VPS Express: ${messageId}`);
-        
-        // VPS ExpressサーバーのURL構築（Cloudflare Tunnel経由）
-        const vpsExpressUrl = env.VPS_EXPRESS_URL || 'https://80cbc750-94a4-4b87-b86d-b328b7e76779.cfargotunnel.com';
-        const vpsUrl = `${vpsExpressUrl}/api/recruitment/${messageId}`;
-        
-        // リクエストボディを取得
         const updateData = await request.json();
-        
-        // SERVICE_TOKENを使ってVPS Expressサーバーにプロキシ
-        const headers = {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${env.SERVICE_TOKEN || ''}`
-        };
-        
-        console.log(`[PATCH] Sending request to: ${vpsUrl}`);
-        
-        // タイムアウト制御付きでVPSにリクエスト送信
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 25000); // 25秒タイムアウト
-        
-        let vpsResponse;
-        try {
-          vpsResponse = await fetch(vpsUrl, {
-            method: 'PATCH',
-            headers,
-            body: JSON.stringify(updateData),
-            signal: controller.signal
-          });
-          
-          clearTimeout(timeoutId);
-          
-          console.log(`[PATCH] VPS Express response status: ${vpsResponse.status}`);
-          
-          // 522エラーやその他のCloudflareエラーの場合は特別な処理
-          if (vpsResponse.status >= 520 && vpsResponse.status <= 530) {
-            console.error(`[PATCH] Cloudflare error: ${vpsResponse.status}`);
-            return new Response(JSON.stringify({
-              error: "VPS Express server temporarily unavailable",
-              status: vpsResponse.status,
-              details: `Cloudflare error ${vpsResponse.status}: VPS Express server is not responding`
-            }), {
-              status: 503, // Service Unavailable
-              headers: { ...corsHeaders, "Content-Type": "application/json" }
-            });
-          }
-          
-          const responseText = await vpsResponse.text();
-          let responseBody;
-          try {
-            responseBody = JSON.parse(responseText);
-          } catch (e) {
-            responseBody = { message: responseText };
-          }
-          
-          return new Response(JSON.stringify(responseBody), {
-            status: vpsResponse.status,
-            headers: { ...corsHeaders, "Content-Type": "application/json" }
-          });
-          
-        } catch (fetchError) {
-          clearTimeout(timeoutId);
-          
-          if (fetchError.name === 'AbortError') {
-            console.error('[PATCH] Request timeout (25s) to VPS Express');
-            return new Response(JSON.stringify({
-              error: "Request timeout",
-              details: "VPS Express server did not respond within 25 seconds"
-            }), {
-              status: 504, // Gateway Timeout
-              headers: { ...corsHeaders, "Content-Type": "application/json" }
-            });
-          }
-          
-          throw fetchError; // 他のエラーは外側のcatchに任せる
-        }
-        
+        const idDo = env.RECRUITS_DO.idFromName('global');
+        const stub = env.RECRUITS_DO.get(idDo);
+        const resp = await stub.fetch(new Request(new URL(`/api/recruits/${encodeURIComponent(messageId)}`, url).toString(), { method: 'PATCH', body: JSON.stringify(updateData) }));
+        const text = await resp.text();
+        return new Response(text, { status: resp.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       } catch (error) {
-        console.error('[PATCH] Error proxying to VPS Express:', error);
-        return new Response(JSON.stringify({ 
-          error: "Internal server error",
-          details: error.message 
-        }), { 
-          status: 500, 
-          headers: { ...corsHeaders, "Content-Type": "application/json" }
-        });
+        console.error('[PATCH] Error updating via DO:', error);
+        return new Response(JSON.stringify({ error: 'Internal server error', details: error.message }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
     }
 
-    // 募集データ削除API（特定のメッセージID）- VPS Expressにプロキシ
-    if (url.pathname.startsWith("/api/recruitment/") && request.method === "DELETE") {
-      const messageId = url.pathname.split("/api/recruitment/")[1];
-      if (!messageId) {
-        return new Response(JSON.stringify({ error: "Message ID required" }), { 
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" }
-        });
+    // 単体取得/削除: /api/recruitment/:id
+    if (url.pathname.startsWith("/api/recruitment/") && (request.method === "GET" || request.method === "DELETE")) {
+      const rid = url.pathname.split("/api/recruitment/")[1];
+      if (!rid) {
+        return new Response(JSON.stringify({ error: "Message ID required" }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
-
-      try {
-        console.log(`[DELETE] Proxying recruitment deletion to VPS Express: ${messageId}`);
-        
-        // VPS ExpressサーバーのURL構築（Cloudflare Tunnel経由）
-        const vpsExpressUrl = env.VPS_EXPRESS_URL || 'https://80cbc750-94a4-4b87-b86d-b328b7e76779.cfargotunnel.com';
-        const vpsUrl = `${vpsExpressUrl}/api/recruitment/${messageId}`;
-        
-        // SERVICE_TOKENを使ってVPS Expressサーバーにプロキシ
-        const headers = {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${env.SERVICE_TOKEN || ''}`
-        };
-        
-        console.log(`[DELETE] Sending request to: ${vpsUrl}`);
-        
-        // タイムアウト制御付きでVPSにリクエスト送信
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10秒タイムアウト
-        
-        try {
-          const vpsResponse = await fetch(vpsUrl, {
-            method: 'DELETE',
-            headers,
-            signal: controller.signal
-          });
-          
-          clearTimeout(timeoutId);
-          
-          console.log(`[DELETE] VPS Express response status: ${vpsResponse.status}`);
-          console.log(`[DELETE] VPS Express response headers:`, Object.fromEntries(vpsResponse.headers.entries()));
-          
-          if (!vpsResponse.ok) {
-            console.error(`[DELETE] VPS Express error: ${vpsResponse.status} ${vpsResponse.statusText}`);
-            
-            // 522エラーやその他のCloudflareエラーの場合は特別な処理
-            if (vpsResponse.status >= 520 && vpsResponse.status <= 530) {
-              return new Response(JSON.stringify({
-                error: "VPS Express server temporarily unavailable",
-                status: vpsResponse.status,
-                details: `Cloudflare error ${vpsResponse.status}: VPS Express server is not responding`
-              }), {
-                status: 503, // Service Unavailable
-                headers: { ...corsHeaders, "Content-Type": "application/json" }
-              });
-            }
+      const method = request.method;
+      // Minimal Upstash helper
+      const hasUpstash = !!(env.UPSTASH_REDIS_REST_URL && env.UPSTASH_REDIS_REST_TOKEN);
+      const redisPost = async (cmd) => {
+        if (!hasUpstash) return null;
+        try { const r = await fetch(env.UPSTASH_REDIS_REST_URL, { method: 'POST', headers: { 'Authorization': `Bearer ${env.UPSTASH_REDIS_REST_TOKEN}`, 'Content-Type': 'application/json' }, body: JSON.stringify(cmd) }); return r.ok ? r.json() : null; } catch { return null; }
+      };
+      if (method === 'GET') {
+        // Try Redis first
+        if (hasUpstash) {
+          const res = await redisPost(['GET', `recruit:${rid}`]);
+          if (res && res.result) {
+            try { return new Response(res.result, { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }); } catch {}
           }
-          
-          const responseText = await vpsResponse.text();
-          let responseBody;
-          try {
-            responseBody = JSON.parse(responseText);
-          } catch (e) {
-            responseBody = { message: responseText || `HTTP ${vpsResponse.status}` };
-          }
-          
-          return new Response(JSON.stringify(responseBody), {
-            status: vpsResponse.status,
-            headers: { ...corsHeaders, "Content-Type": "application/json" }
-          });
-          
-        } catch (fetchError) {
-          clearTimeout(timeoutId);
-          
-          if (fetchError.name === 'AbortError') {
-            console.error('[DELETE] Request timeout to VPS Express');
-            return new Response(JSON.stringify({
-              error: "Request timeout",
-              details: "VPS Express server did not respond within 10 seconds"
-            }), {
-              status: 504, // Gateway Timeout
-              headers: { ...corsHeaders, "Content-Type": "application/json" }
-            });
-          }
-          
-          throw fetchError;
         }
-        
-      } catch (error) {
-        console.error('[DELETE] Error proxying to VPS Express:', error);
-        return new Response(JSON.stringify({ 
-          error: "Internal server error",
-          details: error.message 
-        }), { 
-          status: 500, 
-          headers: { ...corsHeaders, "Content-Type": "application/json" }
-        });
+        // Fallback to DO
+        const idDo = env.RECRUITS_DO.idFromName('global');
+        const stub = env.RECRUITS_DO.get(idDo);
+        const resp = await stub.fetch(new Request(new URL(`/api/recruits/${encodeURIComponent(rid)}`, url).toString(), { method: 'GET' }));
+        const text = await resp.text();
+        return new Response(text, { status: resp.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+      if (method === 'DELETE') {
+        const body = await request.text();
+        const idDo = env.RECRUITS_DO.idFromName('global');
+        const stub = env.RECRUITS_DO.get(idDo);
+        const resp = await stub.fetch(new Request(new URL(`/api/recruits/${encodeURIComponent(rid)}`, url).toString(), { method: 'DELETE', body }));
+        const text = await resp.text();
+        // best-effort delete cache
+        if (hasUpstash) { await redisPost(['DEL', `recruit:${rid}`]); }
+        return new Response(text, { status: resp.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
     }
 
