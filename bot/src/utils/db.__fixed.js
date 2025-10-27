@@ -139,6 +139,18 @@ async function getRecruitFromRedis(recruitId) {
   return val ? JSON.parse(val) : null;
 }
 
+async function getRecruitFromWorker(recruitId) {
+  if (!recruitId) {
+    return { ok: false, error: 'recruitId_required' };
+  }
+  try {
+    const body = await backendFetch(`${config.BACKEND_API_URL.replace(/\/$/, '')}/api/recruitment/${encodeURIComponent(recruitId)}`);
+    return { ok: true, body };
+  } catch (error) {
+    return { ok: false, status: error?.status ?? null, error: error?.body ?? error?.message ?? String(error) };
+  }
+}
+
 // Use SCAN to iterate keys safely in production instead of KEYS
 async function scanKeys(pattern) {
   const redisClient = await ensureRedisConnection();
@@ -428,6 +440,7 @@ module.exports = {
   listRecruitIdsFromRedis,
   listRecruitsFromRedis,
   deleteRecruitFromRedis,
+  getRecruitFromWorker,
   pushRecruitToWebAPI,
   saveGuildSettingsToRedis,
   getGuildSettingsFromRedis,

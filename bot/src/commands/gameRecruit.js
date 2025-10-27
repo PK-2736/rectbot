@@ -78,17 +78,68 @@ async function updateParticipantList(interactionOrMessage, participants, savedRe
     }
     const client = (interaction && interaction.client) || (message && message.client);
     const db = require('../utils/db');
+    const messageIdStr = message?.id ? String(message.id) : null;
+    const recruitId = messageIdStr ? messageIdStr.slice(-8) : null;
 
     // savedRecruitData がない場合は Redis から復元を試みる
     if (!savedRecruitData) {
       try {
-        const recruitId = message?.id ? String(message.id).slice(-8) : null;
         if (recruitId) {
           const fromRedis = await db.getRecruitFromRedis(recruitId);
-          if (fromRedis) savedRecruitData = fromRedis;
+          if (fromRedis) {
+            savedRecruitData = fromRedis;
+          } else {
+            const fromWorker = await db.getRecruitFromWorker(recruitId);
+            if (fromWorker?.ok && fromWorker.body) {
+              savedRecruitData = fromWorker.body;
+              // Worker 側のレコードをRedisへベストエフォートで再同期
+              try {
+                await saveRecruitToRedis(recruitId, savedRecruitData);
+              } catch (e) {
+                console.warn('updateParticipantList: saveRecruitToRedis (worker fallback) failed:', e?.message || e);
+              }
+            }
+          }
         }
       } catch (e) {
-        console.warn('updateParticipantList: getRecruitFromRedis failed:', e?.message || e);
+        console.warn('updateParticipantList: fallback fetch failed:', e?.message || e);
+      }
+    }
+
+    if (!savedRecruitData) {
+      console.warn('updateParticipantList: savedRecruitData unavailable even after fallbacks; skipping UI update');
+      if (message && message.id) {
+        try {
+          await saveParticipantsToRedis(message.id, participants);
+        } catch (e) {
+          console.warn('updateParticipantList: unable to persist participants without recruit data:', e?.message || e);
+        }
+      }
+      return;
+    }
+
+    // Worker のDOレコードでは guild/channel などが metadata に含まれているため展開
+    try {
+      if (!savedRecruitData.guildId && savedRecruitData.metadata?.guildId) savedRecruitData.guildId = savedRecruitData.metadata.guildId;
+      if (!savedRecruitData.channelId && savedRecruitData.metadata?.channelId) savedRecruitData.channelId = savedRecruitData.metadata.channelId;
+      if (!savedRecruitData.message_id && savedRecruitData.metadata?.messageId) savedRecruitData.message_id = savedRecruitData.metadata.messageId;
+      if (!savedRecruitData.recruiterId && savedRecruitData.ownerId) savedRecruitData.recruiterId = savedRecruitData.ownerId;
+      if (!savedRecruitData.panelColor && savedRecruitData.metadata?.panelColor) savedRecruitData.panelColor = savedRecruitData.metadata.panelColor;
+      if (!savedRecruitData.vc && savedRecruitData.metadata?.vc) savedRecruitData.vc = savedRecruitData.metadata.vc;
+      if (!savedRecruitData.note && savedRecruitData.metadata?.note) savedRecruitData.note = savedRecruitData.metadata.note;
+      if (!savedRecruitData.content && savedRecruitData.metadata?.raw?.content) savedRecruitData.content = savedRecruitData.metadata.raw.content;
+      if (!savedRecruitData.title) {
+        savedRecruitData.title = savedRecruitData.metadata?.raw?.title || savedRecruitData.metadata?.title || '募集';
+      }
+    } catch (e) {
+      console.warn('updateParticipantList: metadata hydration failed:', e?.message || e);
+    }
+
+    if (recruitId) {
+      try {
+        await saveRecruitToRedis(recruitId, savedRecruitData);
+      } catch (e) {
+        console.warn('updateParticipantList: saveRecruitToRedis (hydrated) failed:', e?.message || e);
       }
     }
     const guildId = savedRecruitData?.guildId || (interaction && interaction.guildId) || (message && message.guildId);
