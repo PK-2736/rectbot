@@ -281,6 +281,7 @@
 - Bot: discord.js + node-canvas
 - API: Worker 経由で Supabase
 - キャッシュ: Durable Objects
+- 管理用: Grafana / Loki / Sentry / Metabase
 - DB: Supabase（テスト）
 - セキュリティ: JWT + Service Token + Cloudflare Access
 - 用途: 開発・テスト
@@ -292,6 +293,8 @@
 - Bot: 24 時間稼働
 - DB: Supabase（本番）
 - キャッシュ: Durable Objects
+- ログ転送: Promtail → loki(OCI)に送信
+- リソースログ: workerに送信 → OCIで受信 →garifana
 - セキュリティ: JWT + Service Token + Cloudflare Access
 - 用途: Bot 実働の軽量環境
 - domain: recrubo.net (Xserver dmainで取得予定)
@@ -597,6 +600,8 @@ const recruits = await Promise.all(ids.map(id => redis.get(`recruit:${id}`)));
     - [`metabase.recrubo.net`](http://metabase.recrubo.net)
     - [`sentry.recrubo.net`](http://sentry.recrubo.net)
 - 保護: Basic Auth / TOKEN
+- 本番環境ではPromtailをXserverに置き、loki(OCi)へ送信
+- リソースログ(本番)はXserverからworkerへ送信し、garifana(OCI)が表示
 - 通知: Discord へリアルタイム通知
 - 目的: エラー、バックアップ失敗、デプロイ通知の監視
 
