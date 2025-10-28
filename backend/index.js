@@ -908,6 +908,45 @@ export default {
       }
     }
 
+    // 軽量な環境変数診断（Service Token 必須、値は返さず存在のみ）
+    if (url.pathname === '/api/debug/env-lite' && request.method === 'GET') {
+      // どの環境変数が採用されるかを特定（値は返さない）
+      const sources = [
+        ['SUPABASE_URL', env.SUPABASE_URL],
+        ['SUPABASE_REST_URL', env.SUPABASE_REST_URL],
+        ['PUBLIC_SUPABASE_URL', env.PUBLIC_SUPABASE_URL],
+        ['NEXT_PUBLIC_SUPABASE_URL', env.NEXT_PUBLIC_SUPABASE_URL],
+        ['VITE_SUPABASE_URL', env.VITE_SUPABASE_URL],
+        ['SUPABASE_PROJECT_URL', env.SUPABASE_PROJECT_URL]
+      ];
+      if (env.SUPABASE_PROJECT_REF) {
+        sources.push(['SUPABASE_PROJECT_REF', `https://${env.SUPABASE_PROJECT_REF}.supabase.co`]);
+      }
+
+      const resolvedUrl = resolveSupabaseRestUrl(env);
+      let selectedSource = null;
+      for (const [name, val] of sources) {
+        if (typeof val === 'string' && val.trim() !== '') { selectedSource = name; break; }
+      }
+
+      let host = null;
+      if (resolvedUrl) {
+        try { host = new URL(resolvedUrl).host; } catch {}
+      }
+
+      return new Response(JSON.stringify({
+        ok: true,
+        supabase: {
+          configured: !!resolvedUrl,
+          source: selectedSource,
+          host,
+          preview: resolvedUrl ? (resolvedUrl.substring(0, 32) + '...') : null
+        },
+        serviceRoleKeyConfigured: !!env.SUPABASE_SERVICE_ROLE_KEY,
+        timestamp: new Date().toISOString()
+      }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
     // RecruitsDO backed endpoints
     if (url.pathname.startsWith('/api/recruits')) {
       try {
