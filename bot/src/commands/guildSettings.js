@@ -434,10 +434,8 @@ module.exports = {
       
       // レスポンスメッセージを結果に応じて調整
       let message = '✅ 設定が保存されました！設定が有効になりました。';
-      if (result && result.fallbackMode) {
-        message = '✅ 設定が保存されました！（一時的にローカルストレージに保存）';
-      } else if (result && result.supabaseSuccess) {
-        message = '✅ 設定がデータベースに保存されました！設定が有効になりました。';
+      if (result && typeof result.message === 'string') {
+        message = `✅ ${result.message}`;
       }
       
       await safeReply(interaction, {

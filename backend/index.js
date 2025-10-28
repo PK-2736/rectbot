@@ -73,101 +73,6 @@ function getSupabaseClient(env) {
   };
 }
 
-async function proxyGuildSettingsFinalizeToExpress(env, corsHeaders, payload) {
-  const baseUrl = env.TUNNEL_URL || env.VPS_EXPRESS_URL || env.EXPRESS_ORIGIN || env.EXPRESS_BASE_URL;
-
-  console.log('[finalize] Express fallback configuration:', {
-    hasTunnelUrl: !!env.TUNNEL_URL,
-    hasVpsExpressUrl: !!env.VPS_EXPRESS_URL,
-    hasExpressOrigin: !!env.EXPRESS_ORIGIN,
-    hasExpressBaseUrl: !!env.EXPRESS_BASE_URL,
-    hasServiceToken: !!env.SERVICE_TOKEN
-  });
-
-  if (!baseUrl) {
-    console.warn('[finalize] Express fallback skipped: no tunnel/VPS/Express base URL configured');
-    return { handled: false, reason: 'NO_BASE_URL' };
-  }
-
-  const serviceToken = env.SERVICE_TOKEN;
-  if (!serviceToken) {
-    console.warn('[finalize] Express fallback skipped: SERVICE_TOKEN not configured');
-    return { handled: false, reason: 'NO_SERVICE_TOKEN' };
-  }
-
-  const apiUrl = `${baseUrl.replace(/\/$/, '')}/api/guild-settings/finalize`;
-  console.log(`[finalize] Attempting Express fallback: ${apiUrl}`);
-
-  try {
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-service-token': serviceToken,
-      },
-      body: JSON.stringify(payload)
-    });
-
-    const bodyText = await response.text();
-    const headers = {
-      ...corsHeaders,
-      'X-Backend-Fallback': 'express'
-    };
-
-    const hasJsonContentType = (response.headers.get('content-type') || '').includes('application/json');
-    const seemsJson = bodyText.trim().startsWith('{');
-    const isCloudflareDnsError = response.status === 530 || /error code:\s*1016/i.test(bodyText);
-
-    if (isCloudflareDnsError) {
-      const message = 'Express fallback failed: Cloudflare could not resolve the origin (error code 1016). Check the tunnel or DNS settings for the VPS endpoint.';
-      console.error('[finalize] Express fallback Cloudflare error 1016');
-      return {
-        handled: true,
-        response: new Response(JSON.stringify({
-          error: 'Express fallback origin unreachable',
-          details: message,
-          status: 530,
-          fallback: 'express',
-          timestamp: new Date().toISOString()
-        }), {
-          status: 503,
-          headers: { ...headers, 'Content-Type': 'application/json' }
-        }),
-        status: 503,
-        reason: 'CLOUDFLARE_1016'
-      };
-    }
-
-    if (response.ok && (hasJsonContentType || seemsJson)) {
-      return {
-        handled: true,
-        response: new Response(bodyText, {
-          status: response.status,
-          headers: { ...headers, 'Content-Type': 'application/json' }
-        })
-      };
-    }
-
-    return {
-      handled: true,
-      response: new Response(bodyText || '', {
-        status: response.status,
-        headers: {
-          ...headers,
-          'Content-Type': hasJsonContentType ? 'application/json' : 'text/plain'
-        }
-      })
-    };
-  } catch (error) {
-    console.error('[finalize] Express fallback failed:', error);
-    return {
-      handled: false,
-      reason: 'NETWORK_ERROR',
-      error
-    };
-  }
-}
-
 // ----- Sentry minimal HTTP reporter for Cloudflare Worker when @sentry/cloudflare isn't used -----
 // Durable Object: RecruitsDO (singleton) for ephemeral recruitment cache with TTL
 export class RecruitsDO {
@@ -1280,19 +1185,6 @@ export default {
 
         console.log(`[finalize] Starting finalization for guild: ${guildId}`);
         console.log('[finalize] Incoming settings:', incomingSettings);
-
-        let fallbackAttempted = false;
-        let fallbackInfo = null;
-        const attemptExpressFallback = async () => {
-          const result = await proxyGuildSettingsFinalizeToExpress(env, corsHeaders, payload);
-          fallbackAttempted = true;
-          fallbackInfo = result;
-          if (result && result.handled && result.response) {
-            return result.response;
-          }
-          return null;
-        };
-
         // Map incoming settings to Supabase format
         const supabaseData = {
           guild_id: guildId,
@@ -1315,16 +1207,9 @@ export default {
         if (missingSupabaseConfig.length > 0) {
           const detailMessage = `Missing Supabase configuration: ${missingSupabaseConfig.join(', ')}. Ensure SUPABASE_URL (or SUPABASE_REST_URL / SUPABASE_PROJECT_REF) and SUPABASE_SERVICE_ROLE_KEY are configured.`;
           console.error(`[finalize] ${detailMessage}`);
-          const fallbackResponse = await attemptExpressFallback();
-          if (fallbackResponse) return fallbackResponse;
-
-          const fallbackReason = fallbackInfo ? (fallbackInfo.reason || fallbackInfo.error?.message || 'unknown') : 'not attempted';
           return new Response(JSON.stringify({
             error: "Supabase not configured",
             details: detailMessage,
-            fallbackAttempted,
-            fallbackReason,
-            fallbackStatus: fallbackInfo?.status ?? null,
             timestamp: new Date().toISOString()
           }), {
             status: 500,
@@ -1403,19 +1288,9 @@ export default {
       } catch (error) {
         console.error('[finalize] Guild settings finalize error:', error);
         console.error('[finalize] Error stack:', error.stack);
-
-        if (!fallbackAttempted) {
-          const fallbackResponse = await attemptExpressFallback();
-          if (fallbackResponse) return fallbackResponse;
-        }
-
-        const fallbackReason = fallbackInfo ? (fallbackInfo.reason || fallbackInfo.error?.message || 'unknown') : (fallbackAttempted ? 'unknown' : 'not attempted');
         return new Response(JSON.stringify({ 
           error: "Internal server error",
           details: error.message,
-          fallbackAttempted,
-          fallbackReason,
-          fallbackStatus: fallbackInfo?.status ?? null,
           timestamp: new Date().toISOString()
         }), { 
           status: 500, 

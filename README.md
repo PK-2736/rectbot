@@ -78,7 +78,6 @@
 
 | パス | 説明 |
 | --- | --- |
-| `server.js` | express起動スクリプト 未使用の予定 |
 | `package.json` / `package-lock.json` | Botの依存関係とスクリプト |
 | [`README.md`](http://README.md) | Botの概要説明 |
 
@@ -320,7 +319,7 @@
 
 ## 手動デプロイ手順
 
-### VPS (Bot / Express)
+### VPS (Bot)
 
 ```bash
 ssh ubuntu@your-vps
@@ -390,15 +389,15 @@ npx wrangler pages deploy ./out
 
 ```
 Discord Bot
-   ↓ (HTTP fetch)
-Express API（DO上）
-   ↓
-Redis（DO内）
+  ↓ (HTTP fetch)
+Cloudflare Worker API
+  ↓
+Durable Object（Redisキャッシュ相当）
 
 ```
 
-- **Redis**：募集データを一時保存（TTL＝8時間）
-- **Express API**：募集の作成・取得・参加・削除を提供
+- **Redis / Durable Object**：募集データを一時保存（TTL＝8時間）
+- **Cloudflare Worker API**：募集の作成・取得・参加・削除、およびギルド設定保存を提供
 - **Bot**：ユーザー操作からAPIを呼び出す
 
 ---
@@ -792,14 +791,14 @@ DISCORD_WEBHOOK_URL=
 ADMIN_DISCORD_ID=
 
 # ====== API / Backend ======
-BACKEND_API_URL=                     # Express or Worker の内部APIエンドポイント
+BACKEND_API_URL=                     # Worker API の内部エンドポイント
 PUBLIC_API_BASE_URL=                 # Public (Pagesなどから叩く用)
 NEXT_PUBLIC_API_BASE_URL=            # Frontend用APIエンドポイント
 
 INTERNAL_SECRET=                     # Bot ⇔ Worker 間で共通利用する内部トークン（JWT検証用）
 JWT_SECRET=                          # APIのJWT署名用
 
-SERVICE_TOKEN=                       # Worker → Express連携用の独自トークン（任意）
+SERVICE_TOKEN=                       # Bot → Worker 通信用のサービス トークン
 
 # ====== Cloudflare Access ======
 CF_ACCESS_CLIENT_ID=                 # Cloudflare Zero Trust Service Token ID
@@ -835,7 +834,6 @@ REDIS_PORT=6379
 OCI_HOST=
 OCI_USER=
 OCI_SSH_KEY=
-VPS_EXPRESS_URL=
 
 # ====== Security / Monitoring ======
 SENTRY_DSN=
@@ -864,7 +862,7 @@ TZ=Asia/Tokyo
 | --- | --- |
 | **Cloudflare Access** | Bot → Worker 通信用の認証（`CF_ACCESS_CLIENT_ID/SECRET`） |
 | **Tunnel関連** | Botからの通信をCloudflare経由で安全に転送 |
-| **INTERNAL_SECRET / SERVICE_TOKEN** | Worker ↔ Express など内部API用の認証 |
+| **INTERNAL_SECRET / SERVICE_TOKEN** | Bot ↔ Worker など内部API用の認証 |
 | **R2 / Supabase / Redis** | データ保存・キャッシュ関連 |
 | **SENTRY / RECAPTCHA / MAIL** | モニタリング・セキュリティ対策 |
 | **TZ** | タイムゾーンをJSTに統一 |
@@ -894,7 +892,7 @@ TZ=Asia/Tokyo
 
 ## 🚨 復旧手順（障害発生時）
 
-### 🟥 1. VPS（Bot / Express）
+### 🟥 1. VPS（Bot）
 
 **主な障害例**
 
@@ -1022,7 +1020,7 @@ psql <database_url> -f restore.sql
 
 | サービス | チェック項目 | コマンド |
 | --- | --- | --- |
-| VPS | Bot/Expressが起動中 | `pm2 list` |
+| VPS | Botが起動中 | `pm2 list` |
 | Worker | `/ping` に正常応答 | `curl https://api.rectbot.tech/ping` |
 | Redis | 応答確認 | `redis-cli ping` |
 | Supabase | DB接続確認 | Supabase Studioまたは`psql` |

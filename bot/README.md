@@ -87,7 +87,8 @@ bot/
     "discord.js": "^14.22.1",
     "@supabase/supabase-js": "^2.57.4",
     "dotenv": "^16.0.0",
-    "canvas": "^2.11.0"
+    "canvas": "^3.2.0",
+    "ioredis": "^5.8.0"
   }
 }
 ```
