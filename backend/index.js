@@ -73,6 +73,37 @@ function getSupabaseClient(env) {
   };
 }
 
+// Lightweight ping to Supabase to wake free-tier projects.
+// Returns true if the request completed (regardless of 2xx/4xx/5xx), false on network/timeout error.
+async function pingSupabase(env, timeoutMs = 3000) {
+  try {
+    const supabaseRestUrl = resolveSupabaseRestUrl(env);
+    if (!supabaseRestUrl || !env.SUPABASE_SERVICE_ROLE_KEY) return false;
+
+    const target = `${supabaseRestUrl.replace(/\/+$/, '')}/rest/v1/guild_settings?select=*&limit=1`;
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch(target, {
+        method: 'GET',
+        headers: {
+          'apikey': env.SUPABASE_SERVICE_ROLE_KEY,
+          'Authorization': `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`
+        },
+        signal: controller.signal,
+      });
+      clearTimeout(id);
+      // If we get any HTTP response, consider Supabase reachable for wake-up purposes
+      return true;
+    } catch (e) {
+      clearTimeout(id);
+      return false;
+    }
+  } catch (e) {
+    return false;
+  }
+}
+
 // ----- Sentry minimal HTTP reporter for Cloudflare Worker when @sentry/cloudflare isn't used -----
 // Durable Object: RecruitsDO (singleton) for ephemeral recruitment cache with TTL
 export class RecruitsDO {
@@ -1261,6 +1292,13 @@ export default {
           'Authorization': `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
           'Content-Type': 'application/json',
         };
+        // Ping Supabase once to wake free-tier projects (best-effort, do not fail the request)
+        try {
+          const pingOk = await pingSupabase(env, 4000);
+          console.log(`[finalize] Supabase ping result: ${pingOk}`);
+        } catch (e) {
+          console.warn('[finalize] Supabase ping error:', e && e.message ? e.message : String(e));
+        }
         
         // まず既存レコードがあるか確認
         const existingRes = await fetch(`${supabaseRestUrl}/rest/v1/guild_settings?guild_id=eq.${guildId}`, {
