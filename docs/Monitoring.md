@@ -110,7 +110,7 @@ scrape_configs:
 ### 2. Node Exporter → Pushgateway スクリプト
 
 /usr/local/bin/prometheus-push.sh
-```
+```sh
 #!/bin/bash
 CPU=$(top -bn1 | grep "Cpu(s)" | awk '{print $2 + $4}')
 MEM=$(free -m | awk '/Mem:/ {print $3}')
@@ -128,7 +128,7 @@ cron 登録例：
 ### 3. Cloudflare Tunnel 設定
 
 /etc/cloudflared/config.yml
-```
+```yaml
 tunnel: oci-monitoring
 credentials-file: /etc/cloudflared/oci-monitoring.json
 
@@ -153,7 +153,7 @@ systemctl start cloudflared
 ### 4. Grafana 設定 (Basic Auth + Tunnel 公開)
 
 /etc/grafana/grafana.ini
-```
+```ini
 [server]
 http_addr = 127.0.0.1
 http_port = 3000
@@ -178,7 +178,7 @@ admin_password = ${GRAFANA_ADMIN_PASSWORD}
 5. Grafana データソース設定例
 
 /etc/grafana/provisioning/datasources/datasource.yml
-```
+```yaml
 apiVersion: 1
 
 datasources:
@@ -216,7 +216,7 @@ datasources:
 ### 6. Discord Webhook 設定例
 
 /usr/local/bin/discord-alert.sh
-```
+```sh
 #!/bin/bash
 WEBHOOK_URL="https://discord.com/api/webhooks/XXXX/XXXX"
 MESSAGE="🚨 緊急アラート: $1"
