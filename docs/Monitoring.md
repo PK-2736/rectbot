@@ -103,7 +103,7 @@ scrape_configs:
 
 ---
 
-2. Node Exporter → Pushgateway スクリプト
+### 2. Node Exporter → Pushgateway スクリプト
 
 /usr/local/bin/prometheus-push.sh
 
@@ -121,7 +121,7 @@ cron 登録例：
 
 ---
 
-3. Cloudflare Tunnel 設定
+### 3. Cloudflare Tunnel 設定
 
 /etc/cloudflared/config.yml
 
@@ -146,7 +146,7 @@ systemctl start cloudflared
 
 ---
 
-4. Grafana 設定 (Basic Auth + Tunnel 公開)
+### 4. Grafana 設定 (Basic Auth + Tunnel 公開)
 
 /etc/grafana/grafana.ini
 
@@ -171,7 +171,7 @@ admin_password = ${GRAFANA_ADMIN_PASSWORD}
 
 ---
 
-5. Grafana データソース設定例
+### 5. Grafana データソース設定例
 
 • Loki• URL: https://loki.recrubo.net
 • Auth: Basic Auth (loki / ${LOKI_PASSWORD})
@@ -189,7 +189,7 @@ admin_password = ${GRAFANA_ADMIN_PASSWORD}
 
 ---
 
-6. Discord Webhook 設定例
+### 6. Discord Webhook 設定例
 
 /usr/local/bin/discord-alert.sh
 
@@ -206,7 +206,7 @@ Prometheus Alertmanager または Grafana Alerting から呼び出し可能。
 
 ---
 
-🔒 セキュリティ・運用ポイント
+### 🔒 セキュリティ・運用ポイント
 
 • 通信経路：Xserver ↔ OCI は Cloudflare Tunnel 経由（外部ポート不要）
 • 認証：Cloudflare Access Token / Basic Auth
@@ -221,7 +221,7 @@ Prometheus Alertmanager または Grafana Alerting から呼び出し可能。
 
 ---
 
-✅ まとめ
+### ✅ まとめ
 
 • Xserver 側は軽量構成（Bot + Redis + Promtail + Node Exporter）
 • OCI 側で監視・可視化を一元化（Loki + Prometheus + Grafana + Metabase）
@@ -234,6 +234,3 @@ Prometheus Alertmanager または Grafana Alerting から呼び出し可能。
 
 
 ---
-
-これで **今までの要素をすべて落とし込んだ完全版 README.md** です。  
-このまま GitHub に置けば、Copilot と一緒にコードや IaC を展開していけますね。
