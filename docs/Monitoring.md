@@ -74,81 +74,61 @@ Xserver ↔ OCI 監視・統合構成
 
 
 ---
+## 各種設定
 
-なるほど、GitHub 上で README が「最初しか表示されない」原因は、Markdown のコードブロックや区切り線の閉じ忘れがほとんどです。
-哲平さんの例だと、/etc/promtail/config.yml のコードブロックを開いたあとに閉じる ``` が抜けていたため、以降が全部「コード扱い」になってしまっていました。
+### 1. Promtail 設定
 
-以下は 正しく修正した README の「設定例」部分です。すべてのコードブロックをきちんと閉じ、区切り線も Markdown として解釈されるようにしています。
-
----
-
-なるほど！GitHub 上で「全部がひとつの塊になってしまう」原因は、コードブロックを開いたまま閉じていないことです。
-Markdown では、コードを囲むときに必ず
+`/etc/promtail/config.yml`
 
 ```yaml
-...内容...
+server:
+  http_listen_port: 9080
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: https://loki.recrubo.net/loki/api/v1/push
+    tenant_id: default
+    basic_auth:
+      username: loki
+      password: ${LOKI_PASSWORD}
+
+scrape_configs:
+  - job_name: bot-logs
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: bot
+          host: xserver
+          __path__: /var/log/bot/*.log
+
+```
+---
+
+### 2. Node Exporter → Pushgateway スクリプト
+
+/usr/local/bin/prometheus-push.sh
+```
+#!/bin/bash
+CPU=$(top -bn1 | grep "Cpu(s)" | awk '{print $2 + $4}')
+MEM=$(free -m | awk '/Mem:/ {print $3}')
+echo "bot_cpu_usage $CPU" | curl --data-binary @- https://prom.recrubo.net/metrics/job/xserver-bot
+echo "bot_mem_usage $MEM" | curl --data-binary @- https://prom.recrubo.net/metrics/job/xserver-bot
+
+```
+cron 登録例：
+```
+* * * * * /usr/local/bin/prometheus-push.sh
 ```
 
-
-のように **開始と終了のバッククォート ()** をセットにする必要があります。   哲平さんの例では、最初の `server: ...` の YAML を開いたあとに閉じる  が無いため、その後の Node Exporter や Cloudflare Tunnel の部分まで全部「コード扱い」になってしまっています。
-
 ---
 
-✅ 修正版（各項目ごとに閉じる）
-
-### 1. Promtail 設定
-
-`/etc/promtail/config.yml`
-
-```yaml
-server:
-  http_listen_port: 9080
-
-positions:
-  filename: /tmp/positions.yaml
-
-clients:
-  - url: https://loki.recrubo.net/loki/api/v1/push
-    tenant_id: default
-    basic_auth:
-      username: loki
-      password: ${LOKI_PASSWORD}
-
-scrape_configs:
-  - job_name: bot-logs
-    static_configs:
-      - targets:
-          - localhost
-        labels:
-          job: bot
-          host: xserver
-          __path__: /var/log/bot/*.log
-
-
----
-
-2. Node Exporter → Pushgateway スクリプト
-
-/usr/local/bin/prometheus-push.sh
-
-#!/bin/bash
-CPU=$(top -bn1 | grep "Cpu(s)" | awk '{print $2 + $4}')
-MEM=$(free -m | awk '/Mem:/ {print $3}')
-echo "bot_cpu_usage $CPU" | curl --data-binary @- https://prom.recrubo.net/metrics/job/xserver-bot
-echo "bot_mem_usage $MEM" | curl --data-binary @- https://prom.recrubo.net/metrics/job/xserver-bot
-
-
-cron 登録例：
-
-* * * * * /usr/local/bin/prometheus-push.sh
-
-
----
-
-3. Cloudflare Tunnel 設定
+### 3. Cloudflare Tunnel 設定
 
 /etc/cloudflared/config.yml
-
+```
 tunnel: oci-monitoring
 credentials-file: /etc/cloudflared/oci-monitoring.json
 
@@ -160,177 +140,20 @@ ingress:
   - hostname: grafana.recrubo.net
     service: http://localhost:3000
   - service: http_status:404
-
-
-起動:
-
-systemctl enable cloudflared
-systemctl start cloudflared
-
-
----
-
-4. Grafana 設定 (Basic Auth + Tunnel 公開)
-
-/etc/grafana/grafana.ini
-
-[server]
-http_addr = 127.0.0.1
-http_port = 3000
-domain = grafana.recrubo.net
-root_url = https://grafana.recrubo.net/
-
-[auth.basic]
-enabled = true
-
-[security]
-admin_user = admin
-admin_password = ${GRAFANA_ADMIN_PASSWORD}
-
-
----
-
-5. Grafana データソース設定例
-
-/etc/grafana/provisioning/datasources/datasource.yml
-
-apiVersion: 1
-
-datasources:
-  - name: Loki
-    type: loki
-    url: https://loki.recrubo.net
-    basicAuth: true
-    basicAuthUser: loki
-    secureJsonData:
-      basicAuthPassword: ${LOKI_PASSWORD}
-
-  - name: Prometheus
-    type: prometheus
-    url: https://prom.recrubo.net
-    basicAuth: true
-    basicAuthUser: prom
-    secureJsonData:
-      basicAuthPassword: ${PROM_PASSWORD}
-
-  - name: Metabase
-    type: marcusolsson-json-datasource
-    url: https://metabase.recrubo.net/api/card/:id/query
-    secureJsonData:
-      bearerToken: ${METABASE_API_KEY}
-
-  - name: Sentry
-    type: marcusolsson-json-datasource
-    url: https://sentry.io/api/0/projects/<org>/<project>/events/
-    secureJsonData:
-      bearerToken: ${SENTRY_API_KEY}
-
-
----
-
-6. Discord Webhook 設定例
-
-/usr/local/bin/discord-alert.sh
-
-#!/bin/bash
-WEBHOOK_URL="https://discord.com/api/webhooks/XXXX/XXXX"
-MESSAGE="🚨 緊急アラート: $1"
-curl -H "Content-Type: application/json" \
-     -X POST \
-     -d "{\"content\": \"$MESSAGE\"}" \
-     $WEBHOOK_URL
-
-
-
----
-
-### 🔑 ポイント
-- **各コードブロックを必ず閉じる (` ``` `)**  
-- `---` の前後には空行を入れると Markdown が崩れにくい  
-- これで GitHub 上でも「ひとつの塊」にならず、項目ごとに綺麗に表示されます  
-
----
-
-👉 この修正版をそのまま `README.md` に置けば、GitHub 上で正しくレンダリングされますよ。
-
-### 1. Promtail 設定
-
-`/etc/promtail/config.yml`
-
-```yaml
-server:
-  http_listen_port: 9080
-
-positions:
-  filename: /tmp/positions.yaml
-
-clients:
-  - url: https://loki.recrubo.net/loki/api/v1/push
-    tenant_id: default
-    basic_auth:
-      username: loki
-      password: ${LOKI_PASSWORD}
-
-scrape_configs:
-  - job_name: bot-logs
-    static_configs:
-      - targets:
-          - localhost
-        labels:
-          job: bot
-          host: xserver
-          __path__: /var/log/bot/*.log
-
-
----
-
-2. Node Exporter → Pushgateway スクリプト
-
-/usr/local/bin/prometheus-push.sh
-
-#!/bin/bash
-CPU=$(top -bn1 | grep "Cpu(s)" | awk '{print $2 + $4}')
-MEM=$(free -m | awk '/Mem:/ {print $3}')
-echo "bot_cpu_usage $CPU" | curl --data-binary @- https://prom.recrubo.net/metrics/job/xserver-bot
-echo "bot_mem_usage $MEM" | curl --data-binary @- https://prom.recrubo.net/metrics/job/xserver-bot
-
-
-cron 登録例：
-
-* * * * * /usr/local/bin/prometheus-push.sh
-
-
----
-
-3. Cloudflare Tunnel 設定
-
-/etc/cloudflared/config.yml
-
-tunnel: oci-monitoring
-credentials-file: /etc/cloudflared/oci-monitoring.json
-
-ingress:
-  - hostname: loki.recrubo.net
-    service: http://localhost:3100
-  - hostname: prom.recrubo.net
-    service: http://localhost:9091
-  - hostname: grafana.recrubo.net
-    service: http://localhost:3000
-  - service: http_status:404
-
+```
 
 起動:
-
+```
 systemctl enable cloudflared
 systemctl start cloudflared
-
+```
 
 ---
 
-4. Grafana 設定 (Basic Auth + Tunnel 公開)
+### 4. Grafana 設定 (Basic Auth + Tunnel 公開)
 
 /etc/grafana/grafana.ini
-
+```
 [server]
 http_addr = 127.0.0.1
 http_port = 3000
@@ -348,14 +171,14 @@ admin_password = ${GRAFANA_ADMIN_PASSWORD}
 • http_addr = 127.0.0.1 → 外部から直接アクセス不可
 • 公開は Cloudflare Tunnel 経由のみ
 • Basic Auth で認証必須
-
+```
 
 ---
 
 5. Grafana データソース設定例
 
 /etc/grafana/provisioning/datasources/datasource.yml
-
+```
 apiVersion: 1
 
 datasources:
@@ -386,14 +209,14 @@ datasources:
     url: https://sentry.io/api/0/projects/<org>/<project>/events/
     secureJsonData:
       bearerToken: ${SENTRY_API_KEY}
-
+```
 
 ---
 
-6. Discord Webhook 設定例
+### 6. Discord Webhook 設定例
 
 /usr/local/bin/discord-alert.sh
-
+```
 #!/bin/bash
 WEBHOOK_URL="https://discord.com/api/webhooks/XXXX/XXXX"
 MESSAGE="🚨 緊急アラート: $1"
@@ -402,12 +225,12 @@ curl -H "Content-Type: application/json" \
      -d "{\"content\": \"$MESSAGE\"}" \
      $WEBHOOK_URL
 
-
+```
 Prometheus Alertmanager または Grafana Alerting から呼び出し可能。
 
 ---
 
-🔒 セキュリティ・運用ポイント
+### 🔒 セキュリティ・運用ポイント
 
 • 通信経路：Xserver ↔ OCI は Cloudflare Tunnel 経由（外部ポート不要）
 • 認証：Cloudflare Access Token / Basic Auth
@@ -422,7 +245,7 @@ Prometheus Alertmanager または Grafana Alerting から呼び出し可能。
 
 ---
 
-✅ まとめ
+### ✅ まとめ
 
 • Xserver 側は軽量構成（Bot + Redis + Promtail + Node Exporter）
 • OCI 側で監視・可視化を一元化（Loki + Prometheus + Grafana + Metabase）
