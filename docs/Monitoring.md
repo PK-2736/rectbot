@@ -75,21 +75,35 @@ Xserver ↔ OCI 監視・統合構成
 
 ---
 
+なるほど、GitHub 上で README が「最初しか表示されない」原因は、Markdown のコードブロックや区切り線の閉じ忘れがほとんどです。
+哲平さんの例だと、/etc/promtail/config.yml のコードブロックを開いたあとに閉じる ``` が抜けていたため、以降が全部「コード扱い」になってしまっていました。
+
+以下は 正しく修正した README の「設定例」部分です。すべてのコードブロックをきちんと閉じ、区切り線も Markdown として解釈されるようにしています。
+
+---
+
 ## ⚙️ 設定例
 
+---
+
 ### 1. Promtail 設定
+
 `/etc/promtail/config.yml`
+
 ```yaml
 server:
   http_listen_port: 9080
+
 positions:
   filename: /tmp/positions.yaml
+
 clients:
   - url: https://loki.recrubo.net/loki/api/v1/push
     tenant_id: default
     basic_auth:
       username: loki
       password: ${LOKI_PASSWORD}
+
 scrape_configs:
   - job_name: bot-logs
     static_configs:
@@ -103,7 +117,7 @@ scrape_configs:
 
 ---
 
-### 2. Node Exporter → Pushgateway スクリプト
+2. Node Exporter → Pushgateway スクリプト
 
 /usr/local/bin/prometheus-push.sh
 
@@ -121,7 +135,7 @@ cron 登録例：
 
 ---
 
-### 3. Cloudflare Tunnel 設定
+3. Cloudflare Tunnel 設定
 
 /etc/cloudflared/config.yml
 
@@ -146,7 +160,7 @@ systemctl start cloudflared
 
 ---
 
-### 4. Grafana 設定 (Basic Auth + Tunnel 公開)
+4. Grafana 設定 (Basic Auth + Tunnel 公開)
 
 /etc/grafana/grafana.ini
 
@@ -171,25 +185,45 @@ admin_password = ${GRAFANA_ADMIN_PASSWORD}
 
 ---
 
-### 5. Grafana データソース設定例
+5. Grafana データソース設定例
 
-• Loki• URL: https://loki.recrubo.net
-• Auth: Basic Auth (loki / ${LOKI_PASSWORD})
+/etc/grafana/provisioning/datasources/datasource.yml
 
-• Prometheus• URL: https://prom.recrubo.net
-• Auth: Basic Auth (prom / ${PROM_PASSWORD})
+apiVersion: 1
 
-• Metabase API (JSON API プラグイン利用)• URL: https://metabase.recrubo.net/api/card/:id/query
-• Auth: Bearer Token (Metabase API Key)
+datasources:
+  - name: Loki
+    type: loki
+    url: https://loki.recrubo.net
+    basicAuth: true
+    basicAuthUser: loki
+    secureJsonData:
+      basicAuthPassword: ${LOKI_PASSWORD}
 
-• Sentry.io API• URL: https://sentry.io/api/0/projects/<org>/<project>/events/
-• Auth: Bearer Token (Sentry API Key)
+  - name: Prometheus
+    type: prometheus
+    url: https://prom.recrubo.net
+    basicAuth: true
+    basicAuthUser: prom
+    secureJsonData:
+      basicAuthPassword: ${PROM_PASSWORD}
 
+  - name: Metabase
+    type: marcusolsson-json-datasource
+    url: https://metabase.recrubo.net/api/card/:id/query
+    secureJsonData:
+      bearerToken: ${METABASE_API_KEY}
+
+  - name: Sentry
+    type: marcusolsson-json-datasource
+    url: https://sentry.io/api/0/projects/<org>/<project>/events/
+    secureJsonData:
+      bearerToken: ${SENTRY_API_KEY}
 
 
 ---
 
-### 6. Discord Webhook 設定例
+6. Discord Webhook 設定例
 
 /usr/local/bin/discord-alert.sh
 
@@ -206,7 +240,7 @@ Prometheus Alertmanager または Grafana Alerting から呼び出し可能。
 
 ---
 
-### 🔒 セキュリティ・運用ポイント
+🔒 セキュリティ・運用ポイント
 
 • 通信経路：Xserver ↔ OCI は Cloudflare Tunnel 経由（外部ポート不要）
 • 認証：Cloudflare Access Token / Basic Auth
@@ -221,7 +255,7 @@ Prometheus Alertmanager または Grafana Alerting から呼び出し可能。
 
 ---
 
-### ✅ まとめ
+✅ まとめ
 
 • Xserver 側は軽量構成（Bot + Redis + Promtail + Node Exporter）
 • OCI 側で監視・可視化を一元化（Loki + Prometheus + Grafana + Metabase）
