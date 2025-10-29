@@ -73,7 +73,7 @@ CLOUDFLARE_ACCOUNT_ID=your-account-id
 # Discord OAuth
 DISCORD_CLIENT_ID=your-discord-client-id
 DISCORD_CLIENT_SECRET=your-discord-client-secret
-DISCORD_REDIRECT_URI=https://dash.rectbot.tech/callback
+DISCORD_REDIRECT_URI=https://dash.recrubo.net/callback
 
 # JWT 認証
 JWT_SECRET=your-long-random-secret-256bit
@@ -89,7 +89,7 @@ SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
 SERVICE_TOKEN=your-service-token
 
 # Express API URL
-VPS_EXPRESS_URL=https://80cbc750-94a4-4b87-b86d-b328b7e76779.cfargotunnel.com
+VPS_EXPRESS_URL=https://api.recrubo.net
 ```
 
 #### Pages 用
@@ -101,11 +101,11 @@ VPS_EXPRESS_URL=https://80cbc750-94a4-4b87-b86d-b328b7e76779.cfargotunnel.com
 CLOUDFLARE_API_TOKEN=your-cloudflare-api-token
 CLOUDFLARE_ACCOUNT_ID=your-account-id
 
-# 公開変数（ビルド時に埋め込まれる - NEXT_PUBLIC_* プレフィックス）
-DISCORD_CLIENT_ID=your-discord-client-id
-DISCORD_REDIRECT_URI=https://api.rectbot.tech/api/discord/callback
-NEXT_PUBLIC_API_BASE_URL=https://api.rectbot.tech
-ADMIN_DISCORD_ID=admin-discord-id-1,admin-discord-id-2
+# 公開変数（NEXT_PUBLIC_*）
+NEXT_PUBLIC_DISCORD_CLIENT_ID=your-discord-client-id
+NEXT_PUBLIC_DISCORD_REDIRECT_URI=https://dash.recrubo.net/auth/callback
+NEXT_PUBLIC_API_BASE_URL=https://api.recrubo.net
+NEXT_PUBLIC_ADMIN_IDS=admin-discord-id-1,admin-discord-id-2
 ```
 
 **注意事項**:
@@ -135,7 +135,7 @@ REDIS_PASSWORD=your-redis-password
 REDIS_DB=0
 
 # Backend API
-BACKEND_API_URL=https://api.rectbot.tech
+BACKEND_API_URL=https://api.recrubo.net
 ```
 
 ## デプロイ手順（GitHub Actions）
@@ -405,7 +405,7 @@ async function handleAdminAPI(request, env) {
   }
   
   // Express API 呼び出し
-  const resp = await fetch(`${env.TUNNEL_URL}/api/recruitment/list`, {
+  const resp = await fetch(`${env.VPS_EXPRESS_URL}/api/recruitment/list`, {
     headers: {
       'x-service-token': env.SERVICE_TOKEN
     }

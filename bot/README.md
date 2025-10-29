@@ -1,11 +1,12 @@
-# RectBot - Discord Bot
+# Recrubo - Discord Bot
 
 ## 概要
-RectBot は Discord 上でゲーム募集やフレンドコード管理を行う Bot です。  
+Recrubo は Discord 上でゲーム募集やフレンドコード管理を行う Bot です。  
 - 言語: **Node.js (discord.js)**
 - 画像処理: **canvas**
 - データ管理: **Supabase/PostgreSQL**
-- 対応機能: ゲーム募集、フレンドコード保存、サブスク管理、募集設定、通知ロール管理、ヘルプコマンド
+- API連携: Cloudflare Worker 経由で Supabase / Express と通信（Service Token 認証）
+- 監視: Sentry と Discord Webhookで障害通知
 
 ---
 
@@ -92,3 +93,8 @@ bot/
   }
 }
 ```
+
+### 環境変数のポイント
+- `DISCORD_BOT_TOKEN`, `SERVICE_TOKEN`, `SUPABASE_SERVICE_ROLE_KEY` など機密値は `.env` もしくは GitHub Secrets で管理します。
+- `VPS_EXPRESS_URL` には Cloudflare Tunnel 経由の HTTPS エンドポイントを設定します。
+- `SENTRY_DSN` と `JWT_SECRET` を指定すると Worker との認証およびエラー監視が有効になります。

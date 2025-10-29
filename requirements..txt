@@ -1,0 +1,20 @@
+# Recrubo 開発タスク概要
+
+## 完了済み
+- 各ディレクトリの初期コード動作確認
+- Discord Bot の OAuth と基本コマンド整備
+
+## 進行中
+- Cloudflare Workers と Supabase の統合テスト
+- Dashboard（Next.js）での OAuth / Stripe UI 実装
+- Stripe 課金とサブスク管理フロー
+- Docker/Caddy を用いたローカル開発環境構築
+- GitHub Actions による CI/CD 自動化
+
+## TODO
+- セキュリティ整備（.env 管理 / JWT / SSL-TLS）
+- バックアップ・監視（Sentry / Supabase Audit Log）
+- Web上の統計データ反映
+- 招待リンクとサポート URL の最終確認
+- 公式連絡先情報の更新
+- Discord ブランドガイドライン再確認

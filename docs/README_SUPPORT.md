@@ -1,8 +1,8 @@
-# 📘 Rectbot Support System — README
+# 📘 Recrubo Support System — README
 
 ## 🧩 概要
 
-本プロジェクトは、**Rectbot関連サービス（Bot / Worker / API / Backup / Pages など）**における
+本プロジェクトは、**Recrubo関連サービス（Bot / Worker / API / Backup / Pages など）**における
 共通サポート基盤を提供します。
 
 構成要素は以下の通りです：
@@ -116,7 +116,7 @@ export default {
 3. 「Add Integration」→ Discordサーバーを選択
 4. 通知先チャンネルを設定
 
-これで、Rectbot各プロセスのエラーがDiscordに自動通知されます ✅
+これで、Recrubo各プロセスのエラーがDiscordに自動通知されます ✅
 
 ---
 
@@ -128,7 +128,7 @@ export default {
 |------|------|
 | Cloudflare Pages | フロント（HTMLフォーム） |
 | Cloudflare Worker | メール送信処理 |
-| Cloudflare Email Routing | `support@rectbot.tech` 宛を Gmail へ転送 |
+| Cloudflare Email Routing | `support@recrubo.net` 宛を Gmail へ転送 |
 
 ---
 
@@ -141,8 +141,8 @@ export default {
 3. 以下を設定：
 
    ```
-   Custom address: support@rectbot.tech
-   Destination: teppei.oga.0409@gmail.com
+   Custom address: support@recrubo.net
+   Destination: operations@recrubo.net
    ```
 4. MX / SPF / TXT レコードが自動追加される（数分で有効）
 
@@ -164,7 +164,7 @@ export default {
 
 1. Cloudflare Pages にデプロイ
 2. フォームに入力して送信
-3. Gmail に `support@rectbot.tech` 宛のメールが届く
+3. Gmail に `support@recrubo.net` 宛のメールが届く
 4. Discord にも通知が届く
 
 ---
@@ -175,8 +175,8 @@ export default {
 |--------|------|
 | `SENTRY_DSN` | 各アプリ共通（SentryプロジェクトDSN） |
 | `DISCORD_WEBHOOK_URL` | 通知チャンネル用 |
-| `SUPPORT_EMAIL` | `support@rectbot.tech` |
-| `ADMIN_EMAIL` | `teppei.oga.0409@gmail.com` |
+| `SUPPORT_EMAIL` | `support@recrubo.net` |
+| `ADMIN_EMAIL` | `operations@recrubo.net` |
 
 ---
 

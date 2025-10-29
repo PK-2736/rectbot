@@ -1,7 +1,7 @@
-# Recrubo
+# rectbot（旧Recrubo）
 
 <aside>
-🧭**Recrubo プロジェクト概要**
+🧭 **rectbot プロジェクト概要**
 
 主要構成や運用方針をひと目で確認できます。
 

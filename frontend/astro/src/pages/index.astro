@@ -1,5 +1,10 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
+import { PUBLIC_DISCORD_INVITE_URL, PUBLIC_SUPPORT_PORTAL_URL } from 'astro:env/client';
+
+const inviteUrl =
+  PUBLIC_DISCORD_INVITE_URL ?? 'https://discord.com/api/oauth2/authorize?client_id=YOUR_CLIENT_ID&permissions=274878221312&scope=bot%20applications.commands';
+const supportUrl = PUBLIC_SUPPORT_PORTAL_URL ?? 'https://support.recrubo.net';
 ---
 <BaseLayout>
   <!-- Hero Section -->
@@ -9,19 +14,19 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         <div class="mb-12">
           <h1 class="text-4xl md:text-6xl font-bold mb-6">
             ゲーム仲間がもっと集まる、<br>
-            <span class="text-blue-400">Discord募集をスマートに</span>
+            <span class="text-blue-400">Recruboで募集をスマートに</span>
           </h1>
           <p class="text-base md:text-lg text-slate-400 mb-6">
-            Recrubo（りくるぼ）は、ゲーミングコミュニティのためのDiscordボット。<br>
+            Recrubo は、ゲーミングコミュニティのための Discord ボット。<br>
             募集機能・フレンドコード管理でサーバー運営をサポートします。
           </p>
         </div>
         <div class="mt-6 text-center">
-          <a href="https://discord.gg/tJAGc9aRdc" class="text-blue-400 hover:text-blue-300 underline text-base md:text-lg" target="_blank" rel="noopener">公式ディスコードサーバー</a>で質問・お問い合わせ受付中！
+          <a href={supportUrl} class="text-blue-400 hover:text-blue-300 underline text-base md:text-lg" target="_blank" rel="noopener">サポートポータル</a>で質問・お問い合わせ受付中！
         </div>
         
         <div class="flex flex-col sm:flex-row gap-4 justify-center">
-          <a href="#invite" class="btn-primary text-lg px-8 py-4">
+          <a href={inviteUrl} class="btn-primary text-lg px-8 py-4" target="_blank" rel="noopener">
             今すぐサーバーに招待
           </a>
           <a href="#features" class="btn-secondary text-lg px-8 py-4">
@@ -40,7 +45,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
           <span class="text-blue-400">豊富な機能</span>でサーバー運営を効率化
         </h2>
         <p class="text-lg text-slate-400 max-w-3xl mx-auto">
-          rectbotは、ゲーミングコミュニティに必要な機能を一つのボットで提供します。
+          Recruboは、ゲーミングコミュニティに必要な機能を一つのボットで提供します。
         </p>
       </div>
       
@@ -89,14 +94,14 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     <div class="container">
       <div class="text-center max-w-3xl mx-auto">
         <h2 class="text-3xl md:text-4xl font-bold mb-6 text-white">
-          rectbotを<br>
+          Recruboを<br>
           サーバーに招待
         </h2>
         <p class="text-lg text-slate-300 mb-8">
           簡単なセットアップで、サーバー運営に貢献します。
         </p>
         <div class="flex flex-col sm:flex-row gap-4 justify-center">
-          <a href="#" class="btn-primary py-4 px-8 text-lg">
+          <a href={inviteUrl} class="btn-primary py-4 px-8 text-lg" target="_blank" rel="noopener">
             Discordサーバーに招待
           </a>
         </div>
@@ -129,7 +134,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
             <a href="https://discord.gg/tJAGc9aRdc" class="text-blue-400 hover:text-blue-300 underline" target="_blank" rel="noopener">公式ディスコードサーバー</a>
             でどうぞ
           </p>
-          <a href="#" class="text-blue-400 hover:text-blue-300 transition-colors">
+          <a href={inviteUrl} class="text-blue-400 hover:text-blue-300 transition-colors" target="_blank" rel="noopener">
             サーバーに参加 →
           </a>
         </div>
@@ -144,7 +149,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
           <p class="text-slate-400 mb-4">
             よくある質問やガイドをチェック
           </p>
-          <a href="#" class="text-blue-400 hover:text-blue-300 transition-colors">
+          <a href={supportUrl} class="text-blue-400 hover:text-blue-300 transition-colors" target="_blank" rel="noopener">
             ヘルプを見る →
           </a>
         </div>

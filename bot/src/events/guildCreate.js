@@ -26,9 +26,9 @@ module.exports = {
       // ウェルカムメッセージを作成
       const embed = new EmbedBuilder()
         .setColor(0x5865F2)
-        .setTitle('🎉 RecruitBot（りくるぼ）を導入いただきありがとうございます！')
+        .setTitle('🎉 Recrubo を導入いただきありがとうございます！')
         .setDescription('ゲーム募集を簡単に作成・管理できるDiscordボットです。')
-        .addFields({ name: '使い方', value: '下のボタンからヘルプを確認できます', inline: false })
+        .addFields({ name: '使い方', value: '下のボタンからヘルプやサポートを参照できます', inline: false })
         .setTimestamp();
 
       const buttons = new ActionRowBuilder()
@@ -38,8 +38,12 @@ module.exports = {
             .setLabel('📖 ヘルプを見る')
             .setStyle(ButtonStyle.Primary),
           new ButtonBuilder()
-            .setURL('https://rectbot.tech')
+            .setURL('https://recrubo.net')
             .setLabel('🌐 公式サイト')
+            .setStyle(ButtonStyle.Link),
+          new ButtonBuilder()
+            .setURL('https://support.recrubo.net')
+            .setLabel('🛠 サポートポータル')
             .setStyle(ButtonStyle.Link)
         );
 

@@ -9,15 +9,14 @@ Discord Botの管理画面アプリケーション
 ```bash
 # Discord OAuth2 設定
 NEXT_PUBLIC_DISCORD_CLIENT_ID=your_discord_client_id
-DISCORD_CLIENT_SECRET=your_discord_client_secret
 NEXT_PUBLIC_DISCORD_REDIRECT_URI=https://dash.rectbot.tech/auth/callback
-
-# Backend API
-NEXT_PUBLIC_BACKEND_API_URL=http://localhost:3000
+NEXT_PUBLIC_API_BASE_URL=https://api.rectbot.tech
 
 # 管理者ID（カンマ区切り）
-ADMIN_IDS=user_id_1,user_id_2,user_id_3
+NEXT_PUBLIC_ADMIN_IDS=user_id_1,user_id_2,user_id_3
 ```
+
+> ⚠️ Secrets（DISCORD_CLIENT_SECRET や JWT_SECRET など）は Cloudflare Worker / GitHub Secrets に保存し、リポジトリへ含めないでください。
 
 ## 開発環境での実行
 
