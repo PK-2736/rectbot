@@ -1,10 +1,10 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
-import { PUBLIC_DISCORD_INVITE_URL, PUBLIC_SUPPORT_PORTAL_URL } from 'astro:env/client';
 
+// Use import.meta.env for public env vars so build works across Astro/Vite versions
 const inviteUrl =
-  PUBLIC_DISCORD_INVITE_URL ?? 'https://discord.com/api/oauth2/authorize?client_id=YOUR_CLIENT_ID&permissions=274878221312&scope=bot%20applications.commands';
-const supportUrl = PUBLIC_SUPPORT_PORTAL_URL ?? 'https://support.recrubo.net';
+  import.meta.env.PUBLIC_DISCORD_INVITE_URL ?? 'https://discord.com/api/oauth2/authorize?client_id=YOUR_CLIENT_ID&permissions=274878221312&scope=bot%20applications.commands';
+const supportUrl = import.meta.env.PUBLIC_SUPPORT_PORTAL_URL ?? 'https://support.recrubo.net';
 ---
 <BaseLayout>
   <!-- Hero Section -->
