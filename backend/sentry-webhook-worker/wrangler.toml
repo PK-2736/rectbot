@@ -1,0 +1,19 @@
+name = "rectbot-sentry-webhook"
+main = "index.js"
+compatibility_date = "2025-10-01"
+
+[vars]
+# Set these in your wrangler environment or via Cloudflare dashboard
+DISCORD_ERROR_WEBHOOK_URL = ""
+INTERNAL_SENTRY_SECRET = "replace_with_secret"
+SUPABASE_URL = ""
+SUPABASE_SERVICE_ROLE_KEY = ""
+DASHBOARD_API_URL = ""
+DASHBOARD_API_KEY = ""
+LOKI_PUSH_URL = ""
+LOKI_TENANT = ""
+[[kv_namespaces]]
+binding = "SENTRY_DEDUPE_KV"
+id = "" # fill with your KV namespace id
+# If your Loki (OCI) endpoint requires authorization, set one of these.
+LOKI_AUTH_HEADER = "" # e.g. 'Bearer xxxxx' or 'Basic base64(user:pass)'

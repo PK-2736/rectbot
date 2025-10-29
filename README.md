@@ -926,6 +926,26 @@ sudo systemctl restart redis
 
 ```
 
+
+### Dash 埋め込み（推奨手順、短縮）
+
+dash.rectbot.tech 上で Grafana / Metabase / Sentry を埋め込む場合の推奨手順（短く）：
+
+- まずサービス側の「ネイティブ埋め込み機能」を使う（Grafana の signed snapshots / panel links、Metabase の公開/embedded ダッシュボードなど）。これが最も安全で安定します。
+- 埋め込みができない、または認証が必須なときだけ限定的なプロキシを使う（プロキシで認証ヘッダを注入して iframe で表示）。既存の `/embeds` ページはそのための簡易プロキシを使います。
+- 注意：多くのサービスは X-Frame-Options / CSP で iframe を禁止していることがあります。埋め込みできない場合は「Open in new tab」で開いてください。
+- セキュリティ：プロキシを使う場合は Cloudflare Access や Pages の認証で保護してください。公開トークンを使用する場合は期限・アクセス制御を設定してください。
+
+必要な環境変数（Pages/Worker 側に設定）
+
+- `GRAFANA_URL` — Grafana の公開 URL
+- `GRAFANA_AUTH_HEADER` — 任意（例: `Basic ...` / `Bearer ...`）
+- `METABASE_URL` — Metabase の公開 URL
+- `METABASE_AUTH_HEADER` — 任意
+- `SENTRY_URL` — Sentry のプロジェクト/組織 URL（埋め込み不可の場合はリンク運用推奨）
+- `SENTRY_AUTH_HEADER` — 任意
+
+簡易テスト：`/embeds` ページにアクセスして各パネルが表示されるか確認してください。
 **補足**
 
 - `.env` が破損した場合、GitHub Secrets または Notionから再取得

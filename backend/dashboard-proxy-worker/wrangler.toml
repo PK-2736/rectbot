@@ -1,0 +1,14 @@
+name = "dashboard-proxy"
+main = "index.js"
+compatibility_date = "2025-10-29"
+
+account_id = ""
+workers_dev = false
+route = "api.rectbot.tech/*"
+
+[vars]
+SUPABASE_URL = ""
+GRAFANA_URL = ""
+GRAFANA_AUTH_HEADER = ""
+METABASE_URL = ""
+METABASE_AUTH_HEADER = ""
