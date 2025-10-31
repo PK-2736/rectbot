@@ -133,10 +133,6 @@ tunnel: oci-monitoring
 credentials-file: /etc/cloudflared/oci-monitoring.json
 
 ingress:
-  - hostname: loki.recrubo.net
-    service: http://localhost:3100
-  - hostname: prom.recrubo.net
-    service: http://localhost:9091
   - hostname: grafana.recrubo.net
     service: http://localhost:3000
   - service: http_status:404
@@ -184,7 +180,7 @@ apiVersion: 1
 datasources:
   - name: Loki
     type: loki
-    url: https://loki.recrubo.net
+    url: https://OCI-IP:3100
     basicAuth: true
     basicAuthUser: loki
     secureJsonData:
@@ -192,7 +188,7 @@ datasources:
 
   - name: Prometheus
     type: prometheus
-    url: https://prom.recrubo.net
+    url: https://OCI-IP:9090
     basicAuth: true
     basicAuthUser: prom
     secureJsonData:
@@ -200,9 +196,13 @@ datasources:
 
   - name: Metabase
     type: marcusolsson-json-datasource
-    url: https://metabase.recrubo.net/api/card/:id/query
+    access: proxy
+    url: https://10.0.0.13:3000/api/card/:id/query/json
+    jsonData:
+      method: GET
     secureJsonData:
       bearerToken: ${METABASE_API_KEY}
+
 
   - name: Sentry
     type: marcusolsson-json-datasource
@@ -232,8 +232,8 @@ Prometheus Alertmanager または Grafana Alerting から呼び出し可能。
 
 ### 🔒 セキュリティ・運用ポイント
 
-• 通信経路：Xserver ↔ OCI は Cloudflare Tunnel 経由（外部ポート不要）
-• 認証：Cloudflare Access Token / Basic Auth
+• 通信経路：Xserver ↔ OCI は 自己署名証明書 + ip制限 /　一部ポート開放
+• 認証： Basic Auth / Api_token
 • データ保持：OCI 側 Loki / Prometheus に永続化
 • 通知制御：通常監視は Grafana、緊急時のみ Discord へ限定送信
 • 役割分担：• Grafana → 監視・統合ビュー
@@ -247,11 +247,12 @@ Prometheus Alertmanager または Grafana Alerting から呼び出し可能。
 
 ### ✅ まとめ
 
-• Xserver 側は軽量構成（Bot + Redis + Promtail + Node Exporter）
+• Xserver 側は軽量構成（Bot + Redis + Promtail + Node Exporter + Pushgateway）
 • OCI 側で監視・可視化を一元化（Loki + Prometheus + Grafana + Metabase）
 • SaaS 連携は API 経由で Grafana に統合
 • Grafana 公開は Cloudflare Tunnel + Basic Auth
 • 緊急通知は Discord Webhook に限定
+• 定期的にXserverにヘルスチェック→失敗したらすぐにOCIでbotを運用するように設定
 
 
 → 「軽量なエッジ（Xserver）」＋「強力な監視基盤（OCI）」＋「外部SaaS連携」＋「安全な公開」の完全構成
