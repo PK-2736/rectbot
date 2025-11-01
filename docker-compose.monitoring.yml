@@ -1,4 +1,5 @@
 version: "3.8"
+name: rectbot_monitoring
 
 services:
 
@@ -82,7 +83,7 @@ services:
       - ./docker/monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
       - ./docker/monitoring/grafana/grafana.ini:/etc/grafana/grafana.ini:ro
     ports:
-      - "127.0.0.1:3000:3000"
+      - "${GRAFANA_BIND_ADDR:-127.0.0.1}:3000:3000"
     networks:
       - monitoring
     depends_on:
