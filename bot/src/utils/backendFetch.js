@@ -1,5 +1,5 @@
 // backendFetch (Worker unified)
-const API_BASE = process.env.WORKER_API_BASE_URL || process.env.PUBLIC_API_BASE_URL || 'https://api.rectbot.tech';
+const API_BASE = process.env.WORKER_API_BASE_URL || process.env.PUBLIC_API_BASE_URL || 'https://api.recrubo.net';
 const SERVICE_TOKEN = process.env.SERVICE_TOKEN || '';
 
 async function backendFetch(path, opts = {}) {

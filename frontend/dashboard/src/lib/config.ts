@@ -8,7 +8,7 @@ export function isAdmin(userId: string): boolean {
 // Discord OAuth2 設定（クライアントサイド用）
 export const DISCORD_CONFIG = {
   clientId: process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID!,
-  redirectUri: process.env.NEXT_PUBLIC_DISCORD_REDIRECT_URI || 'https://api.rectbot.tech/api/discord/callback',
+  redirectUri: process.env.NEXT_PUBLIC_DISCORD_REDIRECT_URI || 'https://api.recrubo.net/api/discord/callback',
 };
 
 // API エンドポイント

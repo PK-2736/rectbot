@@ -14,11 +14,11 @@
  - METABASE_AUTH_HEADER (optional)
 
  Usage examples:
- iframe src="https://api.rectbot.tech/proxy?target=grafana&path=/d/abcd"
+ iframe src="https://api.recrubo.net/proxy?target=grafana&path=/d/abcd"
  or
- fetch('https://api.rectbot.tech/proxy?target=metabase&path=/public/dashboard')
+ fetch('https://api.recrubo.net/proxy?target=metabase&path=/public/dashboard')
 
- Note: cookie-based auth requires cookies to be set for `.rectbot.tech` with SameSite=None; alternatively send Authorization: Bearer <access_token>.
+ Note: cookie-based auth requires cookies to be set for `.recrubo.net` with SameSite=None; alternatively send Authorization: Bearer <access_token>.
 */
 
 const TARGETS = {
@@ -67,7 +67,7 @@ async function handleProxy(request, url) {
   const token = extractToken(request);
   if (!token) {
     // redirect to login page on dash (you may change to 401)
-    return Response.redirect('https://dash.rectbot.tech/login', 302);
+  return Response.redirect('https://dash.recrubo.net/login', 302);
   }
 
   // verify token with Supabase

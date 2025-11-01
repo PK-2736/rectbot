@@ -147,7 +147,7 @@ jobs:
         run: |
           cd backend
           # デフォルト値を設定（Secretが空の場合）
-          DISCORD_REDIRECT_URI="${DISCORD_REDIRECT_URI:-https://api.rectbot.tech/api/discord/callback}"
+          DISCORD_REDIRECT_URI="${DISCORD_REDIRECT_URI:-https://api.recrubo.net/api/discord/callback}"
           VPS_EXPRESS_URL="${VPS_EXPRESS_URL:-https://80cbc750-94a4-4b87-b86d-b328b7e76779.cfargotunnel.com}"
           
           echo "Deploying with environment variables:"

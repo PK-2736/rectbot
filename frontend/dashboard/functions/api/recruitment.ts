@@ -13,7 +13,7 @@ export async function onRequestGet(context: { request: Request; env: Env }) {
     const { env } = context;
     
     // バックエンド API の URL を取得
-    const backendUrl = env.BACKEND_API_URL || 'https://api.rectbot.tech';
+  const backendUrl = env.BACKEND_API_URL || 'https://api.recrubo.net';
     const url = `${backendUrl.replace(/\/$/, '')}/api/recruitment/list`;
 
     // Service Token をサーバーサイドで付与

@@ -9,8 +9,8 @@ Discord Botの管理画面アプリケーション
 ```bash
 # Discord OAuth2 設定
 NEXT_PUBLIC_DISCORD_CLIENT_ID=your_discord_client_id
-NEXT_PUBLIC_DISCORD_REDIRECT_URI=https://dash.rectbot.tech/auth/callback
-NEXT_PUBLIC_API_BASE_URL=https://api.rectbot.tech
+NEXT_PUBLIC_DISCORD_REDIRECT_URI=https://dash.recrubo.net/auth/callback
+NEXT_PUBLIC_API_BASE_URL=https://api.recrubo.net
 
 # 管理者ID（カンマ区切り）
 NEXT_PUBLIC_ADMIN_IDS=user_id_1,user_id_2,user_id_3
@@ -37,13 +37,13 @@ npm run build
 
 ## デプロイ
 
-Cloudflare Pagesにデプロイされます。カスタムドメイン `dash.rectbot.tech` で利用可能です。
+Cloudflare Pagesにデプロイされます。カスタムドメイン `dash.recrubo.net` で利用可能です。
 
 ### Discord アプリケーション設定
 
 Discord Developer Portalで以下のリダイレクトURLを設定してください：
 - 開発環境: `http://localhost:3000/auth/callback`
-- 本番環境: `https://dash.rectbot.tech/auth/callback`
+- 本番環境: `https://dash.recrubo.net/auth/callback`
 
 ## Learn More
 

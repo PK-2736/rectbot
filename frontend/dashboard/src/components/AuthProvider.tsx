@@ -30,7 +30,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const checkAuth = async () => {
       try {
         // Worker の /api/auth/me を呼び出して認証状態とユーザー情報を確認
-        const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://api.rectbot.tech';
+  const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://api.recrubo.net';
         const response = await fetch(`${apiBaseUrl}/api/auth/me`, {
           credentials: 'include', // Cookie を送信
         });

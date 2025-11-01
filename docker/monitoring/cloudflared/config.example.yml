@@ -1,0 +1,14 @@
+# Example Cloudflare Tunnel config for exposing the monitoring stack securely
+# Copy to /etc/cloudflared/config.yml on OCI host and adjust credentials
+
+tunnel: oci-monitoring
+# credentials-file: /etc/cloudflared/oci-monitoring.json
+
+ingress:
+  - hostname: loki.recrubo.net
+    service: http://localhost:3100
+  - hostname: prom.recrubo.net
+    service: http://localhost:9091
+  - hostname: grafana.recrubo.net
+    service: http://localhost:3000
+  - service: http_status:404

@@ -4,7 +4,7 @@
 // - Write ops require Authorization: Bearer <SERVICE_TOKEN>
 
 function parseOrigins(env) {
-  const raw = env.CORS_ORIGINS || 'https://rectbot.tech,https://www.rectbot.tech,https://recrubo.net,https://www.recrubo.net';
+  const raw = env.CORS_ORIGINS || 'https://recrubo.net,https://www.recrubo.net,https://dash.recrubo.net';
   return raw.split(',').map(s => s.trim()).filter(Boolean);
 }
 

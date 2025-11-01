@@ -1,6 +1,8 @@
 
 require("dotenv").config();
 const TOKEN = process.env.DISCORD_BOT_TOKEN;
+const FAILOVER_ENABLED = String(process.env.FAILOVER_ENABLED || 'false').toLowerCase() === 'true';
+const SITE_ID = process.env.SITE_ID || 'oci'; // 'oci' or 'xserver'
 
 const { Client, GatewayIntentBits, ActivityType } = require("discord.js");
 const fs = require('fs');
@@ -246,4 +248,34 @@ client.on('guildDelete', async (guild) => {
   */
 });
 
-client.login(TOKEN);
+async function startLogin() {
+  try {
+    await client.login(TOKEN);
+  } catch (e) {
+    console.error('[login] failed:', e?.message || e);
+    throw e;
+  }
+}
+
+async function stopClient() {
+  try {
+    if (client.isReady()) {
+      await client.destroy();
+    }
+  } catch (e) {
+    console.warn('[shutdown] client destroy error:', e?.message || e);
+  }
+}
+
+if (!FAILOVER_ENABLED) {
+  console.log('[failover] disabled; starting bot normally');
+  startLogin();
+} else {
+  console.log(`[failover] enabled; site=${SITE_ID}`);
+  const { runLeadership } = require('./utils/leaderElector');
+  runLeadership({ siteId: SITE_ID, onAcquire: startLogin, onRelease: stopClient })
+    .catch(err => {
+      console.error('[failover] leadership loop crashed:', err?.message || err);
+      process.exit(1);
+    });
+}

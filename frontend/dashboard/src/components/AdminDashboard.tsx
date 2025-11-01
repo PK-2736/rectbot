@@ -51,7 +51,7 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps) {
     try {
       setFetchError(null);
       // WorkerのAPIエンドポイントを呼び出す（JWT Cookie を含む）
-      const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://api.rectbot.tech';
+  const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://api.recrubo.net';
       const url = `${apiBaseUrl}/api/recruitment/list`;
 
       console.log('Fetching recruitments from:', url);
@@ -62,7 +62,7 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps) {
 
       if (response.status === 401) {
         // 認証エラー → Discord ログインにリダイレクト
-        const redirectUri = process.env.NEXT_PUBLIC_DISCORD_REDIRECT_URI || 'https://api.rectbot.tech/api/discord/callback';
+  const redirectUri = process.env.NEXT_PUBLIC_DISCORD_REDIRECT_URI || 'https://api.recrubo.net/api/discord/callback';
         const discordAuthUrl = `https://discord.com/api/oauth2/authorize?client_id=${process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=identify`;
         window.location.href = discordAuthUrl;
         return;

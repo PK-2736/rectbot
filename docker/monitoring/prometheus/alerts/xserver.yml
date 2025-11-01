@@ -1,0 +1,72 @@
+groups:
+  - name: xserver-pushgateway
+    interval: 30s
+    rules:
+      # Push from Xserver has not updated recently. Allow for up to ~3 minutes skew
+      - alert: XserverPushStale
+        expr: time() - max(timestamp(bot_cpu_usage{job="xserver-bot"})) > 180
+        for: 2m
+        labels:
+          severity: warning
+          area: xserver
+        annotations:
+          summary: "Xserver push metrics are stale (>3m)"
+          description: |
+            The last update time for bot_cpu_usage (job=xserver-bot) is older than 3 minutes.
+            This may be due to network delay between Xserver and OCI.
+            If persists >5m, investigate Pushgateway proxy (TLS/auth/IP) and Xserver cron.
+
+      # If the metric doesn't exist at all for a longer window, raise critical
+      - alert: XserverPushMissing
+        expr: absent(bot_cpu_usage{job="xserver-bot"})
+        for: 10m
+        labels:
+          severity: critical
+          area: xserver
+        annotations:
+          summary: "Xserver push metrics are missing"
+          description: |
+            No series for bot_cpu_usage (job=xserver-bot) have been observed for at least 10 minutes.
+            Confirm cron on Xserver and reachability of the Pushgateway endpoint.
+
+  - name: resources
+    interval: 30s
+    rules:
+      # High CPU for a sustained window (lenient for transient spikes)
+      - alert: XserverHighCPU
+        expr: avg_over_time(bot_cpu_usage{job="xserver-bot"}[5m]) > 85
+        for: 10m
+        labels:
+          severity: warning
+          area: xserver
+        annotations:
+          summary: "High CPU usage on Xserver bot (>85% for 10m)"
+          description: |
+            Average CPU usage over 5 minutes is above 85% for 10 minutes.
+            Check workload, scaling, or code hotspots.
+
+      # High memory usage (adjust threshold to your host). Using 2GiB as a safe default.
+      - alert: XserverHighMemory
+        expr: avg_over_time(bot_mem_usage{job="xserver-bot"}[5m]) > 2048
+        for: 10m
+        labels:
+          severity: warning
+          area: xserver
+        annotations:
+          summary: "High memory usage on Xserver bot (>2GiB for 10m)"
+          description: |
+            Average memory usage over 5 minutes is above 2GiB for 10 minutes.
+            Tune threshold based on your host RAM and expected footprint.
+
+  - name: infra
+    interval: 30s
+    rules:
+      - alert: PushgatewayDown
+        expr: up{job="pushgateway"} == 0
+        for: 5m
+        labels:
+          severity: critical
+          area: oci
+        annotations:
+          summary: "Pushgateway target is down"
+          description: "Prometheus cannot scrape Pushgateway for 5 minutes."

@@ -116,7 +116,7 @@ async function showGeneralHelp(interaction) {
   const homeButton = new ButtonBuilder()
     .setLabel('🏠 ホームページ')
     .setStyle(ButtonStyle.Link)
-    .setURL('https://rectbot.tech');
+  .setURL('https://recrubo.net');
 
   const selectRow = new ActionRowBuilder().addComponents(selectMenu);
   const buttonRow = new ActionRowBuilder().addComponents(homeButton);
@@ -229,7 +229,7 @@ async function showCommandDetails(interaction, commandName) {
   const homeButton = new ButtonBuilder()
     .setLabel('🏠 ホームページ')
     .setStyle(ButtonStyle.Link)
-    .setURL('https://rectbot.tech');
+  .setURL('https://recrubo.net');
 
   const buttonRow = new ActionRowBuilder().addComponents(backButton, homeButton);
 

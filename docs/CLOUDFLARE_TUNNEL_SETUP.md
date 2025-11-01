@@ -11,7 +11,7 @@ Supabase バックアップ専用の新しい Cloudflare Tunnel を作成して�
 ```
 VPS (IPv4 only)
   ├─ express-tunnel (既存)
-  │   └─ backend.rectbot.tech → Express (port 3000)
+  │   └─ backend.recrubo.net → Express (port 3000)
   │
   └─ supabase-backup-tunnel (新規)
       └─ Private Network → Supabase Database (IPv6)

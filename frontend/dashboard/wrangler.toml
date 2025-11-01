@@ -5,14 +5,14 @@ pages_build_output_dir = "out"
 # Environment variables for Pages Functions
 # これらは Cloudflare Pages の設定画面でも設定できます
 # [vars]
-# BACKEND_API_URL = "https://api.rectbot.tech"
+# BACKEND_API_URL = "https://api.recrubo.net"
 
 [env.production]
 compatibility_date = "2024-09-18"
 # [env.production.vars]
-# BACKEND_API_URL = "https://api.rectbot.tech"
+# BACKEND_API_URL = "https://api.recrubo.net"
 
 [env.preview]
 compatibility_date = "2024-09-18"
 # [env.preview.vars]
-# BACKEND_API_URL = "https://api.rectbot.tech"
+# BACKEND_API_URL = "https://api.recrubo.net"

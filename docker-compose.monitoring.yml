@@ -1,6 +1,12 @@
 version: "3.8"
 
 services:
+  redis:
+    image: redis:7-alpine
+    container_name: rectbot-redis
+    networks:
+      - monitoring
+
   loki:
     image: grafana/loki:2.8.2
     container_name: loki
@@ -28,14 +34,54 @@ services:
     depends_on:
       - loki
 
+  pushgateway:
+    image: prom/pushgateway:v1.9.0
+    container_name: pushgateway
+    ports:
+      - "9091:9091"
+    networks:
+      - monitoring
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=30d
+    volumes:
+      - ./docker/monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./docker/monitoring/prometheus/alerts:/etc/prometheus/alerts:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - monitoring
+    depends_on:
+      - pushgateway
+
+  pushgateway-proxy:
+    image: nginx:1.27-alpine
+    container_name: pushgateway-proxy
+    depends_on:
+      - pushgateway
+    volumes:
+      - ./docker/monitoring/pushgateway/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./docker/monitoring/pushgateway/htpasswd:/etc/nginx/.htpasswd:ro
+      - ./docker/monitoring/tls:/etc/nginx/certs:ro
+    ports:
+      - "9443:9443" # HTTPS endpoint with self-signed cert + basic auth + IP allow
+    networks:
+      - monitoring
+
   grafana:
     image: grafana/grafana:9.5.5
     container_name: grafana
     environment:
-      GF_SECURITY_ADMIN_USER: admin
-      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
       GF_USERS_ALLOW_SIGN_UP: "false"
       GF_PATHS_PROVISIONING: /etc/grafana/provisioning
+      GF_INSTALL_PLUGINS: marcusolsson-json-datasource
     volumes:
       - grafana_data:/var/lib/grafana
       - ./docker/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
@@ -46,6 +92,28 @@ services:
       - monitoring
     depends_on:
       - loki
+      - prometheus
+
+  bot-oci:
+    build:
+      context: .
+      dockerfile: bot/Dockerfile
+    container_name: rectbot-bot-oci
+    environment:
+      DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      FAILOVER_ENABLED: "true"
+      SITE_ID: oci
+      # Optional backend envs
+      BACKEND_API_URL: ${BACKEND_API_URL:-}
+      SUPABASE_URL: ${SUPABASE_URL:-}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-}
+    depends_on:
+      - redis
+    restart: unless-stopped
+    networks:
+      - monitoring
 
   metabase:
     image: metabase/metabase:1.52.2
@@ -64,6 +132,7 @@ volumes:
   grafana_data:
   promtail_pos:
   metabase_data:
+  prometheus_data:
   
 
 networks:

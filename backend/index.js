@@ -599,9 +599,9 @@ async function isValidDiscordAdmin(cookieHeader, env) {
  */
 function getCorsHeaders(origin) {
   const allowedOrigins = [
-    'https://dash.rectbot.tech',
-    'https://rectbot.tech',
-    'https://www.rectbot.tech',
+    'https://dash.recrubo.net',
+    'https://recrubo.net',
+    'https://www.recrubo.net',
     'http://localhost:3000',
     'http://localhost:3001'
   ];
@@ -997,7 +997,7 @@ export default {
     // プロキシ処理：画像関連のパスをバックエンドにプロキシ
     if (url.pathname.startsWith('/images/')) {
       console.log(`[PROXY] Proxying image request: ${url.pathname}`);
-      const targetURL = 'https://api.rectbot.tech' + url.pathname + url.search;
+  const targetURL = 'https://api.recrubo.net' + url.pathname + url.search;
       
       const resp = await fetch(targetURL, {
         method: request.method,
@@ -1560,13 +1560,13 @@ export default {
         const payload = {
           personalizations: [
             {
-              to: [{ email: env.SUPPORT_EMAIL || 'support@rectbot.tech' }],
-              dkim_domain: 'rectbot.tech',
+              to: [{ email: env.SUPPORT_EMAIL || 'support@recrubo.net' }],
+              dkim_domain: 'recrubo.net',
               dkim_selector: 'mailchannels',
             }
           ],
           from: {
-            email: 'noreply@rectbot.tech',
+            email: 'noreply@recrubo.net',
             name: 'Rectbot Support Form'
           },
           reply_to: { email },
