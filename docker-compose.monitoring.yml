@@ -77,10 +77,12 @@ services:
       GF_USERS_ALLOW_SIGN_UP: "false"
       GF_PATHS_PROVISIONING: /etc/grafana/provisioning
       GF_INSTALL_PLUGINS: marcusolsson-json-datasource
+      # コンフィグファイルの場所を custom.ini に固定（ホスト側で grafana.ini が“ディレクトリ化”した環境と衝突しないため）
+      GF_PATHS_CONFIG: /etc/grafana/custom.ini
     volumes:
       - grafana_data:/var/lib/grafana
-      # 明示的にファイル/ディレクトリ単位でマウントして設定の取り違えを防止
-      - ./docker/monitoring/grafana/grafana.ini:/etc/grafana/grafana.ini:ro
+      # リポジトリ内の custom.ini を使用（ディレクトリ名 grafana.ini との衝突を回避）
+      - ./docker/monitoring/grafana/custom.ini:/etc/grafana/custom.ini:ro
       - ./docker/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./docker/monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
     ports:
