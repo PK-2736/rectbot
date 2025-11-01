@@ -7,6 +7,10 @@ on:
       - "bot/**"
       - "backup_supabase_to_r2.sh"
       - "restore_from_r2.sh"
+      # Monitoring stack changes should also trigger deploy
+      - "docker-compose.monitoring.yml"
+      - "docker/monitoring/**"
+      - "docs/Monitoring.md"
 
   workflow_dispatch:
 
