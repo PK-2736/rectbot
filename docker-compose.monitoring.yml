@@ -7,9 +7,10 @@ services:
   loki:
     image: grafana/loki:2.8.2
     container_name: loki
-    command: -config.file=/etc/loki/loki-config.yaml
+    # 既存ホスト側で loki-config.yaml がディレクトリ化している環境と衝突しないよう、別名の config に切替
+    command: -config.file=/etc/loki/custom.yaml
     volumes:
-      - ./docker/monitoring/loki-config.yaml:/etc/loki/loki-config.yaml:ro
+      - ./docker/monitoring/loki/conf/loki.yaml:/etc/loki/custom.yaml:ro
       - loki_data:/loki
     ports:
       - "127.0.0.1:3100:3100"
@@ -43,10 +44,12 @@ services:
     image: prom/prometheus:v2.54.1
     container_name: prometheus
     command:
-      - --config.file=/etc/prometheus/prometheus.yml
+      # 既存ホスト側で prometheus.yml がディレクトリ化している環境と衝突しないよう、別名の config に切替
+      - --config.file=/etc/prometheus/custom.yml
       - --storage.tsdb.retention.time=30d
     volumes:
       - ./docker/monitoring/prometheus:/etc/prometheus:ro
+      - ./docker/monitoring/prometheus/conf/custom.yml:/etc/prometheus/custom.yml:ro
       - prometheus_data:/prometheus
     ports:
       - "127.0.0.1:9090:9090"
