@@ -82,8 +82,8 @@ services:
       GF_PATHS_CONFIG: /etc/grafana/custom.ini
     volumes:
       - grafana_data:/var/lib/grafana
-      # リポジトリ内の custom.ini を使用（ディレクトリ名 grafana.ini との衝突を回避）
-      - ./docker/monitoring/grafana/custom.ini:/etc/grafana/custom.ini:ro
+      # リポジトリ内の conf/custom.ini を使用（ホスト側に custom.ini が“ディレクトリ”で存在しても衝突しない）
+      - ./docker/monitoring/grafana/conf/custom.ini:/etc/grafana/custom.ini:ro
       - ./docker/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./docker/monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
     ports:
