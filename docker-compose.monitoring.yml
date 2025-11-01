@@ -92,7 +92,7 @@ services:
 
 
   metabase:
-    image: metabase/metabase:v1.52.2
+    image: metabase/metabase:v0.52.2
     container_name: metabase
     environment:
       MB_DB_FILE: /metabase-data/metabase.db
