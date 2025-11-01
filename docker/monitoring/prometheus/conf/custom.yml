@@ -7,7 +7,7 @@ external_labels:
   monitor: 'oci-monitoring'
 
 rule_files:
-  - /etc/prometheus/alerts/*.yml
+  - /etc/prometheus-conf/alerts/*.yml
 
 scrape_configs:
   # Scrape the Pushgateway where Xserver pushes metrics
