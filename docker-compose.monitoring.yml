@@ -1,3 +1,4 @@
+# 302 リダイレクトでも正常（root_url 設定のため）
 version: "3.8"
 name: rectbot_monitoring
 
