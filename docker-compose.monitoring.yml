@@ -79,7 +79,9 @@ services:
       GF_INSTALL_PLUGINS: marcusolsson-json-datasource
     volumes:
       - grafana_data:/var/lib/grafana
-      - ./docker/monitoring/grafana:/etc/grafana:ro
+      # 明示的にファイル/ディレクトリ単位でマウントして設定の取り違えを防止
+      - ./docker/monitoring/grafana/grafana.ini:/etc/grafana/grafana.ini:ro
+      - ./docker/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./docker/monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
     ports:
       - "${GRAFANA_BIND_ADDR:-127.0.0.1}:3000:3000"
