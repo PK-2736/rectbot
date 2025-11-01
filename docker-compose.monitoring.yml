@@ -78,12 +78,13 @@ services:
       GF_USERS_ALLOW_SIGN_UP: "false"
       GF_PATHS_PROVISIONING: /etc/grafana/provisioning
       GF_INSTALL_PLUGINS: marcusolsson-json-datasource
-      # コンフィグファイルの場所を custom.ini に固定（ホスト側で grafana.ini が“ディレクトリ化”した環境と衝突しないため）
-      GF_PATHS_CONFIG: /etc/grafana/custom.ini
+      # 以下でサーバ設定は環境変数で上書きし、ファイルマウントに依存しない
+      GF_SERVER_HTTP_ADDR: 0.0.0.0
+      GF_SERVER_HTTP_PORT: 3000
+      GF_SERVER_DOMAIN: grafana.recrubo.net
+      GF_SERVER_ROOT_URL: https://grafana.recrubo.net/
     volumes:
       - grafana_data:/var/lib/grafana
-      # リポジトリ内の conf/custom.ini を使用（ホスト側に custom.ini が“ディレクトリ”で存在しても衝突しない）
-      - ./docker/monitoring/grafana/conf/custom.ini:/etc/grafana/custom.ini:ro
       - ./docker/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./docker/monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
     ports:
