@@ -7,10 +7,10 @@ services:
   loki:
     image: grafana/loki:2.8.2
     container_name: loki
-    # 既存ホスト側の衝突を避けるため、新しいディレクトリに config を配置
-    command: -config.file=/etc/loki-conf/loki.yaml
+    # 既存ホスト側の衝突を避けつつ、コンテナ既定パスの既存ファイルを上書きマウント
+    command: -config.file=/etc/loki/config.yaml
     volumes:
-      - ./docker/monitoring/loki/conf:/etc/loki-conf:ro
+      - ./docker/monitoring/loki/conf/loki.yaml:/etc/loki/config.yaml:ro
       - loki_data:/loki
     ports:
       - "127.0.0.1:3100:3100"
@@ -44,12 +44,11 @@ services:
     image: prom/prometheus:v2.54.1
     container_name: prometheus
     command:
-      # 既存ホスト側の衝突を避けるため、新しいディレクトリに config を配置
-      - --config.file=/etc/prometheus-conf/custom.yml
+      # 既定パスの既存ファイルを上書きマウントして使用
+      - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.retention.time=30d
     volumes:
-      - ./docker/monitoring/prometheus/conf:/etc/prometheus-conf:ro
-      - ./docker/monitoring/prometheus/alerts:/etc/prometheus-conf/alerts:ro
+      - ./docker/monitoring/prometheus/conf/custom.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
     ports:
       - "127.0.0.1:9090:9090"
