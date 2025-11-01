@@ -54,6 +54,9 @@ jobs:
           BACKEND_API_URL: ${{ secrets.BACKEND_API_URL }}
           REDIS_HOST: ${{ secrets.REDIS_HOST }}
           REDIS_PORT: ${{ secrets.REDIS_PORT }}
+          # Monitoring / Grafana secrets
+          GRAFANA_ADMIN_USER: ${{ secrets.GRAFANA_ADMIN_USER }}
+          GRAFANA_ADMIN_PASSWORD: ${{ secrets.GRAFANA_ADMIN_PASSWORD }}
           # Backup 関連の環境変数
           SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
@@ -69,10 +72,17 @@ jobs:
             export BACKEND_API_URL="'"$BACKEND_API_URL"'" || true; \
             export REDIS_HOST="'"$REDIS_HOST"'" || true; \
             export REDIS_PORT="'"$REDIS_PORT"'" || true; \
+            export GRAFANA_ADMIN_USER="'"$GRAFANA_ADMIN_USER"'" || true; \
+            export GRAFANA_ADMIN_PASSWORD="'"$GRAFANA_ADMIN_PASSWORD"'" || true; \
             source ~/.bashrc || true; \
             source ~/.nvm/nvm.sh || true; \
             cd ~/rectbot || exit 1; \
             git pull origin main || true; \
+
+            # Monitoring stack (Grafana/Loki/Promtail/Prometheus/Pushgateway)
+            echo "Deploying monitoring stack (docker compose)..."; \
+            docker compose -f docker-compose.monitoring.yml pull || true; \
+            docker compose -f docker-compose.monitoring.yml up -d --remove-orphans; \
             
             # Bot デプロイ
             cd bot || exit 1; \

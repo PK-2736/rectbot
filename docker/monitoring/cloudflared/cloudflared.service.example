@@ -1,0 +1,22 @@
+# Example systemd unit for running a specific Cloudflare Tunnel
+# Save as /etc/systemd/system/cloudflared-grafana.service (root)
+
+[Unit]
+Description=cloudflared tunnel for Grafana (oci-monitoring)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+# Option A: Named tunnel using local config/credentials
+# ExecStart=/usr/bin/cloudflared --no-autoupdate tunnel run oci-monitoring
+
+# Option B: Token-based run (replace with your token)
+# ExecStart=/usr/bin/cloudflared --no-autoupdate tunnel run --token <YOUR_TUNNEL_TOKEN>
+
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
