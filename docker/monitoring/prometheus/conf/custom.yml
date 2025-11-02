@@ -23,3 +23,13 @@ scrape_configs:
     static_configs:
       - targets: ['loki:3100']
     metrics_path: /metrics
+
+  # Scrape Cloudflare Workers backend metrics (via public API)
+  - job_name: 'cloudflare-backend'
+    scrape_interval: 30s
+    metrics_path: /metrics
+    scheme: https
+    static_configs:
+      - targets: ['api.recrubo.net']
+    tls_config:
+      insecure_skip_verify: false

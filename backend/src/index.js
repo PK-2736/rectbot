@@ -103,6 +103,83 @@ export default {
       return jsonResponse({ ok: true, name: 'recrubo-api' }, 200, cors);
     }
 
+    // Prometheus metrics endpoint for Grafana
+    if (url.pathname === '/metrics' && request.method === 'GET') {
+      try {
+        let items = [];
+        if (store && store.forwardToDO) {
+          const res = await store.forwardToDO('/list', 'GET');
+          const data = await res.json();
+          items = data.items || [];
+        } else if (store) {
+          items = await store.listAll();
+        }
+        
+        const now = Date.now();
+        const activeRecruits = items.filter(r => {
+          const exp = r.expiresAt ? new Date(r.expiresAt).getTime() : Infinity;
+          return exp > now && r.status === 'recruiting';
+        });
+        
+        const metrics = [
+          `# HELP recruits_total Total number of recruitment posts`,
+          `# TYPE recruits_total gauge`,
+          `recruits_total ${items.length}`,
+          `# HELP recruits_active Active recruitment posts`,
+          `# TYPE recruits_active gauge`,
+          `recruits_active ${activeRecruits.length}`,
+          `# HELP recruits_participants_total Total participants across all recruits`,
+          `# TYPE recruits_participants_total gauge`,
+          `recruits_participants_total ${items.reduce((sum, r) => sum + (r.currentMembers?.length || r.participants?.length || 0), 0)}`
+        ].join('\n');
+        
+        return new Response(metrics, {
+          status: 200,
+          headers: { 'content-type': 'text/plain; version=0.0.4', ...cors }
+        });
+      } catch (e) {
+        return jsonResponse({ ok: false, error: e.message }, 500, cors);
+      }
+    }
+
+    // JSON endpoint for Grafana JSON datasource plugin
+    if (url.pathname === '/api/grafana/recruits' && request.method === 'POST') {
+      try {
+        let items = [];
+        if (store && store.forwardToDO) {
+          const res = await store.forwardToDO('/list', 'GET');
+          const data = await res.json();
+          items = data.items || [];
+        } else if (store) {
+          items = await store.listAll();
+        }
+        
+        const now = Date.now();
+        const activeRecruits = items.filter(r => {
+          const exp = r.expiresAt ? new Date(r.expiresAt).getTime() : Infinity;
+          return exp > now && r.status === 'recruiting';
+        });
+        
+        // Format for Grafana JSON datasource
+        return jsonResponse(activeRecruits.map(r => ({
+          id: r.recruitId || r.id,
+          title: r.title,
+          game: r.game,
+          platform: r.platform,
+          ownerId: r.ownerId,
+          currentMembers: r.currentMembers?.length || r.participants?.length || 0,
+          maxMembers: r.maxMembers || 0,
+          voice: r.voice,
+          status: r.status,
+          createdAt: r.createdAt,
+          expiresAt: r.expiresAt,
+          startTime: r.startTime
+        })), 200, cors);
+      } catch (e) {
+        return jsonResponse({ ok: false, error: e.message }, 500, cors);
+      }
+    }
+
     // storage selection
     let store;
     if (env.RECRUITS_DO && typeof env.RECRUITS_DO.get === 'function') {

@@ -1,0 +1,13 @@
+apiVersion: 1
+
+datasources:
+  - name: Cloudflare-Recruits-API
+    type: marcusolsson-json-datasource
+    access: proxy
+    url: https://api.recrubo.net
+    isDefault: false
+    version: 1
+    editable: true
+    jsonData:
+      tlsSkipVerify: false
+      timeout: 30
