@@ -1,423 +1,76 @@
 {
   "annotations": {
-    "list": [
-      {
-        "builtIn": 1,
-        "datasource": {
-          "type": "grafana",
-          "uid": "-- Grafana --"
-        },
-        "enable": true,
-        "hide": true,
-        "iconColor": "rgba(0, 211, 255, 1)",
-        "name": "Annotations & Alerts",
-        "type": "dashboard"
-      }
-    ]
+    "list": []
   },
   "editable": true,
   "fiscalYearStartMonth": 0,
-  "graphTooltip": 1,
+  "graphTooltip": 0,
   "id": null,
   "links": [],
   "liveNow": false,
   "panels": [
     {
       "datasource": {
-        "type": "grafana-sentry-datasource",
-        "uid": "sentry"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "yellow",
-                "value": 10
-              },
-              {
-                "color": "red",
-                "value": 50
-              }
-            ]
-          }
-        },
-        "overrides": []
+        "type": "datasource",
+        "uid": "-- Mixed --"
       },
       "gridPos": {
         "h": 8,
-        "w": 8,
+        "w": 24,
         "x": 0,
         "y": 0
       },
       "id": 1,
       "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "values": false,
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": ""
-        },
-        "textMode": "auto"
+        "content": "# 🔴 Sentryエラー監視\n\n## 📊 Sentry Webコンソールで確認\n\n現在、Grafana Sentryプラグインに互換性の問題があるため、  \nSentry Webコンソールで直接エラーを確認してください。\n\n### アクセス方法\n\n1. **Sentry ダッシュボード**\n   - URL: [https://rectbot.sentry.io](https://rectbot.sentry.io)\n   - または: [https://sentry.io/organizations/orgaci/](https://sentry.io/organizations/orgaci/)\n\n2. **プロジェクト選択**\n   - ダッシュボードから監視したいプロジェクトを選択\n\n3. **エラー一覧**\n   - **Issues** タブでエラー一覧を確認\n   - 発生頻度、影響を受けたユーザー数などが表示されます\n\n### 📈 Sentryで確認できる情報\n\n- ✅ **エラー総数と推移**\n- ✅ **エラーの種類と頻度**\n- ✅ **影響を受けたユーザー数**\n- ✅ **スタックトレース**\n- ✅ **エラー発生時のコンテキスト**\n- ✅ **リリースごとの比較**\n- ✅ **アラート設定**\n\n### 🔧 Grafana統合について\n\nGrafana Sentryプラグインは現在調整中です。  \n動作が安定したら、このダッシュボードを更新します。\n\n---\n\n**最終更新**: 2025-11-02",
+        "mode": "markdown"
       },
       "pluginVersion": "9.5.5",
-      "targets": [
-        {
-          "datasource": {
-            "type": "grafana-sentry-datasource",
-            "uid": "sentry"
-          },
-          "queryType": "events",
-          "refId": "A"
-        }
-      ],
-      "title": "🔴 エラー総数（24h）",
-      "type": "stat"
+      "title": "Sentry監視ガイド",
+      "type": "text"
     },
     {
       "datasource": {
-        "type": "grafana-sentry-datasource",
-        "uid": "sentry"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "yellow",
-                "value": 5
-              },
-              {
-                "color": "red",
-                "value": 20
-              }
-            ]
-          }
-        },
-        "overrides": []
+        "type": "datasource",
+        "uid": "-- Mixed --"
       },
       "gridPos": {
         "h": 8,
-        "w": 8,
-        "x": 8,
-        "y": 0
-      },
-      "id": 2,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "values": false,
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": ""
-        },
-        "textMode": "auto"
-      },
-      "pluginVersion": "9.5.5",
-      "targets": [
-        {
-          "datasource": {
-            "type": "grafana-sentry-datasource",
-            "uid": "sentry"
-          },
-          "queryType": "events",
-          "refId": "A"
-        }
-      ],
-      "title": "👥 影響を受けたユーザー",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "grafana-sentry-datasource",
-        "uid": "sentry"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "hideFrom": {
-              "tooltip": false,
-              "viz": false,
-              "legend": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 2,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "never",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 16,
-        "y": 0
-      },
-      "id": 3,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "pluginVersion": "9.5.5",
-      "targets": [
-        {
-          "datasource": {
-            "type": "grafana-sentry-datasource",
-            "uid": "sentry"
-          },
-          "queryType": "events",
-          "refId": "A"
-        }
-      ],
-      "title": "📈 エラー推移",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "grafana-sentry-datasource",
-        "uid": "sentry"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "custom": {
-            "align": "left",
-            "cellOptions": {
-              "type": "auto"
-            },
-            "inspect": false
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "count"
-            },
-            "properties": [
-              {
-                "id": "custom.cellOptions",
-                "value": {
-                  "type": "color-background"
-                }
-              },
-              {
-                "id": "thresholds",
-                "value": {
-                  "mode": "absolute",
-                  "steps": [
-                    {
-                      "color": "green",
-                      "value": null
-                    },
-                    {
-                      "color": "yellow",
-                      "value": 10
-                    },
-                    {
-                      "color": "red",
-                      "value": 50
-                    }
-                  ]
-                }
-              },
-              {
-                "id": "displayName",
-                "value": "発生回数"
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "title"
-            },
-            "properties": [
-              {
-                "id": "displayName",
-                "value": "エラーメッセージ"
-              },
-              {
-                "id": "custom.width",
-                "value": 400
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "culprit"
-            },
-            "properties": [
-              {
-                "id": "displayName",
-                "value": "発生場所"
-              },
-              {
-                "id": "custom.width",
-                "value": 300
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "type"
-            },
-            "properties": [
-              {
-                "id": "displayName",
-                "value": "エラー種別"
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "firstSeen"
-            },
-            "properties": [
-              {
-                "id": "displayName",
-                "value": "初回発生"
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "lastSeen"
-            },
-            "properties": [
-              {
-                "id": "displayName",
-                "value": "最終発生"
-              }
-            ]
-          }
-        ]
-      },
-      "gridPos": {
-        "h": 12,
-        "w": 24,
+        "w": 12,
         "x": 0,
         "y": 8
       },
-      "id": 4,
+      "id": 2,
       "options": {
-        "cellHeight": "lg",
-        "footer": {
-          "countRows": false,
-          "fields": "",
-          "reducer": [
-            "sum"
-          ],
-          "show": false
-        },
-        "showHeader": true,
-        "sortBy": [
-          {
-            "desc": true,
-            "displayName": "発生回数"
-          }
-        ]
+        "content": "## 🚀 クイックリンク\n\n### Sentry\n- [📊 ダッシュボード](https://rectbot.sentry.io)\n- [🐛 Issues](https://rectbot.sentry.io/issues/)\n- [📈 Stats](https://rectbot.sentry.io/stats/)\n- [⚙️ Settings](https://rectbot.sentry.io/settings/)\n\n### ドキュメント\n- [Sentry Documentation](https://docs.sentry.io/)\n- [API Reference](https://docs.sentry.io/api/)\n- [Error Tracking Guide](https://docs.sentry.io/product/issues/)",
+        "mode": "markdown"
       },
       "pluginVersion": "9.5.5",
-      "targets": [
-        {
-          "datasource": {
-            "type": "grafana-sentry-datasource",
-            "uid": "sentry"
-          },
-          "queryType": "issues",
-          "refId": "A"
-        }
-      ],
-      "title": "🐛 エラー一覧（発生回数順）",
-      "type": "table"
+      "title": "リンク集",
+      "type": "text"
+    },
+    {
+      "datasource": {
+        "type": "datasource",
+        "uid": "-- Mixed --"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "id": 3,
+      "options": {
+        "content": "## ⚠️ トラブルシューティング\n\n### Grafana Sentryプラグインエラー\n\n**症状**: \"unknown query type\" または React Error #130\n\n**原因**: Grafana 9.5.5とSentryプラグインの互換性問題\n\n**対処法**:\n1. Sentry Webコンソールを使用（推奨）\n2. プラグインの更新を待つ\n3. または手動でクエリを作成\n\n### データソース接続エラー\n\n**症状**: 403 Forbidden\n\n**対処法**:\n1. Auth Tokenの権限確認\n2. Organization Slugの確認\n3. 新しいトークンで再設定",
+        "mode": "markdown"
+      },
+      "pluginVersion": "9.5.5",
+      "title": "トラブルシューティング",
+      "type": "text"
     }
   ],
-  "refresh": "1m",
+  "refresh": "",
   "schemaVersion": 38,
   "style": "dark",
   "tags": ["sentry", "errors", "monitoring"],
