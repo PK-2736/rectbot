@@ -10,10 +10,8 @@ module.exports = {
         .setName('command')
         .setDescription('特定のコマンドの詳細を表示')
         .addChoices(
-          { name: 'ping', value: 'ping' },
-          { name: 'gamerecruit', value: 'gamerecruit' },
-          { name: 'friendcode', value: 'friendcode' },
-          { name: 'guildsettings', value: 'guildsettings' },
+          { name: 'rect', value: 'rect' },
+          { name: 'setting', value: 'setting' },
           { name: 'help', value: 'help' }
         )
     ),
@@ -51,28 +49,11 @@ async function showGeneralHelp(interaction) {
   const helpEmbed = new EmbedBuilder()
     .setColor(0x00AE86)
     .setTitle('🤖 RectBot ヘルプ')
-    .setDescription('RectBotの機能一覧です。詳細を知りたいコマンドを選んでください。')
+    .setDescription('RectBotの機能一覧です。下のメニューからコマンドを選択すると詳細が表示されます。')
     .addFields(
-      {
-        name: '🎮 ゲーム関連',
-        value: '`/gamerecruit` - ゲーム募集を作成\n`/friendcode` - フレンドコード管理',
-        inline: true
-      },
-      {
-        name: '🛠️ ユーティリティ',
-        value: '`/ping` - Bot応答確認\n`/help` - このヘルプを表示',
-        inline: true
-      },
-      {
-        name: '⚙️ 管理機能',
-        value: '`/guildsettings` - ギルド募集設定',
-        inline: true
-      },
-      {
-        name: '📖 使い方',
-        value: '下のメニューから詳細を確認したいコマンドを選んでください',
-        inline: false
-      }
+      { name: '🎮 募集作成', value: '`/rect` - ゲーム募集を作成', inline: true },
+      { name: '⚙️ 募集設定', value: '`/setting` - ギルドの募集設定（管理者のみ）', inline: true },
+      { name: '❓ ヘルプ', value: '`/help` - このヘルプを表示', inline: true }
     )
     .setFooter({ 
       text: 'RectBot v1.0 | 作成者: RectBot Team',
@@ -86,25 +67,15 @@ async function showGeneralHelp(interaction) {
     .setPlaceholder('コマンドを選んで詳細を確認')
     .addOptions([
       new StringSelectMenuOptionBuilder()
-        .setLabel('🎮 gamerecruit')
+        .setLabel('🎮 rect')
         .setDescription('ゲーム募集を作成する')
-        .setValue('gamerecruit')
+        .setValue('rect')
         .setEmoji('🎮'),
       new StringSelectMenuOptionBuilder()
-        .setLabel('👥 friendcode')
-        .setDescription('フレンドコードを管理する')
-        .setValue('friendcode')
-        .setEmoji('👥'),
-      new StringSelectMenuOptionBuilder()
-        .setLabel('⚙️ guildsettings')
-        .setDescription('ギルドの募集設定を管理する')
-        .setValue('guildsettings')
+        .setLabel('⚙️ setting')
+        .setDescription('ギルドの募集設定を管理する（管理者）')
+        .setValue('setting')
         .setEmoji('⚙️'),
-      new StringSelectMenuOptionBuilder()
-        .setLabel('🏓 ping')
-        .setDescription('Botの応答を確認する')
-        .setValue('ping')
-        .setEmoji('🏓'),
       new StringSelectMenuOptionBuilder()
         .setLabel('❓ help')
         .setDescription('このヘルプを表示する')
@@ -141,53 +112,31 @@ async function showGeneralHelp(interaction) {
 // 特定のコマンドの詳細を表示
 async function showCommandDetails(interaction, commandName) {
   const commandDetails = {
-    ping: {
-      title: '🏓 ping コマンド',
-      description: 'Botの応答速度を確認するシンプルなコマンドです。',
-      usage: '`/ping`',
-      examples: '`/ping` → "Pong!" と応答',
+    rect: {
+      title: '🎮 rect コマンド',
+      description: 'ゲーム募集を作成し、参加者を管理できるコマンドです。',
+      usage: '`/rect [color]`',
+      examples: '`/rect` → モーダルが開き、募集内容を入力',
       fields: [
-        { name: '機能', value: 'Botが正常に動作しているかを確認', inline: false },
-        { name: '用途', value: '• Bot接続確認\n• レスポンス速度測定', inline: false }
+        { name: '📝 入力項目', value: '• **タイトル**\n• **募集内容**\n• **参加人数**: 1-16人\n• **開始時間**\n• **VC有無**', inline: false },
+        { name: '🎯 機能', value: '• 募集カード生成\n• 参加/取り消しボタン\n• 参加者表示の自動更新\n• 自動締切（8時間）', inline: false }
       ]
     },
-    gamerecruit: {
-      title: '🎮 gamerecruit コマンド',
-      description: 'ゲーム募集を作成し、参加者を管理できる高機能なコマンドです。',
-      usage: '`/gamerecruit`',
-      examples: '`/gamerecruit` → モーダルが開き、募集内容を入力',
+    setting: {
+      title: '⚙️ setting コマンド',
+      description: 'ギルド毎の募集設定を管理できるコマンドです（管理者権限が必要）。',
+      usage: '`/setting`',
+      examples: '`/setting` → 設定UIを表示',
       fields: [
-        { name: '📝 入力項目', value: '• **募集内容**: ゲームモードや内容\n• **参加人数**: 1-99人\n• **開始時間**: 例）21:00\n• **VC有無**: ボイスチャット参加の可否\n• **補足条件**: 自由記述', inline: false },
-        { name: '🎯 機能', value: '• 美しい募集カード生成\n• 参加・取り消しボタン\n• リアルタイム参加者表示\n• 募集の締め切り機能', inline: false },
-        { name: '🔄 操作方法', value: '✅ **参加**: 募集に参加\n❌ **取り消し**: 参加を取り消し\n🔒 **締め**: 募集を締め切り', inline: false }
-      ]
-    },
-    friendcode: {
-      title: '👥 friendcode コマンド',
-      description: 'フレンドコードを保存・表示するコマンドです。（開発中）',
-      usage: '`/friendcode`',
-      examples: '`/friendcode` → フレンドコード管理画面（仮）',
-      fields: [
-        { name: '🚧 開発状況', value: '現在開発中のため、仮の応答のみ表示されます', inline: false },
-        { name: '📋 予定機能', value: '• フレンドコード登録\n• フレンドコード表示\n• ゲーム別管理', inline: false }
-      ]
-    },
-    guildsettings: {
-      title: '⚙️ guildsettings コマンド',
-      description: 'ギルド毎の募集設定を管理できるコマンドです。（管理者権限が必要）',
-      usage: '`/guildsettings`',
-      examples: '`/guildsettings` → 設定画面を表示',
-      fields: [
-        { name: '🔧 設定項目', value: '• **募集チャンネル**: 募集を投稿するチャンネル（設定すると他チャンネルでは募集不可）\n• **通知ロール**: 募集時にメンションするロール\n• **既定タイトル**: 募集作成時の初期タイトル\n• **既定カラー**: 募集カードの色（画像にも反映）\n• **アップデート通知チャンネル**: Bot更新情報のチャンネル', inline: false },
-        { name: '👤 権限', value: 'このコマンドは**管理者**権限を持つユーザーのみ使用できます', inline: false },
-        { name: '🎨 UI', value: 'Discord Components v2を使用した直感的な設定画面で簡単に設定変更できます', inline: false }
+        { name: '🔧 設定項目', value: '• 募集チャンネル\n• 通知ロール\n• 既定タイトル\n• 既定カラー\n• アップデート通知チャンネル', inline: false },
+        { name: '👤 権限', value: 'このコマンドは管理者のみ実行できます', inline: false }
       ]
     },
     help: {
       title: '❓ help コマンド',
       description: 'RectBotの使い方とコマンド一覧を表示するコマンドです。',
       usage: '`/help [command]`',
-      examples: '`/help` → 全体ヘルプ\n`/help ping` → pingコマンドの詳細',
+      examples: '`/help` → 全体ヘルプ\n`/help rect` → rectコマンドの詳細',
       fields: [
         { name: '📖 オプション', value: '• **command**: 特定のコマンドの詳細を表示（省略可）', inline: false },
         { name: '💡 使い方', value: '• `/help` で全体のヘルプ表示\n• `/help [コマンド名]` で個別詳細表示\n• セレクトメニューからも選択可能', inline: false }
