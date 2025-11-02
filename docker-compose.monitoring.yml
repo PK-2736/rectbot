@@ -26,6 +26,7 @@ services:
       - /var/log:/var/log:ro
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /home/ubuntu/.pm2/logs:/home/ubuntu/.pm2/logs:ro
       - promtail_pos:/tmp
     networks:
       - monitoring
