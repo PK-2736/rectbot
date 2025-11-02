@@ -26,6 +26,8 @@ jobs:
           DISCORD_CLIENT_SECRET: ${{ secrets.DISCORD_CLIENT_SECRET }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           SERVICE_TOKEN: ${{ secrets.SERVICE_TOKEN }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           RECAPTCHA_SECRET: ${{ secrets.RECAPTCHA_SECRET }}
           MAILCHANNELS_API_KEY: ${{ secrets.MAILCHANNELS_API_KEY }}
           SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
@@ -34,7 +36,7 @@ jobs:
         run: |
           echo "Checking GitHub Secrets for Workers..."
           missing=()
-          for v in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID JWT_SECRET SERVICE_TOKEN; do
+          for v in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID JWT_SECRET SERVICE_TOKEN SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY; do
             if [ -z "${!v}" ]; then
               echo "ERROR: Required secret $v is not set"
               missing+=("$v")
@@ -155,6 +157,7 @@ jobs:
           echo "  DISCORD_REDIRECT_URI: ${DISCORD_REDIRECT_URI}"
           echo "  VPS_EXPRESS_URL: ${VPS_EXPRESS_URL}"
           echo "  ADMIN_DISCORD_ID: ${ADMIN_DISCORD_ID:+set}"
+          echo "  SUPABASE_URL: ${SUPABASE_URL:+set}"
           
           npx wrangler deploy --compatibility-date=2024-01-01 \
             --var DISCORD_CLIENT_ID:"${DISCORD_CLIENT_ID}" \

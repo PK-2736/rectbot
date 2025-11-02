@@ -1366,15 +1366,18 @@ export default {
         if (!supabaseRestUrl) missingSupabaseConfig.push('SUPABASE_URL');
         if (!env.SUPABASE_SERVICE_ROLE_KEY) missingSupabaseConfig.push('SUPABASE_SERVICE_ROLE_KEY');
 
+        // If Supabase is not configured, gracefully no-op instead of failing the bot flow
         if (missingSupabaseConfig.length > 0) {
           const detailMessage = `Missing Supabase configuration: ${missingSupabaseConfig.join(', ')}. Ensure SUPABASE_URL (or SUPABASE_REST_URL / SUPABASE_PROJECT_REF) and SUPABASE_SERVICE_ROLE_KEY are configured.`;
-          console.error(`[finalize] ${detailMessage}`);
+          console.warn(`[finalize] Supabase not configured, skipping persistence. ${detailMessage}`);
+          // Return success so Discord 側のフローを止めない（設定は DO/メモリには保持しない）
           return new Response(JSON.stringify({
-            error: "Supabase not configured",
-            details: detailMessage,
-            timestamp: new Date().toISOString()
+            ok: true,
+            message: 'Settings accepted but not persisted (Supabase not configured)',
+            warning: 'Supabase is not configured on the backend. No data was saved.',
+            details: detailMessage
           }), {
-            status: 500,
+            status: 200,
             headers: { ...corsHeaders, "Content-Type": "application/json" }
           });
         }
