@@ -1,9 +1,9 @@
 global:
   scrape_interval: 15s
   evaluation_interval: 30s
-  # Optional: mark metrics as coming from this OCI monitoring stack
-  external_labels:
-    monitor: 'oci-monitoring'
+
+external_labels:
+  monitor: 'oci-monitoring'
 
 scrape_configs:
   # Scrape the Pushgateway where Xserver pushes metrics
