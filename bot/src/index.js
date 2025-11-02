@@ -60,17 +60,35 @@ for (const file of eventFiles) {
 }
 console.log(`[events] Loaded ${eventFiles.length} event(s): ${eventFiles.map(f => f.replace('.js', '')).join(', ')}`);
 
+// ステータス更新のヘルパー
+function computeGuildStatusString(client) {
+  try {
+    const guildCount = client?.guilds?.cache?.size || 0;
+    return `サーバー数: ${guildCount.toLocaleString()} | /help`;
+  } catch (_) {
+    return `サーバー数: - | /help`;
+  }
+}
+
+function setBotStatus(client) {
+  try {
+    const text = computeGuildStatusString(client);
+    // Watching にして見やすく（Custom は state 推奨で実装がまちまちのため）
+    client.user.setPresence({
+      activities: [{ name: text, type: ActivityType.Watching }],
+      status: 'online'
+    });
+    console.log(`[status] Updated bot status: ${text}`);
+  } catch (e) {
+    console.warn('[status] Failed to set presence:', e?.message || e);
+  }
+}
+
 client.once('clientReady', () => {
   console.log(`[ready] Logged in as ${client.user.tag} (id: ${client.user.id})`);
   
   // ボットステータスを更新する関数
-  const updateBotStatus = () => {
-    const guildCount = client.guilds.cache.size;
-    client.user.setActivity(`/help ${guildCount}servers`, {
-      type: ActivityType.Custom
-    });
-    console.log(`[status] Updated bot status: /help ${guildCount}servers`);
-  };
+  const updateBotStatus = () => setBotStatus(client);
   
   // ギルド数をバックエンドに送信する関数（一時的にコメントアウト）
   /*
@@ -172,11 +190,7 @@ client.on('guildCreate', async (guild) => {
   console.log(`[guild] Joined guild: ${guild.name} (${guild.id})`);
   
   // ステータスを更新
-  const guildCount = client.guilds.cache.size;
-  client.user.setActivity(`/help ${guildCount}servers`, {
-    type: ActivityType.Custom
-  });
-  console.log(`[status] Updated bot status after guild join: /help ${guildCount}servers`);
+  setBotStatus(client);
   
   // バックエンド連携は一時的にコメントアウト
   /*
@@ -212,11 +226,7 @@ client.on('guildDelete', async (guild) => {
   console.log(`[guild] Left guild: ${guild.name} (${guild.id})`);
   
   // ステータスを更新
-  const guildCount = client.guilds.cache.size;
-  client.user.setActivity(`/help ${guildCount}servers`, {
-    type: ActivityType.Custom
-  });
-  console.log(`[status] Updated bot status after guild leave: /help ${guildCount}servers`);
+  setBotStatus(client);
   
   // バックエンド連携は一時的にコメントアウト
   /*
