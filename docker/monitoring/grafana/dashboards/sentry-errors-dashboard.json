@@ -81,7 +81,7 @@
             "type": "grafana-sentry-datasource",
             "uid": "sentry"
           },
-          "queryType": "statsV2",
+          "queryType": "events",
           "refId": "A"
         }
       ],
@@ -147,8 +147,7 @@
             "type": "grafana-sentry-datasource",
             "uid": "sentry"
           },
-          "queryType": "statsV2",
-          "statCategory": "users",
+          "queryType": "events",
           "refId": "A"
         }
       ],
@@ -234,7 +233,7 @@
             "type": "grafana-sentry-datasource",
             "uid": "sentry"
           },
-          "queryType": "statsV2",
+          "queryType": "events",
           "refId": "A"
         }
       ],
