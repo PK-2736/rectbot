@@ -1,10 +1,9 @@
 global:
   scrape_interval: 15s
   evaluation_interval: 30s
-
-# Optional: mark metrics as coming from this OCI monitoring stack
-external_labels:
-  monitor: 'oci-monitoring'
+  # Optional: mark metrics as coming from this OCI monitoring stack
+  external_labels:
+    monitor: 'oci-monitoring'
 
 rule_files:
   - /etc/prometheus/alerts/*.yml
