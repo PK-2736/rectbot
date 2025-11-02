@@ -27,3 +27,29 @@ scrape_configs:
       - source_labels: ['__meta_docker_container_label_io_kubernetes_container_name']
         target_label: k8s_container
     pipeline_stages: []
+
+  - job_name: pm2-logs
+    static_configs:
+      - targets: ['localhost']
+        labels:
+          job: pm2
+          pm2_stream: stdout
+          level: info
+          __path__: /home/ubuntu/.pm2/logs/*-out.log
+      - targets: ['localhost']
+        labels:
+          job: pm2
+          pm2_stream: stderr
+          level: error
+          __path__: /home/ubuntu/.pm2/logs/*-error.log
+    pipeline_stages:
+      - match:
+          selector: '{job="pm2"} |~ "(?i)debug"'
+          stages:
+            - labels:
+                level: debug
+      - match:
+          selector: '{job="pm2"} |~ "(?i)warn"'
+          stages:
+            - labels:
+                level: warn

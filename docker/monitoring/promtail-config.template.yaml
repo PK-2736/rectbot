@@ -1,35 +1,62 @@
 server:
   http_listen_port: 9080
-  log_level: info
+  grpc_listen_port: 0
 
 positions:
   filename: /tmp/positions.yaml
 
 clients:
   - url: http://loki:3100/loki/api/v1/push
-    # If your Loki requires basic auth, uncomment and set these values via envsubst
-    # basic_auth:
-    #   username: ${LOKI_USER}
-    #   password: ${LOKI_PASSWORD}
 
 scrape_configs:
-  - job_name: system-logs
+  - job_name: system
     static_configs:
-      - targets: ['localhost']
+      - targets:
+          - localhost
         labels:
           job: varlogs
-          __path__: /var/log/*.log
+          __path__: /var/log/*log
 
-  - job_name: docker-containers
+  - job_name: docker
     docker_sd_configs:
       - host: unix:///var/run/docker.sock
+        refresh_interval: 5s
+<itoring/promtail-config.yaml" [readonly] 38L, 858C           1,1           Top
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  - job_name: system
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: varlogs
+          __path__: /var/log/*log
+
+  - job_name: docker
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 5s
     relabel_configs:
       - source_labels: ['__meta_docker_container_name']
-        target_label: container
-      - source_labels: ['__meta_docker_container_label_com_docker_swarm_task_name']
-        target_label: task
-      - source_labels: ['__meta_docker_container_label_io_kubernetes_container_name']
-        target_label: k8s_container
-    pipeline_stages: []
+        regex: '/(.*)'
+        target_label: 'container'
+      - source_labels: ['__meta_docker_container_log_stream']
+        target_label: 'stream'
 
-# Usage: run `envsubst < promtail-config.template.yaml > promtail-config.yaml` to substitute secrets from env
+  - job_name: pm2
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: pm2
+          app: rectbot
+          __path__: /home/ubuntu/.pm2/logs/rectbot-*.log

@@ -30,7 +30,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "{job=\"pm2\"} | logfmt | line_format \"{{if or (eq .level \\\"error\\\") (eq .level \\\"ERROR\\\")}}🔴{{else if or (eq .level \\\"warn\\\") (eq .level \\\"WARN\\\")}}🟡{{else if or (eq .level \\\"info\\\") (eq .level \\\"INFO\\\")}}🟢{{else if or (eq .level \\\"debug\\\") (eq .level \\\"DEBUG\\\")}}🔵{{else}}⚪{{end}} [{{default \\\"unknown\\\" (.level | ToUpper)}}] {{if .service}}{{.service}} :: {{end}}{{default .line .msg}}\""
+          "expr": "{job=\"pm2\"} | line_format \"{{ $lvl := .level }}{{ if eq $lvl \\\"error\\\" }}�{{ else if eq $lvl \\\"warn\\\" }}�{{ else if eq $lvl \\\"debug\\\" }}🔵{{ else }}🟢{{ end }} [{{ if $lvl }}{{ $lvl | ToUpper }}{{ else }}UNKNOWN{{ end }}] {{ .line }}\""
         }
       ],
       "options": {
@@ -53,7 +53,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(count_over_time({job=\"pm2\"} | logfmt | level=\"error\" [5m]))"
+          "expr": "sum(count_over_time({job=\"pm2\", level=\"error\"} [5m]))"
         }
       ],
       "fieldConfig": {
@@ -85,7 +85,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(count_over_time({job=\"pm2\"} | logfmt | level=\"warn\" [5m]))"
+          "expr": "sum(count_over_time({job=\"pm2\", level=\"warn\"} [5m]))"
         }
       ],
       "fieldConfig": {
@@ -117,7 +117,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(count_over_time({job=\"pm2\"} | logfmt | level=\"info\" [5m]))"
+          "expr": "sum(count_over_time({job=\"pm2\", level=\"info\"} [5m]))"
         }
       ],
       "fieldConfig": {
@@ -165,7 +165,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "{job=\"pm2\"} | logfmt | level=\"error\""
+          "expr": "{job=\"pm2\", level=\"error\"}"
         }
       ],
       "options": {
@@ -188,7 +188,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "{job=\"pm2\"} | logfmt | level=\"warn\""
+          "expr": "{job=\"pm2\", level=\"warn\"}"
         }
       ],
       "options": {
@@ -211,17 +211,17 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(rate({job=\"pm2\"} | logfmt | level=\"error\" [$__interval]))",
+          "expr": "sum(rate({job=\"pm2\", level=\"error\"} [$__interval]))",
           "legendFormat": "🔴 Errors/sec"
         },
         {
           "refId": "B",
-          "expr": "sum(rate({job=\"pm2\"} | logfmt | level=\"warn\" [$__interval]))",
+          "expr": "sum(rate({job=\"pm2\", level=\"warn\"} [$__interval]))",
           "legendFormat": "🟡 Warn/sec"
         },
         {
           "refId": "C",
-          "expr": "sum(rate({job=\"pm2\"} | logfmt | level=\"info\" [$__interval]))",
+          "expr": "sum(rate({job=\"pm2\", level=\"info\"} [$__interval]))",
           "legendFormat": "🟢 Info/sec"
         },
         {
