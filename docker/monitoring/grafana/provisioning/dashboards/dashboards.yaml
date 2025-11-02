@@ -5,14 +5,8 @@ providers:
     orgId: 1
     folder: ''
     type: file
+    updateIntervalSeconds: 10
+    allowUiUpdates: true
     options:
       path: /var/lib/grafana/dashboards
-apiVersion: 1
-
-providers:
-  - name: 'local-dashboards'
-    orgId: 1
-    folder: ''
-    type: file
-    options:
-      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false
