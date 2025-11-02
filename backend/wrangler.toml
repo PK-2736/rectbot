@@ -11,12 +11,17 @@ workers_dev = true  # 一時的にworkers.devで動作確認
 # Durable Objects 設定
 [durable_objects]
 bindings = [
-	{ name = "RECRUITS_DO", class_name = "RecruitsDO" }
+	{ name = "RECRUITS_DO", class_name = "RecruitsDO" },
+	{ name = "INVITE_TOKENS_DO", class_name = "InviteTokensDO" }
 ]
 
 [[migrations]]
 tag = "v1-recruits-do"
 new_sqlite_classes = ["RecruitsDO"]
+
+[[migrations]]
+tag = "v2-invite-tokens-do"
+new_sqlite_classes = ["InviteTokensDO"]
 
 # 環境変数は GitHub Actions で動的に設定されます
 [vars]

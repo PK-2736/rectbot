@@ -254,6 +254,67 @@ export class RecruitsDO {
   }
 }
 
+// Durable Object: InviteTokensDO for one-time bot invite links
+export class InviteTokensDO {
+  constructor(state, env) {
+    this.state = state;
+    this.env = env;
+  }
+
+  async loadStore() {
+    const store = await this.state.storage.get('tokens');
+    return store || { items: {} }; // items: { [token]: { used:boolean, createdAt:string } }
+  }
+
+  async saveStore(store) {
+    await this.state.storage.put('tokens', store);
+  }
+
+  cleanup(store) {
+    const now = Date.now();
+    const ttlSec = Number(this.env.ONE_TIME_INVITE_TTL_SEC || 600);
+    const expMs = ttlSec * 1000;
+    const items = store.items || {};
+    for (const [token, meta] of Object.entries(items)) {
+      const t = new Date(meta.createdAt || 0).getTime();
+      if (!t || (now - t) > expMs) {
+        delete items[token];
+      }
+    }
+    store.items = items;
+  }
+
+  async fetch(request) {
+    const url = new URL(request.url);
+    const method = request.method.toUpperCase();
+    let store = await this.loadStore();
+    this.cleanup(store);
+
+    // Create token: POST /do/invite-token
+    if (method === 'POST' && url.pathname === '/do/invite-token') {
+      const token = crypto.randomUUID().replace(/-/g, '') + Math.random().toString(36).slice(2, 10);
+      store.items[token] = { used: false, createdAt: new Date().toISOString() };
+      await this.saveStore(store);
+      return new Response(JSON.stringify({ ok: true, token }), { status: 201, headers: { 'Content-Type': 'application/json' } });
+    }
+
+    // Consume token: POST /do/invite-token/:token/consume
+    const m = url.pathname.match(/^\/do\/invite-token\/([A-Za-z0-9_\-]+)\/consume$/);
+    if (method === 'POST' && m) {
+      const token = m[1];
+      const meta = store.items[token];
+      if (!meta) return new Response(JSON.stringify({ ok: false, error: 'not_found' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
+      if (meta.used) return new Response(JSON.stringify({ ok: false, error: 'used' }), { status: 410, headers: { 'Content-Type': 'application/json' } });
+      meta.used = true;
+      store.items[token] = meta;
+      await this.saveStore(store);
+      return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
+
+    return new Response(JSON.stringify({ error: 'not_found' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
+  }
+}
+
 async function safeReadJson(request) {
   try {
     const txt = await request.text();
@@ -913,7 +974,7 @@ export default {
     }
 
     // Service Token 認証
-    const SERVICE_TOKEN = env.SERVICE_TOKEN || '';
+  const SERVICE_TOKEN = env.SERVICE_TOKEN || '';
     const isApiPath = url.pathname.startsWith('/api');
   // Paths that do not require SERVICE_TOKEN header (public endpoints)
   const skipTokenPaths = ['/api/test', '/api/discord/callback', '/api/dashboard', '/api/support', '/metrics', '/api/grafana/recruits'];
@@ -936,6 +997,59 @@ export default {
           status: 401, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
+      }
+    }
+
+    // === One-Time Bot Invite endpoints ===
+    // Create one-time wrapper URL (Bot -> Backend; requires service token)
+    if (url.pathname === '/api/bot-invite/one-time' && request.method === 'POST') {
+      try {
+        if (!env.DISCORD_CLIENT_ID) {
+          return new Response(JSON.stringify({ error: 'config_missing', detail: 'DISCORD_CLIENT_ID not configured' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+        const id = env.INVITE_TOKENS_DO.idFromName('global');
+        const stub = env.INVITE_TOKENS_DO.get(id);
+        const createResp = await stub.fetch(new Request(new URL('/do/invite-token', url).toString(), { method: 'POST' }));
+        const data = await createResp.json();
+        if (!data?.ok) {
+          return new Response(JSON.stringify({ error: 'create_failed' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+        const token = data.token;
+        const wrapperUrl = new URL(`/api/bot-invite/t/${token}`, url).toString();
+        return new Response(JSON.stringify({ ok: true, url: wrapperUrl }), { status: 201, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      } catch (e) {
+        console.error('[one-time-invite:create] error:', e);
+        return new Response(JSON.stringify({ error: 'internal_error' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+    }
+
+    // Consume and redirect to Discord bot invite (public GET)
+    const matchInvite = url.pathname.match(/^\/api\/bot-invite\/t\/([A-Za-z0-9_\-]+)$/);
+    if (matchInvite && request.method === 'GET') {
+      try {
+        const token = matchInvite[1];
+        const id = env.INVITE_TOKENS_DO.idFromName('global');
+        const stub = env.INVITE_TOKENS_DO.get(id);
+        const consumeResp = await stub.fetch(new Request(new URL(`/do/invite-token/${encodeURIComponent(token)}/consume`, url).toString(), { method: 'POST' }));
+        if (consumeResp.status === 404) {
+          return new Response('この招待リンクは存在しません。', { status: 404, headers: { ...corsHeaders, 'Content-Type': 'text/plain; charset=utf-8' } });
+        }
+        if (consumeResp.status === 410) {
+          return new Response('この招待リンクは使用済みです。', { status: 410, headers: { ...corsHeaders, 'Content-Type': 'text/plain; charset=utf-8' } });
+        }
+        if (!consumeResp.ok) {
+          return new Response('内部エラーが発生しました。', { status: 500, headers: { ...corsHeaders, 'Content-Type': 'text/plain; charset=utf-8' } });
+        }
+
+        // Build Discord bot invite URL
+        const clientId = env.DISCORD_CLIENT_ID;
+        const perms = encodeURIComponent(env.BOT_INVITE_PERMISSIONS || '0');
+        const scopes = encodeURIComponent('bot applications.commands');
+        const discordUrl = `https://discord.com/api/oauth2/authorize?client_id=${clientId}&permissions=${perms}&scope=${scopes}`;
+        return new Response(null, { status: 302, headers: { Location: discordUrl, ...corsHeaders } });
+      } catch (e) {
+        console.error('[one-time-invite:consume] error:', e);
+        return new Response('内部エラーが発生しました。', { status: 500, headers: { ...corsHeaders, 'Content-Type': 'text/plain; charset=utf-8' } });
       }
     }
 

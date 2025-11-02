@@ -55,5 +55,49 @@ module.exports = {
     } catch (e) {
       console.error('[ready.js] ロール付与ボタンメッセージ送信エラー:', e);
     }
+
+    // サポートサーバー: 1回限りの招待URLボタン設置
+    // 要求: サポートサーバーのチャンネル 1434493999363653692 にボタンを設置
+    const SUPPORT_CHANNEL_ID = '1434493999363653692';
+    const SUPPORT_BUTTON_ID = 'one_time_support_invite';
+    try {
+      const supportChannel = await client.channels.fetch(SUPPORT_CHANNEL_ID);
+      if (!supportChannel || !supportChannel.isTextBased()) {
+        console.error('[ready.js] サポートチャンネルが見つからないかテキストチャンネルではありません');
+      } else {
+        // 既存の同一ボタン付きメッセージを掃除
+        const messages = await supportChannel.messages.fetch({ limit: 50 }).catch(() => null);
+        if (messages) {
+          for (const msg of messages.values()) {
+            if (msg.author.id === client.user.id && msg.components.length > 0) {
+              const hasTargetButton = msg.components.some(row =>
+                row.components.some(btn => btn.customId === SUPPORT_BUTTON_ID)
+              );
+              if (hasTargetButton) {
+                await msg.delete().catch(() => {});
+              }
+            }
+          }
+        }
+
+        const { EmbedBuilder } = require('discord.js');
+        const inviteEmbed = new EmbedBuilder()
+          .setTitle('ボタンから招待URLを発行')
+          .setDescription('下のボタンを押すと、このサポートチャンネルの「1回限りの招待URL」を発行します。リンクは1回使うと無効になります。')
+          .setColor(0x16a34a);
+
+        const row = new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId(SUPPORT_BUTTON_ID)
+            .setLabel('1回限りの招待URLを発行')
+            .setStyle(ButtonStyle.Success)
+        );
+
+        await supportChannel.send({ embeds: [inviteEmbed], components: [row] });
+        console.log('[ready.js] サポート招待ボタンメッセージを送信しました');
+      }
+    } catch (e) {
+      console.error('[ready.js] サポート招待ボタン設置でエラー:', e);
+    }
   },
 };

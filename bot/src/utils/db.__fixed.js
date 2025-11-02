@@ -263,6 +263,22 @@ setInterval(() => { cleanupExpiredRecruits().catch(e => console.warn('periodic c
 async function runCleanupNow() { return await cleanupExpiredRecruits(); }
 function getLastCleanupStatus() { return lastCleanup; }
 
+// --- Generic cooldown helpers (per-key TTL based) ---
+async function setCooldown(key, ttlSeconds) {
+  const redisClient = await ensureRedisConnection();
+  const k = `cooldown:${key}`;
+  const ttl = Math.max(1, Number(ttlSeconds || 0));
+  await redisClient.set(k, '1', 'EX', ttl);
+  return { ok: true, key: k, ttl };
+}
+
+async function getCooldownRemaining(key) {
+  const redisClient = await ensureRedisConnection();
+  const k = `cooldown:${key}`;
+  const ttl = await redisClient.ttl(k);
+  return ttl > 0 ? ttl : 0;
+}
+
 async function pushRecruitToWebAPI(recruitData) {
   const url = `${config.BACKEND_API_URL.replace(/\/$/, '')}/api/recruitment/push`;
   try {
@@ -459,6 +475,8 @@ module.exports = {
   saveParticipantsToRedis,
   getParticipantsFromRedis,
   deleteParticipantsFromRedis,
+  setCooldown,
+  getCooldownRemaining,
   RECRUIT_TTL_SECONDS,
   cleanupExpiredRecruits,
   dbEvents,

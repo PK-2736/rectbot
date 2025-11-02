@@ -224,6 +224,39 @@ module.exports = {
         return;
       }
 
+      // サポートサーバー: 1回限りの「ボット招待」URL発行ボタン
+      if (interaction.customId === 'one_time_support_invite') {
+        try {
+          const SUPPORT_CHANNEL_ID = '1434493999363653692';
+          // 指定チャンネル以外では無視
+          if (!interaction.channel || interaction.channel.id !== SUPPORT_CHANNEL_ID) {
+            await safeRespond({ content: 'このボタンは指定のサポートチャンネルでのみ使用できます。', flags: require('discord.js').MessageFlags.Ephemeral });
+            return;
+          }
+          // バックエンドにワンタイムの「ボット招待ラッパーURL」をリクエスト
+          const backendFetch = require('../utils/backendFetch');
+          let url = null;
+          try {
+            const res = await backendFetch('/api/bot-invite/one-time', { method: 'POST' });
+            url = res && res.url ? res.url : null;
+          } catch (e) {
+            console.error('[support invite] backend one-time link error:', e);
+          }
+          if (!url) {
+            await safeRespond({ content: '招待URLの発行に失敗しました。Botのバックエンド設定(DISCORD_CLIENT_ID等)を確認してください。', flags: require('discord.js').MessageFlags.Ephemeral });
+            return;
+          }
+          await safeRespond({
+            content: `🤖 一回限りの「ボット招待」URLを発行しました。\nこのリンクは初回アクセス時のみ有効です。\n\n${url}`,
+            flags: require('discord.js').MessageFlags.Ephemeral
+          });
+        } catch (e) {
+          console.error('[support invite] error:', e);
+          await safeRespond({ content: '招待URLの発行に失敗しました。Botに招待作成の権限があるか確認してください。', flags: require('discord.js').MessageFlags.Ephemeral }).catch(() => {});
+        }
+        return;
+      }
+
       // ギルド設定のボタン処理
       if (interaction.customId && (interaction.customId.startsWith('set_') || interaction.customId === 'reset_all_settings' || interaction.customId === 'finalize_settings')) {
         const guildSettings = getGuildSettingsCommand();

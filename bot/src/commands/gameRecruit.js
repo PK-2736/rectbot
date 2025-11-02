@@ -508,8 +508,27 @@ module.exports = {
     ),
   async execute(interaction) {
     console.log('[gameRecruit.execute] invoked by', interaction.user?.id, 'guild:', interaction.guildId, 'channel:', interaction.channelId);
-    // --- 募集数制限: 特定ギルド以外は1件まで（KVで判定） ---
-    const EXEMPT_GUILD_ID = '1414530004657766422';
+    // --- 募集数制限 & クールダウン: 特定ギルド以外に適用 ---
+    const EXEMPT_GUILD_ID = '802345513495822336';
+    // ギルド2分クールダウン（事前チェック）
+    try {
+      const { getCooldownRemaining } = require('../utils/db');
+      if (interaction.guildId !== EXEMPT_GUILD_ID) {
+        const remaining = await getCooldownRemaining(`rect:${interaction.guildId}`);
+        if (remaining > 0) {
+          const mm = Math.floor(remaining / 60);
+          const ss = remaining % 60;
+          await safeReply(interaction, {
+            content: `⏳ このサーバーの募集コマンドはクールダウン中です。あと ${mm}:${ss.toString().padStart(2, '0')} 待ってから再度お試しください。`,
+            flags: MessageFlags.Ephemeral,
+            allowedMentions: { roles: [], users: [] }
+          });
+          return;
+        }
+      }
+    } catch (e) {
+      console.warn('[rect cooldown pre-check] failed:', e?.message || e);
+    }
     if (interaction.guildId !== EXEMPT_GUILD_ID) {
       const allRecruits = await listRecruitsFromRedis();
       console.log('[gameRecruit.execute] listRecruitsFromRedis returned count:', Array.isArray(allRecruits) ? allRecruits.length : typeof allRecruits);
@@ -638,8 +657,26 @@ module.exports = {
       // --- 募集数制限: 特定ギルド以外は1件まで（Redisで判定） ---
     await interaction.deferReply({ flags: MessageFlags.Ephemeral }); // 3秒ルールを厳守
     console.log('[handleModalSubmit] started for guild:', interaction.guildId, 'user:', interaction.user?.id);
-      const EXEMPT_GUILD_ID = '1414530004657766422';
-      const { listRecruitsFromRedis, saveRecruitmentData } = require('../utils/db');
+      const EXEMPT_GUILD_ID = '802345513495822336';
+      const { listRecruitsFromRedis, saveRecruitmentData, setCooldown, getCooldownRemaining } = require('../utils/db');
+      // ギルド2分クールダウン（重複防止の本チェック）
+      try {
+        if (interaction.guildId !== EXEMPT_GUILD_ID) {
+          const remaining = await getCooldownRemaining(`rect:${interaction.guildId}`);
+          if (remaining > 0) {
+            const mm = Math.floor(remaining / 60);
+            const ss = remaining % 60;
+            await safeReply(interaction, {
+              content: `⏳ このサーバーの募集コマンドはクールダウン中です。あと ${mm}:${ss.toString().padStart(2, '0')} 待ってから再度お試しください。`,
+              flags: MessageFlags.Ephemeral,
+              allowedMentions: { roles: [], users: [] }
+            });
+            return;
+          }
+        }
+      } catch (e) {
+        console.warn('[rect cooldown check] failed:', e?.message || e);
+      }
       if (interaction.guildId !== EXEMPT_GUILD_ID) {
         let allRecruits = [];
         try {
@@ -848,7 +885,7 @@ module.exports = {
         }
       }
 
-      // メッセージ送信後、実際のメッセージIDでrecruitIdを上書きし、保存・表示も必ず一致させる
+    // メッセージ送信後、実際のメッセージIDでrecruitIdを上書きし、保存・表示も必ず一致させる
       try {
   const actualMessage = followUpMessage; // メインチャンネルに投稿したメッセージを実メッセージとして扱う
   const actualMessageId = actualMessage.id;
@@ -945,6 +982,14 @@ module.exports = {
             console.error('自動締切処理でエラー:', error);
           }
         }, 8 * 60 * 60 * 1000);
+        // --- 成功時にギルド単位クールダウンをセット（除外ギルド以外） ---
+        try {
+          if (interaction.guildId !== EXEMPT_GUILD_ID) {
+            await setCooldown(`rect:${interaction.guildId}`, 120);
+          }
+        } catch (e) {
+          console.warn('[rect cooldown set] failed:', e?.message || e);
+        }
         // === 募集状況をAPI経由で保存 ===
         // Redis専用のためAPI保存は省略
       } catch (error) {
