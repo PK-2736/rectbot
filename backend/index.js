@@ -974,10 +974,19 @@ export default {
     }
 
     // Service Token 認証
-  const SERVICE_TOKEN = env.SERVICE_TOKEN || '';
+    const SERVICE_TOKEN = env.SERVICE_TOKEN || '';
     const isApiPath = url.pathname.startsWith('/api');
-  // Paths that do not require SERVICE_TOKEN header (public endpoints)
-  const skipTokenPaths = ['/api/test', '/api/discord/callback', '/api/dashboard', '/api/support', '/metrics', '/api/grafana/recruits'];
+    // Paths that do not require SERVICE_TOKEN header (public endpoints)
+    const skipTokenPaths = [
+      '/api/test',
+      '/api/discord/callback',
+      '/api/dashboard',
+      '/api/support',
+      '/metrics',
+      '/api/grafana/recruits',
+      // One-time bot invite wrapper is public (GET only)
+      '/api/bot-invite/t/'
+    ];
     const requiresAuth = isApiPath && !skipTokenPaths.some(path => url.pathname.startsWith(path));
     
     if (requiresAuth && SERVICE_TOKEN) {
