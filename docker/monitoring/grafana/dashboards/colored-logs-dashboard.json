@@ -1,743 +1,275 @@
-{{
-
-  "title": "🎨 Colored Logs Dashboard",  "annotations": {
-
-  "uid": "colored-logs",    "list": []
-
-  "tags": ["logs", "loki", "colored"],  },
-
-  "timezone": "browser",  "editable": true,
-
-  "editable": true,  "fiscalYearStartMonth": 0,
-
-  "refresh": "10s",  "graphTooltip": 0,
-
-  "time": {  "id": null,
-
-    "from": "now-30m",  "links": [],
-
-    "to": "now"  "panels": [
-
-  },    {
-
-  "panels": [      "datasource": "Loki",
-
-    {      "fieldConfig": {
-
-      "id": 1,        "defaults": {},
-
-      "type": "logs",        "overrides": [
-
-      "title": "🎨 All PM2 Logs (Color Coded)",          {
-
-      "datasource": "Loki",            "matcher": {
-
-      "gridPos": {"h": 12, "w": 24, "x": 0, "y": 0},              "id": "byRegexp",
-
-      "targets": [              "options": ".*error.*|.*Error.*|.*ERROR.*"
-
-        {            },
-
-          "expr": "{job=\"pm2\"}",            "properties": [
-
-          "refId": "A"              {
-
-        }                "id": "color",
-
-      ],                "value": {
-
-      "options": {                  "mode": "fixed",
-
-        "showTime": true,                  "fixedColor": "red"
-
-        "showLabels": true,                }
-
-        "wrapLogMessage": true,              }
-
-        "prettifyLogMessage": false,            ]
-
-        "enableLogDetails": true,          },
-
-        "sortOrder": "Descending"          {
-
-      }            "matcher": {
-
-    },              "id": "byRegexp",
-
-    {              "options": ".*warn.*|.*Warn.*|.*WARN.*"
-
-      "id": 2,            },
-
-      "type": "stat",            "properties": [
-
-      "title": "🔴 Errors (Last 5m)",              {
-
-      "datasource": "Loki",                "id": "color",
-
-      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 12},                "value": {
-
-      "targets": [                  "mode": "fixed",
-
-        {                  "fixedColor": "yellow"
-
-          "expr": "sum(count_over_time({job=\"pm2\"} |~ \"(?i)(error|exception|failed|fatal)\" [5m]))",                }
-
-          "refId": "A"              }
-
-        }            ]
-
-      ],          },
-
-      "fieldConfig": {          {
-
-        "defaults": {            "matcher": {
-
-          "color": {"mode": "thresholds"},              "id": "byRegexp",
-
-          "thresholds": {              "options": ".*info.*|.*Info.*|.*INFO.*"
-
-            "mode": "absolute",            },
-
-            "steps": [            "properties": [
-
-              {"color": "green", "value": null},              {
-
-              {"color": "yellow", "value": 1},                "id": "color",
-
-              {"color": "orange", "value": 5},                "value": {
-
-              {"color": "red", "value": 10}                  "mode": "fixed",
-
-            ]                  "fixedColor": "green"
-
-          },                }
-
-          "mappings": []              }
-
-        }            ]
-
-      },          },
-
-      "options": {          {
-
-        "colorMode": "background",            "matcher": {
-
-        "graphMode": "area",              "id": "byRegexp",
-
-        "justifyMode": "center",              "options": ".*debug.*|.*Debug.*|.*DEBUG.*"
-
-        "textMode": "auto"            },
-
-      }            "properties": [
-
-    },              {
-
-    {                "id": "color",
-
-      "id": 3,                "value": {
-
-      "type": "stat",                  "mode": "fixed",
-
-      "title": "🟡 Warnings (Last 5m)",                  "fixedColor": "blue"
-
-      "datasource": "Loki",                }
-
-      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 12},              }
-
-      "targets": [            ]
-
-        {          }
-
-          "expr": "sum(count_over_time({job=\"pm2\"} |~ \"(?i)(warn|warning)\" [5m]))",        ]
-
-          "refId": "A"      },
-
-        }      "gridPos": {
-
-      ],        "h": 12,
-
-      "fieldConfig": {        "w": 24,
-
-        "defaults": {        "x": 0,
-
-          "color": {"mode": "thresholds"},        "y": 0
-
-          "thresholds": {      },
-
-            "mode": "absolute",      "id": 1,
-
-            "steps": [      "options": {
-
-              {"color": "green", "value": null},        "showLabels": true,
-
-              {"color": "yellow", "value": 5},        "showTime": true,
-
-              {"color": "orange", "value": 20}        "showCommonLabels": false,
-
-            ]        "wrapLogMessage": true,
-
-          },        "prettifyLogMessage": false,
-
-          "mappings": []        "enableLogDetails": true,
-
-        }        "dedupStrategy": "none",
-
-      },        "sortOrder": "Descending"
-
-      "options": {      },
-
-        "colorMode": "background",      "pluginVersion": "9.5.5",
-
-        "graphMode": "area",      "targets": [
-
-        "justifyMode": "center",        {
-
-        "textMode": "auto"          "expr": "{job=\"pm2\"} | line_format \"{{.level | ToUpper}}: {{.message}}\"",
-
-      }          "refId": "A",
-
-    },          "legendFormat": ""
-
-    {        }
-
-      "id": 4,      ],
-
-      "type": "stat",      "title": "🎨 PM2 Logs (Color Coded by Level)",
-
-      "title": "📊 Total Logs (Last 5m)",      "type": "logs"
-
-      "datasource": "Loki",    },
-
-      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 12},    {
-
-      "targets": [      "datasource": "Loki",
-
-        {      "fieldConfig": {
-
-          "expr": "sum(count_over_time({job=\"pm2\"} [5m]))",        "defaults": {},
-
-          "refId": "A"        "overrides": []
-
-        }      },
-
-      ],      "gridPos": {
-
-      "fieldConfig": {        "h": 4,
-
-        "defaults": {        "w": 6,
-
-          "color": {"mode": "palette-classic"},        "x": 0,
-
-          "thresholds": {        "y": 12
-
-            "mode": "absolute",      },
-
-            "steps": [      "id": 2,
-
-              {"color": "blue", "value": null}      "options": {
-
-            ]        "orientation": "auto",
-
-          },        "reduceOptions": {
-
-          "mappings": []          "values": false,
-
-        }          "calcs": ["lastNotNull"],
-
-      },          "fields": ""
-
-      "options": {        },
-
-        "colorMode": "value",        "showThresholdLabels": false,
-
-        "graphMode": "area",        "showThresholdMarkers": true,
-
-        "justifyMode": "center",        "text": {}
-
-        "textMode": "auto"      },
-
-      }      "pluginVersion": "9.5.5",
-
-    },      "targets": [
-
-    {        {
-
-      "id": 5,          "expr": "sum(count_over_time({job=\"pm2\"} |~ \"(?i)(error|exception|failed|fatal)\" [5m]))",
-
-      "type": "stat",          "refId": "A"
-
-      "title": "✅ Success Count (Last 5m)",        }
-
-      "datasource": "Loki",      ],
-
-      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 12},      "title": "🔴 Error Count (5m)",
-
-      "targets": [      "type": "gauge",
-
-        {      "fieldConfig": {
-
-          "expr": "sum(count_over_time({job=\"pm2\"} |~ \"(?i)(success|completed|ready)\" [5m]))",        "defaults": {
-
-          "refId": "A"          "thresholds": {
-
-        }            "mode": "absolute",
-
-      ],            "steps": [
-
-      "fieldConfig": {              {"color": "green", "value": null},
-
-        "defaults": {              {"color": "yellow", "value": 1},
-
-          "color": {"mode": "thresholds"},              {"color": "orange", "value": 5},
-
-          "thresholds": {              {"color": "red", "value": 10}
-
-            "mode": "absolute",            ]
-
-            "steps": [          },
-
-              {"color": "red", "value": null},          "color": {"mode": "thresholds"},
-
-              {"color": "yellow", "value": 1},          "mappings": [],
-
-              {"color": "green", "value": 5}          "max": 50,
-
-            ]          "min": 0
-
-          },        }
-
-          "mappings": []      }
-
-        }    },
-
-      },    {
-
-      "options": {      "datasource": "Loki",
-
-        "colorMode": "background",      "fieldConfig": {
-
-        "graphMode": "area",        "defaults": {},
-
-        "justifyMode": "center",        "overrides": []
-
-        "textMode": "auto"      },
-
-      }      "gridPos": {
-
-    },        "h": 4,
-
-    {        "w": 6,
-
-      "id": 6,        "x": 6,
-
-      "type": "logs",        "y": 12
-
-      "title": "🔴 Error Logs Only",      },
-
-      "datasource": "Loki",      "id": 3,
-
-      "gridPos": {"h": 10, "w": 12, "x": 0, "y": 16},      "options": {
-
-      "targets": [        "orientation": "auto",
-
-        {        "reduceOptions": {
-
-          "expr": "{job=\"pm2\"} |~ \"(?i)(error|exception|failed|fatal)\"",          "values": false,
-
-          "refId": "A"          "calcs": ["lastNotNull"],
-
-        }          "fields": ""
-
-      ],        },
-
-      "options": {        "showThresholdLabels": false,
-
-        "showTime": true,        "showThresholdMarkers": true,
-
-        "showLabels": true,        "text": {}
-
-        "wrapLogMessage": true,      },
-
-        "enableLogDetails": true,      "pluginVersion": "9.5.5",
-
-        "sortOrder": "Descending"      "targets": [
-
-      }        {
-
-    },          "expr": "sum(count_over_time({job=\"pm2\"} |~ \"(?i)(warn|warning)\" [5m]))",
-
-    {          "refId": "A"
-
-      "id": 7,        }
-
-      "type": "logs",      ],
-
-      "title": "🟡 Warning Logs Only",      "title": "🟡 Warning Count (5m)",
-
-      "datasource": "Loki",      "type": "gauge",
-
-      "gridPos": {"h": 10, "w": 12, "x": 12, "y": 16},      "fieldConfig": {
-
-      "targets": [        "defaults": {
-
-        {          "thresholds": {
-
-          "expr": "{job=\"pm2\"} |~ \"(?i)(warn|warning)\"",            "mode": "absolute",
-
-          "refId": "A"            "steps": [
-
-        }              {"color": "green", "value": null},
-
-      ],              {"color": "yellow", "value": 5},
-
-      "options": {              {"color": "orange", "value": 20}
-
-        "showTime": true,            ]
-
-        "showLabels": true,          },
-
-        "wrapLogMessage": true,          "color": {"mode": "thresholds"},
-
-        "enableLogDetails": true,          "mappings": [],
-
-        "sortOrder": "Descending"          "max": 100,
-
-      }          "min": 0
-
-    },        }
-
-    {      }
-
-      "id": 8,    },
-
-      "type": "timeseries",    {
-
-      "title": "📈 Log Rate Over Time",      "datasource": "Loki",
-
-      "datasource": "Loki",      "fieldConfig": {
-
-      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 26},        "defaults": {},
-
-      "targets": [        "overrides": []
-
-        {      },
-
-          "expr": "sum(rate({job=\"pm2\"} |~ \"(?i)error\" [$__interval]))",      "gridPos": {
-
-          "refId": "A",        "h": 4,
-
-          "legendFormat": "🔴 Errors"        "w": 6,
-
-        },        "x": 12,
-
-        {        "y": 12
-
-          "expr": "sum(rate({job=\"pm2\"} |~ \"(?i)warn\" [$__interval]))",      },
-
-          "refId": "B",      "id": 4,
-
-          "legendFormat": "🟡 Warnings"      "options": {
-
-        },        "orientation": "auto",
-
-        {        "reduceOptions": {
-
-          "expr": "sum(rate({job=\"pm2\"} [$__interval]))",          "values": false,
-
-          "refId": "C",          "calcs": ["lastNotNull"],
-
-          "legendFormat": "📊 Total"          "fields": ""
-
-        }        },
-
-      ],        "showThresholdLabels": false,
-
-      "fieldConfig": {        "showThresholdMarkers": true,
-
-        "defaults": {        "text": {}
-
-          "custom": {      },
-
-            "drawStyle": "line",      "pluginVersion": "9.5.5",
-
-            "lineInterpolation": "smooth",      "targets": [
-
-            "fillOpacity": 10,        {
-
-            "showPoints": "auto"          "expr": "sum(count_over_time({job=\"pm2\"} [5m]))",
-
-          },          "refId": "A"
-
-          "color": {"mode": "palette-classic"}        }
-
-        },      ],
-
-        "overrides": [      "title": "📊 Total Logs (5m)",
-
-          {      "type": "gauge",
-
-            "matcher": {"id": "byName", "options": "🔴 Errors"},      "fieldConfig": {
-
-            "properties": [        "defaults": {
-
-              {"id": "color", "value": {"mode": "fixed", "fixedColor": "red"}}          "thresholds": {
-
-            ]            "mode": "absolute",
-
-          },            "steps": [
-
-          {              {"color": "blue", "value": null},
-
-            "matcher": {"id": "byName", "options": "🟡 Warnings"},              {"color": "green", "value": 100}
-
-            "properties": [            ]
-
-              {"id": "color", "value": {"mode": "fixed", "fixedColor": "yellow"}}          },
-
-            ]          "color": {"mode": "thresholds"},
-
-          },          "mappings": [],
-
-          {          "max": 1000,
-
-            "matcher": {"id": "byName", "options": "📊 Total"},          "min": 0
-
-            "properties": [        }
-
-              {"id": "color", "value": {"mode": "fixed", "fixedColor": "blue"}}      }
-
-            ]    },
-
-          }    {
-
-        ]      "datasource": "Loki",
-
-      },      "fieldConfig": {
-
-      "options": {        "defaults": {},
-
-        "legend": {        "overrides": []
-
-          "calcs": ["sum", "last"],      },
-
-          "displayMode": "table",      "gridPos": {
-
-          "placement": "right"        "h": 4,
-
-        },        "w": 6,
-
-        "tooltip": {"mode": "multi"}        "x": 18,
-
-      }        "y": 12
-
-    }      },
-
-  ],      "id": 5,
-
-  "schemaVersion": 36,      "options": {
-
-  "version": 1        "colorMode": "background",
-
-}        "graphMode": "none",
-
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "values": false,
-          "calcs": ["lastNotNull"],
-          "fields": ""
-        },
-        "text": {},
-        "textMode": "auto"
-      },
-      "pluginVersion": "9.5.5",
+{
+  "title": "🎨 Colored Logs Dashboard",
+  "uid": "colored-logs",
+  "tags": ["logs", "loki", "pm2", "colored"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "style": "dark",
+  "refresh": "10s",
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": ["5s", "10s", "30s", "1m", "5m"]
+  },
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": []
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "logs",
+      "title": "🎨 PM2 Logs (Color Coded)",
+      "datasource": "Loki",
+      "gridPos": {"h": 14, "w": 24, "x": 0, "y": 0},
       "targets": [
         {
-          "expr": "sum(count_over_time({job=\"pm2\"} |~ \"(?i)(success|completed|ready)\" [5m]))",
-          "refId": "A"
+          "refId": "A",
+          "expr": "{job=\"pm2\"} | logfmt | line_format \"{{if or (eq .level \\\"error\\\") (eq .level \\\"ERROR\\\")}}🔴{{else if or (eq .level \\\"warn\\\") (eq .level \\\"WARN\\\")}}🟡{{else if or (eq .level \\\"info\\\") (eq .level \\\"INFO\\\")}}🟢{{else if or (eq .level \\\"debug\\\") (eq .level \\\"DEBUG\\\")}}🔵{{else}}⚪{{end}} [{{default \\\"unknown\\\" (.level | ToUpper)}}] {{if .service}}{{.service}} :: {{end}}{{default .line .msg}}\""
         }
       ],
-      "title": "✅ Success Count (5m)",
-      "type": "stat",
-      "fieldConfig": {
-        "defaults": {
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {"color": "red", "value": null},
-              {"color": "yellow", "value": 1},
-              {"color": "green", "value": 5}
-            ]
-          },
-          "color": {"mode": "thresholds"},
-          "mappings": []
-        }
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "dedupStrategy": "none",
+        "sortOrder": "Descending"
       }
     },
     {
+      "id": 2,
+      "type": "stat",
+      "title": "🔴 Errors (5m)",
       "datasource": "Loki",
-      "fieldConfig": {
-        "defaults": {},
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 10,
-        "w": 12,
-        "x": 0,
-        "y": 16
-      },
-      "id": 6,
-      "options": {
-        "showLabels": true,
-        "showTime": true,
-        "showCommonLabels": false,
-        "wrapLogMessage": true,
-        "prettifyLogMessage": false,
-        "enableLogDetails": true,
-        "dedupStrategy": "none",
-        "sortOrder": "Descending"
-      },
-      "pluginVersion": "9.5.5",
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 14},
       "targets": [
         {
-          "expr": "{job=\"pm2\"} |~ \"(?i)(error|exception|failed|fatal)\"",
           "refId": "A",
-          "legendFormat": "🔴 Error"
+          "expr": "sum(count_over_time({job=\"pm2\"} | logfmt | level=\"error\" [5m]))"
         }
       ],
-      "title": "🔴 Errors Only",
-      "type": "logs"
-    },
-    {
-      "datasource": "Loki",
-      "fieldConfig": {
-        "defaults": {},
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 10,
-        "w": 12,
-        "x": 12,
-        "y": 16
-      },
-      "id": 7,
-      "options": {
-        "showLabels": true,
-        "showTime": true,
-        "showCommonLabels": false,
-        "wrapLogMessage": true,
-        "prettifyLogMessage": false,
-        "enableLogDetails": true,
-        "dedupStrategy": "none",
-        "sortOrder": "Descending"
-      },
-      "pluginVersion": "9.5.5",
-      "targets": [
-        {
-          "expr": "{job=\"pm2\"} |~ \"(?i)(warn|warning)\"",
-          "refId": "A",
-          "legendFormat": "🟡 Warning"
-        }
-      ],
-      "title": "🟡 Warnings Only",
-      "type": "logs"
-    },
-    {
-      "datasource": "Loki",
-      "gridPos": {
-        "h": 8,
-        "w": 24,
-        "x": 0,
-        "y": 26
-      },
-      "id": 8,
-      "options": {
-        "legend": {
-          "calcs": ["sum"],
-          "displayMode": "table",
-          "placement": "right"
-        },
-        "tooltip": {
-          "mode": "single"
-        }
-      },
-      "targets": [
-        {
-          "expr": "sum by (level) (count_over_time({job=\"pm2\"} | regexp \"(?P<level>ERROR|WARN|INFO|DEBUG)\" [$__interval]))",
-          "refId": "A",
-          "legendFormat": "{{level}}"
-        }
-      ],
-      "title": "📈 Log Levels Over Time",
-      "type": "timeseries",
       "fieldConfig": {
         "defaults": {
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 1},
+              {"color": "red", "value": 10}
+            ]
+          }
+        }
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto"
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "🟡 Warnings (5m)",
+      "datasource": "Loki",
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 14},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(count_over_time({job=\"pm2\"} | logfmt | level=\"warn\" [5m]))"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 5},
+              {"color": "orange", "value": 15}
+            ]
+          }
+        }
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto"
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "🟢 Info (5m)",
+      "datasource": "Loki",
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 14},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(count_over_time({job=\"pm2\"} | logfmt | level=\"info\" [5m]))"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"}
+        }
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto"
+      }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "📊 Total Logs (5m)",
+      "datasource": "Loki",
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 14},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(count_over_time({job=\"pm2\"} [5m]))"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"}
+        }
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto"
+      }
+    },
+    {
+      "id": 6,
+      "type": "logs",
+      "title": "🔴 Errors Only",
+      "datasource": "Loki",
+      "gridPos": {"h": 10, "w": 12, "x": 0, "y": 18},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{job=\"pm2\"} | logfmt | level=\"error\""
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": true,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "dedupStrategy": "none",
+        "sortOrder": "Descending"
+      }
+    },
+    {
+      "id": 7,
+      "type": "logs",
+      "title": "🟡 Warnings Only",
+      "datasource": "Loki",
+      "gridPos": {"h": 10, "w": 12, "x": 12, "y": 18},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{job=\"pm2\"} | logfmt | level=\"warn\""
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": true,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "dedupStrategy": "none",
+        "sortOrder": "Descending"
+      }
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "📈 Log Rate by Level",
+      "datasource": "Loki",
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 28},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate({job=\"pm2\"} | logfmt | level=\"error\" [$__interval]))",
+          "legendFormat": "🔴 Errors/sec"
+        },
+        {
+          "refId": "B",
+          "expr": "sum(rate({job=\"pm2\"} | logfmt | level=\"warn\" [$__interval]))",
+          "legendFormat": "🟡 Warn/sec"
+        },
+        {
+          "refId": "C",
+          "expr": "sum(rate({job=\"pm2\"} | logfmt | level=\"info\" [$__interval]))",
+          "legendFormat": "🟢 Info/sec"
+        },
+        {
+          "refId": "D",
+          "expr": "sum(rate({job=\"pm2\"} [$__interval]))",
+          "legendFormat": "📊 Total/sec"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
           "custom": {
             "drawStyle": "line",
             "lineInterpolation": "smooth",
             "fillOpacity": 20,
             "showPoints": "auto"
-          },
-          "color": {"mode": "palette-classic"},
-          "mappings": []
+          }
         },
         "overrides": [
           {
-            "matcher": {"id": "byName", "options": "ERROR"},
+            "matcher": {"id": "byName", "options": "🔴 Errors/sec"},
             "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "red"}}]
           },
           {
-            "matcher": {"id": "byName", "options": "WARN"},
+            "matcher": {"id": "byName", "options": "🟡 Warn/sec"},
             "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "yellow"}}]
           },
           {
-            "matcher": {"id": "byName", "options": "INFO"},
+            "matcher": {"id": "byName", "options": "🟢 Info/sec"},
             "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "green"}}]
           },
           {
-            "matcher": {"id": "byName", "options": "DEBUG"},
+            "matcher": {"id": "byName", "options": "📊 Total/sec"},
             "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "blue"}}]
           }
         ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": ["last"]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
       }
     }
-  ],
-  "refresh": "10s",
-  "schemaVersion": 30,
-  "style": "dark",
-  "tags": ["loki", "logs", "colored", "rectbot"],
-  "templating": {
-    "list": [
-      {
-        "current": {
-          "selected": false,
-          "text": "5m",
-          "value": "5m"
-        },
-        "hide": 0,
-        "includeAll": false,
-        "label": "Time Range",
-        "multi": false,
-        "name": "time_range",
-        "options": [
-          {"selected": false, "text": "1m", "value": "1m"},
-          {"selected": true, "text": "5m", "value": "5m"},
-          {"selected": false, "text": "15m", "value": "15m"},
-          {"selected": false, "text": "1h", "value": "1h"}
-        ],
-        "query": "1m,5m,15m,1h",
-        "queryValue": "",
-        "skipUrlSync": false,
-        "type": "custom"
-      }
-    ]
-  },
-  "time": {"from": "now-30m", "to": "now"},
-  "timepicker": {
-    "refresh_intervals": ["5s", "10s", "30s", "1m", "5m"]
-  },
-  "timezone": "browser",
-  "title": "🎨 Colored Logs Dashboard",
-  "uid": "colored-logs-dashboard",
-  "version": 1
+  ]
 }

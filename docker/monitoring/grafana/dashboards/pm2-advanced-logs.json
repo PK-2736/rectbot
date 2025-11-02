@@ -1,0 +1,296 @@
+{
+  "title": "🎨 PM2 Logs - Advanced Color View",
+  "uid": "pm2-colored-advanced",
+  "tags": ["logs", "pm2", "colored", "advanced"],
+  "timezone": "browser",
+  "editable": true,
+  "refresh": "5s",
+  "schemaVersion": 36,
+  "version": 1,
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "logs",
+      "title": "🎨 All PM2 Logs with Color Indicators",
+      "description": "Logs colored by level: 🔴 Error, 🟡 Warn, 🟢 Info, 🔵 Debug",
+      "datasource": "Loki",
+      "gridPos": {"h": 16, "w": 24, "x": 0, "y": 0},
+      "targets": [
+        {
+          "expr": "{job=\"pm2\"} | line_format \"{{if or (contains .line \\\"error\\\") (contains .line \\\"Error\\\") (contains .line \\\"ERROR\\\") (contains .line \\\"level=error\\\")}}🔴 {{else if or (contains .line \\\"warn\\\") (contains .line \\\"Warn\\\") (contains .line \\\"WARN\\\") (contains .line \\\"level=warn\\\")}}🟡 {{else if or (contains .line \\\"info\\\") (contains .line \\\"Info\\\") (contains .line \\\"INFO\\\") (contains .line \\\"level=info\\\")}}🟢 {{else if or (contains .line \\\"debug\\\") (contains .line \\\"Debug\\\") (contains .line \\\"DEBUG\\\") (contains .line \\\"level=debug\\\")}}🔵 {{else}}⚪ {{end}}{{.line}}\"",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "dedupStrategy": "none",
+        "sortOrder": "Descending"
+      }
+    },
+    {
+      "id": 2,
+      "type": "bargauge",
+      "title": "📊 Log Distribution by Level (Last 5min)",
+      "datasource": "Loki",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+      "targets": [
+        {
+          "expr": "sum(count_over_time({job=\"pm2\"} |~ \"(?i)level=error|error\" [5m]))",
+          "refId": "A",
+          "legendFormat": "🔴 Errors"
+        },
+        {
+          "expr": "sum(count_over_time({job=\"pm2\"} |~ \"(?i)level=warn|warn\" [5m]))",
+          "refId": "B",
+          "legendFormat": "🟡 Warnings"
+        },
+        {
+          "expr": "sum(count_over_time({job=\"pm2\"} |~ \"(?i)level=info|info\" [5m]))",
+          "refId": "C",
+          "legendFormat": "🟢 Info"
+        },
+        {
+          "expr": "sum(count_over_time({job=\"pm2\"} |~ \"(?i)level=debug|debug\" [5m]))",
+          "refId": "D",
+          "legendFormat": "🔵 Debug"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null}
+            ]
+          },
+          "mappings": [],
+          "max": 100,
+          "min": 0
+        },
+        "overrides": [
+          {
+            "matcher": {"id": "byName", "options": "🔴 Errors"},
+            "properties": [
+              {"id": "color", "value": {"mode": "fixed", "fixedColor": "red"}},
+              {"id": "displayName", "value": "🔴 Errors"}
+            ]
+          },
+          {
+            "matcher": {"id": "byName", "options": "🟡 Warnings"},
+            "properties": [
+              {"id": "color", "value": {"mode": "fixed", "fixedColor": "yellow"}},
+              {"id": "displayName", "value": "🟡 Warnings"}
+            ]
+          },
+          {
+            "matcher": {"id": "byName", "options": "🟢 Info"},
+            "properties": [
+              {"id": "color", "value": {"mode": "fixed", "fixedColor": "green"}},
+              {"id": "displayName", "value": "🟢 Info"}
+            ]
+          },
+          {
+            "matcher": {"id": "byName", "options": "🔵 Debug"},
+            "properties": [
+              {"id": "color", "value": {"mode": "fixed", "fixedColor": "blue"}},
+              {"id": "displayName", "value": "🔵 Debug"}
+            ]
+          }
+        ]
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "showUnfilled": true
+      }
+    },
+    {
+      "id": 3,
+      "type": "piechart",
+      "title": "🥧 Log Level Distribution",
+      "datasource": "Loki",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
+      "targets": [
+        {
+          "expr": "sum(count_over_time({job=\"pm2\"} |~ \"(?i)level=error|error\" [5m]))",
+          "refId": "A",
+          "legendFormat": "🔴 Errors"
+        },
+        {
+          "expr": "sum(count_over_time({job=\"pm2\"} |~ \"(?i)level=warn|warn\" [5m]))",
+          "refId": "B",
+          "legendFormat": "🟡 Warnings"
+        },
+        {
+          "expr": "sum(count_over_time({job=\"pm2\"} |~ \"(?i)level=info|info\" [5m]))",
+          "refId": "C",
+          "legendFormat": "🟢 Info"
+        },
+        {
+          "expr": "sum(count_over_time({job=\"pm2\"} |~ \"(?i)level=debug|debug\" [5m]))",
+          "refId": "D",
+          "legendFormat": "🔵 Debug"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"}
+        },
+        "overrides": [
+          {
+            "matcher": {"id": "byName", "options": "🔴 Errors"},
+            "properties": [
+              {"id": "color", "value": {"mode": "fixed", "fixedColor": "red"}}
+            ]
+          },
+          {
+            "matcher": {"id": "byName", "options": "🟡 Warnings"},
+            "properties": [
+              {"id": "color", "value": {"mode": "fixed", "fixedColor": "yellow"}}
+            ]
+          },
+          {
+            "matcher": {"id": "byName", "options": "🟢 Info"},
+            "properties": [
+              {"id": "color", "value": {"mode": "fixed", "fixedColor": "green"}}
+            ]
+          },
+          {
+            "matcher": {"id": "byName", "options": "🔵 Debug"},
+            "properties": [
+              {"id": "color", "value": {"mode": "fixed", "fixedColor": "blue"}}
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "values": ["value", "percent"]
+        },
+        "pieType": "pie",
+        "tooltip": {"mode": "single"}
+      }
+    },
+    {
+      "id": 4,
+      "type": "logs",
+      "title": "🔴 Critical Errors & Exceptions",
+      "datasource": "Loki",
+      "gridPos": {"h": 10, "w": 12, "x": 0, "y": 24},
+      "targets": [
+        {
+          "expr": "{job=\"pm2\"} |~ \"(?i)error|exception|fatal|failed\"",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": true,
+        "wrapLogMessage": true,
+        "enableLogDetails": true,
+        "sortOrder": "Descending"
+      }
+    },
+    {
+      "id": 5,
+      "type": "logs",
+      "title": "🟡 Warnings & Alerts",
+      "datasource": "Loki",
+      "gridPos": {"h": 10, "w": 12, "x": 12, "y": 24},
+      "targets": [
+        {
+          "expr": "{job=\"pm2\"} |~ \"(?i)warn|warning|alert\"",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": true,
+        "wrapLogMessage": true,
+        "enableLogDetails": true,
+        "sortOrder": "Descending"
+      }
+    },
+    {
+      "id": 6,
+      "type": "table",
+      "title": "📋 Log Summary Table (Last 5min)",
+      "datasource": "Loki",
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 34},
+      "targets": [
+        {
+          "expr": "sum(count_over_time({job=\"pm2\"} |~ \"(?i)error\" [5m]))",
+          "refId": "A",
+          "legendFormat": "Errors",
+          "instant": true
+        },
+        {
+          "expr": "sum(count_over_time({job=\"pm2\"} |~ \"(?i)warn\" [5m]))",
+          "refId": "B",
+          "legendFormat": "Warnings",
+          "instant": true
+        },
+        {
+          "expr": "sum(count_over_time({job=\"pm2\"} |~ \"(?i)info\" [5m]))",
+          "refId": "C",
+          "legendFormat": "Info",
+          "instant": true
+        },
+        {
+          "expr": "sum(count_over_time({job=\"pm2\"} [5m]))",
+          "refId": "D",
+          "legendFormat": "Total",
+          "instant": true
+        }
+      ],
+      "transformations": [
+        {
+          "id": "seriesToColumns",
+          "options": {}
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "center",
+            "displayMode": "color-background"
+          },
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 10},
+              {"color": "red", "value": 50}
+            ]
+          }
+        }
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": []
+      }
+    }
+  ],
+  "timepicker": {
+    "refresh_intervals": ["5s", "10s", "30s", "1m", "5m"]
+  },
+  "annotations": {
+    "list": []
+  },
+  "templating": {
+    "list": []
+  }
+}
