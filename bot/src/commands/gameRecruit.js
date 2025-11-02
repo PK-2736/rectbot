@@ -640,15 +640,6 @@ module.exports = {
 
   await interaction.showModal(modal);
   console.log('[gameRecruit.execute] showModal called successfully for', interaction.user?.id);
-    // --- 実行時点でギルド単位クールダウンをセット（除外ギルド以外） ---
-    try {
-      const { setCooldown } = require('../utils/db');
-      if (!EXEMPT_GUILD_IDS.has(String(interaction.guildId))) {
-        await setCooldown(`rect:${interaction.guildId}`, 120);
-      }
-    } catch (e) {
-      console.warn('[rect cooldown set at execute] failed:', e?.message || e);
-    }
     } catch (error) {
       console.error('Modal display error:', error);
       if (!interaction.replied && !interaction.deferred) {
@@ -667,7 +658,7 @@ module.exports = {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral }); // 3秒ルールを厳守
     console.log('[handleModalSubmit] started for guild:', interaction.guildId, 'user:', interaction.user?.id);
       const EXEMPT_GUILD_IDS = new Set(['802345513495822336', '1414530004657766422']);
-      const { listRecruitsFromRedis, saveRecruitmentData, getCooldownRemaining } = require('../utils/db');
+      const { listRecruitsFromRedis, saveRecruitmentData, getCooldownRemaining, setCooldown } = require('../utils/db');
       // ギルド2分クールダウン（重複防止の本チェック）
       try {
         if (!EXEMPT_GUILD_IDS.has(String(interaction.guildId))) {
@@ -991,7 +982,14 @@ module.exports = {
             console.error('自動締切処理でエラー:', error);
           }
         }, 8 * 60 * 60 * 1000);
-        // クールダウンはコマンド実行時に既にセットされているため、ここでは再設定しない
+        // --- 募集メッセージ送信が完了した時点でクールダウンを開始（除外ギルド以外） ---
+        try {
+          if (!EXEMPT_GUILD_IDS.has(String(interaction.guildId))) {
+            await setCooldown(`rect:${interaction.guildId}`, 60);
+          }
+        } catch (e) {
+          console.warn('[rect cooldown set at submit] failed:', e?.message || e);
+        }
         // === 募集状況をAPI経由で保存 ===
         // Redis専用のためAPI保存は省略
       } catch (error) {
