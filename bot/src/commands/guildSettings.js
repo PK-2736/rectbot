@@ -17,12 +17,13 @@ module.exports = {
   data: new SlashCommandBuilder()
     .setName('setting')
     .setDescription('募集設定を管理します（/setting）')
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .setDMPermission(false),
 
   async execute(interaction) {
     try {
       // 権限チェック
-      if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
+      if (!interaction.guild || !interaction.member || !interaction.member.permissions?.has(PermissionFlagsBits.Administrator)) {
         return await safeReply(interaction, {
           content: '❌ この機能を使用するには「管理者」権限が必要です。',
           flags: MessageFlags.Ephemeral
@@ -200,6 +201,13 @@ module.exports = {
     const { customId } = interaction;
 
     try {
+      // 二重ガード: ボタン操作も管理者のみ
+      if (!interaction.guild || !interaction.member || !interaction.member.permissions?.has(PermissionFlagsBits.Administrator)) {
+        return await safeReply(interaction, {
+          content: '❌ この操作を実行するには「管理者」権限が必要です。',
+          flags: MessageFlags.Ephemeral
+        });
+      }
       console.log(`[guildSettings] handleButtonInteraction called - customId: ${customId}`);
       switch (customId) {
         case 'set_recruit_channel':
@@ -313,6 +321,13 @@ module.exports = {
     console.log(`[guildSettings] handleSelectMenuInteraction called - customId: ${customId}, values:`, values);
 
     try {
+      // 二重ガード: セレクト操作も管理者のみ
+      if (!interaction.guild || !interaction.member || !interaction.member.permissions?.has(PermissionFlagsBits.Administrator)) {
+        return await safeReply(interaction, {
+          content: '❌ この操作を実行するには「管理者」権限が必要です。',
+          flags: MessageFlags.Ephemeral
+        });
+      }
       if (customId.startsWith('channel_select_')) {
         const settingType = customId.replace('channel_select_', '');
         const channelId = values[0];
@@ -341,6 +356,13 @@ module.exports = {
     const { customId } = interaction;
 
     try {
+      // 二重ガード: モーダル送信も管理者のみ
+      if (!interaction.guild || !interaction.member || !interaction.member.permissions?.has(PermissionFlagsBits.Administrator)) {
+        return await safeReply(interaction, {
+          content: '❌ この操作を実行するには「管理者」権限が必要です。',
+          flags: MessageFlags.Ephemeral
+        });
+      }
       if (customId === 'default_title_modal') {
         const title = interaction.fields.getTextInputValue('default_title');
         await this.updateGuildSetting(interaction, 'defaultTitle', title);
@@ -370,6 +392,13 @@ module.exports = {
 
   async updateGuildSetting(interaction, settingKey, value) {
     try {
+      // 二重ガード
+      if (!interaction.guild || !interaction.member || !interaction.member.permissions?.has(PermissionFlagsBits.Administrator)) {
+        return await safeReply(interaction, {
+          content: '❌ この操作を実行するには「管理者」権限が必要です。',
+          flags: MessageFlags.Ephemeral
+        });
+      }
       const guildId = interaction.guildId;
       
       console.log(`[guildSettings] updateGuildSetting - guildId: ${guildId}, settingKey: ${settingKey}, value: ${value}`);
@@ -417,6 +446,13 @@ module.exports = {
 
   async finalizeSettings(interaction) {
     try {
+      // 二重ガード
+      if (!interaction.guild || !interaction.member || !interaction.member.permissions?.has(PermissionFlagsBits.Administrator)) {
+        return await safeReply(interaction, {
+          content: '❌ この操作を実行するには「管理者」権限が必要です。',
+          flags: MessageFlags.Ephemeral
+        });
+      }
       const guildId = interaction.guildId;
       
       console.log(`[guildSettings] 設定を最終保存中 - guildId: ${guildId}`);
@@ -470,6 +506,13 @@ module.exports = {
 
   async resetAllSettings(interaction) {
     try {
+      // 二重ガード
+      if (!interaction.guild || !interaction.member || !interaction.member.permissions?.has(PermissionFlagsBits.Administrator)) {
+        return await safeReply(interaction, {
+          content: '❌ この操作を実行するには「管理者」権限が必要です。',
+          flags: MessageFlags.Ephemeral
+        });
+      }
       const guildId = interaction.guildId;
       
       // Redisの設定をリセット
