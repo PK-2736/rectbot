@@ -26,3 +26,33 @@ scrape_configs:
     static_configs:
       - targets: ['loki:3100']
     metrics_path: /metrics
+
+  # Scrape Cloudflare Workers backend metrics (via public API)
+  - job_name: 'cloudflare-backend'
+    scrape_interval: 30s
+    metrics_path: /metrics
+    scheme: https
+    static_configs:
+      - targets: ['api.recrubo.net']
+    tls_config:
+      insecure_skip_verify: false
+
+  # Scrape Node Exporter for host system metrics
+  - job_name: 'node-exporter'
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['node-exporter:9100']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'oci-server'
+
+  # Scrape cAdvisor for container metrics
+  - job_name: 'cadvisor'
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['cadvisor:8080']
+    metric_relabel_configs:
+      # コンテナ名を見やすくする
+      - source_labels: [name]
+        target_label: container_name
