@@ -103,6 +103,26 @@ export default {
       return jsonResponse({ ok: true, name: 'recrubo-api' }, 200, cors);
     }
 
+    // storage selection (moved up before metrics endpoints)
+    let store;
+    if (env.RECRUITS_DO && typeof env.RECRUITS_DO.get === 'function') {
+      // If a DO binding exists, delegate to its id/stub; for now call the DO stub endpoints
+      const id = env.RECRUITS_DO.idFromName('global');
+      const stub = env.RECRUITS_DO.get(id);
+      const forwardToDO = async (path, method = 'GET', body = null, headers = {}) => {
+        const req = new Request(new URL(path, request.url).toString(), {
+          method,
+          headers: { 'content-type': 'application/json', ...headers },
+          body: body ? JSON.stringify(body) : undefined
+        });
+        return stub.fetch(req);
+      };
+      store = { forwardToDO };
+    } else {
+      if (!globalThis.__RECRUIT_STORE) globalThis.__RECRUIT_STORE = createInMemoryStore();
+      store = globalThis.__RECRUIT_STORE;
+    }
+
     // Prometheus metrics endpoint for Grafana
     if (url.pathname === '/metrics' && request.method === 'GET') {
       try {
@@ -142,7 +162,7 @@ export default {
       }
     }
 
-    // JSON endpoint for Grafana JSON datasource plugin
+    // JSON endpoint for Grafana JSON datasource plugin (public endpoint, no auth required)
     if (url.pathname === '/api/grafana/recruits' && request.method === 'POST') {
       try {
         let items = [];
@@ -178,26 +198,6 @@ export default {
       } catch (e) {
         return jsonResponse({ ok: false, error: e.message }, 500, cors);
       }
-    }
-
-    // storage selection
-    let store;
-    if (env.RECRUITS_DO && typeof env.RECRUITS_DO.get === 'function') {
-      // If a DO binding exists, delegate to its id/stub; for now call the DO stub endpoints
-      const id = env.RECRUITS_DO.idFromName('global');
-      const stub = env.RECRUITS_DO.get(id);
-      const forwardToDO = async (path, method = 'GET', body = null, headers = {}) => {
-        const req = new Request(new URL(path, request.url).toString(), {
-          method,
-          headers: { 'content-type': 'application/json', ...headers },
-          body: body ? JSON.stringify(body) : undefined
-        });
-        return stub.fetch(req);
-      };
-      store = { forwardToDO };
-    } else {
-      if (!globalThis.__RECRUIT_STORE) globalThis.__RECRUIT_STORE = createInMemoryStore();
-      store = globalThis.__RECRUIT_STORE;
     }
 
     // Backwards compatibility redirects (legacy /api/recruitment -> /api/recruitments)

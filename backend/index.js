@@ -916,7 +916,7 @@ export default {
     const SERVICE_TOKEN = env.SERVICE_TOKEN || '';
     const isApiPath = url.pathname.startsWith('/api');
   // Paths that do not require SERVICE_TOKEN header (public endpoints)
-  const skipTokenPaths = ['/api/test', '/api/discord/callback', '/api/dashboard', '/api/support'];
+  const skipTokenPaths = ['/api/test', '/api/discord/callback', '/api/dashboard', '/api/support', '/metrics', '/api/grafana/recruits'];
     const requiresAuth = isApiPath && !skipTokenPaths.some(path => url.pathname.startsWith(path));
     
     if (requiresAuth && SERVICE_TOKEN) {
@@ -976,6 +976,98 @@ export default {
         serviceRoleKeyConfigured: !!env.SUPABASE_SERVICE_ROLE_KEY,
         timestamp: new Date().toISOString()
       }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    // Prometheus metrics endpoint for Grafana
+    if (url.pathname === '/metrics' && request.method === 'GET') {
+      try {
+        const id = env.RECRUITS_DO.idFromName('global');
+        const stub = env.RECRUITS_DO.get(id);
+        const listReq = new Request(new URL('/api/recruits', request.url).toString(), {
+          method: 'GET',
+          headers: { 'content-type': 'application/json' }
+        });
+        const resp = await stub.fetch(listReq);
+        const data = await resp.json();
+        const items = data.items || [];
+        
+        const now = Date.now();
+        const activeRecruits = items.filter(r => {
+          const exp = r.expiresAt ? new Date(r.expiresAt).getTime() : Infinity;
+          return exp > now && r.status === 'recruiting';
+        });
+        
+        const metrics = [
+          `# HELP recruits_total Total number of recruitment posts`,
+          `# TYPE recruits_total gauge`,
+          `recruits_total ${items.length}`,
+          `# HELP recruits_active Active recruitment posts`,
+          `# TYPE recruits_active gauge`,
+          `recruits_active ${activeRecruits.length}`,
+          `# HELP recruits_participants_total Total participants across all recruits`,
+          `# TYPE recruits_participants_total gauge`,
+          `recruits_participants_total ${items.reduce((sum, r) => sum + (r.participants?.length || 0), 0)}`
+        ].join('\n');
+        
+        return new Response(metrics, {
+          status: 200,
+          headers: { 'content-type': 'text/plain; version=0.0.4', ...corsHeaders }
+        });
+      } catch (e) {
+        console.error('[Metrics] Error:', e);
+        return new Response('# Error generating metrics\n', {
+          status: 500,
+          headers: { 'content-type': 'text/plain; version=0.0.4', ...corsHeaders }
+        });
+      }
+    }
+
+    // JSON endpoint for Grafana JSON datasource plugin
+    if (url.pathname === '/api/grafana/recruits' && request.method === 'POST') {
+      try {
+        const id = env.RECRUITS_DO.idFromName('global');
+        const stub = env.RECRUITS_DO.get(id);
+        const listReq = new Request(new URL('/api/recruits', request.url).toString(), {
+          method: 'GET',
+          headers: { 'content-type': 'application/json' }
+        });
+        const resp = await stub.fetch(listReq);
+        const data = await resp.json();
+        const items = data.items || [];
+        
+        const now = Date.now();
+        const activeRecruits = items.filter(r => {
+          const exp = r.expiresAt ? new Date(r.expiresAt).getTime() : Infinity;
+          return exp > now && r.status === 'recruiting';
+        });
+        
+        // Format for Grafana JSON datasource
+        const formatted = activeRecruits.map(r => ({
+          id: r.recruitId || r.id,
+          title: r.title,
+          game: r.game,
+          platform: r.platform,
+          ownerId: r.ownerId,
+          currentMembers: r.participants?.length || 0,
+          maxMembers: r.maxMembers || 0,
+          voice: r.voice,
+          status: r.status,
+          createdAt: r.createdAt,
+          expiresAt: r.expiresAt,
+          startTime: r.startTime
+        }));
+        
+        return new Response(JSON.stringify(formatted), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      } catch (e) {
+        console.error('[Grafana API] Error:', e);
+        return new Response(JSON.stringify({ ok: false, error: e.message }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
     }
 
     // RecruitsDO backed endpoints
