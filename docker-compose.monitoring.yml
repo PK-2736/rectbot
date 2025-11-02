@@ -80,7 +80,8 @@ services:
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
       GF_USERS_ALLOW_SIGN_UP: "false"
       GF_PATHS_PROVISIONING: /etc/grafana/provisioning
-      GF_INSTALL_PLUGINS: marcusolsson-json-datasource
+      GF_INSTALL_PLUGINS: marcusolsson-json-datasource,grafana-sentry-datasource
+      SENTRY_AUTH_TOKEN: ${SENTRY_AUTH_TOKEN}
       # 以下でサーバ設定は環境変数で上書きし、ファイルマウントに依存しない
       GF_SERVER_HTTP_ADDR: 0.0.0.0
       GF_SERVER_HTTP_PORT: 3000
@@ -110,6 +111,47 @@ services:
       - "127.0.0.1:3001:3000"
     networks:
       - monitoring
+
+  node-exporter:
+    image: prom/node-exporter:v1.8.2
+    container_name: node-exporter
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--path.rootfs=/host'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/host:ro,rslave
+    ports:
+      - "127.0.0.1:9100:9100"
+    networks:
+      - monitoring
+    restart: unless-stopped
+    pid: host
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    container_name: cadvisor
+    command:
+      - '--docker_only=true'
+      - '--housekeeping_interval=30s'
+      - '--disable_metrics=accelerator,cpu_topology,disk,diskIO,hugetlb,memory_numa,tcp,udp,percpu,sched,process,resctrl'
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    ports:
+      - "127.0.0.1:8080:8080"
+    networks:
+      - monitoring
+    restart: unless-stopped
+    privileged: true
+    devices:
+      - /dev/kmsg
 
 volumes:
   loki_data:

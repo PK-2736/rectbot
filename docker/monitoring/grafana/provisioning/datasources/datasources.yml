@@ -25,3 +25,15 @@ datasources:
     jsonData:
       maxLines: 1000
       timeout: 60
+
+  - name: Sentry
+    type: grafana-sentry-datasource
+    access: proxy
+    url: https://rectbot.sentry.io
+    isDefault: false
+    version: 1
+    editable: true
+    jsonData:
+      orgSlug: orgaci
+    secureJsonData:
+      authToken: ${SENTRY_AUTH_TOKEN}

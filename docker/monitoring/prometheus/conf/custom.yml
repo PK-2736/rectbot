@@ -33,3 +33,23 @@ scrape_configs:
       - targets: ['api.recrubo.net']
     tls_config:
       insecure_skip_verify: false
+
+  # Scrape Node Exporter for host system metrics
+  - job_name: 'node-exporter'
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['node-exporter:9100']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'oci-server'
+
+  # Scrape cAdvisor for container metrics
+  - job_name: 'cadvisor'
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['cadvisor:8080']
+    metric_relabel_configs:
+      # コンテナ名を見やすくする
+      - source_labels: [name]
+        target_label: container_name
