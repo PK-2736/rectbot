@@ -74,6 +74,7 @@ jobs:
             export SERVICE_TOKEN="'"$SERVICE_TOKEN"'" || true; \
             export DISCORD_BOT_TOKEN="'"$DISCORD_BOT_TOKEN"'" || true; \
             export DISCORD_CLIENT_ID="'"$DISCORD_CLIENT_ID"'" || true; \
+            export CLIENT_ID="'$DISCORD_CLIENT_ID'" || true; \
             export INTERNAL_SECRET="'"$INTERNAL_SECRET"'" || true; \
             export BACKEND_API_URL="'"$BACKEND_API_URL"'" || true; \
             export REDIS_HOST="'"$REDIS_HOST"'" || true; \
