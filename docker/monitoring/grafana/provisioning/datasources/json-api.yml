@@ -2,6 +2,7 @@ apiVersion: 1
 
 datasources:
   - name: Cloudflare-Recruits-API
+    uid: recruits-api
     type: simpod-json-datasource
     access: proxy
     url: https://api.recrubo.net

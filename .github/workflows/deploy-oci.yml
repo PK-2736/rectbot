@@ -5,6 +5,10 @@ on:
       - "main"
     paths:
       - "bot/**"
+      # 監視スタック（Grafana/Loki/Promtail/Prometheus/Pushgateway）関連の変更でもトリガー
+      - "docker-compose.monitoring.yml"
+      - "docker/monitoring/**"
+      - "scripts/deploy-*.sh"
       - "backup_supabase_to_r2.sh"
       - "restore_from_r2.sh"
 
