@@ -57,7 +57,5 @@ pnpm-debug.log*
 *.tmp
 *.lock
 .requirements.txt
-bot/pm2-server.config.js
-bot/ecosystem.config.js
 deploy_worker_with_token.ps1
 node_modules

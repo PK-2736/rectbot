@@ -89,15 +89,15 @@ jobs:
             # Monitoring stack (Grafana/Loki/Promtail/Prometheus/Pushgateway)
             echo "Deploying monitoring stack (docker compose)..."; \
             docker compose -f docker-compose.monitoring.yml pull || true; \
+            docker compose -f docker-compose.monitoring.yml build log-receiver || true; \
               # Exclude pushgateway-proxy to prevent failure when host files are missing
-              docker compose -f docker-compose.monitoring.yml up -d --remove-orphans loki promtail prometheus grafana node-exporter cadvisor pushgateway; \
+              docker compose -f docker-compose.monitoring.yml up -d --remove-orphans loki promtail log-receiver prometheus grafana node-exporter cadvisor pushgateway; \
             
             # Bot デプロイ（ディレクトリが存在する場合のみ）
             if [ -d ~/rectbot/bot ]; then \
               cd ~/rectbot/bot || exit 1; \
               node src/deploy-commands.js || true; \
               pm2 restart rectbot --update-env || pm2 start ecosystem.config.js --env production; \
-              pm2 restart rectbot-server --update-env || pm2 start pm2-server.config.js --env production; \
             else \
               echo "Bot directory not found, skipping bot deployment"; \
             fi; \
