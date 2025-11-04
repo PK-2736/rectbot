@@ -97,7 +97,7 @@ jobs:
             if [ -d ~/rectbot/bot ]; then \
               cd ~/rectbot/bot || exit 1; \
               node src/deploy-commands.js || true; \
-              pm2 restart rectbot --update-env || pm2 start ecosystem.config.js --env production; \
+              pm2 restart rectbot --update-env || pm2 start pm2-server.config.js --env production; \
             else \
               echo "Bot directory not found, skipping bot deployment"; \
             fi; \
