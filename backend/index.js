@@ -114,7 +114,7 @@ export class RecruitsDO {
 
   async loadStore() {
     const store = await this.state.storage.get('recruits');
-    return store || { items: {}, list: [] }; // items: { [id]: data }, list: [id]
+    return store || { items: {}, list: [], history: {} }; // items: { [id]: data }, list: [id], history: { [id]: Array<{ts:number,type:string,snapshot:any}> }
   }
 
   async saveStore(store) {
@@ -124,6 +124,10 @@ export class RecruitsDO {
   // Remove expired entries lazily
   cleanup(store) {
     const now = Date.now();
+    const ttlHours = Number(this.env.RECRUITS_TTL_HOURS || 8);
+    const closedRetentionHours = Number(this.env.RECRUITS_CLOSED_RETENTION_HOURS || 5);
+    const ttlMs = ttlHours * 3600 * 1000;
+    const closedMs = closedRetentionHours * 3600 * 1000;
     const toDelete = [];
     for (const id of Object.keys(store.items)) {
       const rec = store.items[id];
@@ -139,6 +143,32 @@ export class RecruitsDO {
         if (idx >= 0) store.list.splice(idx, 1);
       }
     }
+
+    // prune history
+    store.history = store.history || {};
+    for (const [id, events] of Object.entries(store.history)) {
+      const arr = Array.isArray(events) ? events : [];
+      const pruned = arr.filter((ev) => {
+        const snap = ev && ev.snapshot ? ev.snapshot : null;
+        const status = String(snap?.status || 'recruiting');
+        const keepWindow = status === 'recruiting' ? ttlMs : closedMs;
+        return ev.ts && (now - ev.ts) <= keepWindow;
+      });
+      if (pruned.length) {
+        store.history[id] = pruned;
+      } else {
+        delete store.history[id];
+      }
+    }
+  }
+
+  addHistory(store, id, type, snapshot) {
+    store.history = store.history || {};
+    const arr = store.history[id] || [];
+    arr.push({ ts: Date.now(), type, snapshot });
+    // keep last 200 events per id to cap growth
+    if (arr.length > 200) arr.splice(0, arr.length - 200);
+    store.history[id] = arr;
   }
 
   async fetch(request) {
@@ -167,6 +197,19 @@ export class RecruitsDO {
         return new Response(JSON.stringify(rec), { status: 200, headers: { 'Content-Type': 'application/json' } });
       }
 
+      // GET /api/recruits/:id/history?from=iso&to=iso
+      if (method === 'GET' && action === '') {
+        // handled above
+      }
+
+      if (method === 'GET' && action === 'history') {
+        const params = new URL(request.url).searchParams;
+        const fromMs = params.get('from') ? Date.parse(params.get('from')) : 0;
+        const toMs = params.get('to') ? Date.parse(params.get('to')) : Date.now();
+        const events = (store.history?.[id] || []).filter(ev => ev.ts >= fromMs && ev.ts <= toMs);
+        return new Response(JSON.stringify({ id, events }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
+
       if (method === 'PATCH' && !action) {
         const update = await safeReadJson(request);
         const rec = store.items[id];
@@ -191,6 +234,7 @@ export class RecruitsDO {
         } catch (_) {}
 
         store.items[id] = rec;
+        this.addHistory(store, id, 'update', { ...rec });
         await this.saveStore(store);
         return new Response(JSON.stringify({ ok: true, recruit: rec }), { status: 200, headers: { 'Content-Type': 'application/json' } });
       }
@@ -206,6 +250,7 @@ export class RecruitsDO {
         delete store.items[id];
         const idx = store.list.indexOf(id);
         if (idx >= 0) store.list.splice(idx, 1);
+        this.addHistory(store, id, 'delete', { id, deletedAt: new Date().toISOString() });
         await this.saveStore(store);
         return new Response(JSON.stringify({ ok: true, deleted: id }), { status: 200, headers: { 'Content-Type': 'application/json' } });
       }
@@ -260,8 +305,40 @@ export class RecruitsDO {
 
       store.items[recruitId] = rec;
       if (!store.list.includes(recruitId)) store.list.unshift(recruitId);
+      this.addHistory(store, recruitId, 'create', { ...rec });
       await this.saveStore(store);
       return new Response(JSON.stringify({ ok: true, recruitId }), { status: 201, headers: { 'Content-Type': 'application/json' } });
+    }
+
+    // Global history endpoints
+    const urlObj = new URL(request.url);
+    if (method === 'GET' && urlObj.pathname === '/api/recruits-history') {
+      const fromMs = urlObj.searchParams.get('from') ? Date.parse(urlObj.searchParams.get('from')) : 0;
+      const toMs = urlObj.searchParams.get('to') ? Date.parse(urlObj.searchParams.get('to')) : Date.now();
+      const idFilter = urlObj.searchParams.get('id');
+      const out = [];
+      const ids = idFilter ? [idFilter] : Object.keys(store.history || {});
+      for (const id of ids) {
+        const arr = (store.history?.[id] || []).filter(ev => ev.ts >= fromMs && ev.ts <= toMs);
+        for (const ev of arr) out.push({ id, ...ev });
+      }
+      // sort by ts asc
+      out.sort((a,b)=>a.ts-b.ts);
+      return new Response(JSON.stringify({ events: out }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
+
+    if (method === 'GET' && urlObj.pathname === '/api/recruits-at') {
+      const ts = urlObj.searchParams.get('ts') ? Date.parse(urlObj.searchParams.get('ts')) : Date.now();
+      const idFilter = urlObj.searchParams.get('id');
+      const result = [];
+      const ids = idFilter ? [idFilter] : Array.from(new Set([...(store.list||[]), ...Object.keys(store.history||{})]));
+      for (const id of ids) {
+        const arr = (store.history?.[id] || []).filter(ev => ev.ts <= ts);
+        if (!arr.length) continue;
+        const last = arr[arr.length-1];
+        if (last && last.snapshot) result.push(last.snapshot);
+      }
+      return new Response(JSON.stringify({ items: result }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
 
     return new Response(JSON.stringify({ error: 'not_found' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
@@ -1153,7 +1230,12 @@ export default {
 
   // Helper: gate reads from DO only when Grafana accesses (optional)
   const READ_DO_ONLY_FOR_GRAFANA = String(env.RECRUITS_READ_DO_ONLY_FOR_GRAFANA || 'false').toLowerCase() === 'true';
-  const isGrafanaPath = (p) => p === '/metrics' || p === '/api/grafana/recruits';
+    const isGrafanaPath = (p) => (
+      p === '/metrics' ||
+      p === '/api/grafana/recruits' ||
+      p === '/api/grafana/recruits/history' ||
+      p === '/api/grafana/recruits/at'
+    );
 
   // Prometheus metrics endpoint for Grafana
     if (url.pathname === '/metrics' && request.method === 'GET') {
@@ -1260,6 +1342,45 @@ export default {
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
+      }
+    }
+
+    // Grafana: recruitment history (events)
+    if (url.pathname === '/api/grafana/recruits/history' && request.method === 'POST') {
+      try {
+        let body = {};
+        try { body = await request.json(); } catch {}
+        const range = body?.range || {};
+        const toMs = range?.to ? Date.parse(range.to) : Date.now();
+        const fromMs = range?.from ? Date.parse(range.from) : (toMs - 5*3600*1000);
+        const id = env.RECRUITS_DO.idFromName('global');
+        const stub = env.RECRUITS_DO.get(id);
+        const target = new URL(`/api/recruits-history?from=${encodeURIComponent(new Date(fromMs).toISOString())}&to=${encodeURIComponent(new Date(toMs).toISOString())}`, request.url);
+        const resp = await stub.fetch(new Request(target.toString(), { method: 'GET' }));
+        const data = await resp.json();
+        return new Response(JSON.stringify(data?.events || []), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      } catch (e) {
+        console.error('[Grafana history] Error:', e);
+        return new Response(JSON.stringify({ ok: false, error: e.message }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+    }
+
+    // Grafana: as-of snapshot
+    if (url.pathname === '/api/grafana/recruits/at' && request.method === 'POST') {
+      try {
+        let body = {};
+        try { body = await request.json(); } catch {}
+        const range = body?.range || {};
+        const ts = range?.to ? Date.parse(range.to) : Date.now();
+        const id = env.RECRUITS_DO.idFromName('global');
+        const stub = env.RECRUITS_DO.get(id);
+        const target = new URL(`/api/recruits-at?ts=${encodeURIComponent(new Date(ts).toISOString())}`, request.url);
+        const resp = await stub.fetch(new Request(target.toString(), { method: 'GET' }));
+        const data = await resp.json();
+        return new Response(JSON.stringify(data?.items || []), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      } catch (e) {
+        console.error('[Grafana at] Error:', e);
+        return new Response(JSON.stringify({ ok: false, error: e.message }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
     }
 
