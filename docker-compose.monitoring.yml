@@ -121,6 +121,8 @@ services:
 
 
   metabase:
+    profiles:
+      - metabase
     image: metabase/metabase:1.52.2
     container_name: metabase
     environment:
