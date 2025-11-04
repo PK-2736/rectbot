@@ -92,8 +92,9 @@ jobs:
             docker compose -f docker-compose.monitoring.yml build log-receiver || true; \
               # Grafanaを完全に再作成してデータソース設定をリセット（ボリュームも削除）
               echo "Recreating Grafana container and volume to fix datasource conflicts..."; \
-              docker compose -f docker-compose.monitoring.yml rm -sf grafana || true; \
-              docker volume rm rectbot_grafana_data || true; \
+              docker compose -f docker-compose.monitoring.yml stop grafana || true; \
+              docker compose -f docker-compose.monitoring.yml rm -f grafana || true; \
+              docker volume rm $(docker volume ls -q | grep grafana) 2>/dev/null || true; \
               # Exclude pushgateway-proxy to prevent failure when host files are missing
               docker compose -f docker-compose.monitoring.yml up -d --remove-orphans loki promtail log-receiver prometheus grafana node-exporter cadvisor pushgateway; \
             echo "Checking Grafana status..."; \
