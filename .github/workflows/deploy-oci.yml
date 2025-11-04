@@ -56,6 +56,7 @@ jobs:
           DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
           INTERNAL_SECRET: ${{ secrets.INTERNAL_SECRET }}
           BACKEND_API_URL: ${{ secrets.BACKEND_API_URL }}
+          DISCORD_CLIENT_ID: ${{ secrets.DISCORD_CLIENT_ID }}
           REDIS_HOST: ${{ secrets.REDIS_HOST }}
           REDIS_PORT: ${{ secrets.REDIS_PORT }}
           # Monitoring / Grafana secrets
