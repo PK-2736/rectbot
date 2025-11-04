@@ -13,6 +13,14 @@ echo "=========================================="
 echo "デプロイ先: ${OCI_USER}@${OCI_HOST}:${OCI_PATH}"
 echo ""
 
+# スクリプトのディレクトリを取得
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+cd "${PROJECT_ROOT}"
+
+echo "作業ディレクトリ: ${PROJECT_ROOT}"
+echo ""
+
 # 1. データソース設定をコピー
 echo "1️⃣  データソース設定をコピー中..."
 scp docker/monitoring/grafana/provisioning/datasources/datasources.yml \
