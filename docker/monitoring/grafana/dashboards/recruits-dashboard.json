@@ -34,7 +34,7 @@
       "options": { "legend": {"displayMode":"list","placement":"bottom","calcs":["last","mean"]}, "tooltip": {"mode":"multi","sort":"desc"} }
     },
   { "id": 5, "type": "table", "title": "🎮 アクティブ募集一覧", "datasource": {"type":"simpod-json-datasource","uid":"recruits-api"}, "gridPos": {"h":12,"w":24,"x":0,"y":12},
-      "targets": [ { "refId":"A","method":"POST","urlPath":"/api/grafana/recruits","body":"{}" } ],
+      "targets": [ { "refId":"A","method":"POST","urlPath":"/api/grafana/recruits","body":"{}","path":"$" } ],
       "transformations": [ { "id":"organize", "options": { "excludeByName": {}, "indexByName": { "title":0,"game":1,"platform":2,"currentMembers":3,"maxMembers":4,"voice":5,"status":6,"createdAt":7 }, "renameByName": { "title":"タイトル","game":"ゲーム","platform":"プラットフォーム","currentMembers":"現在人数","maxMembers":"最大人数","voice":"VC","status":"ステータス","createdAt":"作成日時" } } } ],
       "fieldConfig": { "defaults": { "custom": {"align":"left","displayMode":"auto","cellOptions":{"type":"auto"}}, "color": {"mode":"thresholds"}, "thresholds": {"mode":"absolute","steps":[{"color":"green"}] } },
         "overrides": [
@@ -46,12 +46,12 @@
       "options": { "showHeader": true, "cellHeight": "lg", "sortBy": [ {"desc": true, "displayName": "作成日時"} ], "footer": {"show": false, "reducer": ["sum"], "fields": ""} }
     },
   { "id": 6, "type": "table", "title": "⏱ 指定時点の募集一覧 (As-Of)", "datasource": {"type":"simpod-json-datasource","uid":"recruits-api"}, "gridPos": {"h":10,"w":24,"x":0,"y":24},
-      "targets": [ { "refId":"A","method":"POST","urlPath":"/api/grafana/recruits/at","body":"{\n  \"range\": {\n    \"from\": \"${__from:date:iso}\",\n    \"to\": \"${__to:date:iso}\"\n  }\n}" } ],
+      "targets": [ { "refId":"A","method":"POST","urlPath":"/api/grafana/recruits/at","body":"{\n  \"range\": {\n    \"from\": \"${__from:date:iso}\",\n    \"to\": \"${__to:date:iso}\"\n  }\n}","path":"$" } ],
       "transformations": [ { "id":"organize", "options": { "indexByName": { "title":0,"game":1,"platform":2,"currentMembers":3,"maxMembers":4,"status":5,"createdAt":6,"closedAt":7 }, "renameByName": { "title":"タイトル","game":"ゲーム","platform":"プラットフォーム","currentMembers":"現在人数","maxMembers":"最大人数","status":"ステータス","createdAt":"作成日時","closedAt":"締め日時" } } } ],
       "options": { "showHeader": true, "cellHeight": "md" }
     },
   { "id": 7, "type": "table", "title": "🕘 変更履歴 (Events)", "datasource": {"type":"simpod-json-datasource","uid":"recruits-api"}, "gridPos": {"h":10,"w":24,"x":0,"y":34},
-      "targets": [ { "refId":"A","method":"POST","urlPath":"/api/grafana/recruits/history","body":"{\n  \"range\": {\n    \"from\": \"${__from:date:iso}\",\n    \"to\": \"${__to:date:iso}\"\n  }\n}" } ],
+      "targets": [ { "refId":"A","method":"POST","urlPath":"/api/grafana/recruits/history","body":"{\n  \"range\": {\n    \"from\": \"${__from:date:iso}\",\n    \"to\": \"${__to:date:iso}\"\n  }\n}","path":"$" } ],
       "transformations": [ { "id":"organize", "options": { "indexByName": { "id":0, "ts":1, "type":2 }, "renameByName": { "id":"募集ID","ts":"時刻","type":"イベント" } } } ],
       "options": { "showHeader": true, "cellHeight": "sm" }
     }

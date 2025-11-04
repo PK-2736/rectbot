@@ -1317,19 +1317,39 @@ export default {
 
         // Format for Grafana JSON datasource
         const formatted = filtered.map(r => ({
+          // core identifiers
           id: r.recruitId || r.id,
+          message_id: r.message_id || r.messageId || null,
+
+          // textual content
           title: r.title,
+          content: r.description || r.content || r.title || null,
+          note: r.note || (r.metadata && r.metadata.note) || null,
+
+          // guild/channel info (when present)
+          guild_id: r.guildId || r.guild_id || null,
+          guild_name: r.guildName || r.guild_name || null,
+          channel_id: r.channelId || r.channel_id || null,
+          channel_name: r.channelName || r.channel_name || null,
+
+          // game/platform/owner
           game: r.game,
           platform: r.platform,
           ownerId: r.ownerId,
-          currentMembers: r.participants?.length || 0,
+
+          // participants / capacity
+          participants_count: r.participants?.length || r.currentParticipants || r.participants_count || 0,
+          currentMembers: r.participants?.length || r.currentMembers || 0,
           maxMembers: r.maxMembers || 0,
+
+          // misc
           voice: r.voice,
           status: r.status,
           createdAt: r.createdAt,
           closedAt: r.closedAt || null,
           expiresAt: r.expiresAt,
-          startTime: r.startTime
+          startTime: r.startTime,
+          start_game_time: r.start_game_time || r.startGameTime || null
         }));
         
         return new Response(JSON.stringify(formatted), {
