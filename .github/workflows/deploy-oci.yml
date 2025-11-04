@@ -86,7 +86,8 @@ jobs:
             # Monitoring stack (Grafana/Loki/Promtail/Prometheus/Pushgateway)
             echo "Deploying monitoring stack (docker compose)..."; \
             docker compose -f docker-compose.monitoring.yml pull || true; \
-            docker compose -f docker-compose.monitoring.yml up -d --remove-orphans; \
+              # Exclude pushgateway-proxy to prevent failure when host files are missing
+              docker compose -f docker-compose.monitoring.yml up -d --remove-orphans loki promtail prometheus grafana node-exporter cadvisor pushgateway; \
             
             # Bot デプロイ
             cd bot || exit 1; \
