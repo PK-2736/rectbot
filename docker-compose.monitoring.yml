@@ -9,6 +9,7 @@ services:
     volumes:
       - ./docker/monitoring/loki-config.yaml:/etc/loki/loki-config.yaml:ro
       - loki_data:/loki
+      - loki_wal:/wal
     ports:
       - "127.0.0.1:3100:3100"
     networks:
@@ -149,6 +150,7 @@ services:
 
 volumes:
   loki_data:
+  loki_wal:
   grafana_data:
   promtail_pos:
   metabase_data:
