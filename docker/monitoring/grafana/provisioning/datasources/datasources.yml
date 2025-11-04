@@ -37,3 +37,14 @@ datasources:
       orgSlug: orgaci
     secureJsonData:
       authToken: ${SENTRY_AUTH_TOKEN}
+
+  - name: Cloudflare-Recruits-API
+    uid: cloudflare-recruits-api
+    type: yesoreyeram-infinity-datasource
+    access: proxy
+    isDefault: false
+    version: 1
+    editable: false
+    jsonData:
+      url: https://api.recrubo.net
+      tlsSkipVerify: false
