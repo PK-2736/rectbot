@@ -92,6 +92,10 @@ jobs:
             docker compose -f docker-compose.monitoring.yml build log-receiver || true; \
               # Exclude pushgateway-proxy to prevent failure when host files are missing
               docker compose -f docker-compose.monitoring.yml up -d --remove-orphans loki promtail log-receiver prometheus grafana node-exporter cadvisor pushgateway; \
+            echo "Checking Grafana status..."; \
+            sleep 5; \
+            docker logs grafana --tail 50 || true; \
+            docker ps --filter "name=grafana" || true; \
             
             # Bot デプロイ（ディレクトリが存在する場合のみ）
             if [ -d ~/rectbot/bot ]; then \
