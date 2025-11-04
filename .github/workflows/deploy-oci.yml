@@ -104,6 +104,18 @@ jobs:
             # Bot デプロイ（ディレクトリが存在する場合のみ）
             if [ -d ~/rectbot/bot ]; then \
               cd ~/rectbot/bot || exit 1; \
+              # 環境変数を.envファイルに書き込む
+              echo "Writing environment variables to .env..."; \
+              cat > .env << EOF
+SERVICE_TOKEN=${SERVICE_TOKEN}
+DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN}
+DISCORD_CLIENT_ID=${DISCORD_CLIENT_ID}
+CLIENT_ID=${CLIENT_ID}
+INTERNAL_SECRET=${INTERNAL_SECRET}
+BACKEND_API_URL=${BACKEND_API_URL}
+REDIS_HOST=${REDIS_HOST}
+REDIS_PORT=${REDIS_PORT}
+EOF
               node src/deploy-commands.js || true; \
               pm2 restart rectbot --update-env || pm2 start pm2-server.config.js --env production; \
             else \
