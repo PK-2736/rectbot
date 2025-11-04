@@ -77,11 +77,13 @@ services:
       GF_USERS_ALLOW_SIGN_UP: "false"
       GF_PATHS_PROVISIONING: /etc/grafana/provisioning
       GF_INSTALL_PLUGINS: marcusolsson-json-datasource,simpod-json-datasource
+      # 以下の2つは grafana.ini をマウントしない代替として設定
+      GF_SERVER_DOMAIN: ${GRAFANA_DOMAIN:-grafana.recrubo.net}
+      GF_SERVER_ROOT_URL: ${GRAFANA_ROOT_URL:-https://grafana.recrubo.net/}
     volumes:
       - grafana_data:/var/lib/grafana
       - ./docker/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./docker/monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
-      - ./docker/monitoring/grafana/grafana.ini:/etc/grafana/grafana.ini:ro
     ports:
       - "127.0.0.1:3000:3000"
     networks:
