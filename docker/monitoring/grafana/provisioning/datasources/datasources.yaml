@@ -1,31 +1,4 @@
+# Deprecated file: kept intentionally empty to avoid conflicting provisioning.
 apiVersion: 1
 
-datasources:
-  - name: Loki
-    type: loki
-    access: proxy
-    url: http://loki:3100
-    isDefault: true
-    editable: false
-
-  - name: Prometheus
-    type: prometheus
-    access: proxy
-    url: http://prometheus:9090
-    editable: false
-
-  - name: Metabase (optional)
-    type: marcusolsson-json-datasource
-    url: https://metabase.recrubo.net/api/card/:id/query
-    basicAuth: false
-    editable: false
-    secureJsonData:
-      bearerToken: $__env{METABASE_API_KEY}
-
-  - name: Sentry (optional)
-    type: marcusolsson-json-datasource
-    url: https://sentry.io/api/0/projects/<org>/<project>/events/
-    basicAuth: false
-    editable: false
-    secureJsonData:
-      bearerToken: $__env{SENTRY_API_KEY}
+datasources: []
