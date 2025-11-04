@@ -2,7 +2,7 @@ apiVersion: 1
 
 datasources:
   - name: Cloudflare-Recruits-API
-    type: marcusolsson-json-datasource
+    type: simpod-json-datasource
     access: proxy
     url: https://api.recrubo.net
     isDefault: false
@@ -11,3 +11,5 @@ datasources:
     jsonData:
       tlsSkipVerify: false
       timeout: 30
+      allowedHosts:
+        - api.recrubo.net

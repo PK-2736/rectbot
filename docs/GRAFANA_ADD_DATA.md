@@ -31,10 +31,11 @@ cat << 'EOF'
   ./scripts/add-test-recruit.sh
 
 または手動でcurl:
-  curl -X POST https://api.recrubo.net/api/recruits \
+   curl -X POST https://api.recrubo.net/api/recruits \
     -H "Content-Type: application/json" \
     -H "Authorization: Bearer $SERVICE_TOKEN" \
     -d '{
+         "recruitId": "test-12345",
       "title": "テスト募集",
       "game": "Apex Legends",
       "platform": "PC",
@@ -83,8 +84,10 @@ Grafanaでの確認方法
    docker compose -f docker-compose.monitoring.yml restart grafana
 
 4. データソースが正しく設定されているか確認
-   Grafana → Configuration → Data Sources
-   → Cloudflare-Recruits-API が存在するか
+   Grafana → Configuration → Data Sources → Cloudflare-Recruits-API
+   - URL: https://api.recrubo.net
+   - Allowed hosts: api.recrubo.net を追加
+   - Save & Test で OK になることを確認
 
 
 注意事項

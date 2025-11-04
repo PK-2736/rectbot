@@ -1,57 +1,59 @@
-  }
-    "timezone": "browser",
-    "schemaVersion": 39,
-    "version": 2,
-    "style": "dark",
-    "refresh": "30s",
-    "time": { "from": "now-6h", "to": "now" },
-    "timepicker": { "refresh_intervals": ["10s", "30s", "1m", "5m"] },
-    "templating": { "list": [] },
-    "annotations": { "list": [] },
-    "panels": [
-      { "id": 1, "type": "stat", "title": "📊 アクティブ募集数", "datasource": "Prometheus", "gridPos": {"h":4,"w":6,"x":0,"y":0},
-        "targets": [ { "refId": "A", "expr": "recruits_active" } ],
-        "fieldConfig": { "defaults": { "color": {"mode":"thresholds"}, "thresholds": { "mode":"absolute", "steps": [ {"color":"red"}, {"color":"yellow","value":1}, {"color":"green","value":3} ] }, "unit":"short" } },
-        "options": { "colorMode":"background","graphMode":"area","justifyMode":"center","orientation":"auto","textMode":"value_and_name" }
-      },
-      { "id": 2, "type": "stat", "title": "👥 総参加者数", "datasource": "Prometheus", "gridPos": {"h":4,"w":6,"x":6,"y":0},
-        "targets": [ { "refId": "A", "expr": "recruits_participants_total" } ],
-        "fieldConfig": { "defaults": { "color": {"mode":"palette-classic"}, "unit":"short" } },
-        "options": { "colorMode":"value","graphMode":"area","justifyMode":"center","orientation":"auto","textMode":"value_and_name" }
-      },
-      { "id": 3, "type": "stat", "title": "📝 総募集投稿数", "datasource": "Prometheus", "gridPos": {"h":4,"w":6,"x":12,"y":0},
-        "targets": [ { "refId": "A", "expr": "recruits_total" } ],
-        "fieldConfig": { "defaults": { "color": {"mode":"palette-classic"}, "unit":"short" } },
-        "options": { "colorMode":"value","graphMode":"area","justifyMode":"center","orientation":"auto","textMode":"value_and_name" }
-      },
-      { "id": 4, "type": "timeseries", "title": "📈 募集数推移", "datasource": "Prometheus", "gridPos": {"h":8,"w":18,"x":0,"y":4},
-        "targets": [ { "refId":"A","expr":"recruits_active","legendFormat":"アクティブ募集" }, { "refId":"B","expr":"recruits_total","legendFormat":"総募集" } ],
-        "fieldConfig": { "defaults": { "color": {"mode":"palette-classic"}, "custom": {"drawStyle":"line","lineInterpolation":"smooth","fillOpacity":20,"showPoints":"auto"}, "unit":"short" },
-          "overrides": [ { "matcher": {"id":"byName","options":"アクティブ募集"}, "properties": [ {"id":"color","value":{"mode":"fixed","fixedColor":"green"}} ] }, { "matcher": {"id":"byName","options":"総募集"}, "properties": [ {"id":"color","value":{"mode":"fixed","fixedColor":"blue"}} ] } ] },
-        "options": { "legend": {"displayMode":"list","placement":"bottom","calcs":["last","mean"]}, "tooltip": {"mode":"multi","sort":"desc"} }
-      },
-      { "id": 5, "type": "table", "title": "🎮 アクティブ募集一覧", "datasource": "Cloudflare-Recruits-API", "gridPos": {"h":12,"w":24,"x":0,"y":12},
-        "targets": [ { "refId":"A","method":"POST","urlPath":"/api/grafana/recruits","body":"{}" } ],
-        "transformations": [ { "id":"organize", "options": { "excludeByName": {}, "indexByName": { "title":0,"game":1,"platform":2,"currentMembers":3,"maxMembers":4,"voice":5,"status":6,"createdAt":7 }, "renameByName": { "title":"タイトル","game":"ゲーム","platform":"プラットフォーム","currentMembers":"現在人数","maxMembers":"最大人数","voice":"VC","status":"ステータス","createdAt":"作成日時" } } } ],
-        "fieldConfig": { "defaults": { "custom": {"align":"left","displayMode":"auto","cellOptions":{"type":"auto"}}, "color": {"mode":"thresholds"}, "thresholds": {"mode":"absolute","steps":[{"color":"green"}] } },
-          "overrides": [
-            { "matcher": {"id":"byName","options":"タイトル"}, "properties": [ {"id":"custom.cellOptions","value":{"type":"color-text"}}, {"id":"color","value":{"mode":"continuous-BlYlRd"}}, {"id":"custom.width","value":300} ] },
-            { "matcher": {"id":"byName","options":"現在人数"}, "properties": [ {"id":"custom.cellOptions","value":{"type":"gauge","mode":"gradient"}}, {"id":"thresholds","value":{"mode":"absolute","steps":[{"color":"red","value":0},{"color":"yellow","value":2},{"color":"green","value":3}]}}, {"id":"custom.width","value":120}, {"id":"min","value":0}, {"id":"max","value":10} ] },
-            { "matcher": {"id":"byName","options":"ゲーム"}, "properties": [ {"id":"custom.width","value":200} ] },
-            { "matcher": {"id":"byName","options":"VC"}, "properties": [ {"id":"custom.cellOptions","value":{"type":"color-text"}}, {"id":"mappings","value":[ {"type":"value","value":"true","options":{"result":{"text":"🎤 あり","color":"green"}} }, {"type":"value","value":"false","options":{"result":{"text":"❌ なし","color":"semi-dark-red"}} } ] }, {"id":"custom.width","value":100} ] }
-          ] },
-        "options": { "showHeader": true, "cellHeight": "lg", "sortBy": [ {"desc": true, "displayName": "作成日時"} ], "footer": {"show": false, "reducer": ["sum"], "fields": ""} }
-      },
-      { "id": 6, "type": "table", "title": "⏱ 指定時点の募集一覧 (As-Of)", "datasource": "Cloudflare-Recruits-API", "gridPos": {"h":10,"w":24,"x":0,"y":24},
-        "targets": [ { "refId":"A","method":"POST","urlPath":"/api/grafana/recruits/at","body":"{\n  \"range\": {\n    \"from\": \"${__from:date:iso}\",\n    \"to\": \"${__to:date:iso}\"\n  }\n}" } ],
-        "transformations": [ { "id":"organize", "options": { "indexByName": { "title":0,"game":1,"platform":2,"currentMembers":3,"maxMembers":4,"status":5,"createdAt":6,"closedAt":7 }, "renameByName": { "title":"タイトル","game":"ゲーム","platform":"プラットフォーム","currentMembers":"現在人数","maxMembers":"最大人数","status":"ステータス","createdAt":"作成日時","closedAt":"締め日時" } } } ],
-        "options": { "showHeader": true, "cellHeight": "md" }
-      },
-      { "id": 7, "type": "table", "title": "🕘 変更履歴 (Events)", "datasource": "Cloudflare-Recruits-API", "gridPos": {"h":10,"w":24,"x":0,"y":34},
-        "targets": [ { "refId":"A","method":"POST","urlPath":"/api/grafana/recruits/history","body":"{\n  \"range\": {\n    \"from\": \"${__from:date:iso}\",\n    \"to\": \"${__to:date:iso}\"\n  }\n}" } ],
-        "transformations": [ { "id":"organize", "options": { "indexByName": { "id":0, "ts":1, "type":2 }, "renameByName": { "id":"募集ID","ts":"時刻","type":"イベント" } } } ],
-        "options": { "showHeader": true, "cellHeight": "sm" }
-      }
-    ]
-  }
-                  "status": 5,
+{
+  "title": "📋 募集状況ダッシュボード",
+  "uid": "recruits-dashboard",
+  "tags": ["recruits", "cloudflare", "durable-objects"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "style": "dark",
+  "refresh": "30s",
+  "time": { "from": "now-6h", "to": "now" },
+  "timepicker": { "refresh_intervals": ["10s", "30s", "1m", "5m"] },
+  "templating": { "list": [] },
+  "annotations": { "list": [] },
+  "panels": [
+    { "id": 1, "type": "stat", "title": "📊 アクティブ募集数", "datasource": "Prometheus", "gridPos": {"h":4,"w":6,"x":0,"y":0},
+      "targets": [ { "refId": "A", "expr": "recruits_active" } ],
+      "fieldConfig": { "defaults": { "color": {"mode":"thresholds"}, "thresholds": { "mode":"absolute", "steps": [ {"color":"red"}, {"color":"yellow","value":1}, {"color":"green","value":3} ] }, "unit":"short" } },
+      "options": { "colorMode":"background","graphMode":"area","justifyMode":"center","orientation":"auto","textMode":"value_and_name" }
+    },
+    { "id": 2, "type": "stat", "title": "👥 総参加者数", "datasource": "Prometheus", "gridPos": {"h":4,"w":6,"x":6,"y":0},
+      "targets": [ { "refId": "A", "expr": "recruits_participants_total" } ],
+      "fieldConfig": { "defaults": { "color": {"mode":"palette-classic"}, "unit":"short" } },
+      "options": { "colorMode":"value","graphMode":"area","justifyMode":"center","orientation":"auto","textMode":"value_and_name" }
+    },
+    { "id": 3, "type": "stat", "title": "📝 総募集投稿数", "datasource": "Prometheus", "gridPos": {"h":4,"w":6,"x":12,"y":0},
+      "targets": [ { "refId": "A", "expr": "recruits_total" } ],
+      "fieldConfig": { "defaults": { "color": {"mode":"palette-classic"}, "unit":"short" } },
+      "options": { "colorMode":"value","graphMode":"area","justifyMode":"center","orientation":"auto","textMode":"value_and_name" }
+    },
+    { "id": 4, "type": "timeseries", "title": "📈 募集数推移", "datasource": "Prometheus", "gridPos": {"h":8,"w":18,"x":0,"y":4},
+      "targets": [ { "refId":"A","expr":"recruits_active","legendFormat":"アクティブ募集" }, { "refId":"B","expr":"recruits_total","legendFormat":"総募集" } ],
+      "fieldConfig": { "defaults": { "color": {"mode":"palette-classic"}, "custom": {"drawStyle":"line","lineInterpolation":"smooth","fillOpacity":20,"showPoints":"auto"}, "unit":"short" },
+        "overrides": [ { "matcher": {"id":"byName","options":"アクティブ募集"}, "properties": [ {"id":"color","value":{"mode":"fixed","fixedColor":"green"}} ] }, { "matcher": {"id":"byName","options":"総募集"}, "properties": [ {"id":"color","value":{"mode":"fixed","fixedColor":"blue"}} ] } ] },
+      "options": { "legend": {"displayMode":"list","placement":"bottom","calcs":["last","mean"]}, "tooltip": {"mode":"multi","sort":"desc"} }
+    },
+    { "id": 5, "type": "table", "title": "🎮 アクティブ募集一覧", "datasource": "Cloudflare-Recruits-API", "gridPos": {"h":12,"w":24,"x":0,"y":12},
+      "targets": [ { "refId":"A","method":"POST","urlPath":"/api/grafana/recruits","body":"{}" } ],
+      "transformations": [ { "id":"organize", "options": { "excludeByName": {}, "indexByName": { "title":0,"game":1,"platform":2,"currentMembers":3,"maxMembers":4,"voice":5,"status":6,"createdAt":7 }, "renameByName": { "title":"タイトル","game":"ゲーム","platform":"プラットフォーム","currentMembers":"現在人数","maxMembers":"最大人数","voice":"VC","status":"ステータス","createdAt":"作成日時" } } } ],
+      "fieldConfig": { "defaults": { "custom": {"align":"left","displayMode":"auto","cellOptions":{"type":"auto"}}, "color": {"mode":"thresholds"}, "thresholds": {"mode":"absolute","steps":[{"color":"green"}] } },
+        "overrides": [
+          { "matcher": {"id":"byName","options":"タイトル"}, "properties": [ {"id":"custom.cellOptions","value":{"type":"color-text"}}, {"id":"color","value":{"mode":"continuous-BlYlRd"}}, {"id":"custom.width","value":300} ] },
+          { "matcher": {"id":"byName","options":"現在人数"}, "properties": [ {"id":"custom.cellOptions","value":{"type":"gauge","mode":"gradient"}}, {"id":"thresholds","value":{"mode":"absolute","steps":[{"color":"red","value":0},{"color":"yellow","value":2},{"color":"green","value":3}]}}, {"id":"custom.width","value":120}, {"id":"min","value":0}, {"id":"max","value":10} ] },
+          { "matcher": {"id":"byName","options":"ゲーム"}, "properties": [ {"id":"custom.width","value":200} ] },
+          { "matcher": {"id":"byName","options":"VC"}, "properties": [ {"id":"custom.cellOptions","value":{"type":"color-text"}}, {"id":"mappings","value":[ {"type":"value","value":"true","options":{"result":{"text":"🎤 あり","color":"green"}} }, {"type":"value","value":"false","options":{"result":{"text":"❌ なし","color":"semi-dark-red"}} } ] }, {"id":"custom.width","value":100} ] }
+        ] },
+      "options": { "showHeader": true, "cellHeight": "lg", "sortBy": [ {"desc": true, "displayName": "作成日時"} ], "footer": {"show": false, "reducer": ["sum"], "fields": ""} }
+    },
+    { "id": 6, "type": "table", "title": "⏱ 指定時点の募集一覧 (As-Of)", "datasource": "Cloudflare-Recruits-API", "gridPos": {"h":10,"w":24,"x":0,"y":24},
+      "targets": [ { "refId":"A","method":"POST","urlPath":"/api/grafana/recruits/at","body":"{\n  \"range\": {\n    \"from\": \"${__from:date:iso}\",\n    \"to\": \"${__to:date:iso}\"\n  }\n}" } ],
+      "transformations": [ { "id":"organize", "options": { "indexByName": { "title":0,"game":1,"platform":2,"currentMembers":3,"maxMembers":4,"status":5,"createdAt":6,"closedAt":7 }, "renameByName": { "title":"タイトル","game":"ゲーム","platform":"プラットフォーム","currentMembers":"現在人数","maxMembers":"最大人数","status":"ステータス","createdAt":"作成日時","closedAt":"締め日時" } } } ],
+      "options": { "showHeader": true, "cellHeight": "md" }
+    },
+    { "id": 7, "type": "table", "title": "🕘 変更履歴 (Events)", "datasource": "Cloudflare-Recruits-API", "gridPos": {"h":10,"w":24,"x":0,"y":34},
+      "targets": [ { "refId":"A","method":"POST","urlPath":"/api/grafana/recruits/history","body":"{\n  \"range\": {\n    \"from\": \"${__from:date:iso}\",\n    \"to\": \"${__to:date:iso}\"\n  }\n}" } ],
+      "transformations": [ { "id":"organize", "options": { "indexByName": { "id":0, "ts":1, "type":2 }, "renameByName": { "id":"募集ID","ts":"時刻","type":"イベント" } } } ],
+      "options": { "showHeader": true, "cellHeight": "sm" }
+    }
+  ]
+}

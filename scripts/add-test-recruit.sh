@@ -14,8 +14,12 @@ if [ -z "$SERVICE_TOKEN" ]; then
 fi
 
 # 募集データのサンプル
-RECRUIT_DATA=$(cat << 'EOF'
+# recruitId を自動生成（日時ベース）
+RECRUIT_ID="test-$(date +%Y%m%d%H%M%S)"
+
+RECRUIT_DATA=$(cat << EOF
 {
+  "recruitId": "${RECRUIT_ID}",
   "title": "APEX ランク募集 @1",
   "game": "Apex Legends",
   "platform": "PC",
@@ -24,7 +28,7 @@ RECRUIT_DATA=$(cat << 'EOF'
   "voice": true,
   "status": "recruiting",
   "ownerId": "test-user-123",
-  "startTime": "2025-11-02T20:00:00Z"
+  "startTime": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 }
 EOF
 )
@@ -48,6 +52,13 @@ echo ""
 if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "201" ]; then
     echo "✅ 募集データを追加しました"
     echo "$BODY" | jq .
+  echo ""
+  echo "🔎 確認: /api/grafana/recruits (一覧)"
+  curl -s -X POST "$API_URL/api/grafana/recruits" -H 'Content-Type: application/json' -d '{}' | jq '.[0]'
+  echo ""
+  echo "🔎 確認: /api/grafana/recruits/at (As-Of)"
+  NOW_ISO=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+  curl -s -X POST "$API_URL/api/grafana/recruits/at" -H 'Content-Type: application/json' -d '{"range":{"to":"'"$NOW_ISO"'"}}' | jq '.[0]'
 else
     echo "❌ エラーが発生しました (HTTP $HTTP_CODE)"
     echo "$BODY"
