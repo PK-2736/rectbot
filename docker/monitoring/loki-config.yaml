@@ -10,6 +10,7 @@ ingester:
       kvstore:
         store: inmemory
     final_sleep: 0s
+  chunk_target_size: 1048576
 
 storage_config:
   boltdb_shipper:
@@ -32,5 +33,3 @@ schema_config:
 limits_config:
   enforce_metric_name: false
   max_streams_per_user: 0
-
-chunk_target_size: 1048576
