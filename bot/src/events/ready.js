@@ -24,7 +24,9 @@ module.exports = {
         return;
       }
 
-      // 直近50件からBot自身の同じカスタムIDボタンを含むメッセージを削除
+      // 直近50件からBot自身の同じカスタムIDボタンを含むメッセージを探す。
+      // 見つかったら再送信はせず既存メッセージをそのまま使う（再起動で毎回送信されるのを防ぐ）。
+      let existingMsg = null;
       const messages = await channel.messages.fetch({ limit: 50 });
       for (const msg of messages.values()) {
         if (msg.author.id === client.user.id && msg.components.length > 0) {
@@ -32,7 +34,8 @@ module.exports = {
             row.components.some(btn => btn.customId === buttonCustomId)
           );
           if (hasTargetButton) {
-            await msg.delete().catch(() => {});
+            existingMsg = msg;
+            break;
           }
         }
       }
@@ -50,8 +53,12 @@ module.exports = {
           .setStyle(ButtonStyle.Secondary)
       );
 
-  await channel.send({ embeds: [embed], components: [row] });
-  console.log('[ready.js] ロール付与ボタンメッセージ(Embed)を送信しました');
+      if (!existingMsg) {
+        await channel.send({ embeds: [embed], components: [row] });
+        console.log('[ready.js] ロール付与ボタンメッセージ(Embed)を送信しました');
+      } else {
+        console.log('[ready.js] 既存のロール付与ボタンメッセージが見つかったため再送信をスキップしました');
+      }
     } catch (e) {
       console.error('[ready.js] ロール付与ボタンメッセージ送信エラー:', e);
     }
@@ -65,7 +72,8 @@ module.exports = {
       if (!supportChannel || !supportChannel.isTextBased()) {
         console.error('[ready.js] サポートチャンネルが見つからないかテキストチャンネルではありません');
       } else {
-        // 既存の同一ボタン付きメッセージを掃除
+        // 既存の同一ボタン付きメッセージが既にあるか確認し、あれば再送信をスキップする
+        let existingSupportMsg = null;
         const messages = await supportChannel.messages.fetch({ limit: 50 }).catch(() => null);
         if (messages) {
           for (const msg of messages.values()) {
@@ -74,7 +82,8 @@ module.exports = {
                 row.components.some(btn => btn.customId === SUPPORT_BUTTON_ID)
               );
               if (hasTargetButton) {
-                await msg.delete().catch(() => {});
+                existingSupportMsg = msg;
+                break;
               }
             }
           }
@@ -93,8 +102,12 @@ module.exports = {
             .setStyle(ButtonStyle.Success)
         );
 
-        await supportChannel.send({ embeds: [inviteEmbed], components: [row] });
-        console.log('[ready.js] サポート招待ボタンメッセージを送信しました');
+        if (!existingSupportMsg) {
+          await supportChannel.send({ embeds: [inviteEmbed], components: [row] });
+          console.log('[ready.js] サポート招待ボタンメッセージを送信しました');
+        } else {
+          console.log('[ready.js] 既存のサポート招待ボタンが見つかったため再送信をスキップしました');
+        }
       }
     } catch (e) {
       console.error('[ready.js] サポート招待ボタン設置でエラー:', e);
