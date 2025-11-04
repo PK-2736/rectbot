@@ -1284,6 +1284,12 @@ export default {
     // JSON endpoint for Grafana JSON datasource plugin
     if (url.pathname === '/api/grafana/recruits' && request.method === 'POST') {
       try {
+        // Debug: log incoming headers/body to help diagnose Grafana proxy issues
+        try {
+          const hdrs = {};
+          for (const [k, v] of request.headers.entries()) hdrs[k] = v;
+          console.log('[Grafana API] Incoming headers:', JSON.stringify(hdrs));
+        } catch (e) {}
         const id = env.RECRUITS_DO.idFromName('global');
         const stub = env.RECRUITS_DO.get(id);
         const listReq = new Request(new URL('/api/recruits', request.url).toString(), {
