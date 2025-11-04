@@ -172,10 +172,24 @@ export class RecruitsDO {
         const rec = store.items[id];
         if (!rec) return new Response(JSON.stringify({ error: 'not_found' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
         // update selected fields
-        const allowed = ['title','description','game','platform','status','maxMembers','voice','metadata','expiresAt'];
+        const allowed = ['title','description','game','platform','status','maxMembers','voice','metadata','expiresAt','closedAt'];
         for (const k of allowed) {
           if (k in update) rec[k] = k === 'maxMembers' ? Number(update[k]) : update[k];
         }
+
+        // If status becomes non-recruiting, set closedAt (if missing) and extend expiresAt to retention window
+        try {
+          const closedRetentionHours = Number(this.env.RECRUITS_CLOSED_RETENTION_HOURS || 5);
+          const now = new Date();
+          const wasRecruiting = String(rec.status || 'recruiting') === 'recruiting';
+          const willRecruiting = String(update.status ?? rec.status ?? 'recruiting') === 'recruiting';
+          if (wasRecruiting && !willRecruiting) {
+            if (!rec.closedAt) rec.closedAt = now.toISOString();
+            const exp = new Date(now.getTime() + closedRetentionHours * 3600 * 1000);
+            rec.expiresAt = exp.toISOString();
+          }
+        } catch (_) {}
+
         store.items[id] = rec;
         await this.saveStore(store);
         return new Response(JSON.stringify({ ok: true, recruit: rec }), { status: 200, headers: { 'Content-Type': 'application/json' } });
@@ -1137,7 +1151,11 @@ export default {
       }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    // Prometheus metrics endpoint for Grafana
+  // Helper: gate reads from DO only when Grafana accesses (optional)
+  const READ_DO_ONLY_FOR_GRAFANA = String(env.RECRUITS_READ_DO_ONLY_FOR_GRAFANA || 'false').toLowerCase() === 'true';
+  const isGrafanaPath = (p) => p === '/metrics' || p === '/api/grafana/recruits';
+
+  // Prometheus metrics endpoint for Grafana
     if (url.pathname === '/metrics' && request.method === 'GET') {
       try {
         const id = env.RECRUITS_DO.idFromName('global');
@@ -1193,15 +1211,30 @@ export default {
         const resp = await stub.fetch(listReq);
         const data = await resp.json();
         const items = data.items || [];
-        
-        const now = Date.now();
-        const activeRecruits = items.filter(r => {
-          const exp = r.expiresAt ? new Date(r.expiresAt).getTime() : Infinity;
-          return exp > now && r.status === 'recruiting';
+        // Parse Grafana body (range)
+        let body = {};
+        try { body = await request.json(); } catch {}
+        const range = body?.range || {};
+        const toMs = range?.to ? Date.parse(range.to) : Date.now();
+        const fromMs = range?.from ? Date.parse(range.from) : (toMs - 5*3600*1000);
+
+        const withinRange = (ts) => {
+          const t = ts ? Date.parse(ts) : NaN;
+          return !Number.isNaN(t) && t >= fromMs && t <= toMs;
+        };
+
+        const filtered = items.filter(r => {
+          const now = Date.now();
+          const status = String(r.status || 'recruiting');
+          const expMs = r.expiresAt ? Date.parse(r.expiresAt) : Infinity;
+          const isActive = status === 'recruiting' && expMs > now;
+          const isRecentlyClosed = status !== 'recruiting' && (r.closedAt ? withinRange(r.closedAt) : (expMs >= (toMs - 5*3600*1000)));
+          // Include if active in range window or closed recently (<=5h or within provided range)
+          return isActive || isRecentlyClosed || withinRange(r.createdAt);
         });
-        
+
         // Format for Grafana JSON datasource
-        const formatted = activeRecruits.map(r => ({
+        const formatted = filtered.map(r => ({
           id: r.recruitId || r.id,
           title: r.title,
           game: r.game,
@@ -1212,6 +1245,7 @@ export default {
           voice: r.voice,
           status: r.status,
           createdAt: r.createdAt,
+          closedAt: r.closedAt || null,
           expiresAt: r.expiresAt,
           startTime: r.startTime
         }));
@@ -1232,6 +1266,10 @@ export default {
     // RecruitsDO backed endpoints
     if (url.pathname.startsWith('/api/recruits')) {
       try {
+        if (READ_DO_ONLY_FOR_GRAFANA && !isGrafanaPath(url.pathname)) {
+          // 読み取りを制限: 非Grafanaアクセスでは DO を叩かない
+          return new Response(JSON.stringify({ items: [] }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
         const id = env.RECRUITS_DO.idFromName('global');
         const stub = env.RECRUITS_DO.get(id);
         const resp = await stub.fetch(request);
@@ -1358,7 +1396,10 @@ export default {
     // ダッシュボードAPI - 全募集データ取得（認証不要）
     if (url.pathname === "/api/dashboard/recruitment" && request.method === "GET") {
       try {
-        console.log('[GET] dashboard recruitment via DO');
+        console.log('[GET] dashboard recruitment');
+        if (READ_DO_ONLY_FOR_GRAFANA) {
+          return new Response(JSON.stringify({ items: [] }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
         const id = env.RECRUITS_DO.idFromName('global');
         const stub = env.RECRUITS_DO.get(id);
         const resp = await stub.fetch(new Request(new URL('/api/recruits', url).toString(), { method: 'GET' }));
@@ -1414,7 +1455,10 @@ export default {
 
       if (request.method === "GET") {
         try {
-          // まず Redis の一覧キーを見ない運用（単純化）。DO から取得。
+          // まず Redis の一覧キーを見ない運用（単純化）。環境によっては DO 読み取りを制限。
+          if (READ_DO_ONLY_FOR_GRAFANA) {
+            return new Response(JSON.stringify({ items: [] }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+          }
           const idDo = env.RECRUITS_DO.idFromName('global');
           const stub = env.RECRUITS_DO.get(idDo);
           const resp = await stub.fetch(new Request(new URL('/api/recruits', url).toString(), { method: 'GET' }));
@@ -1469,7 +1513,10 @@ export default {
             try { return new Response(res.result, { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }); } catch {}
           }
         }
-        // Fallback to DO
+        // Fallback to DO (optionally disabled)
+        if (READ_DO_ONLY_FOR_GRAFANA) {
+          return new Response(JSON.stringify({ error: 'restricted', message: 'DO read disabled outside Grafana' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
         const idDo = env.RECRUITS_DO.idFromName('global');
         const stub = env.RECRUITS_DO.get(idDo);
         const resp = await stub.fetch(new Request(new URL(`/api/recruits/${encodeURIComponent(rid)}`, url).toString(), { method: 'GET' }));

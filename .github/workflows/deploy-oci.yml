@@ -7,10 +7,6 @@ on:
       - "bot/**"
       - "backup_supabase_to_r2.sh"
       - "restore_from_r2.sh"
-      # Monitoring stack changes should also trigger deploy
-      - "docker-compose.monitoring.yml"
-      - "docker/monitoring/**"
-      - "docs/Monitoring.md"
 
   workflow_dispatch:
 
@@ -61,7 +57,6 @@ jobs:
           # Monitoring / Grafana secrets
           GRAFANA_ADMIN_USER: ${{ secrets.GRAFANA_ADMIN_USER }}
           GRAFANA_ADMIN_PASSWORD: ${{ secrets.GRAFANA_ADMIN_PASSWORD }}
-          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           # Backup 関連の環境変数
           SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
@@ -79,7 +74,6 @@ jobs:
             export REDIS_PORT="'"$REDIS_PORT"'" || true; \
             export GRAFANA_ADMIN_USER="'"$GRAFANA_ADMIN_USER"'" || true; \
             export GRAFANA_ADMIN_PASSWORD="'"$GRAFANA_ADMIN_PASSWORD"'" || true; \
-            export SENTRY_AUTH_TOKEN="'"$SENTRY_AUTH_TOKEN"'" || true; \
             source ~/.bashrc || true; \
             source ~/.nvm/nvm.sh || true; \
             cd ~/rectbot || exit 1; \
@@ -87,9 +81,6 @@ jobs:
 
             # Monitoring stack (Grafana/Loki/Promtail/Prometheus/Pushgateway)
             echo "Deploying monitoring stack (docker compose)..."; \
-            echo "SENTRY_AUTH_TOKEN='"$SENTRY_AUTH_TOKEN"'" > .env; \
-            echo "GRAFANA_ADMIN_USER='"$GRAFANA_ADMIN_USER"'" >> .env; \
-            echo "GRAFANA_ADMIN_PASSWORD='"$GRAFANA_ADMIN_PASSWORD"'" >> .env; \
             docker compose -f docker-compose.monitoring.yml pull || true; \
             docker compose -f docker-compose.monitoring.yml up -d --remove-orphans; \
             
