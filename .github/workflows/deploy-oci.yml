@@ -89,11 +89,15 @@ jobs:
               # Exclude pushgateway-proxy to prevent failure when host files are missing
               docker compose -f docker-compose.monitoring.yml up -d --remove-orphans loki promtail prometheus grafana node-exporter cadvisor pushgateway; \
             
-            # Bot デプロイ
-            cd ~/rectbot/bot || exit 1; \
-            node src/deploy-commands.js || true; \
-            pm2 restart rectbot --update-env || pm2 start ecosystem.config.js --env production; \
-            pm2 restart rectbot-server --update-env || pm2 start pm2-server.config.js --env production; \
+            # Bot デプロイ（ディレクトリが存在する場合のみ）
+            if [ -d ~/rectbot/bot ]; then \
+              cd ~/rectbot/bot || exit 1; \
+              node src/deploy-commands.js || true; \
+              pm2 restart rectbot --update-env || pm2 start ecosystem.config.js --env production; \
+              pm2 restart rectbot-server --update-env || pm2 start pm2-server.config.js --env production; \
+            else \
+              echo "Bot directory not found, skipping bot deployment"; \
+            fi; \
             
             # バックアップ設定のセットアップ
             cd ~/rectbot || exit 1; \
