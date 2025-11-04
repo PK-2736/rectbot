@@ -6,7 +6,6 @@ datasources:
     uid: prometheus
     access: proxy
     url: http://prometheus:9090
-    isDefault: true
     editable: false
     jsonData:
       timeInterval: 10s
@@ -16,7 +15,6 @@ datasources:
     uid: loki
     access: proxy
     url: http://loki:3100
-    isDefault: false
     editable: false
     jsonData:
       maxLines: 5000
@@ -26,7 +24,6 @@ datasources:
     uid: cloudflare-recruits-api
     access: proxy
     url: https://api.recrubo.net
-    isDefault: false
     editable: false
     jsonData:
       httpMethod: POST
