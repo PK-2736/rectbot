@@ -6,10 +6,17 @@ set -e
 echo "🚀 Grafana Recruits Dashboard - デプロイ"
 echo "=========================================="
 
+# スクリプトのディレクトリを取得
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
+echo "プロジェクトルート: ${PROJECT_ROOT}"
+echo ""
+
 # 1. バックエンドのデプロイ
 echo ""
 echo "1️⃣  バックエンドをデプロイ中..."
-cd backend
+cd "${PROJECT_ROOT}/backend"
 if command -v wrangler &> /dev/null; then
     echo "Cloudflare Wrangler でデプロイ..."
     wrangler deploy --env production 2>&1 || wrangler deploy 2>&1 || echo "⚠️  デプロイに失敗しました。手動で 'cd backend && wrangler deploy' を実行してください。"
@@ -18,12 +25,13 @@ else
     echo "   npm install -g wrangler でインストールしてください"
     exit 1
 fi
-cd ..
+cd "${PROJECT_ROOT}"
 
 # 2. Prometheusの再起動
 echo ""
 echo "2️⃣  Prometheus を再起動中..."
 if docker ps | grep -q prometheus; then
+    cd "${PROJECT_ROOT}"
     docker compose -f docker-compose.monitoring.yml restart prometheus
     echo "✅ Prometheus 再起動完了"
 else
@@ -35,6 +43,7 @@ fi
 echo ""
 echo "3️⃣  Grafana を再起動中..."
 if docker ps | grep -q grafana; then
+    cd "${PROJECT_ROOT}"
     docker compose -f docker-compose.monitoring.yml restart grafana
     echo "✅ Grafana 再起動完了"
     echo "   プラグインのロードに約30秒かかります..."
