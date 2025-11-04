@@ -34,7 +34,12 @@ scrape_configs:
       - match:
           selector: '{container="log-receiver"}'
           stages:
-            - json
+            - json:
+                expressions:
+                  env: env
+                  instance: instance
+                  service: service
+                  level: level
             - labels:
                 env:
                 instance:
