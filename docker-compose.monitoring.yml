@@ -29,6 +29,16 @@ services:
     depends_on:
       - loki
 
+  log-receiver:
+    build: ./docker/monitoring/log-receiver
+    container_name: log-receiver
+    ports:
+      - "18080:8080" # optional: expose for external posting (protect via tunnel/proxy in production)
+    networks:
+      - monitoring
+    depends_on:
+      - promtail
+
   pushgateway:
     image: prom/pushgateway:v1.9.0
     container_name: pushgateway

@@ -22,11 +22,24 @@ scrape_configs:
     relabel_configs:
       - source_labels: ['__meta_docker_container_name']
         target_label: container
+      - source_labels: ['__meta_docker_container_name']
+        regex: '/log-receiver'
+        target_label: job
+        replacement: cloudflare-worker
       - source_labels: ['__meta_docker_container_label_com_docker_swarm_task_name']
         target_label: task
       - source_labels: ['__meta_docker_container_label_io_kubernetes_container_name']
         target_label: k8s_container
-    pipeline_stages: []
+    pipeline_stages:
+      - match:
+          selector: '{container="log-receiver"}'
+          stages:
+            - json
+            - labels:
+                env:
+                instance:
+                service:
+                level:
 
   - job_name: pm2-logs
     static_configs:
