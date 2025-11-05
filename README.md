@@ -9,6 +9,43 @@
 
 ---
 
+## ⚠️ セキュリティ重要事項
+
+### 環境変数とシークレット管理
+
+**絶対に守るべきルール：**
+
+1. **Service Role Key（サービスロールキー）はフロントエンドに含めないでください**
+   - Supabase の Service Role Key は**全権限を持つ**ため、クライアント側のコードには絶対に含めてはいけません
+   - フロントエンドでは必ず `anon` キーを使用してください
+   - Service Role Key は backend（Cloudflare Workers）や bot（Node.js サーバー）の環境変数のみに設定してください
+
+2. **`.env` ファイルは Git にコミットしない**
+   - `.env` ファイルには機密情報が含まれるため、必ず `.gitignore` に追加されていることを確認してください
+   - サンプルとして `.env.example` を用意し、実際の値は含めないでください
+
+3. **環境変数の種類を理解する**
+   ```bash
+   # ✅ フロントエンド（Pages）で使用可能
+   NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1...
+   
+   # ❌ フロントエンドでは絶対に使用しない（バックエンドのみ）
+   SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1...
+   SERVICE_TOKEN=your-secret-token
+   DISCORD_BOT_TOKEN=your-bot-token
+   ```
+
+4. **GitHub Secrets の適切な管理**
+   - CI/CD で使用する機密情報は GitHub Secrets に保存してください
+   - 詳細は `GITHUB_SECRETS_SETUP.md` を参照してください
+
+**参考ドキュメント：**
+- 詳しくは `docs/SETUP_SUPPORT.md` の「環境変数とセキュリティ」セクションを参照
+- Supabase RLS（Row Level Security）の設定も必ず行ってください
+
+---
+
 ## プロジェクト概要
 
 - Discord での募集をdiscord component v2 + 画像生成で円滑に行うbot

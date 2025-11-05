@@ -10,9 +10,13 @@ function parseOrigins(env) {
 
 function corsHeadersFor(origin, env) {
   const allowed = parseOrigins(env);
-  const allow = allowed.includes(origin) ? origin : allowed[0] || '*';
+  // セキュリティ: Access-Control-Allow-Credentials: true と * の併用は禁止
+  // 許可されたOriginのみ明示的に返す。不明なOriginは拒否。
+  if (!origin || !allowed.includes(origin)) {
+    return null; // 不正なOriginの場合はnullを返す
+  }
   return {
-    'Access-Control-Allow-Origin': allow,
+    'Access-Control-Allow-Origin': origin, // 必ず実際のOriginを返す（* は禁止）
     'Access-Control-Allow-Methods': 'GET,POST,DELETE,OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-service-token',
     'Access-Control-Allow-Credentials': 'true'
@@ -94,13 +98,25 @@ export default {
     const origin = request.headers.get('Origin') || '';
     const cors = corsHeadersFor(origin, env);
 
+    // セキュリティ: 不正なOriginからのOPTIONSリクエストは拒否
     if (request.method === 'OPTIONS') {
+      if (!cors) {
+        return new Response('Forbidden', { status: 403 });
+      }
       return new Response(null, { status: 204, headers: cors });
     }
+    
+    // セキュリティ: 不正なOriginからの通常リクエストも拒否（GETは除く）
+    if (!cors && request.method !== 'GET') {
+      return new Response('Forbidden', { status: 403 });
+    }
+    
+    // GETリクエストで不正なOriginの場合はCORSヘッダーなしで応答（後方互換性のため）
+    const safeHeaders = cors || {};
 
     // health
     if (url.pathname === '/ping') {
-      return jsonResponse({ ok: true, name: 'recrubo-api' }, 200, cors);
+      return jsonResponse({ ok: true, name: 'recrubo-api' }, 200, safeHeaders);
     }
 
     // storage selection (moved up before metrics endpoints)
@@ -158,7 +174,7 @@ export default {
           headers: { 'content-type': 'text/plain; version=0.0.4', ...cors }
         });
       } catch (e) {
-        return jsonResponse({ ok: false, error: e.message }, 500, cors);
+        return jsonResponse({ ok: false, error: e.message }, 500, safeHeaders);
       }
     }
 
@@ -194,9 +210,9 @@ export default {
           createdAt: r.createdAt,
           expiresAt: r.expiresAt,
           startTime: r.startTime
-        })), 200, cors);
+        })), 200, safeHeaders);
       } catch (e) {
-        return jsonResponse({ ok: false, error: e.message }, 500, cors);
+        return jsonResponse({ ok: false, error: e.message }, 500, safeHeaders);
       }
     }
 
@@ -222,17 +238,17 @@ export default {
           return new Response(text, { status: res.status, headers: { ...cors, 'content-type': 'application/json; charset=utf-8' }});
         } else {
           const items = await store.listAll();
-          return jsonResponse({ ok: true, items }, 200, cors);
+          return jsonResponse({ ok: true, items }, 200, safeHeaders);
         }
       } catch (e) {
-        return jsonResponse({ ok: false, error: e.message || 'server_error' }, 500, cors);
+        return jsonResponse({ ok: false, error: e.message || 'server_error' }, 500, safeHeaders);
       }
     }
 
     // POST /api/recruitments (create) - requires Service Token
     if (url.pathname === '/api/recruitments' && request.method === 'POST') {
       if (!await verifyServiceToken(request, env)) {
-        return jsonResponse({ ok: false, error: 'unauthorized' }, 401, cors);
+        return jsonResponse({ ok: false, error: 'unauthorized' }, 401, safeHeaders);
       }
       try {
         const body = await request.json();
@@ -242,10 +258,10 @@ export default {
           return new Response(text, { status: res.status, headers: { ...cors, 'content-type': 'application/json; charset=utf-8' }});
         } else {
           const item = await store.create(body);
-          return jsonResponse({ ok: true, recruit: item }, 201, cors);
+          return jsonResponse({ ok: true, recruit: item }, 201, safeHeaders);
         }
       } catch (e) {
-        return jsonResponse({ ok: false, error: e.message || 'server_error' }, 500, cors);
+        return jsonResponse({ ok: false, error: e.message || 'server_error' }, 500, safeHeaders);
       }
     }
 
@@ -259,41 +275,41 @@ export default {
           return new Response(text, { status: res.status, headers: { ...cors, 'content-type': 'application/json; charset=utf-8' }});
         } else {
           const r = await store.get(id);
-          if (!r) return jsonResponse({ ok: false, error: 'not_found' }, 404, cors);
-          return jsonResponse({ ok: true, recruit: r }, 200, cors);
+          if (!r) return jsonResponse({ ok: false, error: 'not_found' }, 404, safeHeaders);
+          return jsonResponse({ ok: true, recruit: r }, 200, safeHeaders);
         }
       } catch (e) {
-        return jsonResponse({ ok: false, error: e.message || 'server_error' }, 500, cors);
+        return jsonResponse({ ok: false, error: e.message || 'server_error' }, 500, safeHeaders);
       }
     }
 
     // POST /api/recruitments/:id/join
     if (url.pathname.match(/^\/api\/recruitments\/[^/]+\/join$/) && request.method === 'POST') {
       if (!await verifyServiceToken(request, env)) {
-        return jsonResponse({ ok: false, error: 'unauthorized' }, 401, cors);
+        return jsonResponse({ ok: false, error: 'unauthorized' }, 401, safeHeaders);
       }
       const id = url.pathname.split('/')[2];
       try {
         const { userId } = await request.json();
-        if (!userId) return jsonResponse({ ok: false, error: 'invalid_user' }, 400, cors);
+        if (!userId) return jsonResponse({ ok: false, error: 'invalid_user' }, 400, safeHeaders);
         if (store.forwardToDO) {
           const res = await store.forwardToDO(`/join/${id}`, 'POST', { userId }, { authorization: request.headers.get('authorization') || '' });
           const text = await res.text();
           return new Response(text, { status: res.status, headers: { ...cors, 'content-type': 'application/json; charset=utf-8' }});
         } else {
           const updated = await store.join(id, userId);
-          return jsonResponse({ ok: true, recruit: updated }, 200, cors);
+          return jsonResponse({ ok: true, recruit: updated }, 200, safeHeaders);
         }
       } catch (err) {
-        if (err.message === 'full') return jsonResponse({ ok: false, error: 'full' }, 409, cors);
-        return jsonResponse({ ok: false, error: err.message || 'server_error' }, 500, cors);
+        if (err.message === 'full') return jsonResponse({ ok: false, error: 'full' }, 409, safeHeaders);
+        return jsonResponse({ ok: false, error: err.message || 'server_error' }, 500, safeHeaders);
       }
     }
 
     // DELETE /api/recruitments/:id
     if (url.pathname.match(/^\/api\/recruitments\/[^/]+$/) && request.method === 'DELETE') {
       if (!await verifyServiceToken(request, env)) {
-        return jsonResponse({ ok: false, error: 'unauthorized' }, 401, cors);
+        return jsonResponse({ ok: false, error: 'unauthorized' }, 401, safeHeaders);
       }
       const id = url.pathname.split('/')[2];
       let requesterId = '';
@@ -308,21 +324,21 @@ export default {
           return new Response(text, { status: res.status, headers: { ...cors, 'content-type': 'application/json; charset=utf-8' }});
         } else {
           await store.delete(id, requesterId);
-          return jsonResponse({ ok: true, status: 'deleted' }, 200, cors);
+          return jsonResponse({ ok: true, status: 'deleted' }, 200, safeHeaders);
         }
       } catch (err) {
-        if (err.message === 'forbidden') return jsonResponse({ ok: false, error: 'forbidden' }, 403, cors);
-        return jsonResponse({ ok: false, error: err.message || 'server_error' }, 500, cors);
+        if (err.message === 'forbidden') return jsonResponse({ ok: false, error: 'forbidden' }, 403, safeHeaders);
+        return jsonResponse({ ok: false, error: err.message || 'server_error' }, 500, safeHeaders);
       }
     }
 
     // POST /api/cleanup (admin stub)
     if (url.pathname === '/api/cleanup' && request.method === 'POST') {
       // TODO: implement admin auth if needed
-      return jsonResponse({ ok: true, cleaned: 0 }, 200, cors);
+      return jsonResponse({ ok: true, cleaned: 0 }, 200, safeHeaders);
     }
 
     // fallback
-    return new Response('Not Found', { status: 404, headers: cors });
+    return new Response('Not Found', { status: 404, headers: safeHeaders });
   }
 };

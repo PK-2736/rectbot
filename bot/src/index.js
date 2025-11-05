@@ -4,21 +4,34 @@ const TOKEN = process.env.DISCORD_BOT_TOKEN;
 const FAILOVER_ENABLED = String(process.env.FAILOVER_ENABLED || 'false').toLowerCase() === 'true';
 const SITE_ID = process.env.SITE_ID || 'oci'; // 'oci' or 'xserver'
 
-const { Client, GatewayIntentBits, ActivityType } = require("discord.js");
+const { Client, GatewayIntentBits, Partials, ActivityType } = require("discord.js");
 const fs = require('fs');
 const path = require('path');
 
 console.log(`[boot] Starting bot. Node: ${process.version}, env: ${process.env.NODE_ENV || 'development'}`);
 console.log(`[boot] CWD: ${process.cwd()}`);
+
+// P0修正: DISCORD_BOT_TOKEN未設定時は即座にプロセスを終了
 if (!TOKEN) {
-  console.error('[config] DISCORD_BOT_TOKEN is not set. Create .env and set DISCORD_BOT_TOKEN=...');
+  console.error('[config] ❌ DISCORD_BOT_TOKEN is not set. Bot cannot start.');
+  console.error('[config] Please create .env file and set DISCORD_BOT_TOKEN=your_token_here');
+  process.exit(1);
 }
 
+// P0修正: Intents/Partials を必要最小限かつ適切に設定
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent
+    GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildMessageReactions, // リアクション機能用
+  ],
+  partials: [
+    Partials.Message,      // 古いメッセージへのリアクション対応
+    Partials.Reaction,     // リアクションのpartial対応
+    Partials.User,         // ユーザー情報のpartial対応
+    Partials.GuildMember,  // メンバー情報のpartial対応
+    Partials.Channel,      // チャンネル情報のpartial対応
   ],
   allowedMentions: {
     parse: ['roles', 'users'],
@@ -269,13 +282,28 @@ async function startLogin() {
 
 async function stopClient() {
   try {
+    console.log('[shutdown] Destroying Discord client...');
     if (client.isReady()) {
       await client.destroy();
+      console.log('[shutdown] Discord client destroyed successfully');
     }
   } catch (e) {
     console.warn('[shutdown] client destroy error:', e?.message || e);
   }
 }
+
+// P0修正: graceful shutdownハンドラー追加
+process.on('SIGINT', async () => {
+  console.log('[signal] Received SIGINT, shutting down gracefully...');
+  await stopClient();
+  process.exit(0);
+});
+
+process.on('SIGTERM', async () => {
+  console.log('[signal] Received SIGTERM, shutting down gracefully...');
+  await stopClient();
+  process.exit(0);
+});
 
 if (!FAILOVER_ENABLED) {
   console.log('[failover] disabled; starting bot normally');
