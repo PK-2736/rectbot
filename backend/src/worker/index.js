@@ -2047,7 +2047,6 @@ export default {
 
         const settings = {
           recruit_channel: data[0].recruit_channel_id,
-          recruit_channels: data[0].recruit_channel_id ? [String(data[0].recruit_channel_id)] : [],
           notification_role: notificationRoles.length > 0 ? notificationRoles[0] : null,
           notification_roles: notificationRoles,
           defaultTitle: data[0].default_title || "参加者募集",

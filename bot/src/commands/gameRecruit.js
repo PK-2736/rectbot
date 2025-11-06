@@ -578,19 +578,13 @@ module.exports = {
       const guildSettings = await getGuildSettings(interaction.guildId);
       console.log('[gameRecruit.execute] guildSettings for', interaction.guildId, ':', guildSettings && { recruit_channel: guildSettings.recruit_channel, defaultTitle: guildSettings.defaultTitle });
 
-      // 募集チャンネルの許可チェック（複数対応）
-      const allowedChannels = (() => {
-        const arr = [];
-        if (Array.isArray(guildSettings.recruit_channels)) arr.push(...guildSettings.recruit_channels.filter(Boolean).map(String));
-        if (guildSettings.recruit_channel) arr.push(String(guildSettings.recruit_channel));
-        return [...new Set(arr)];
-      })();
-      if (allowedChannels.length > 0 && !allowedChannels.includes(String(interaction.channelId))) {
-        console.log('[gameRecruit.execute] blocking create due to channel mismatch. allowed:', allowedChannels, 'current:', interaction.channelId);
-        return await safeReply(interaction, {
-          content: `❌ 募集はこのチャンネルでは実行できません。\n📍 募集許可チャンネル:\n${allowedChannels.map(id => `<#${id}>`).join('\n')}`,
-          flags: MessageFlags.Ephemeral
-        });
+      // 募集チャンネルが設定されている場合、そのチャンネルでのみ実行可能
+      if (guildSettings.recruit_channel && guildSettings.recruit_channel !== interaction.channelId) {
+          console.log('[gameRecruit.execute] blocking create due to channel mismatch. required:', guildSettings.recruit_channel, 'current:', interaction.channelId);
+          return await safeReply(interaction, {
+            content: `❌ 募集はこのチャンネルでは実行できません。\n📍 募集専用チャンネル: <#${guildSettings.recruit_channel}>`,
+            flags: MessageFlags.Ephemeral
+          });
       }
 
       // スラッシュコマンドの色オプション取得

@@ -73,8 +73,6 @@ function normalizeGuildSettingsObject(input) {
   const normalized = { ...(input || {}) };
   const hasRolesArray = Object.prototype.hasOwnProperty.call(normalized, 'notification_roles');
   const hasRoleString = Object.prototype.hasOwnProperty.call(normalized, 'notification_role');
-  const hasChannelsArray = Object.prototype.hasOwnProperty.call(normalized, 'recruit_channels');
-  const hasChannelSingle = Object.prototype.hasOwnProperty.call(normalized, 'recruit_channel');
 
   if (hasRolesArray) {
     const rawArray = Array.isArray(normalized.notification_roles)
@@ -99,28 +97,9 @@ function normalizeGuildSettingsObject(input) {
     normalized.notification_roles = roleId ? [roleId] : [];
   }
 
-  // Normalize recruit channels (support multiple allowed channels)
-  if (hasChannelsArray) {
-    const rawArray = Array.isArray(normalized.recruit_channels)
-      ? normalized.recruit_channels.filter(Boolean).map(String)
-      : [];
-    const uniqueChannels = [...new Set(rawArray)].slice(0, 25);
-    normalized.recruit_channels = uniqueChannels;
-    if (!hasChannelSingle || normalized.recruit_channel === undefined) {
-      normalized.recruit_channel = uniqueChannels.length > 0 ? uniqueChannels[0] : null;
-    } else if (normalized.recruit_channel !== null) {
-      normalized.recruit_channel = String(normalized.recruit_channel);
-      if (uniqueChannels.length === 0 && normalized.recruit_channel) {
-        normalized.recruit_channels = [normalized.recruit_channel];
-      }
-    }
-    if (uniqueChannels.length === 0) {
-      normalized.recruit_channel = null;
-    }
-  } else if (hasChannelSingle) {
-    const chId = normalized.recruit_channel ? String(normalized.recruit_channel) : null;
-    normalized.recruit_channel = chId;
-    normalized.recruit_channels = chId ? [chId] : [];
+  // Multi-channel is not used for now; ensure single recruit_channel remains a string or null
+  if (Object.prototype.hasOwnProperty.call(normalized, 'recruit_channel')) {
+    normalized.recruit_channel = normalized.recruit_channel ? String(normalized.recruit_channel) : null;
   }
 
   return normalized;
@@ -157,7 +136,7 @@ async function finalizeGuildSettings(guildId) {
     
     const url = `${config.BACKEND_API_URL.replace(/\/$/, '')}/api/guild-settings/finalize`;
   const payload = { guildId };
-  const allowedKeys = ['update_channel', 'recruit_channel', 'recruit_channels', 'defaultColor', 'defaultTitle'];
+  const allowedKeys = ['update_channel', 'recruit_channel', 'defaultColor', 'defaultTitle'];
     
     for (const k of allowedKeys) {
       if (settings && Object.prototype.hasOwnProperty.call(settings, k)) {

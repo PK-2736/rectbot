@@ -59,7 +59,7 @@ module.exports = {
       new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
     );
 
-    // 1. 募集チャンネル設定（単一）
+    // 1. 募集チャンネル設定
     const recruitChannelValue = settings.recruit_channel || settings.recruitmentChannelId 
       ? `<#${settings.recruit_channel || settings.recruitmentChannelId}>` 
       : '未設定';
@@ -78,25 +78,7 @@ module.exports = {
         )
     );
 
-    // 1b. 募集チャンネル設定（複数許可）
-    const recruitChannelsArray = Array.isArray(settings.recruit_channels) ? [...new Set(settings.recruit_channels.filter(Boolean).map(String))] : [];
-    const recruitChannelsValue = recruitChannelsArray.length > 0
-      ? recruitChannelsArray.map(id => `<#${id}>`).join('\n')
-      : '未設定';
-
-    container.addSectionComponents(
-      new SectionBuilder()
-        .addTextDisplayComponents(
-          new TextDisplayBuilder()
-            .setContent(`📍 **募集チャンネル（複数許可）**\n${recruitChannelsValue}`)
-        )
-        .setButtonAccessory(
-          new ButtonBuilder()
-            .setCustomId('set_recruit_channels')
-            .setLabel('設定変更')
-            .setStyle(ButtonStyle.Secondary)
-        )
-    );
+    // 複数許可は一旦不採用
 
     // 2. 通知ロール設定
       const notificationRoles = (() => {
@@ -247,9 +229,7 @@ module.exports = {
         case 'set_recruit_channel':
           await this.showChannelSelect(interaction, 'recruit_channel', '📍 募集チャンネルを選択してください');
           break;
-        case 'set_recruit_channels':
-          await this.showChannelSelect(interaction, 'recruit_channels', '📍 募集チャンネル（複数可）を選択してください', true);
-          break;
+        // 複数許可は一旦不採用
         case 'set_notification_role':
           await this.showRoleSelect(interaction, 'notification_roles', '🔔 通知ロールを選択してください');
           break;
@@ -280,14 +260,11 @@ module.exports = {
     }
   },
 
-  async showChannelSelect(interaction, settingType, placeholder, allowMultiple = false) {
+  async showChannelSelect(interaction, settingType, placeholder) {
     const channelSelect = new ChannelSelectMenuBuilder()
       .setCustomId(`channel_select_${settingType}`)
       .setPlaceholder(placeholder)
       .addChannelTypes(ChannelType.GuildText);
-    if (allowMultiple && typeof channelSelect.setMinValues === 'function' && typeof channelSelect.setMaxValues === 'function') {
-      channelSelect.setMinValues(0).setMaxValues(5);
-    }
 
     const actionRow = new ActionRowBuilder().addComponents(channelSelect);
 
@@ -411,16 +388,10 @@ module.exports = {
       }
       if (customId.startsWith('channel_select_')) {
         const settingType = customId.replace('channel_select_', '');
-        // 複数許可の場合は配列、それ以外は単一値
-        if (settingType === 'recruit_channels') {
-          const channelIds = Array.isArray(values) ? values.slice(0, 25).map(String) : [];
-          console.log(`[guildSettings] チャンネル選択(複数) - settingType: ${settingType}, channels:`, channelIds);
-          await this.updateGuildSetting(interaction, settingType, channelIds);
-        } else {
-          const channelId = values[0];
-          console.log(`[guildSettings] チャンネル選択 - settingType: ${settingType}, channelId: ${channelId}`);
-          await this.updateGuildSetting(interaction, settingType, channelId);
-        }
+        const channelId = values[0];
+        
+        console.log(`[guildSettings] チャンネル選択 - settingType: ${settingType}, channelId: ${channelId}`);
+        await this.updateGuildSetting(interaction, settingType, channelId);
       } else if (customId.startsWith('role_select_')) {
         const settingType = customId.replace('role_select_', '');
         const roleIds = Array.isArray(values) ? values : [];
@@ -504,12 +475,6 @@ module.exports = {
         payload = {
           notification_role: roleId,
           notification_roles: roleId ? [roleId] : []
-        };
-      } else if (settingKey === 'recruit_channels') {
-        const uniqueChs = Array.isArray(value) ? [...new Set(value.filter(Boolean).map(String))].slice(0, 25) : [];
-        payload = {
-          recruit_channels: uniqueChs,
-          recruit_channel: uniqueChs.length > 0 ? uniqueChs[0] : null
         };
       }
 
