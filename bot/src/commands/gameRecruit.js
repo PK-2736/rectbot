@@ -301,7 +301,14 @@ async function updateParticipantList(interactionOrMessage, participants, savedRe
     const updatedImage = new AttachmentBuilder(buffer, { name: 'recruit-card.png' });
 
     // コンテナを再構築（共通ヘルパーを利用し、募集主以外は締めボタンを disabled にする）
-    const participantText = `🎯✨ 参加リスト ✨🎯\n${participants.map(id => `<@${id}>`).join(' ')}`;
+    let participantText = `🎯✨ 参加リスト ✨🎯\n${participants.map(id => `<@${id}>`).join(' ')}`;
+    try {
+      const rid = savedRecruitData && (savedRecruitData.notificationRoleId || savedRecruitData.notification_role_id || savedRecruitData.notification_role);
+      const notifRoleId = rid ? String(rid) : null;
+      if (notifRoleId) {
+        participantText += `\n🔔 通知ロール: <@&${notifRoleId}>`;
+      }
+    } catch (_) {}
     let headerTitle = savedRecruitData?.title || '募集';
     try {
       if (savedRecruitData && savedRecruitData.recruiterId && client) {
@@ -571,13 +578,19 @@ module.exports = {
       const guildSettings = await getGuildSettings(interaction.guildId);
       console.log('[gameRecruit.execute] guildSettings for', interaction.guildId, ':', guildSettings && { recruit_channel: guildSettings.recruit_channel, defaultTitle: guildSettings.defaultTitle });
 
-      // 募集チャンネルが設定されている場合、そのチャンネルでのみ実行可能
-      if (guildSettings.recruit_channel && guildSettings.recruit_channel !== interaction.channelId) {
-          console.log('[gameRecruit.execute] blocking create due to channel mismatch. required:', guildSettings.recruit_channel, 'current:', interaction.channelId);
-          return await safeReply(interaction, {
-            content: `❌ 募集はこのチャンネルでは実行できません。\n📍 募集専用チャンネル: <#${guildSettings.recruit_channel}>`,
-            flags: MessageFlags.Ephemeral
-          });
+      // 募集チャンネルの許可チェック（複数対応）
+      const allowedChannels = (() => {
+        const arr = [];
+        if (Array.isArray(guildSettings.recruit_channels)) arr.push(...guildSettings.recruit_channels.filter(Boolean).map(String));
+        if (guildSettings.recruit_channel) arr.push(String(guildSettings.recruit_channel));
+        return [...new Set(arr)];
+      })();
+      if (allowedChannels.length > 0 && !allowedChannels.includes(String(interaction.channelId))) {
+        console.log('[gameRecruit.execute] blocking create due to channel mismatch. allowed:', allowedChannels, 'current:', interaction.channelId);
+        return await safeReply(interaction, {
+          content: `❌ 募集はこのチャンネルでは実行できません。\n📍 募集許可チャンネル:\n${allowedChannels.map(id => `<#${id}>`).join('\n')}`,
+          flags: MessageFlags.Ephemeral
+        });
       }
 
       // スラッシュコマンドの色オプション取得
@@ -588,11 +601,39 @@ module.exports = {
         selectedColor = undefined;
       }
 
+      // スラッシュコマンドの通知ロール（任意）取得とバリデーション
+      const selectedRoleObj = interaction.options.getRole('notification_role');
+      let selectedRoleId = selectedRoleObj ? String(selectedRoleObj.id) : null;
+      if (selectedRoleId) {
+        // ギルド設定上の許可ロール一覧を構築
+        const configuredNotificationRoleIds = (() => {
+          const roles = [];
+          if (Array.isArray(guildSettings.notification_roles)) {
+            roles.push(...guildSettings.notification_roles.filter(Boolean));
+          }
+          if (guildSettings.notification_role) {
+            roles.push(guildSettings.notification_role);
+          }
+          return [...new Set(roles.map(String))].slice(0, 25);
+        })();
+
+        // 設定されていないロールは使用不可
+        if (configuredNotificationRoleIds.length === 0 || !configuredNotificationRoleIds.includes(selectedRoleId)) {
+          await safeReply(interaction, {
+            content: '❌ このロールを付けて募集を実行することはできません。サーバーの「通知ロール」に登録されているロールのみ指定できます。',
+            flags: MessageFlags.Ephemeral,
+            allowedMentions: { roles: [], users: [] }
+          });
+          return;
+        }
+      }
+
       // 色選択値を一時保存（モーダル送信では異なる interaction オブジェクトになるため Map を利用）
       interaction.recruitPanelColor = selectedColor; // 互換性のために残す
       try {
         if (interaction.user && interaction.user.id) {
-          pendingModalOptions.set(interaction.user.id, { panelColor: selectedColor });
+          const prev = pendingModalOptions.get(interaction.user.id) || {};
+          pendingModalOptions.set(interaction.user.id, { ...prev, panelColor: selectedColor, notificationRoleId: selectedRoleId });
         }
       } catch (e) {
         console.warn('pendingModalOptions set failed:', e?.message || e);
@@ -804,7 +845,29 @@ module.exports = {
       const hasValidConfiguredRoles = validNotificationRoles.length > 0;
       let selectedNotificationRole = null;
 
-      if (hasValidConfiguredRoles) {
+      // 事前にスラッシュオプションで指定されていた場合はそれを優先（バリデーション済み）
+      try {
+        const pending = interaction.user && interaction.user.id ? pendingModalOptions.get(interaction.user.id) : null;
+        const preSelected = pending && pending.notificationRoleId ? String(pending.notificationRoleId) : null;
+        if (preSelected) {
+          if (configuredNotificationRoleIds.includes(preSelected)) {
+            selectedNotificationRole = preSelected;
+            // 一度取得したら破棄
+            pendingModalOptions.delete(interaction.user.id);
+          } else {
+            await safeReply(interaction, {
+              content: '❌ 指定された通知ロールは使用できません（設定に含まれていません）。',
+              flags: MessageFlags.Ephemeral,
+              allowedMentions: { roles: [], users: [] }
+            });
+            return;
+          }
+        }
+      } catch (e) {
+        console.warn('pendingModalOptions (notificationRoleId) read failed:', e?.message || e);
+      }
+
+      if (hasValidConfiguredRoles && !selectedNotificationRole) {
         if (validNotificationRoles.length === 1) {
           selectedNotificationRole = validNotificationRoles[0].id;
         } else {
@@ -924,7 +987,10 @@ module.exports = {
       
       // ボタン付きメッセージを投稿（バッファから直接送信）
       const image = new AttachmentBuilder(buffer, { name: 'recruit-card.png' });
-      const participantText = `🎯✨ 参加リスト ✨🎯\n🎮 <@${interaction.user.id}>`;
+      let participantText = `🎯✨ 参加リスト ✨🎯\n🎮 <@${interaction.user.id}>`;
+      if (selectedNotificationRole) {
+        participantText += `\n🔔 通知ロール: <@&${selectedNotificationRole}>`;
+      }
       let panelColorForAccent = panelColor;
       if (typeof panelColorForAccent === 'string' && panelColorForAccent.startsWith('#')) {
         panelColorForAccent = panelColorForAccent.slice(1);

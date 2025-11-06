@@ -3,17 +3,31 @@
 // import jwt from '@tsndr/cloudflare-worker-jwt';
 
 function resolveSupabaseRestUrl(env) {
-  const candidates = [
+  // Prefer project ref derived domain first (safest)
+  const derivedFromRef = env.SUPABASE_PROJECT_REF
+    ? `https://${String(env.SUPABASE_PROJECT_REF).trim()}.supabase.co`
+    : null;
+
+  const rawCandidates = [
     env.SUPABASE_URL,
     env.SUPABASE_REST_URL,
     env.PUBLIC_SUPABASE_URL,
     env.NEXT_PUBLIC_SUPABASE_URL,
     env.VITE_SUPABASE_URL,
-    env.SUPABASE_PROJECT_URL
-  ];
+    env.SUPABASE_PROJECT_URL,
+  ].filter(v => typeof v === 'string' && v.trim() !== '');
 
-  if (env.SUPABASE_PROJECT_REF) {
-    candidates.push(`https://${env.SUPABASE_PROJECT_REF}.supabase.co`);
+  const isSupabaseHost = (u) => {
+    try { return new URL(u).host.endsWith('.supabase.co'); } catch { return false; }
+  };
+
+  const candidates = [];
+  if (derivedFromRef) candidates.push(derivedFromRef);
+  for (const v of rawCandidates) if (isSupabaseHost(v)) candidates.push(v);
+
+  const allowNonSupabase = String(env.ALLOW_NON_SUPABASE_URL || '').toLowerCase() === 'true';
+  if (allowNonSupabase) {
+    for (const v of rawCandidates) if (!isSupabaseHost(v)) candidates.push(v);
   }
 
   for (const value of candidates) {
@@ -2033,6 +2047,7 @@ export default {
 
         const settings = {
           recruit_channel: data[0].recruit_channel_id,
+          recruit_channels: data[0].recruit_channel_id ? [String(data[0].recruit_channel_id)] : [],
           notification_role: notificationRoles.length > 0 ? notificationRoles[0] : null,
           notification_roles: notificationRoles,
           defaultTitle: data[0].default_title || "参加者募集",
