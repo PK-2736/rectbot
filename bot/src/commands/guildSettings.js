@@ -288,23 +288,43 @@ module.exports = {
       return [...new Set(roles.map(String))];
     })();
 
+    const maxValues = Math.min(25, Math.max(1, selectedRoles.length, 5));
+
     const roleSelect = new RoleSelectMenuBuilder()
       .setCustomId(`role_select_${settingType}`)
       .setPlaceholder(placeholder)
       .setMinValues(0)
-      .setMaxValues(Math.max(1, Math.min(25, Math.max(selectedRoles.length, 5))));
+      .setMaxValues(maxValues);
 
     if (selectedRoles.length > 0 && typeof roleSelect.setDefaultRoles === 'function') {
-      roleSelect.setDefaultRoles(...selectedRoles);
+      roleSelect.setDefaultRoles(...selectedRoles.slice(0, 25));
     }
 
     const actionRow = new ActionRowBuilder().addComponents(roleSelect);
 
-    await safeReply(interaction, {
-      content: placeholder,
-      components: [actionRow],
-      flags: MessageFlags.Ephemeral
-    });
+    try {
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.reply({
+          content: placeholder,
+          components: [actionRow],
+          ephemeral: true
+        });
+      } else {
+        await safeReply(interaction, {
+          content: placeholder,
+          components: [actionRow],
+          ephemeral: true
+        });
+      }
+    } catch (error) {
+      console.error('[guildSettings] showRoleSelect response error:', error);
+      if (!interaction.replied && !interaction.deferred) {
+        await safeReply(interaction, {
+          content: '❌ ロール選択メニューの表示に失敗しました。時間を置いて再度お試しください。',
+          ephemeral: true
+        });
+      }
+    }
   },
 
   async showTitleModal(interaction) {
