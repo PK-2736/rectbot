@@ -1,11 +1,12 @@
-import * as Sentry from "@sentry/node";
-import { nodeProfilingIntegration } from "@sentry/profiling-node";
+// P1修正: CommonJS形式に変更してbot/src/index.jsから簡単にrequireできるようにする
+const Sentry = require("@sentry/node");
+const { nodeProfilingIntegration } = require("@sentry/profiling-node");
 
 /**
  * Sentry初期化（Discord Bot用）
  * 環境変数 SENTRY_DSN が必要
  */
-export function initSentry() {
+function initSentry() {
   if (!process.env.SENTRY_DSN) {
     console.warn("⚠️ SENTRY_DSN が設定されていません。Sentry監視は無効です。");
     return;
@@ -43,7 +44,7 @@ export function initSentry() {
  * @param {Error} error エラーオブジェクト
  * @param {Object} context 追加コンテキスト
  */
-export function captureException(error, context = {}) {
+function captureException(error, context = {}) {
   Sentry.captureException(error, {
     contexts: {
       discord: context,
@@ -56,8 +57,13 @@ export function captureException(error, context = {}) {
  * @param {string} message メッセージ
  * @param {string} level レベル（info, warning, error）
  */
-export function captureMessage(message, level = "info") {
+function captureMessage(message, level = "info") {
   Sentry.captureMessage(message, level);
 }
 
-export default Sentry;
+module.exports = {
+  initSentry,
+  captureException,
+  captureMessage,
+  Sentry
+};

@@ -1,5 +1,15 @@
 
+// P1修正: Sentry を最初に初期化してエラートラッキングの取りこぼしを防止
 require("dotenv").config();
+
+// Sentry 初期化（できるだけ早く）
+try {
+  const { initSentry } = require('./utils/sentry');
+  initSentry();
+} catch (e) {
+  console.warn('[boot] Sentry initialization failed (non-fatal):', e?.message || e);
+}
+
 const TOKEN = process.env.DISCORD_BOT_TOKEN;
 const FAILOVER_ENABLED = String(process.env.FAILOVER_ENABLED || 'false').toLowerCase() === 'true';
 const SITE_ID = process.env.SITE_ID || 'oci'; // 'oci' or 'xserver'

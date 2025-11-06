@@ -1,0 +1,140 @@
+name: Backup/Restore Test
+
+# P1修正: バックアップ復元機能の動作確認を自動化
+# 毎週月曜日の午前3時(JST)に実行 + 手動実行可能
+
+on:
+  # 定期実行: 毎週月曜日 午前3時 (JST = UTC+9, なので 18:00 UTC)
+  schedule:
+    - cron: '0 18 * * 1'
+  
+  # 手動実行を許可
+  workflow_dispatch:
+  
+  # バックアップ関連ファイルの変更時にも実行
+  push:
+    paths:
+      - 'scripts/restore_from_r2.sh'
+      - 'scripts/test_restore_from_r2.sh'
+      - 'scripts/backup_local_to_r2.sh'
+      - 'backup_supabase_to_r2.sh'
+      - 'restore_from_r2.sh'
+      - '.github/workflows/test-backup-restore.yml'
+
+jobs:
+  test-restore:
+    name: Test Backup Restore Functionality
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Setup PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+      
+      - name: Setup AWS CLI
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.R2_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          aws-region: auto
+      
+      - name: Create .env.backup file
+        run: |
+          cat << EOF > .env.backup
+          SUPABASE_PROJECT_REF=${{ secrets.SUPABASE_PROJECT_REF }}
+          SUPABASE_DB_PASSWORD=${{ secrets.SUPABASE_DB_PASSWORD }}
+          R2_ACCOUNT_ID=${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID=${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY=${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET_NAME=${{ secrets.R2_BUCKET_NAME }}
+          EOF
+          chmod 600 .env.backup
+      
+      - name: Run backup restore test
+        id: test
+        run: |
+          cd scripts
+          ./test_restore_from_r2.sh
+      
+      - name: Check test results
+        if: always()
+        run: |
+          if [ -f scripts/test_restore.log ]; then
+            echo "=========================================="
+            echo "テスト結果ログ:"
+            echo "=========================================="
+            cat scripts/test_restore.log
+            echo "=========================================="
+          fi
+      
+      - name: Upload test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backup-restore-test-log
+          path: scripts/test_restore.log
+          retention-days: 30
+      
+      - name: Notify on failure (Discord)
+        if: failure() && github.event_name == 'schedule'
+        run: |
+          # Discord Webhook で通知 (DISCORD_WEBHOOK_URL が設定されている場合)
+          if [ -n "${{ secrets.DISCORD_WEBHOOK_URL }}" ]; then
+            curl -X POST "${{ secrets.DISCORD_WEBHOOK_URL }}" \
+              -H "Content-Type: application/json" \
+              -d '{
+                "embeds": [{
+                  "title": "⚠️ バックアップ復元テスト失敗",
+                  "description": "定期実行されたバックアップ復元テストが失敗しました。",
+                  "color": 15158332,
+                  "fields": [
+                    {
+                      "name": "Repository",
+                      "value": "${{ github.repository }}",
+                      "inline": true
+                    },
+                    {
+                      "name": "Workflow",
+                      "value": "Backup/Restore Test",
+                      "inline": true
+                    },
+                    {
+                      "name": "Run",
+                      "value": "[#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+                    }
+                  ],
+                  "timestamp": "${{ github.event.head_commit.timestamp }}"
+                }]
+              }'
+          fi
+      
+      - name: Summary
+        if: always()
+        run: |
+          echo "## バックアップ復元テスト結果 🔍" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ steps.test.outcome }}" == "success" ]; then
+            echo "✅ すべてのテストが成功しました" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "復元スクリプトは正常に動作する準備ができています。" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ テストが失敗しました" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "詳細はログを確認してください。" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### テスト項目" >> $GITHUB_STEP_SUMMARY
+          echo "1. 必須環境変数の存在確認" >> $GITHUB_STEP_SUMMARY
+          echo "2. AWS CLI の存在確認" >> $GITHUB_STEP_SUMMARY
+          echo "3. PostgreSQL クライアント (psql) の存在確認" >> $GITHUB_STEP_SUMMARY
+          echo "4. Cloudflare R2 バケットへの接続テスト" >> $GITHUB_STEP_SUMMARY
+          echo "5. R2 内のバックアップファイルの存在確認" >> $GITHUB_STEP_SUMMARY
+          echo "6. Supabase データベースへの接続テスト" >> $GITHUB_STEP_SUMMARY
+          echo "7. 復元スクリプトの存在確認" >> $GITHUB_STEP_SUMMARY
