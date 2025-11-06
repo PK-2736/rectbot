@@ -337,6 +337,8 @@ module.exports = {
   recruitParticipants,
   __hydrateParticipants,
   autoCloseRecruitment,
+  // このコマンドは初手でモーダルを表示するため、deferReplyを行わない
+  noDefer: true,
   async autoCloseRecruitment(client, guildId, channelId, messageId) {
     console.log('[autoClose] Triggered for message:', messageId, 'guild:', guildId, 'channel:', channelId);
     try {

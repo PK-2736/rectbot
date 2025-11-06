@@ -36,20 +36,7 @@ module.exports = {
       console.error('[interactionCreate] Error during dedupe check:', e);
     }
 
-    // 二重応答(40060)を避けるための安全な返信関数
-    const safeRespond = async (payload) => {
-      try {
-        if (interaction.deferred || interaction.replied) return await interaction.followUp(payload);
-        return await interaction.reply(payload);
-      } catch (e) {
-        if (e && (e.code === 40060 || e.status === 400)) {
-          try {
-            return await interaction.followUp(payload);
-          } catch (_) {}
-        }
-        throw e;
-      }
-    };
+    // 注意: safeRespond は共通ユーティリティからインポートしたものを使用する（ローカル定義しない）
 
     // ギルド設定コマンド解決ヘルパー（setting が優先）
     const getGuildSettingsCommand = () => client.commands.get('setting') || client.commands.get('rect-setting');
@@ -67,11 +54,12 @@ module.exports = {
       }
       
       // 統一エラーハンドリング: deferReply + try/catch + 安全な返信
+      const deferNeeded = !(command && command.noDefer === true);
       await handleCommandSafely(interaction, async (inter) => {
         console.log(`[interactionCreate] about to call execute for command=${interaction.commandName}, executeType=${typeof command.execute}`);
         await command.execute(inter);
         console.log(`[interactionCreate] execute returned for command=${interaction.commandName}`);
-      });
+      }, { defer: deferNeeded, deferOptions: { ephemeral: true } });
       return;
     }
 
@@ -111,11 +99,11 @@ module.exports = {
             await guildSettings.handleSelectMenuInteraction(interaction);
           } catch (error) {
             console.error('ギルド設定セレクトメニュー処理中にエラー:', error);
-            await safeRespond({ content: 'メニュー処理でエラーが発生しました。', flags: require('discord.js').MessageFlags.Ephemeral }).catch(() => {});
+            await safeRespond(interaction, { content: 'メニュー処理でエラーが発生しました。', flags: require('discord.js').MessageFlags.Ephemeral }).catch(() => {});
           }
         } else {
           console.warn('[interactionCreate] guildSettings handler not found for role/channel select. Available commands:', [...client.commands.keys()].join(', '));
-          await safeRespond({ content: '設定ハンドラが見つかりませんでした。', flags: require('discord.js').MessageFlags.Ephemeral }).catch(() => {});
+          await safeRespond(interaction, { content: '設定ハンドラが見つかりませんでした。', flags: require('discord.js').MessageFlags.Ephemeral }).catch(() => {});
         }
       }
       return;
@@ -132,11 +120,11 @@ module.exports = {
             await guildSettings.handleModalSubmit(interaction);
           } catch (error) {
             console.error('ギルド設定モーダル処理中にエラー:', error);
-            await safeRespond({ content: `モーダル処理でエラー: ${error.message || error}`, flags: require('discord.js').MessageFlags.Ephemeral }).catch(() => {});
+            await safeRespond(interaction, { content: `モーダル処理でエラー: ${error.message || error}`, flags: require('discord.js').MessageFlags.Ephemeral }).catch(() => {});
           }
         } else {
           console.warn('[interactionCreate] guildSettings handler not found for modal. Available commands:', [...client.commands.keys()].join(', '));
-          await safeRespond({ content: '設定ハンドラが見つかりませんでした。', flags: require('discord.js').MessageFlags.Ephemeral }).catch(() => {});
+          await safeRespond(interaction, { content: '設定ハンドラが見つかりませんでした。', flags: require('discord.js').MessageFlags.Ephemeral }).catch(() => {});
         }
         return;
       }
@@ -149,7 +137,7 @@ module.exports = {
             await editRecruit.handleEditModalSubmit(interaction);
           } catch (error) {
             console.error('編集モーダル送信処理中にエラー:', error);
-            await safeRespond({ content: `編集モーダル送信処理でエラー: ${error.message || error}`, flags: require('discord.js').MessageFlags.Ephemeral }).catch(() => {});
+            await safeRespond(interaction, { content: `編集モーダル送信処理でエラー: ${error.message || error}`, flags: require('discord.js').MessageFlags.Ephemeral }).catch(() => {});
           }
         }
         return;
@@ -162,7 +150,7 @@ module.exports = {
           await gameRecruit.handleModalSubmit(interaction);
         } catch (error) {
           console.error('モーダル送信処理中にエラー:', error);
-          await safeRespond({ content: `モーダル送信処理でエラー: ${error.message || error}`, flags: require('discord.js').MessageFlags.Ephemeral }).catch(() => {});
+          await safeRespond(interaction, { content: `モーダル送信処理でエラー: ${error.message || error}`, flags: require('discord.js').MessageFlags.Ephemeral }).catch(() => {});
         }
       }
       return;

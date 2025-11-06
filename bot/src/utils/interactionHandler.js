@@ -57,10 +57,14 @@ async function safeRespond(interaction, payload) {
  * @param {Function} handler コマンドの実行関数
  * @param {Object} deferOptions deferReplyのオプション
  */
-async function handleCommandSafely(interaction, handler, deferOptions = { ephemeral: true }) {
+async function handleCommandSafely(interaction, handler, options = { defer: true, deferOptions: { ephemeral: true } }) {
   try {
     // P0修正: コマンド処理前に標準的にdeferReply
-    await safeDeferReply(interaction, deferOptions);
+    const shouldDefer = !(options && options.defer === false);
+    if (shouldDefer) {
+      const deferOpts = (options && options.deferOptions) ? options.deferOptions : { ephemeral: true };
+      await safeDeferReply(interaction, deferOpts);
+    }
     
     // コマンドハンドラーを実行
     await handler(interaction);
