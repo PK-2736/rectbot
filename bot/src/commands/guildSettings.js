@@ -295,7 +295,7 @@ module.exports = {
       .setMaxValues(Math.max(1, Math.min(25, Math.max(selectedRoles.length, 5))));
 
     if (selectedRoles.length > 0 && typeof roleSelect.setDefaultRoles === 'function') {
-      roleSelect.setDefaultRoles(selectedRoles);
+      roleSelect.setDefaultRoles(...selectedRoles);
     }
 
     const actionRow = new ActionRowBuilder().addComponents(roleSelect);
