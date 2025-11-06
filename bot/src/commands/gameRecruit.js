@@ -509,6 +509,11 @@ module.exports = {
           { name: '黒', value: '000000' },
           { name: 'グレー', value: '808080' }
         )
+    )
+    .addRoleOption(option =>
+      option.setName('notification_role')
+        .setDescription('募集作成時に通知するロール（任意）')
+        .setRequired(false)
     ),
   async execute(interaction) {
     console.log('[gameRecruit.execute] invoked by', interaction.user?.id, 'guild:', interaction.guildId, 'channel:', interaction.channelId);
