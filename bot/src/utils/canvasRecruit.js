@@ -37,9 +37,8 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
   // スケール調整
   ctx.scale(scale, scale);
 
-  // 背景
-  ctx.fillStyle = '#222';
-  ctx.fillRect(0, 0, width, height);
+  // 背景を透明のまま維持
+  ctx.clearRect(0, 0, width, height);
 
   // グラデーション枠
   // 線形グラデーション（左上から右下へ）
@@ -194,8 +193,8 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
     if (stroke) ctx.stroke();
   }
   
-  // 背景と同じ色のボックス（角丸）
-  ctx.fillStyle = '#222';
+  // 背景と馴染む半透明ボックス（角丸）
+  ctx.fillStyle = 'rgba(20, 20, 26, 0.78)';
   drawRoundedRect(boxX, boxY, boxWidth, boxHeight, 6, true, false);
   
   // 白い枠線のみ（角丸）
