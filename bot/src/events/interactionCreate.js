@@ -204,26 +204,32 @@ module.exports = {
           return;
         }
 
-        // サポート招待URLのワンタイム発行
+        // サポート招待URLのワンタイム発行（Worker 経由で Bot 招待の一回限りURLを生成）
         if (id === 'one_time_support_invite') {
           await handleComponentSafely(interaction, async () => {
             try {
-              const channel = interaction.channel;
-              if (!channel || !channel.createInvite) {
-                await safeRespond(interaction, { content: '❌ このチャンネルでは招待URLを作成できません。', flags: require('discord.js').MessageFlags.Ephemeral });
+              const backendFetch = require('../utils/backendFetch');
+              let resp;
+              try {
+                resp = await backendFetch('/api/bot-invite/one-time', { method: 'POST' });
+              } catch (err) {
+                // 認証不足（SERVICE_TOKEN未設定や不一致）・ネットワークエラーの扱い
+                const status = err?.status;
+                if (status === 401) {
+                  await safeRespond(interaction, { content: '❌ 招待URLを発行できません（認証エラー）。管理者に連絡してください。', flags: require('discord.js').MessageFlags.Ephemeral });
+                  return;
+                }
+                throw err;
+              }
+              if (!resp?.ok || !resp?.url) {
+                await safeRespond(interaction, { content: '❌ 招待URLの発行に失敗しました。しばらくして再試行してください。', flags: require('discord.js').MessageFlags.Ephemeral });
                 return;
               }
-              const invite = await channel.createInvite({ maxUses: 1, unique: true, reason: `RectBot support one-time invite for ${interaction.user.id}` }).catch((e) => {
-                console.warn('[interactionCreate] createInvite failed:', e?.message || e);
-                return null;
-              });
-              if (!invite) {
-                await safeRespond(interaction, { content: '❌ 招待URLの発行に失敗しました。ボット権限をご確認ください。', flags: require('discord.js').MessageFlags.Ephemeral });
-                return;
-              }
-              await safeRespond(interaction, { content: `✅ 招待URLを発行しました: ${invite.url}`, flags: require('discord.js').MessageFlags.Ephemeral });
+              // ランディング（ワンタイム）URLを返す（クリック時に消費 → Discord OAuth2 へリダイレクト）
+              await safeRespond(interaction, { content: `✅ 一回限りの招待リンクを発行しました。
+<${resp.url}>`, flags: require('discord.js').MessageFlags.Ephemeral });
             } catch (e) {
-              console.error('[interactionCreate] support invite generate failed:', e?.message || e);
+              console.error('[interactionCreate] one-time bot invite generate failed:', e?.message || e);
               await safeRespond(interaction, { content: '❌ 招待URLの発行中にエラーが発生しました。', flags: require('discord.js').MessageFlags.Ephemeral });
             }
           });
