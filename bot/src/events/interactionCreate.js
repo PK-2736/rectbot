@@ -158,11 +158,92 @@ module.exports = {
 
     // P0修正: ボタンインタラクションの処理を統一ハンドラーでラップ
     if (interaction.isButton && interaction.isButton()) {
-      // gameRecruitコマンドのボタンのみ処理（参加者管理・UI更新はgameRecruit.jsに一元化）
+      // まずはシステムボタン（ロール付与・招待URL発行など）を処理
+      try {
+        const id = interaction.customId || '';
+        // アップデート通知ロール付与/削除
+        if (id.startsWith('grant_role_') || id.startsWith('remove_role_')) {
+          await handleComponentSafely(interaction, async () => {
+            const isGrant = id.startsWith('grant_role_');
+            const roleId = id.replace(isGrant ? 'grant_role_' : 'remove_role_', '');
+            if (!interaction.guild) {
+              await safeRespond(interaction, { content: '❌ ギルド外では実行できません。', flags: require('discord.js').MessageFlags.Ephemeral });
+              return;
+            }
+            const role = await interaction.guild.roles.fetch(roleId).catch(() => null);
+            if (!role) {
+              await safeRespond(interaction, { content: '❌ 対象ロールが見つかりませんでした。', flags: require('discord.js').MessageFlags.Ephemeral });
+              return;
+            }
+            const member = interaction.member || await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
+            if (!member) {
+              await safeRespond(interaction, { content: '❌ メンバー情報を取得できませんでした。', flags: require('discord.js').MessageFlags.Ephemeral });
+              return;
+            }
+            try {
+              if (isGrant) {
+                if (member.roles.cache.has(role.id)) {
+                  await safeRespond(interaction, { content: 'ℹ️ そのロールは既に付与されています。', flags: require('discord.js').MessageFlags.Ephemeral });
+                } else {
+                  await member.roles.add(role.id, 'RectBot: update notification self-assign');
+                  await safeRespond(interaction, { content: '✅ ロールを付与しました。', flags: require('discord.js').MessageFlags.Ephemeral });
+                }
+              } else {
+                if (!member.roles.cache.has(role.id)) {
+                  await safeRespond(interaction, { content: 'ℹ️ そのロールは付与されていません。', flags: require('discord.js').MessageFlags.Ephemeral });
+                } else {
+                  await member.roles.remove(role.id, 'RectBot: update notification self-remove');
+                  await safeRespond(interaction, { content: '✅ ロールを外しました。', flags: require('discord.js').MessageFlags.Ephemeral });
+                }
+              }
+            } catch (e) {
+              console.error('[interactionCreate] role assign/remove failed:', e?.message || e);
+              await safeRespond(interaction, { content: '❌ ロールの変更に失敗しました。ボット権限をご確認ください。', flags: require('discord.js').MessageFlags.Ephemeral });
+            }
+          });
+          return;
+        }
+
+        // サポート招待URLのワンタイム発行
+        if (id === 'one_time_support_invite') {
+          await handleComponentSafely(interaction, async () => {
+            try {
+              const channel = interaction.channel;
+              if (!channel || !channel.createInvite) {
+                await safeRespond(interaction, { content: '❌ このチャンネルでは招待URLを作成できません。', flags: require('discord.js').MessageFlags.Ephemeral });
+                return;
+              }
+              const invite = await channel.createInvite({ maxUses: 1, unique: true, reason: `RectBot support one-time invite for ${interaction.user.id}` }).catch((e) => {
+                console.warn('[interactionCreate] createInvite failed:', e?.message || e);
+                return null;
+              });
+              if (!invite) {
+                await safeRespond(interaction, { content: '❌ 招待URLの発行に失敗しました。ボット権限をご確認ください。', flags: require('discord.js').MessageFlags.Ephemeral });
+                return;
+              }
+              await safeRespond(interaction, { content: `✅ 招待URLを発行しました: ${invite.url}`, flags: require('discord.js').MessageFlags.Ephemeral });
+            } catch (e) {
+              console.error('[interactionCreate] support invite generate failed:', e?.message || e);
+              await safeRespond(interaction, { content: '❌ 招待URLの発行中にエラーが発生しました。', flags: require('discord.js').MessageFlags.Ephemeral });
+            }
+          });
+          return;
+        }
+      } catch (e) {
+        console.error('[interactionCreate] system button handling error:', e?.message || e);
+      }
+
+      // 次に、gameRecruitコマンドのボタンを処理（参加者管理・UI更新はgameRecruit.jsに一元化）
       const gameRecruit = client.commands.get('rect');
       if (gameRecruit && typeof gameRecruit.handleButton === 'function') {
         await handleComponentSafely(interaction, () => gameRecruit.handleButton(interaction));
+        return;
       }
+
+      // どのハンドラにも該当しない場合、エフェメラルで案内（サイレント失敗を防止）
+      try {
+        await safeRespond(interaction, { content: '⚠️ このボタンの処理が見つかりませんでした。', flags: require('discord.js').MessageFlags.Ephemeral });
+      } catch (_) {}
       return;
     }
   },
