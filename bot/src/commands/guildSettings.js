@@ -79,9 +79,23 @@ module.exports = {
     );
 
     // 2. 通知ロール設定
-    const notificationRoleValue = settings.notification_role || settings.recruitmentNotificationRoleId 
-      ? `<@&${settings.notification_role || settings.recruitmentNotificationRoleId}>` 
-      : '未設定';
+      const notificationRoles = (() => {
+        const roles = [];
+        if (Array.isArray(settings.notification_roles)) {
+          roles.push(...settings.notification_roles.filter(Boolean));
+        }
+        if (roles.length === 0 && settings.notification_role) {
+          roles.push(settings.notification_role);
+        }
+        if (roles.length === 0 && settings.recruitmentNotificationRoleId) {
+          roles.push(settings.recruitmentNotificationRoleId);
+        }
+        return [...new Set(roles.map(String))];
+      })();
+
+      const notificationRoleValue = notificationRoles.length > 0
+        ? notificationRoles.map(roleId => `<@&${roleId}>`).join('\n')
+        : '未設定';
 
     container.addSectionComponents(
       new SectionBuilder()
@@ -214,7 +228,7 @@ module.exports = {
           await this.showChannelSelect(interaction, 'recruit_channel', '📍 募集チャンネルを選択してください');
           break;
         case 'set_notification_role':
-          await this.showRoleSelect(interaction, 'notification_role', '🔔 通知ロールを選択してください');
+          await this.showRoleSelect(interaction, 'notification_roles', '🔔 通知ロールを選択してください');
           break;
         case 'set_default_title':
           await this.showTitleModal(interaction);
@@ -259,9 +273,30 @@ module.exports = {
   },
 
   async showRoleSelect(interaction, settingType, placeholder) {
+    const currentSettings = await getGuildSettingsFromRedis(interaction.guildId);
+    const selectedRoles = (() => {
+      const roles = [];
+      if (Array.isArray(currentSettings.notification_roles)) {
+        roles.push(...currentSettings.notification_roles.filter(Boolean));
+      }
+      if (roles.length === 0 && currentSettings.notification_role) {
+        roles.push(currentSettings.notification_role);
+      }
+      if (roles.length === 0 && currentSettings.recruitmentNotificationRoleId) {
+        roles.push(currentSettings.recruitmentNotificationRoleId);
+      }
+      return [...new Set(roles.map(String))];
+    })();
+
     const roleSelect = new RoleSelectMenuBuilder()
       .setCustomId(`role_select_${settingType}`)
-      .setPlaceholder(placeholder);
+      .setPlaceholder(placeholder)
+      .setMinValues(0)
+      .setMaxValues(Math.max(1, Math.min(25, Math.max(selectedRoles.length, 5))));
+
+    if (selectedRoles.length > 0 && typeof roleSelect.setDefaultRoles === 'function') {
+      roleSelect.setDefaultRoles(selectedRoles);
+    }
 
     const actionRow = new ActionRowBuilder().addComponents(roleSelect);
 
@@ -336,10 +371,10 @@ module.exports = {
         await this.updateGuildSetting(interaction, settingType, channelId);
       } else if (customId.startsWith('role_select_')) {
         const settingType = customId.replace('role_select_', '');
-        const roleId = values[0];
+        const roleIds = Array.isArray(values) ? values : [];
         
-        console.log(`[guildSettings] ロール選択 - settingType: ${settingType}, roleId: ${roleId}`);
-        await this.updateGuildSetting(interaction, settingType, roleId);
+        console.log(`[guildSettings] ロール選択 - settingType: ${settingType}, roleIds:`, roleIds);
+        await this.updateGuildSetting(interaction, settingType, roleIds);
       }
     } catch (error) {
       console.error('Select menu interaction error:', error);
@@ -404,13 +439,30 @@ module.exports = {
       console.log(`[guildSettings] updateGuildSetting - guildId: ${guildId}, settingKey: ${settingKey}, value: ${value}`);
       
   // Redisに一時保存
-  const result = await saveGuildSettingsToRedis(guildId, { [settingKey]: value });
+      let payload = { [settingKey]: value };
+
+      if (settingKey === 'notification_roles') {
+        const uniqueRoles = Array.isArray(value) ? [...new Set(value.filter(Boolean).map(String))] : [];
+        payload = {
+          notification_roles: uniqueRoles,
+          notification_role: uniqueRoles.length > 0 ? uniqueRoles[0] : null
+        };
+      } else if (settingKey === 'notification_role') {
+        const roleId = value ? String(value) : null;
+        payload = {
+          notification_role: roleId,
+          notification_roles: roleId ? [roleId] : []
+        };
+      }
+
+      const result = await saveGuildSettingsToRedis(guildId, payload);
   console.log(`[guildSettings] Redis一時保存結果:`, result);
       
       // 設定名のマッピング
       const settingNames = {
         recruit_channel: '募集チャンネル',
-        notification_role: '通知ロール',
+  notification_roles: '通知ロール',
+  notification_role: '通知ロール',
         defaultTitle: '既定タイトル',
         defaultColor: '既定カラー',
         update_channel: 'アップデート通知チャンネル'
@@ -518,7 +570,8 @@ module.exports = {
       // Redisの設定をリセット
       const result = await saveGuildSettingsToRedis(guildId, {
         recruit_channel: null,
-        notification_role: null,
+  notification_role: null,
+  notification_roles: [],
         defaultTitle: null,
         defaultColor: null,
         update_channel: null

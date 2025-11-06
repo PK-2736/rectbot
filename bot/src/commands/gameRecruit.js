@@ -4,7 +4,9 @@ const {
   SeparatorBuilder, SeparatorSpacingSize,
   ActionRowBuilder, ButtonBuilder, ButtonStyle,
   MessageFlags, MediaGalleryBuilder, MediaGalleryItemBuilder,
-  AttachmentBuilder, SectionBuilder, EmbedBuilder
+  AttachmentBuilder, SectionBuilder, EmbedBuilder,
+  StringSelectMenuBuilder, StringSelectMenuOptionBuilder,
+  ComponentType
 } = require('discord.js');
 // Components v2 で画像をインライン表示するためのビルダー
 const { ThumbnailBuilder } = require('@discordjs/builders');
@@ -770,6 +772,101 @@ module.exports = {
         panelColor: panelColor
       };
 
+      const configuredNotificationRoleIds = (() => {
+        const roles = [];
+        if (Array.isArray(guildSettings.notification_roles)) {
+          roles.push(...guildSettings.notification_roles.filter(Boolean));
+        }
+        if (guildSettings.notification_role) {
+          roles.push(guildSettings.notification_role);
+        }
+        return [...new Set(roles.map(String))].slice(0, 25);
+      })();
+
+      const validNotificationRoles = [];
+      for (const roleId of configuredNotificationRoleIds) {
+        let role = interaction.guild?.roles?.cache?.get(roleId) || null;
+        if (!role) {
+          role = await interaction.guild.roles.fetch(roleId).catch(() => null);
+        }
+        if (role) {
+          validNotificationRoles.push({ id: role.id, name: role.name });
+        } else {
+          console.warn('[handleModalSubmit] Configured notification role not found in guild:', roleId);
+        }
+      }
+
+      const hasValidConfiguredRoles = validNotificationRoles.length > 0;
+      let selectedNotificationRole = null;
+
+      if (hasValidConfiguredRoles) {
+        if (validNotificationRoles.length === 1) {
+          selectedNotificationRole = validNotificationRoles[0].id;
+        } else {
+          const options = validNotificationRoles
+            .slice(0, 24)
+            .map(role => new StringSelectMenuOptionBuilder()
+              .setLabel(role.name?.slice(0, 100) || '通知ロール')
+              .setValue(role.id));
+
+          options.push(
+            new StringSelectMenuOptionBuilder()
+              .setLabel('通知ロールなし')
+              .setValue('none')
+              .setDescription('今回は通知ロールを使用せずに募集します。')
+          );
+
+          const selectMenu = new StringSelectMenuBuilder()
+            .setCustomId(`recruit_notification_role_select_${interaction.id}`)
+            .setPlaceholder('通知ロールを選択してください')
+            .setMinValues(1)
+            .setMaxValues(1)
+            .addOptions(options);
+
+          const selectRow = new ActionRowBuilder().addComponents(selectMenu);
+
+          const promptMessage = await safeReply(interaction, {
+            content: '🔔 通知ロールを選択してください（任意）',
+            components: [selectRow],
+            flags: MessageFlags.Ephemeral,
+            allowedMentions: { roles: [], users: [] }
+          });
+
+          if (!promptMessage || typeof promptMessage.awaitMessageComponent !== 'function') {
+            console.warn('[handleModalSubmit] Notification role prompt message unavailable; defaulting to first role.');
+            selectedNotificationRole = validNotificationRoles[0]?.id || null;
+          } else {
+            try {
+              const selectInteraction = await promptMessage.awaitMessageComponent({
+                componentType: ComponentType.StringSelect,
+                time: 60_000,
+                filter: (i) => i.user.id === interaction.user.id
+              });
+
+              const choice = selectInteraction.values[0];
+              selectedNotificationRole = choice === 'none' ? null : choice;
+              const confirmationText = selectedNotificationRole
+                ? `🔔 通知ロール: <@&${selectedNotificationRole}>`
+                : '🔕 通知ロールを使用せずに募集を作成します。';
+              await selectInteraction.update({
+                content: confirmationText,
+                components: [],
+                allowedMentions: { roles: [], users: [] }
+              });
+            } catch (collectorError) {
+              console.warn('[handleModalSubmit] Notification role selection timed out:', collectorError?.message || collectorError);
+              await promptMessage.edit({
+                content: '⏱ 通知ロールの選択がタイムアウトしました。募集は作成されませんでした。',
+                components: []
+              }).catch(() => {});
+              return;
+            }
+          }
+        }
+      }
+
+      recruitDataObj.notificationRoleId = selectedNotificationRole;
+
   // KVにはメッセージ送信後に保存する（下で実施）
 
       // Canvas画像生成（参加者リストとDiscordクライアントも渡す）
@@ -789,21 +886,22 @@ module.exports = {
       const buffer = await generateRecruitCard(recruitDataObj, currentParticipants, interaction.client, useColor);
       const user = interaction.targetUser || interaction.user;
 
-  // 募集パネル送信前に通知メッセージを送信
-  console.log('[handleModalSubmit] about to send recruit panel, recruitDataObj:', { title: recruitDataObj.title, participants: recruitDataObj.participants, recruiterId: recruitDataObj.recruiterId });
-      
-      // 1. メンション通知（ギルド設定があれば使用）
-      if (guildSettings.notification_role) {
+      // 募集パネル送信前に通知メッセージを送信
+      console.log('[handleModalSubmit] about to send recruit panel, recruitDataObj:', { title: recruitDataObj.title, participants: recruitDataObj.participants, recruiterId: recruitDataObj.recruiterId });
+
+      const shouldUseDefaultNotification = !selectedNotificationRole && configuredNotificationRoleIds.length === 0;
+
+      if (selectedNotificationRole) {
         // fire-and-forget: 通知は非同期で送信し、失敗はログに残す
         (async () => {
           try {
-            await interaction.channel.send({ content: `新しい募集が作成されました。<@&${guildSettings.notification_role}>`, allowedMentions: { roles: [guildSettings.notification_role] } });
-            console.log('ギルド設定の通知ロールで送信完了:', guildSettings.notification_role);
+            await interaction.channel.send({ content: `新しい募集が作成されました。<@&${selectedNotificationRole}>`, allowedMentions: { roles: [selectedNotificationRole] } });
+            console.log('選択された通知ロールで送信完了:', selectedNotificationRole);
           } catch (e) {
-            console.warn('通知送信失敗 (guild notification role):', e?.message || e);
+            console.warn('通知送信失敗 (selected notification role):', e?.message || e);
           }
         })();
-      } else {
+      } else if (shouldUseDefaultNotification) {
         // デフォルトの通知（従来の処理） - 非同期送信
         (async () => {
           try {
@@ -813,6 +911,8 @@ module.exports = {
             console.warn('通知送信失敗 (default role):', e?.message || e);
           }
         })();
+      } else {
+        console.log('[handleModalSubmit] 通知ロールを送信しません（設定済み or 選択で無効化）');
       }
 
   // 2回目以降のtempRecruitId宣言を削除
@@ -853,19 +953,19 @@ module.exports = {
           const recruitChannel = await interaction.guild.channels.fetch(guildSettings.recruit_channel);
           if (recruitChannel && recruitChannel.isTextBased()) {
             // 通知ロールの準備
-            if (guildSettings.notification_role) {
+            if (selectedNotificationRole) {
               (async () => {
                 try {
-                  await recruitChannel.send({ content: `新しい募集が作成されました。<@&${guildSettings.notification_role}>`, allowedMentions: { roles: [guildSettings.notification_role] } });
-                  console.log('指定チャンネルに通知ロールで送信完了:', guildSettings.notification_role);
+                  await recruitChannel.send({ content: `新しい募集が作成されました。<@&${selectedNotificationRole}>`, allowedMentions: { roles: [selectedNotificationRole] } });
+                  console.log('指定チャンネルに通知ロールで送信完了:', selectedNotificationRole);
                 } catch (e) {
-                  console.warn('通知送信失敗 (指定チャンネル, role):', e?.message || e);
+                  console.warn('通知送信失敗 (指定チャンネル, selected role):', e?.message || e);
                 }
               })();
-            } else {
+            } else if (shouldUseDefaultNotification) {
               (async () => {
                 try {
-                  await recruitChannel.send({ content: '新しい募集が作成されました。@unknown-role募集ぱねる', allowedMentions: { roles: [] } });
+                  await recruitChannel.send({ content: '新しい募集が作成されました。<@&1416797165769986161>', allowedMentions: { roles: ['1416797165769986161'] } });
                   console.log('指定チャンネルにデフォルト通知で送信完了');
                 } catch (e) {
                   console.warn('通知送信失敗 (指定チャンネル, default):', e?.message || e);

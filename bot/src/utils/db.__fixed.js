@@ -69,12 +69,43 @@ async function ensureRedisConnection() {
   return redis;
 }
 
+function normalizeGuildSettingsObject(input) {
+  const normalized = { ...(input || {}) };
+  const hasRolesArray = Object.prototype.hasOwnProperty.call(normalized, 'notification_roles');
+  const hasRoleString = Object.prototype.hasOwnProperty.call(normalized, 'notification_role');
+
+  if (hasRolesArray) {
+    const rawArray = Array.isArray(normalized.notification_roles)
+      ? normalized.notification_roles.filter(Boolean).map(String)
+      : [];
+    const uniqueRoles = [...new Set(rawArray)].slice(0, 25);
+    normalized.notification_roles = uniqueRoles;
+    if (!hasRoleString || normalized.notification_role === undefined) {
+      normalized.notification_role = uniqueRoles.length > 0 ? uniqueRoles[0] : null;
+    } else if (normalized.notification_role !== null) {
+      normalized.notification_role = String(normalized.notification_role);
+      if (uniqueRoles.length === 0 && normalized.notification_role) {
+        normalized.notification_roles = [normalized.notification_role];
+      }
+    }
+    if (uniqueRoles.length === 0) {
+      normalized.notification_role = null;
+    }
+  } else if (hasRoleString) {
+    const roleId = normalized.notification_role ? String(normalized.notification_role) : null;
+    normalized.notification_role = roleId;
+    normalized.notification_roles = roleId ? [roleId] : [];
+  }
+
+  return normalized;
+}
+
 async function saveGuildSettingsToRedis(guildId, settings) {
   const redisClient = await ensureRedisConnection();
   const key = `guildsettings:${guildId}`;
   let current = await getGuildSettingsFromRedis(guildId);
   if (!current) current = {};
-  const merged = { ...current, ...settings };
+  const merged = normalizeGuildSettingsObject({ ...current, ...settings });
   await redisClient.set(key, JSON.stringify(merged));
   return merged;
 }
@@ -83,7 +114,8 @@ async function getGuildSettingsFromRedis(guildId) {
   const redisClient = await ensureRedisConnection();
   const key = `guildsettings:${guildId}`;
   const val = await redisClient.get(key);
-  return val ? JSON.parse(val) : {};
+  const parsed = val ? JSON.parse(val) : {};
+  return normalizeGuildSettingsObject(parsed);
 }
 
 async function finalizeGuildSettings(guildId) {
@@ -94,19 +126,25 @@ async function finalizeGuildSettings(guildId) {
 
     console.log(`Finalizing guild settings for guild: ${guildId}`);
     
-    const settings = await getGuildSettingsFromRedis(guildId);
+    const settings = normalizeGuildSettingsObject(await getGuildSettingsFromRedis(guildId));
     console.log(`Retrieved settings from Redis:`, settings);
     
     const url = `${config.BACKEND_API_URL.replace(/\/$/, '')}/api/guild-settings/finalize`;
     const payload = { guildId };
-    const allowedKeys = ['update_channel', 'recruit_channel', 'defaultColor', 'notification_role', 'defaultTitle'];
+    const allowedKeys = ['update_channel', 'recruit_channel', 'defaultColor', 'defaultTitle'];
     
     for (const k of allowedKeys) {
       if (settings && Object.prototype.hasOwnProperty.call(settings, k)) {
         const v = settings[k];
-        if (v !== undefined && v !== null) payload[k] = v;
+        if (v !== undefined) payload[k] = v;
       }
     }
+
+    const notificationRoles = Array.isArray(settings.notification_roles)
+      ? settings.notification_roles.filter(Boolean).map(String)
+      : [];
+    payload.notification_roles = notificationRoles;
+    payload.notification_role = notificationRoles.length > 0 ? notificationRoles[0] : null;
     
     console.log(`Sending payload to backend:`, payload);
     console.log(`Backend URL:`, url);
