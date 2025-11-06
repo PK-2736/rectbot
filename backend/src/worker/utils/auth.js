@@ -1,0 +1,74 @@
+// utils/auth.js
+
+export function isAdmin(discordId, env) {
+  const adminIds = (env.ADMIN_DISCORD_ID || '').split(',').map(id => id.trim()).filter(Boolean);
+  return adminIds.includes(String(discordId));
+}
+
+export async function issueJWT(userInfo, env) {
+  const payload = {
+    userId: userInfo.id,
+    username: userInfo.username,
+    role: isAdmin(userInfo.id, env) ? 'admin' : 'user',
+    iat: Math.floor(Date.now() / 1000),
+    exp: Math.floor(Date.now() / 1000) + 3600
+  };
+
+  const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
+  const body = btoa(JSON.stringify(payload));
+
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(env.JWT_SECRET),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+
+  const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(`${header}.${body}`));
+  const signatureBase64 = btoa(String.fromCharCode(...new Uint8Array(signature)))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=/g, '');
+
+  return `${header}.${body}.${signatureBase64}`;
+}
+
+export async function verifyJWT(token, env) {
+  try {
+    const [header, body, signature] = token.split('.');
+    if (!header || !body || !signature) throw new Error('Invalid token format');
+    const payload = JSON.parse(atob(body));
+    if (payload.exp < Math.floor(Date.now() / 1000)) throw new Error('Token expired');
+
+    const encoder = new TextEncoder();
+    const key = await crypto.subtle.importKey(
+      'raw',
+      encoder.encode(env.JWT_SECRET),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['verify']
+    );
+    const signatureBytes = Uint8Array.from(
+      atob(signature.replace(/-/g, '+').replace(/_/g, '/')),
+      c => c.charCodeAt(0)
+    );
+    const isValid = await crypto.subtle.verify('HMAC', key, signatureBytes, encoder.encode(`${header}.${body}`));
+    if (!isValid) throw new Error('Invalid signature');
+    return payload;
+  } catch (error) {
+    console.error('JWT verification failed:', error);
+    return null;
+  }
+}
+
+export async function isValidDiscordAdmin(cookieHeader, env) {
+  if (!cookieHeader) return false;
+  const jwtMatch = cookieHeader.match(/jwt=([^;]+)/);
+  if (!jwtMatch) return false;
+  const jwt = jwtMatch[1];
+  const payload = await verifyJWT(jwt, env);
+  if (!payload) return false;
+  return payload.role === 'admin';
+}
