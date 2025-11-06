@@ -239,6 +239,32 @@ module.exports = {
         console.error('[interactionCreate] system button handling error:', e?.message || e);
       }
 
+      try {
+        const id = interaction.customId || '';
+        const guildSettingsButtons = new Set([
+          'set_recruit_channel',
+          'set_notification_role',
+          'set_notification_roles',
+          'set_default_title',
+          'set_default_color',
+          'set_update_channel',
+          'reset_all_settings',
+          'finalize_settings'
+        ]);
+
+        if (guildSettingsButtons.has(id)) {
+          const guildSettings = getGuildSettingsCommand();
+          if (guildSettings && typeof guildSettings.handleButtonInteraction === 'function') {
+            await handleComponentSafely(interaction, () => guildSettings.handleButtonInteraction(interaction));
+            return;
+          }
+          await safeRespond(interaction, { content: '⚠️ 募集設定ボタンのハンドラが見つかりませんでした。', flags: require('discord.js').MessageFlags.Ephemeral });
+          return;
+        }
+      } catch (buttonRouteError) {
+        console.error('[interactionCreate] guild settings button routing error:', buttonRouteError?.message || buttonRouteError);
+      }
+
       // 次に、gameRecruitコマンドのボタンを処理（参加者管理・UI更新はgameRecruit.jsに一元化）
       const gameRecruit = client.commands.get('rect');
       if (gameRecruit && typeof gameRecruit.handleButton === 'function') {
