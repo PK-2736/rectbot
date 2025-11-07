@@ -1,17 +1,6 @@
-name: Deploy to OCI
+name: Deploy Bot to Production (OCI)
 on:
-  push:
-    branches:
-      - "main"
-    paths:
-      - "bot/**"
-      # 監視スタック（Grafana/Loki/Promtail/Prometheus/Pushgateway）関連の変更でもトリガー
-      - "docker-compose.monitoring.yml"
-      - "docker/monitoring/**"
-      - "scripts/deploy-*.sh"
-      - "backup_supabase_to_r2.sh"
-      - "restore_from_r2.sh"
-
+  # 手動実行のみ（本番への昇格は明示的に）
   workflow_dispatch:
 
 jobs:
@@ -48,7 +37,7 @@ jobs:
             sed -n '1,200p' /tmp/ssh_test_output || true
             exit ${SSH_TEST_EXIT}
           fi
-      - name: Deploy via SSH
+      - name: Deploy via SSH (production)
         env:
           OCI_USER: ${{ secrets.OCI_USER }}
           OCI_HOST: ${{ secrets.OCI_HOST }}

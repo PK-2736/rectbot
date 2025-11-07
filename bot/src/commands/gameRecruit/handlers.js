@@ -233,6 +233,197 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
   try { if (!isGuildExempt(interaction.guildId)) await setCooldown(`rect:${interaction.guildId}`, 60); } catch (e) { console.warn('[rect cooldown set at submit] failed:', e?.message || e); }
 }
 
+// ------------------------------
+// Extracted helpers for button handling
+// ------------------------------
+
+async function hydrateParticipants(interaction, messageId) {
+  let participants = recruitParticipants.get(messageId) || [];
+  try {
+    const persisted = await getParticipantsFromRedis(messageId);
+    if (Array.isArray(persisted) && persisted.length > 0) {
+      if (!participants || participants.length === 0) {
+        participants = persisted;
+        recruitParticipants.set(messageId, participants);
+      }
+    }
+  } catch (e) {
+    console.warn('参加者リスト復元に失敗:', e?.message || e);
+  }
+  return participants;
+}
+
+async function loadSavedRecruitData(interaction, messageId) {
+  let savedRecruitData = null;
+  try {
+    const recruitId = String(messageId).slice(-8);
+    savedRecruitData = await getRecruitFromRedis(recruitId);
+    if (!savedRecruitData) {
+      try {
+        const all = await listRecruitsFromRedis();
+        savedRecruitData = all.find(r => r && (r.message_id === messageId || r.messageId === messageId || r.recruitId === recruitId));
+      } catch (e) {
+        console.warn('listRecruitsFromRedis fallback failed:', e?.message || e);
+      }
+    }
+  } catch (e) {
+    console.warn('getRecruitFromRedis failed:', e?.message || e);
+    savedRecruitData = null;
+  }
+  return savedRecruitData;
+}
+
+function hexToIntColor(hex, fallbackInt) {
+  const cleaned = (typeof hex === 'string' && hex.startsWith('#')) ? hex.slice(1) : hex;
+  return /^[0-9A-Fa-f]{6}$/.test(cleaned) ? parseInt(cleaned, 16) : fallbackInt;
+}
+
+async function processJoin(interaction, messageId, participants, savedRecruitData) {
+  if (!participants.includes(interaction.user.id)) {
+    participants.push(interaction.user.id);
+    recruitParticipants.set(messageId, participants);
+    saveParticipantsToRedis(messageId, participants).catch(e => console.warn('参加者保存失敗 (async):', e?.message || e));
+    try {
+      await safeReply(interaction, { content: '✅ 参加しました！', flags: MessageFlags.Ephemeral, allowedMentions: { roles: [], users: [] } });
+    } catch (e) {
+      console.warn('quick reply failed:', e?.message || e);
+    }
+    if (savedRecruitData && savedRecruitData.recruiterId) {
+      (async () => {
+        try {
+          const joinColor = hexToIntColor(savedRecruitData?.panelColor || '00FF00', 0x00FF00);
+          const joinEmbed = new EmbedBuilder()
+            .setColor(joinColor)
+            .setTitle('🎮 新しい参加者がいます！')
+            .setDescription(`<@${interaction.user.id}> が募集に参加しました！`)
+            .addFields(
+              { name: '募集タイトル', value: savedRecruitData.title, inline: false },
+              { name: '現在の参加者数', value: `${participants.length}/${savedRecruitData.participants}人`, inline: true }
+            )
+            .setTimestamp();
+          const recruiterUser = await interaction.client.users.fetch(savedRecruitData.recruiterId).catch(() => null);
+          if (recruiterUser && recruiterUser.send) await recruiterUser.send({ content: `あなたの募集に参加者が増えました: ${savedRecruitData.title || ''}`, embeds: [joinEmbed] }).catch(() => null);
+        } catch (e) { console.warn('background recruiter notify failed:', e?.message || e); }
+      })();
+    }
+  } else {
+    await safeReply(interaction, { content: '❌ 既に参加済みです。', flags: MessageFlags.Ephemeral, allowedMentions: { roles: [], users: [] } });
+  }
+  updateParticipantList(interaction, participants, savedRecruitData).catch(e => console.warn('updateParticipantList failed (async):', e?.message || e));
+}
+
+async function processCancel(interaction, messageId, participants, savedRecruitData) {
+  const beforeLength = participants.length;
+  if (savedRecruitData && savedRecruitData.recruiterId === interaction.user.id) {
+    await safeReply(interaction, { content: '❌ 募集主は参加をキャンセルできません。募集を締める場合は「締め」ボタンを使用してください。', flags: MessageFlags.Ephemeral, allowedMentions: { roles: [], users: [] } });
+    return participants;
+  }
+  const updated = participants.filter(id => id !== interaction.user.id);
+  if (beforeLength > updated.length) {
+    recruitParticipants.set(messageId, updated);
+    saveParticipantsToRedis(messageId, updated).catch(e => console.warn('参加者保存失敗 (async):', e?.message || e));
+    try { await safeReply(interaction, { content: '✅ 参加を取り消しました。', flags: MessageFlags.Ephemeral, allowedMentions: { roles: [], users: [] } }); } catch (e) { console.warn('quick cancel reply failed:', e?.message || e); }
+    if (savedRecruitData && savedRecruitData.recruiterId) {
+      (async () => {
+        try {
+          const cancelColor = hexToIntColor(savedRecruitData?.panelColor || 'FF6B35', 0xFF6B35);
+          const cancelEmbed = new EmbedBuilder()
+            .setColor(cancelColor)
+            .setTitle('📤 参加者がキャンセルしました')
+            .setDescription(`<@${interaction.user.id}> が募集から離脱しました。`)
+            .addFields(
+              { name: '募集タイトル', value: savedRecruitData.title, inline: false },
+              { name: '現在の参加者数', value: `${updated.length}/${savedRecruitData.participants}人`, inline: true }
+            )
+            .setTimestamp();
+          const recruiterUser = await interaction.client.users.fetch(savedRecruitData.recruiterId).catch(() => null);
+          if (recruiterUser && recruiterUser.send) await recruiterUser.send({ content: `あなたの募集から参加者が離脱しました: ${savedRecruitData.title || ''}`, embeds: [cancelEmbed] }).catch(() => null);
+        } catch (e) { console.warn('background cancel notify failed:', e?.message || e); }
+      })();
+    }
+  } else {
+    await safeReply(interaction, { content: '❌ 参加していないため、取り消せません。', flags: MessageFlags.Ephemeral, allowedMentions: { roles: [], users: [] } });
+  }
+  updateParticipantList(interaction, updated, savedRecruitData).catch(e => console.warn('updateParticipantList failed (async):', e?.message || e));
+  return updated;
+}
+
+async function processClose(interaction, messageId, savedRecruitData) {
+  try {
+    let data = savedRecruitData;
+    if (!data) {
+      try { const fromRedis = await getRecruitFromRedis(String(messageId).slice(-8)); if (fromRedis) data = fromRedis; } catch (e) { console.warn('close: getRecruitFromRedis failed:', e?.message || e); }
+    }
+    if (!data) {
+      await safeReply(interaction, { content: '❌ 募集データが見つからないため締め切れません。', flags: MessageFlags.Ephemeral });
+      return;
+    }
+    if (data.recruiterId !== interaction.user.id) {
+      await safeReply(interaction, { content: '❌ 締め切りを実行できるのは募集主のみです。', flags: MessageFlags.Ephemeral });
+      return;
+    }
+
+    let statusUpdateSuccess = false;
+    try {
+      const statusResult = await updateRecruitmentStatus(messageId, 'ended', new Date().toISOString());
+      if (statusResult?.ok) statusUpdateSuccess = true; else console.warn('管理ページの募集ステータス更新が警告:', statusResult);
+    } catch (error) { console.error('管理ページの募集ステータス更新に失敗:', error); }
+
+    try {
+      if (statusUpdateSuccess) {
+        const delRes = await deleteRecruitmentData(messageId, interaction.user.id);
+        if (!delRes?.ok && delRes?.status !== 404) console.warn('管理API: 募集データ削除の結果が不正です:', delRes);
+      }
+    } catch (err) { console.error('募集データの削除に失敗:', err); }
+
+    // Disable UI (Components v2)
+    const disabledContainer = new (require('discord.js').ContainerBuilder)();
+    disabledContainer.setAccentColor(0x808080);
+    const originalMessage = interaction.message;
+    disabledContainer.addTextDisplayComponents(
+      new (require('discord.js').TextDisplayBuilder)().setContent('🎮✨ **募集締め切り済み** ✨🎮')
+    );
+    disabledContainer.addSeparatorComponents(
+      new (require('discord.js').SeparatorBuilder)().setSpacing(require('discord.js').SeparatorSpacingSize.Small).setDivider(true)
+    );
+    disabledContainer.addMediaGalleryComponents(
+      new (require('discord.js').MediaGalleryBuilder)().addItems(
+        new (require('discord.js').MediaGalleryItemBuilder)().setURL(originalMessage.attachments.first()?.url || 'attachment://recruit-card.png')
+      )
+    );
+    disabledContainer.addSeparatorComponents(
+      new (require('discord.js').SeparatorBuilder)().setSpacing(require('discord.js').SeparatorSpacingSize.Small).setDivider(true)
+    ).addTextDisplayComponents(
+      new (require('discord.js').TextDisplayBuilder)().setContent('🔒 **この募集は締め切られました** 🔒')
+    );
+    const footerMessageId = interaction.message.interaction?.id || interaction.message.id;
+    disabledContainer.addSeparatorComponents(
+      new (require('discord.js').SeparatorBuilder)().setSpacing(require('discord.js').SeparatorSpacingSize.Small).setDivider(true)
+    ).addTextDisplayComponents(
+      new (require('discord.js').TextDisplayBuilder)().setContent(`募集ID：\`${footerMessageId.slice(-8)}\` | powered by **rectbot**`)
+    );
+    await interaction.message.edit({ components: [disabledContainer], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } });
+
+    if (data && data.recruiterId) {
+      const finalParticipants = recruitParticipants.get(messageId) || [];
+      const closeColor = hexToIntColor(data?.panelColor || '808080', 0x808080);
+      const closeEmbed = new EmbedBuilder()
+        .setColor(closeColor)
+        .setTitle('🔒 募集締切')
+        .setDescription(`**${data.title}** の募集を締め切りました。`)
+        .addFields({ name: '最終参加者数', value: `${finalParticipants.length}/${data.participants}人`, inline: false });
+      try { await safeReply(interaction, { content: `<@${data.recruiterId}>`, embeds: [closeEmbed], allowedMentions: { users: [data.recruiterId] } }); } catch (e) { console.warn('safeReply failed during close handling:', e?.message || e); }
+      recruitParticipants.delete(messageId);
+      try { await deleteParticipantsFromRedis(messageId); } catch (e) { console.warn('Redis参加者削除失敗:', e?.message || e); }
+      try { const rid = data?.recruitId || String(messageId).slice(-8); if (rid) { const { deleteRecruitFromRedis } = require('../../utils/db'); await deleteRecruitFromRedis(rid); } } catch (e) { console.warn('Redis recruit削除失敗:', e?.message || e); }
+    } else {
+      await safeReply(interaction, { content: '🔒 募集を締め切りました。', flags: MessageFlags.Ephemeral, allowedMentions: { roles: [], users: [] } });
+    }
+  } catch (e) {
+    console.error('close button handler error:', e);
+  }
+}
+
 async function handleModalSubmit(interaction) {
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   console.log('[handleModalSubmit] started for guild:', interaction.guildId, 'user:', interaction.user?.id);
@@ -308,157 +499,21 @@ async function handleButton(interaction) {
   console.log('=== ボタンクリック処理開始 ===', messageId, interaction.customId);
 
   // hydrate participants if needed
-  let participants = recruitParticipants.get(messageId) || [];
-  try {
-    const persisted = await getParticipantsFromRedis(messageId);
-    if (Array.isArray(persisted) && persisted.length > 0) {
-      if (!participants || participants.length === 0) {
-        participants = persisted;
-        recruitParticipants.set(messageId, participants);
-      }
-    }
-  } catch (e) { console.warn('参加者リスト復元に失敗:', e?.message || e); }
+  let participants = await hydrateParticipants(interaction, messageId);
+  const savedRecruitData = await loadSavedRecruitData(interaction, messageId);
 
-  let savedRecruitData = null;
-  try {
-    const recruitId = String(messageId).slice(-8);
-    savedRecruitData = await getRecruitFromRedis(recruitId);
-    if (!savedRecruitData) {
-      try {
-        const all = await listRecruitsFromRedis();
-        savedRecruitData = all.find(r => r && (r.message_id === messageId || r.messageId === messageId || r.recruitId === recruitId));
-      } catch (e) { console.warn('listRecruitsFromRedis fallback failed:', e?.message || e); }
-    }
-  } catch (e) { console.warn('getRecruitFromRedis failed:', e?.message || e); savedRecruitData = null; }
-
-  switch (interaction.customId) {
-    case 'join': {
-      if (!participants.includes(interaction.user.id)) {
-        participants.push(interaction.user.id);
-        recruitParticipants.set(messageId, participants);
-        saveParticipantsToRedis(messageId, participants).catch(e => console.warn('参加者保存失敗 (async):', e?.message || e));
-        try { await safeReply(interaction, { content: '✅ 参加しました！', flags: MessageFlags.Ephemeral, allowedMentions: { roles: [], users: [] } }); } catch (e) { console.warn('quick reply failed:', e?.message || e); }
-        if (savedRecruitData && savedRecruitData.recruiterId) {
-          (async () => {
-            try {
-              const col = savedRecruitData?.panelColor || '00FF00';
-              const cleaned = (typeof col === 'string' && col.startsWith('#')) ? col.slice(1) : col;
-              const joinColor = /^[0-9A-Fa-f]{6}$/.test(cleaned) ? parseInt(cleaned, 16) : 0x00FF00;
-              const joinEmbed = new EmbedBuilder().setColor(joinColor).setTitle('🎮 新しい参加者がいます！').setDescription(`<@${interaction.user.id}> が募集に参加しました！`).addFields({ name: '募集タイトル', value: savedRecruitData.title, inline: false }, { name: '現在の参加者数', value: `${participants.length}/${savedRecruitData.participants}人`, inline: true }).setTimestamp();
-              const recruiterUser = await interaction.client.users.fetch(savedRecruitData.recruiterId).catch(() => null);
-              if (recruiterUser && recruiterUser.send) await recruiterUser.send({ content: `あなたの募集に参加者が増えました: ${savedRecruitData.title || ''}`, embeds: [joinEmbed] }).catch(() => null);
-            } catch (e) { console.warn('background recruiter notify failed:', e?.message || e); }
-          })();
-        }
-      } else {
-        await safeReply(interaction, { content: '❌ 既に参加済みです。', flags: MessageFlags.Ephemeral, allowedMentions: { roles: [], users: [] } });
-      }
-      updateParticipantList(interaction, participants, savedRecruitData).catch(e => console.warn('updateParticipantList failed (async):', e?.message || e));
-      break;
-    }
-    case 'cancel': {
-      const beforeLength = participants.length;
-      if (savedRecruitData && savedRecruitData.recruiterId === interaction.user.id) {
-        await safeReply(interaction, { content: '❌ 募集主は参加をキャンセルできません。募集を締め切る場合は「締め」ボタンを使用してください。', flags: MessageFlags.Ephemeral, allowedMentions: { roles: [], users: [] } });
-        return;
-      }
-      participants = participants.filter(id => id !== interaction.user.id);
-      if (beforeLength > participants.length) {
-        recruitParticipants.set(messageId, participants);
-        saveParticipantsToRedis(messageId, participants).catch(e => console.warn('参加者保存失敗 (async):', e?.message || e));
-        try { await safeReply(interaction, { content: '✅ 参加を取り消しました。', flags: MessageFlags.Ephemeral, allowedMentions: { roles: [], users: [] } }); } catch (e) { console.warn('quick cancel reply failed:', e?.message || e); }
-        if (savedRecruitData && savedRecruitData.recruiterId) {
-          (async () => {
-            try {
-              const col = savedRecruitData?.panelColor || 'FF6B35';
-              const cleaned = (typeof col === 'string' && col.startsWith('#')) ? col.slice(1) : col;
-              const cancelColor = /^[0-9A-Fa-f]{6}$/.test(cleaned) ? parseInt(cleaned, 16) : 0xFF6B35;
-              const cancelEmbed = new EmbedBuilder().setColor(cancelColor).setTitle('📤 参加者がキャンセルしました').setDescription(`<@${interaction.user.id}> が募集から離脱しました。`).addFields({ name: '募集タイトル', value: savedRecruitData.title, inline: false }, { name: '現在の参加者数', value: `${participants.length}/${savedRecruitData.participants}人`, inline: true }).setTimestamp();
-              const recruiterUser = await interaction.client.users.fetch(savedRecruitData.recruiterId).catch(() => null);
-              if (recruiterUser && recruiterUser.send) await recruiterUser.send({ content: `あなたの募集から参加者が離脱しました: ${savedRecruitData.title || ''}`, embeds: [cancelEmbed] }).catch(() => null);
-            } catch (e) { console.warn('background cancel notify failed:', e?.message || e); }
-          })();
-        }
-      } else {
-        await safeReply(interaction, { content: '❌ 参加していないため、取り消せません。', flags: MessageFlags.Ephemeral, allowedMentions: { roles: [], users: [] } });
-      }
-      updateParticipantList(interaction, participants, savedRecruitData).catch(e => console.warn('updateParticipantList failed (async):', e?.message || e));
-      break;
-    }
-    case 'close': {
-      try {
-        const messageId = interaction.message.id;
-        if (!savedRecruitData) {
-          try { const fromRedis = await getRecruitFromRedis(String(messageId).slice(-8)); if (fromRedis) savedRecruitData = fromRedis; } catch (e) { console.warn('close: getRecruitFromRedis failed:', e?.message || e); }
-        }
-        if (!savedRecruitData) {
-          await safeReply(interaction, { content: '❌ 募集データが見つからないため締め切れません。', flags: MessageFlags.Ephemeral });
-          return;
-        }
-        if (savedRecruitData.recruiterId !== interaction.user.id) {
-          await safeReply(interaction, { content: '❌ 締め切りを実行できるのは募集主のみです。', flags: MessageFlags.Ephemeral });
-          return;
-        }
-        let statusUpdateSuccess = false;
-        try {
-          const statusResult = await updateRecruitmentStatus(messageId, 'ended', new Date().toISOString());
-          if (statusResult?.ok) statusUpdateSuccess = true; else console.warn('管理ページの募集ステータス更新が警告:', statusResult);
-        } catch (error) { console.error('管理ページの募集ステータス更新に失敗:', error); }
-
-        try {
-          if (statusUpdateSuccess) {
-            const delRes = await deleteRecruitmentData(messageId, interaction.user.id);
-            if (!delRes?.ok && delRes?.status !== 404) console.warn('管理API: 募集データ削除の結果が不正です:', delRes);
-          }
-        } catch (err) { console.error('募集データの削除に失敗:', err); }
-
-        // Disable UI
-        const disabled = require('../../utils/recruitHelpers').buildContainer; // reuse builder for style; or rebuild greyed UI
-        const disabledContainer = new (require('discord.js').ContainerBuilder)();
-        disabledContainer.setAccentColor(0x808080);
-        const originalMessage = interaction.message;
-        disabledContainer.addTextDisplayComponents(
-          new (require('discord.js').TextDisplayBuilder)().setContent('🎮✨ **募集締め切り済み** ✨🎮')
-        );
-        disabledContainer.addSeparatorComponents(
-          new (require('discord.js').SeparatorBuilder)().setSpacing(require('discord.js').SeparatorSpacingSize.Small).setDivider(true)
-        );
-        disabledContainer.addMediaGalleryComponents(
-          new (require('discord.js').MediaGalleryBuilder)().addItems(
-            new (require('discord.js').MediaGalleryItemBuilder)().setURL(originalMessage.attachments.first()?.url || 'attachment://recruit-card.png')
-          )
-        );
-        disabledContainer.addSeparatorComponents(
-          new (require('discord.js').SeparatorBuilder)().setSpacing(require('discord.js').SeparatorSpacingSize.Small).setDivider(true)
-        ).addTextDisplayComponents(
-          new (require('discord.js').TextDisplayBuilder)().setContent('🔒 **この募集は締め切られました** 🔒')
-        );
-        const footerMessageId = interaction.message.interaction?.id || interaction.message.id;
-        disabledContainer.addSeparatorComponents(
-          new (require('discord.js').SeparatorBuilder)().setSpacing(require('discord.js').SeparatorSpacingSize.Small).setDivider(true)
-        ).addTextDisplayComponents(
-          new (require('discord.js').TextDisplayBuilder)().setContent(`募集ID：\`${footerMessageId.slice(-8)}\` | powered by **rectbot**`)
-        );
-        await interaction.message.edit({ components: [disabledContainer], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } });
-
-        if (savedRecruitData && savedRecruitData.recruiterId) {
-          const finalParticipants = recruitParticipants.get(messageId) || [];
-          const col = savedRecruitData?.panelColor || '808080';
-          const cleaned = (typeof col === 'string' && col.startsWith('#')) ? col.slice(1) : col;
-          const closeColor = /^[0-9A-Fa-f]{6}$/.test(cleaned) ? parseInt(cleaned, 16) : 0x808080;
-          const closeEmbed = new EmbedBuilder().setColor(closeColor).setTitle('🔒 募集締切').setDescription(`**${savedRecruitData.title}** の募集を締め切りました。`).addFields({ name: '最終参加者数', value: `${finalParticipants.length}/${savedRecruitData.participants}人`, inline: false });
-          try { await safeReply(interaction, { content: `<@${savedRecruitData.recruiterId}>`, embeds: [closeEmbed], allowedMentions: { users: [savedRecruitData.recruiterId] } }); } catch (e) { console.warn('safeReply failed during close handling:', e?.message || e); }
-          recruitParticipants.delete(messageId);
-          try { await deleteParticipantsFromRedis(messageId); } catch (e) { console.warn('Redis参加者削除失敗:', e?.message || e); }
-          try { const rid = savedRecruitData?.recruitId || String(messageId).slice(-8); if (rid) { const { deleteRecruitFromRedis } = require('../../utils/db'); await deleteRecruitFromRedis(rid); } } catch (e) { console.warn('Redis recruit削除失敗:', e?.message || e); }
-        } else {
-          await safeReply(interaction, { content: '🔒 募集を締め切りました。', flags: MessageFlags.Ephemeral, allowedMentions: { roles: [], users: [] } });
-        }
-      } catch (e) {
-        console.error('close button handler error:', e);
-      }
-      break;
-    }
+  const action = interaction.customId;
+  if (action === 'join') {
+    await processJoin(interaction, messageId, participants, savedRecruitData);
+    return;
+  }
+  if (action === 'cancel') {
+    participants = await processCancel(interaction, messageId, participants, savedRecruitData);
+    return;
+  }
+  if (action === 'close') {
+    await processClose(interaction, messageId, savedRecruitData);
+    return;
   }
 }
 

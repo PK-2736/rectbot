@@ -1,0 +1,99 @@
+name: Deploy Bot (Development)
+
+on:
+  push:
+    branches:
+      - "main"
+    paths:
+      - "bot/**"
+  # 手動トリガーも許可（必要に応じて再実行）
+  workflow_dispatch:
+
+jobs:
+  bot-dev-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Set up SSH key (id_ed25519)
+        env:
+          OCI_SSH_KEY: ${{ secrets.OCI_SSH_KEY }}
+          OCI_HOST: ${{ secrets.OCI_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          # Support raw PEM or base64-encoded private key
+          if printf '%s' "$OCI_SSH_KEY" | grep -q -- "-----BEGIN"; then
+            printf '%s' "$OCI_SSH_KEY" | sed 's/\r$//' > ~/.ssh/id_ed25519
+          else
+            printf '%s' "$OCI_SSH_KEY" | tr -d '\r' | base64 -d > ~/.ssh/id_ed25519
+          fi
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H $OCI_HOST >> ~/.ssh/known_hosts 2>/dev/null || true
+
+          # Quick non-interactive SSH test
+          set +e
+          ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=no ${{ secrets.OCI_USER }}@${OCI_HOST} 'echo SSH-OK' >/tmp/ssh_test_output 2>&1
+          SSH_TEST_EXIT=$?
+          set -e
+          if [ ${SSH_TEST_EXIT} -ne 0 ]; then
+            echo "ERROR: SSH test connection failed (exit=${SSH_TEST_EXIT}). Output:" >&2
+            sed -n '1,200p' /tmp/ssh_test_output || true
+            exit ${SSH_TEST_EXIT}
+          fi
+
+      - name: Deploy Dev Bot via SSH
+        env:
+          OCI_USER: ${{ secrets.OCI_USER }}
+          OCI_HOST: ${{ secrets.OCI_HOST }}
+          # Dev bot secrets (別アプリのトークン/クライアントID/エンドポイントを想定)
+          SERVICE_TOKEN_DEV: ${{ secrets.SERVICE_TOKEN_DEV }}
+          DISCORD_BOT_TOKEN_DEV: ${{ secrets.DISCORD_BOT_TOKEN_DEV }}
+          DISCORD_CLIENT_ID_DEV: ${{ secrets.DISCORD_CLIENT_ID_DEV }}
+          BACKEND_API_URL_DEV: ${{ secrets.BACKEND_API_URL_DEV }}
+          REDIS_HOST_DEV: ${{ secrets.REDIS_HOST_DEV }}
+          REDIS_PORT_DEV: ${{ secrets.REDIS_PORT_DEV }}
+          INTERNAL_SECRET_DEV: ${{ secrets.INTERNAL_SECRET_DEV }}
+        run: |
+          # 必須シークレットの最低限チェック
+          : "${SERVICE_TOKEN_DEV:?Missing SERVICE_TOKEN_DEV}"
+          : "${DISCORD_BOT_TOKEN_DEV:?Missing DISCORD_BOT_TOKEN_DEV}"
+          : "${DISCORD_CLIENT_ID_DEV:?Missing DISCORD_CLIENT_ID_DEV}"
+          : "${BACKEND_API_URL_DEV:?Missing BACKEND_API_URL_DEV}"
+
+          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no $OCI_USER@$OCI_HOST '
+            export SERVICE_TOKEN_DEV="'"$SERVICE_TOKEN_DEV"'"; \
+            export DISCORD_BOT_TOKEN_DEV="'"$DISCORD_BOT_TOKEN_DEV"'"; \
+            export DISCORD_CLIENT_ID_DEV="'"$DISCORD_CLIENT_ID_DEV"'"; \
+            export BACKEND_API_URL_DEV="'"$BACKEND_API_URL_DEV"'"; \
+            export REDIS_HOST_DEV="'"$REDIS_HOST_DEV"'"; \
+            export REDIS_PORT_DEV="'"$REDIS_PORT_DEV"'"; \
+            export INTERNAL_SECRET_DEV="'"$INTERNAL_SECRET_DEV"'"; \
+            source ~/.bashrc || true; \
+            source ~/.nvm/nvm.sh || true; \
+            cd ~/rectbot || exit 1; \
+            git pull origin main || true; \
+
+            # Bot Dev デプロイ
+            if [ -d ~/rectbot/bot ]; then \
+              cd ~/rectbot/bot || exit 1; \
+              mkdir -p logs || true; \
+              echo "Writing dev environment variables to .env.dev..."; \
+              echo "SERVICE_TOKEN=${SERVICE_TOKEN_DEV}" > .env.dev; \
+              echo "DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN_DEV}" >> .env.dev; \
+              echo "DISCORD_CLIENT_ID=${DISCORD_CLIENT_ID_DEV}" >> .env.dev; \
+              echo "CLIENT_ID=${DISCORD_CLIENT_ID_DEV}" >> .env.dev; \
+              echo "INTERNAL_SECRET=${INTERNAL_SECRET_DEV}" >> .env.dev; \
+              echo "BACKEND_API_URL=${BACKEND_API_URL_DEV}" >> .env.dev; \
+              echo "REDIS_HOST=${REDIS_HOST_DEV}" >> .env.dev; \
+              echo "REDIS_PORT=${REDIS_PORT_DEV}" >> .env.dev; \
+              # スラッシュコマンドをDevアプリにデプロイ（スクリプトが環境変数を読む前提）
+              NODE_ENV=development env $(cat .env.dev | xargs) node src/deploy-commands.js || true; \
+              # PM2: rectbot-dev として起動/再起動
+              NODE_ENV=development env $(cat .env.dev | xargs) pm2 restart rectbot-dev --update-env || \
+                NODE_ENV=development env $(cat .env.dev | xargs) pm2 start src/index.js --name rectbot-dev --time; \
+              pm2 save || true; \
+            else \
+              echo "Bot directory not found, skipping bot-dev deployment"; \
+            fi; \
+          '
