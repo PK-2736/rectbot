@@ -49,5 +49,7 @@ datasources:
       url: https://api.recrubo.net
       tlsSkipVerify: false
       auth_method: bearer
+      allowedHosts:
+        - api.recrubo.net
     secureJsonData:
       bearerToken: ${GRAFANA_TOKEN}
