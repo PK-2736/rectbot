@@ -1,4 +1,4 @@
-const config = require('../config');
+const config = require('../../config');
 const backendFetch = require('../backendFetch');
 const { normalizeRecruitId } = require('./utils');
 

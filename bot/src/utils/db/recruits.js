@@ -1,4 +1,4 @@
-const config = require('../config');
+const config = require('../../config');
 const backendFetch = require('../backendFetch');
 const { ensureRedisConnection, RECRUIT_TTL_SECONDS, scanKeys } = require('./redis');
 const { getParticipantsFromRedis } = require('./participants');

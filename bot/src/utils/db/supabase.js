@@ -1,5 +1,5 @@
 const { createClient } = require('@supabase/supabase-js');
-const config = require('../config');
+const config = require('../../config');
 
 let _supabaseClient = null;
 
