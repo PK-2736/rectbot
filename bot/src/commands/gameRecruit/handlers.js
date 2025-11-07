@@ -7,40 +7,235 @@ const { generateRecruitCard } = require('../../utils/canvasRecruit');
 const { updateParticipantList, autoCloseRecruitment } = require('../../utils/recruitMessage');
 const { EXEMPT_GUILD_IDS } = require('./constants');
 
-async function handleModalSubmit(interaction) {
-  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-  console.log('[handleModalSubmit] started for guild:', interaction.guildId, 'user:', interaction.user?.id);
+// ------------------------------
+// Helper utilities (behavior-preserving refactor)
+// ------------------------------
 
-  const { listRecruitsFromRedis, getCooldownRemaining, setCooldown } = require('../../utils/db');
+function isGuildExempt(guildId) {
+  return EXEMPT_GUILD_IDS.has(String(guildId));
+}
+
+async function enforceCooldown(interaction) {
   try {
-    if (!EXEMPT_GUILD_IDS.has(String(interaction.guildId))) {
-      const remaining = await getCooldownRemaining(`rect:${interaction.guildId}`);
-      if (remaining > 0) {
-        const mm = Math.floor(remaining / 60);
-        const ss = remaining % 60;
-        await safeReply(interaction, { content: `⏳ このサーバーの募集コマンドはクールダウン中です。あと ${mm}:${ss.toString().padStart(2, '0')} 待ってから再度お試しください。`, flags: MessageFlags.Ephemeral, allowedMentions: { roles: [], users: [] } });
-        return;
-      }
+    if (isGuildExempt(interaction.guildId)) return true;
+    const remaining = await getCooldownRemaining(`rect:${interaction.guildId}`);
+    if (remaining > 0) {
+      const mm = Math.floor(remaining / 60);
+      const ss = remaining % 60;
+      await safeReply(interaction, { content: `⏳ このサーバーの募集コマンドはクールダウン中です。あと ${mm}:${ss.toString().padStart(2, '0')} 待ってから再度お試しください。`, flags: MessageFlags.Ephemeral, allowedMentions: { roles: [], users: [] } });
+      return false;
     }
-  } catch (e) { console.warn('[rect cooldown check] failed:', e?.message || e); }
+    return true;
+  } catch (e) {
+    console.warn('[rect cooldown check] failed:', e?.message || e);
+    return true;
+  }
+}
 
-  if (!EXEMPT_GUILD_IDS.has(String(interaction.guildId))) {
-    let allRecruits = [];
-    try { allRecruits = await listRecruitsFromRedis(); } catch (e) { console.warn('listRecruitsFromRedis failed:', e?.message || e); }
+async function ensureNoActiveRecruit(interaction) {
+  if (isGuildExempt(interaction.guildId)) return true;
+  try {
+    const allRecruits = await listRecruitsFromRedis();
     const guildIdStr = String(interaction.guildId);
-    let matched = [];
     if (Array.isArray(allRecruits)) {
-      matched = allRecruits.filter(r => {
+      const matched = allRecruits.filter(r => {
         const gid = String(r?.guildId ?? r?.guild_id ?? r?.guild ?? r?.metadata?.guildId ?? r?.metadata?.guild ?? '');
         const status = String(r?.status ?? '').toLowerCase();
         return gid === guildIdStr && (status === 'recruiting' || status === 'active');
       });
+      if (matched.length >= 1) {
+        await safeReply(interaction, { content: '❌ このサーバーでは同時に実行できる募集は1件までです。既存の募集を締め切ってから新しい募集を作成してください。', flags: MessageFlags.Ephemeral, allowedMentions: { roles: [], users: [] } });
+        return false;
+      }
     }
-    if (matched.length >= 1) {
-      await safeReply(interaction, { content: '❌ このサーバーでは同時に実行できる募集は1件までです。既存の募集を締め切ってから新しい募集を作成してください。', flags: MessageFlags.Ephemeral, allowedMentions: { roles: [], users: [] } });
-      return;
+    return true;
+  } catch (e) {
+    console.warn('listRecruitsFromRedis failed:', e?.message || e);
+    return true; // フェイルオープン（既存挙動と同等の寛容さ）
+  }
+}
+
+function parseParticipantsNumFromModal(interaction) {
+  const participantsInput = interaction.fields.getTextInputValue('participants');
+  const participantsNum = parseInt(participantsInput);
+  if (isNaN(participantsNum) || participantsNum < 1 || participantsNum > 16) {
+    return null;
+  }
+  return participantsNum;
+}
+
+function normalizeHex(color, fallback = '000000') {
+  let use = color;
+  if (typeof use === 'string' && use.startsWith('#')) use = use.slice(1);
+  if (typeof use !== 'string' || !/^[0-9A-Fa-f]{6}$/.test(use)) return fallback;
+  return use;
+}
+
+function resolvePanelColor(interaction, guildSettings) {
+  let panelColor;
+  try {
+    const pending = interaction.user && interaction.user.id ? pendingModalOptions.get(interaction.user.id) : null;
+    if (pending && typeof pending.panelColor === 'string' && pending.panelColor.length > 0) {
+      panelColor = pending.panelColor;
+      pendingModalOptions.delete(interaction.user.id);
+    } else if (typeof interaction.recruitPanelColor === 'string' && interaction.recruitPanelColor.length > 0) {
+      panelColor = interaction.recruitPanelColor;
+    } else if (guildSettings.defaultColor) {
+      panelColor = guildSettings.defaultColor;
+    } else {
+      panelColor = undefined;
+    }
+  } catch (e) {
+    console.warn('handleModalSubmit: failed to retrieve pending modal options:', e?.message || e);
+    if (typeof interaction.recruitPanelColor === 'string' && interaction.recruitPanelColor.length > 0) {
+      panelColor = interaction.recruitPanelColor;
+    } else if (guildSettings.defaultColor) {
+      panelColor = guildSettings.defaultColor;
+    } else {
+      panelColor = undefined;
     }
   }
+  return panelColor;
+}
+
+function buildConfiguredNotificationRoleIds(guildSettings) {
+  const roles = [];
+  if (Array.isArray(guildSettings.notification_roles)) roles.push(...guildSettings.notification_roles.filter(Boolean));
+  if (guildSettings.notification_role) roles.push(guildSettings.notification_role);
+  return [...new Set(roles.map(String))].slice(0, 25);
+}
+
+async function fetchValidNotificationRoles(interaction, configuredIds) {
+  const valid = [];
+  for (const roleId of configuredIds) {
+    let role = interaction.guild?.roles?.cache?.get(roleId) || null;
+    if (!role) role = await interaction.guild.roles.fetch(roleId).catch(() => null);
+    if (role) valid.push({ id: role.id, name: role.name });
+  }
+  return valid;
+}
+
+async function selectNotificationRole(interaction, configuredIds) {
+  // 事前選択（pending）
+  try {
+    const pending = interaction.user && interaction.user.id ? pendingModalOptions.get(interaction.user.id) : null;
+    const preSelected = pending && pending.notificationRoleId ? String(pending.notificationRoleId) : null;
+    if (preSelected) {
+      if (configuredIds.includes(preSelected)) {
+        pendingModalOptions.delete(interaction.user.id);
+        return { roleId: preSelected, aborted: false };
+      } else {
+        await safeReply(interaction, { content: '❌ 指定された通知ロールは使用できません（設定に含まれていません）。', flags: MessageFlags.Ephemeral, allowedMentions: { roles: [], users: [] } });
+        return { roleId: null, aborted: true };
+      }
+    }
+  } catch (e) {
+    console.warn('pendingModalOptions (notificationRoleId) read failed:', e?.message || e);
+  }
+
+  const valid = await fetchValidNotificationRoles(interaction, configuredIds);
+  if (valid.length === 0) return { roleId: null, aborted: false };
+  if (valid.length === 1) return { roleId: valid[0].id, aborted: false };
+
+  // 複数有効なロールがある場合、選択 UI を提示
+  const options = valid.slice(0, 24).map(role => new StringSelectMenuOptionBuilder().setLabel(role.name?.slice(0, 100) || '通知ロール').setValue(role.id));
+  options.push(new StringSelectMenuOptionBuilder().setLabel('通知ロールなし').setValue('none').setDescription('今回は通知ロールを使用せずに募集します。'));
+  const selectMenu = new StringSelectMenuBuilder().setCustomId(`recruit_notification_role_select_${interaction.id}`).setPlaceholder('通知ロールを選択してください').setMinValues(1).setMaxValues(1).addOptions(options);
+  const selectRow = new ActionRowBuilder().addComponents(selectMenu);
+  const promptMessage = await safeReply(interaction, { content: '🔔 通知ロールを選択してください（任意）', components: [selectRow], flags: MessageFlags.Ephemeral, allowedMentions: { roles: [], users: [] } });
+  if (!promptMessage || typeof promptMessage.awaitMessageComponent !== 'function') {
+    return { roleId: valid[0]?.id || null, aborted: false };
+  }
+  try {
+    const selectInteraction = await promptMessage.awaitMessageComponent({ componentType: ComponentType.StringSelect, time: 60_000, filter: (i) => i.user.id === interaction.user.id });
+    const choice = selectInteraction.values[0];
+    const selected = choice === 'none' ? null : choice;
+    const confirmationText = selected ? `🔔 通知ロール: <@&${selected}>` : '🔕 通知ロールを使用せずに募集を作成します。';
+    await selectInteraction.update({ content: confirmationText, components: [], allowedMentions: { roles: [], users: [] } });
+    return { roleId: selected, aborted: false };
+  } catch (collectorError) {
+    console.warn('[handleModalSubmit] Notification role selection timed out:', collectorError?.message || collectorError);
+    await promptMessage.edit({ content: '⏱ 通知ロールの選択がタイムアウトしました。募集は作成されませんでした。', components: [] }).catch(() => {});
+    return { roleId: null, aborted: true };
+  }
+}
+
+async function sendAnnouncements(interaction, selectedNotificationRole, configuredIds, image, container, guildSettings) {
+  const shouldUseDefaultNotification = !selectedNotificationRole && configuredIds.length === 0;
+  if (selectedNotificationRole) {
+    (async () => { try { await interaction.channel.send({ content: `新しい募集が作成されました。<@&${selectedNotificationRole}>`, allowedMentions: { roles: [selectedNotificationRole] } }); } catch (e) { console.warn('通知送信失敗 (selected)', e?.message || e); } })();
+  } else if (shouldUseDefaultNotification) {
+    (async () => { try { await interaction.channel.send({ content: '新しい募集が作成されました。<@&1416797165769986161>', allowedMentions: { roles: ['1416797165769986161'] } }); } catch (e) { console.warn('通知送信失敗 (default)', e?.message || e); } })();
+  }
+
+  // 画像とUIの投稿
+  const followUpMessage = await interaction.channel.send({ files: [image], components: [container], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } });
+
+  // 別チャンネルにも投稿
+  if (guildSettings.recruit_channel && guildSettings.recruit_channel !== interaction.channelId) {
+    try {
+      const recruitChannel = await interaction.guild.channels.fetch(guildSettings.recruit_channel);
+      if (recruitChannel && recruitChannel.isTextBased()) {
+        if (selectedNotificationRole) {
+          (async () => { try { await recruitChannel.send({ content: `新しい募集が作成されました。<@&${selectedNotificationRole}>`, allowedMentions: { roles: [selectedNotificationRole] } }); } catch (e) { console.warn('通知送信失敗 (指定ch, selected):', e?.message || e); } })();
+        } else if (shouldUseDefaultNotification) {
+          (async () => { try { await recruitChannel.send({ content: '新しい募集が作成されました。<@&1416797165769986161>', allowedMentions: { roles: ['1416797165769986161'] } }); } catch (e) { console.warn('通知送信失敗 (指定ch, default):', e?.message || e); } })();
+        }
+        (async () => { try { await recruitChannel.send({ files: [image], components: [container], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } }); } catch (e) { console.warn('募集メッセージ送信失敗(指定ch):', e?.message || e); } })();
+      }
+    } catch (channelError) { console.error('指定チャンネルへの送信でエラー:', channelError); }
+  }
+
+  return followUpMessage;
+}
+
+async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettings, user, participantText, followUpMessage }) {
+  const actualMessage = followUpMessage;
+  const actualMessageId = actualMessage.id;
+  const actualRecruitId = actualMessageId.slice(-8);
+  recruitDataObj.recruitId = actualRecruitId;
+  const finalRecruitData = { ...recruitDataObj, guildId: interaction.guildId, channelId: interaction.channelId, message_id: actualMessageId, status: 'recruiting', start_time: new Date().toISOString() };
+
+  try {
+    await saveRecruitToRedis(actualRecruitId, finalRecruitData);
+    const pushRes = await pushRecruitToWebAPI(finalRecruitData);
+    if (!pushRes || !pushRes.ok) console.error('Worker API push failed:', pushRes);
+    try {
+      const workerSave = await saveRecruitmentData(interaction.guildId, interaction.channelId, actualMessageId, interaction.guild?.name, interaction.channel?.name, finalRecruitData);
+      if (!workerSave?.ok) console.error('[worker-sync] DO 保存失敗:', workerSave);
+    } catch (saveErr) { console.error('[worker-sync] saveRecruitmentData error:', saveErr?.message || saveErr); }
+  } catch (err) { console.error('Redis保存またはAPI pushエラー:', err); }
+
+  // 参加者保存
+  recruitParticipants.set(actualMessageId, [interaction.user.id]);
+  try { await saveParticipantsToRedis(actualMessageId, [interaction.user.id]); } catch (e) { console.warn('初期参加者のRedis保存に失敗:', e?.message || e); }
+
+  // 画像とUIの更新（確定ID入り）
+  let finalUseColor = finalRecruitData.panelColor ? finalRecruitData.panelColor : (guildSettings.defaultColor ? guildSettings.defaultColor : '000000');
+  finalUseColor = normalizeHex(finalUseColor, '000000');
+  const updatedImageBuffer = await generateRecruitCard(finalRecruitData, [interaction.user.id], interaction.client, finalUseColor);
+  const updatedImage = new AttachmentBuilder(updatedImageBuffer, { name: 'recruit-card.png' });
+  const finalAccentColor = /^[0-9A-Fa-f]{6}$/.test(finalUseColor) ? parseInt(finalUseColor, 16) : 0x000000;
+  const updatedContainer = buildContainer({ headerTitle: `${user.username}さんの募集`, participantText, recruitIdText: actualRecruitId, accentColor: finalAccentColor, imageAttachmentName: 'attachment://recruit-card.png', recruiterId: interaction.user.id, requesterId: interaction.user.id });
+  try { await actualMessage.edit({ files: [updatedImage], components: [updatedContainer], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } }); } catch (editError) { console.error('メッセージ更新エラー:', editError); }
+
+  // 自動締切タイマー（8h）
+  setTimeout(async () => {
+    try {
+      if (recruitParticipants.has(actualMessageId)) {
+        console.log('8時間経過による自動締切実行:', actualMessageId);
+        try { await autoCloseRecruitment(interaction.client, interaction.guildId, interaction.channelId, actualMessageId); } catch (e) { console.error('autoCloseRecruitment failed:', e); }
+      }
+    } catch (error) { console.error('自動締切処理でエラー:', error); }
+  }, 8 * 60 * 60 * 1000);
+
+  // クールダウン設定
+  try { if (!isGuildExempt(interaction.guildId)) await setCooldown(`rect:${interaction.guildId}`, 60); } catch (e) { console.warn('[rect cooldown set at submit] failed:', e?.message || e); }
+}
+
+async function handleModalSubmit(interaction) {
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  console.log('[handleModalSubmit] started for guild:', interaction.guildId, 'user:', interaction.user?.id);
 
   if (interaction.customId !== 'recruitModal') {
     console.log('[handleModalSubmit] ignored customId:', interaction.customId);
@@ -48,39 +243,20 @@ async function handleModalSubmit(interaction) {
   }
 
   try {
+    // 前処理: クールダウンと同時募集制限
+    if (!(await enforceCooldown(interaction))) return;
+    if (!(await ensureNoActiveRecruit(interaction))) return;
+
     const guildSettings = await getGuildSettings(interaction.guildId);
 
-    const participantsInput = interaction.fields.getTextInputValue('participants');
-    const participantsNum = parseInt(participantsInput);
-    if (isNaN(participantsNum) || participantsNum < 1 || participantsNum > 16) {
+    const participantsNum = parseParticipantsNumFromModal(interaction);
+    if (participantsNum === null) {
       await safeReply(interaction, { content: '❌ 参加人数は1〜16の数字で入力してください。', flags: MessageFlags.Ephemeral, allowedMentions: { roles: [], users: [] } });
       return;
     }
 
     // 色決定: select > settings > default
-    let panelColor = null;
-    try {
-      const pending = interaction.user && interaction.user.id ? pendingModalOptions.get(interaction.user.id) : null;
-      if (pending && typeof pending.panelColor === 'string' && pending.panelColor.length > 0) {
-        panelColor = pending.panelColor;
-        pendingModalOptions.delete(interaction.user.id);
-      } else if (typeof interaction.recruitPanelColor === 'string' && interaction.recruitPanelColor.length > 0) {
-        panelColor = interaction.recruitPanelColor;
-      } else if (guildSettings.defaultColor) {
-        panelColor = guildSettings.defaultColor;
-      } else {
-        panelColor = undefined;
-      }
-    } catch (e) {
-      console.warn('handleModalSubmit: failed to retrieve pending modal options:', e?.message || e);
-      if (typeof interaction.recruitPanelColor === 'string' && interaction.recruitPanelColor.length > 0) {
-        panelColor = interaction.recruitPanelColor;
-      } else if (guildSettings.defaultColor) {
-        panelColor = guildSettings.defaultColor;
-      } else {
-        panelColor = undefined;
-      }
-    }
+    const panelColor = resolvePanelColor(interaction, guildSettings);
 
     const recruitDataObj = {
       title: interaction.fields.getTextInputValue('title'),
@@ -92,147 +268,29 @@ async function handleModalSubmit(interaction) {
       recruitId: '',
       panelColor
     };
-
-    // Build configured notification roles
-    const configuredNotificationRoleIds = (() => {
-      const roles = [];
-      if (Array.isArray(guildSettings.notification_roles)) roles.push(...guildSettings.notification_roles.filter(Boolean));
-      if (guildSettings.notification_role) roles.push(guildSettings.notification_role);
-      return [...new Set(roles.map(String))].slice(0, 25);
-    })();
-
-    const validNotificationRoles = [];
-    for (const roleId of configuredNotificationRoleIds) {
-      let role = interaction.guild?.roles?.cache?.get(roleId) || null;
-      if (!role) role = await interaction.guild.roles.fetch(roleId).catch(() => null);
-      if (role) validNotificationRoles.push({ id: role.id, name: role.name });
-    }
-
-    const hasValidConfiguredRoles = validNotificationRoles.length > 0;
-    let selectedNotificationRole = null;
-    try {
-      const pending = interaction.user && interaction.user.id ? pendingModalOptions.get(interaction.user.id) : null;
-      const preSelected = pending && pending.notificationRoleId ? String(pending.notificationRoleId) : null;
-      if (preSelected) {
-        if (configuredNotificationRoleIds.includes(preSelected)) {
-          selectedNotificationRole = preSelected;
-          pendingModalOptions.delete(interaction.user.id);
-        } else {
-          await safeReply(interaction, { content: '❌ 指定された通知ロールは使用できません（設定に含まれていません）。', flags: MessageFlags.Ephemeral, allowedMentions: { roles: [], users: [] } });
-          return;
-        }
-      }
-    } catch (e) { console.warn('pendingModalOptions (notificationRoleId) read failed:', e?.message || e); }
-
-    if (hasValidConfiguredRoles && !selectedNotificationRole) {
-      if (validNotificationRoles.length === 1) {
-        selectedNotificationRole = validNotificationRoles[0].id;
-      } else {
-        const options = validNotificationRoles.slice(0, 24).map(role => new StringSelectMenuOptionBuilder().setLabel(role.name?.slice(0, 100) || '通知ロール').setValue(role.id));
-        options.push(new StringSelectMenuOptionBuilder().setLabel('通知ロールなし').setValue('none').setDescription('今回は通知ロールを使用せずに募集します。'));
-        const selectMenu = new StringSelectMenuBuilder().setCustomId(`recruit_notification_role_select_${interaction.id}`).setPlaceholder('通知ロールを選択してください').setMinValues(1).setMaxValues(1).addOptions(options);
-        const selectRow = new ActionRowBuilder().addComponents(selectMenu);
-        const promptMessage = await safeReply(interaction, { content: '🔔 通知ロールを選択してください（任意）', components: [selectRow], flags: MessageFlags.Ephemeral, allowedMentions: { roles: [], users: [] } });
-        if (!promptMessage || typeof promptMessage.awaitMessageComponent !== 'function') {
-          selectedNotificationRole = validNotificationRoles[0]?.id || null;
-        } else {
-          try {
-            const selectInteraction = await promptMessage.awaitMessageComponent({ componentType: ComponentType.StringSelect, time: 60_000, filter: (i) => i.user.id === interaction.user.id });
-            const choice = selectInteraction.values[0];
-            selectedNotificationRole = choice === 'none' ? null : choice;
-            const confirmationText = selectedNotificationRole ? `🔔 通知ロール: <@&${selectedNotificationRole}>` : '🔕 通知ロールを使用せずに募集を作成します。';
-            await selectInteraction.update({ content: confirmationText, components: [], allowedMentions: { roles: [], users: [] } });
-          } catch (collectorError) {
-            console.warn('[handleModalSubmit] Notification role selection timed out:', collectorError?.message || collectorError);
-            await promptMessage.edit({ content: '⏱ 通知ロールの選択がタイムアウトしました。募集は作成されませんでした。', components: [] }).catch(() => {});
-            return;
-          }
-        }
-      }
-    }
-
+    // 通知ロールの決定
+    const configuredNotificationRoleIds = buildConfiguredNotificationRoleIds(guildSettings);
+    const { roleId: selectedNotificationRole, aborted } = await selectNotificationRole(interaction, configuredNotificationRoleIds);
+    if (aborted) return;
     recruitDataObj.notificationRoleId = selectedNotificationRole;
 
     // カード生成と初回送信
     const currentParticipants = [interaction.user.id];
-    let useColor = panelColor ? panelColor : (guildSettings.defaultColor ? guildSettings.defaultColor : '000000');
-    if (typeof useColor === 'string' && useColor.startsWith('#')) useColor = useColor.slice(1);
-    if (typeof useColor !== 'string' || !/^[0-9A-Fa-f]{6}$/.test(useColor)) useColor = '000000';
+    let useColor = normalizeHex(panelColor ? panelColor : (guildSettings.defaultColor ? guildSettings.defaultColor : '000000'), '000000');
     const buffer = await generateRecruitCard(recruitDataObj, currentParticipants, interaction.client, useColor);
     const user = interaction.targetUser || interaction.user;
-
-    const shouldUseDefaultNotification = !selectedNotificationRole && configuredNotificationRoleIds.length === 0;
-    if (selectedNotificationRole) {
-      (async () => { try { await interaction.channel.send({ content: `新しい募集が作成されました。<@&${selectedNotificationRole}>`, allowedMentions: { roles: [selectedNotificationRole] } }); } catch (e) { console.warn('通知送信失敗 (selected)', e?.message || e); } })();
-    } else if (shouldUseDefaultNotification) {
-      (async () => { try { await interaction.channel.send({ content: '新しい募集が作成されました。<@&1416797165769986161>', allowedMentions: { roles: ['1416797165769986161'] } }); } catch (e) { console.warn('通知送信失敗 (default)', e?.message || e); } })();
-    }
 
     const image = new AttachmentBuilder(buffer, { name: 'recruit-card.png' });
     let participantText = `🎯✨ 参加リスト ✨🎯\n🎮 <@${interaction.user.id}>`;
     if (selectedNotificationRole) participantText += `\n🔔 通知ロール: <@&${selectedNotificationRole}>`;
-    let panelColorForAccent = panelColor;
-    if (typeof panelColorForAccent === 'string' && panelColorForAccent.startsWith('#')) panelColorForAccent = panelColorForAccent.slice(1);
-    const accentColor = (panelColorForAccent && /^[0-9A-Fa-f]{6}$/.test(panelColorForAccent)) ? parseInt(panelColorForAccent, 16) : (guildSettings.defaultColor && /^[0-9A-Fa-f]{6}$/.test(guildSettings.defaultColor) ? parseInt(guildSettings.defaultColor, 16) : 0x000000);
+    const panelColorForAccent = normalizeHex(panelColor, guildSettings.defaultColor && /^[0-9A-Fa-f]{6}$/.test(guildSettings.defaultColor) ? guildSettings.defaultColor : '000000');
+    const accentColor = /^[0-9A-Fa-f]{6}$/.test(panelColorForAccent) ? parseInt(panelColorForAccent, 16) : 0x000000;
     const container = buildContainer({ headerTitle: `${user.username}さんの募集`, participantText, recruitIdText: '(送信後決定)', accentColor, imageAttachmentName: 'attachment://recruit-card.png', recruiterId: interaction.user.id, requesterId: interaction.user.id });
-    const followUpMessage = await interaction.channel.send({ files: [image], components: [container], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } });
+    const followUpMessage = await sendAnnouncements(interaction, selectedNotificationRole, configuredNotificationRoleIds, image, container, guildSettings);
     try { await safeReply(interaction, { content: '募集を作成しました。', flags: MessageFlags.Ephemeral }); } catch (e) { console.warn('safeReply failed (non-fatal):', e?.message || e); }
-
-    if (guildSettings.recruit_channel && guildSettings.recruit_channel !== interaction.channelId) {
-      try {
-        const recruitChannel = await interaction.guild.channels.fetch(guildSettings.recruit_channel);
-        if (recruitChannel && recruitChannel.isTextBased()) {
-          if (selectedNotificationRole) {
-            (async () => { try { await recruitChannel.send({ content: `新しい募集が作成されました。<@&${selectedNotificationRole}>`, allowedMentions: { roles: [selectedNotificationRole] } }); } catch (e) { console.warn('通知送信失敗 (指定ch, selected):', e?.message || e); } })();
-          } else if (shouldUseDefaultNotification) {
-            (async () => { try { await recruitChannel.send({ content: '新しい募集が作成されました。<@&1416797165769986161>', allowedMentions: { roles: ['1416797165769986161'] } }); } catch (e) { console.warn('通知送信失敗 (指定ch, default):', e?.message || e); } })();
-          }
-          (async () => { try { await recruitChannel.send({ files: [image], components: [container], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } }); } catch (e) { console.warn('募集メッセージ送信失敗(指定ch):', e?.message || e); } })();
-        }
-      } catch (channelError) { console.error('指定チャンネルへの送信でエラー:', channelError); }
-    }
-
-    // 送信後に recruitId 確定し保存
+    // 送信後の保存とUI更新
     try {
-      const actualMessage = followUpMessage;
-      const actualMessageId = actualMessage.id;
-      const actualRecruitId = actualMessageId.slice(-8);
-      recruitDataObj.recruitId = actualRecruitId;
-      const finalRecruitData = { ...recruitDataObj, guildId: interaction.guildId, channelId: interaction.channelId, message_id: actualMessageId, status: 'recruiting', start_time: new Date().toISOString() };
-      try {
-        await saveRecruitToRedis(actualRecruitId, finalRecruitData);
-        const pushRes = await pushRecruitToWebAPI(finalRecruitData);
-        if (!pushRes || !pushRes.ok) console.error('Worker API push failed:', pushRes);
-        try {
-          const workerSave = await saveRecruitmentData(interaction.guildId, interaction.channelId, actualMessageId, interaction.guild?.name, interaction.channel?.name, finalRecruitData);
-          if (!workerSave?.ok) console.error('[worker-sync] DO 保存失敗:', workerSave);
-        } catch (saveErr) { console.error('[worker-sync] saveRecruitmentData error:', saveErr?.message || saveErr); }
-      } catch (err) { console.error('Redis保存またはAPI pushエラー:', err); }
-
-      recruitParticipants.set(actualMessageId, [interaction.user.id]);
-      try { await saveParticipantsToRedis(actualMessageId, [interaction.user.id]); } catch (e) { console.warn('初期参加者のRedis保存に失敗:', e?.message || e); }
-
-      // 画像とUIの更新（確定ID入り）
-      let finalUseColor = finalRecruitData.panelColor ? finalRecruitData.panelColor : (guildSettings.defaultColor ? guildSettings.defaultColor : '000000');
-      if (typeof finalUseColor === 'string' && finalUseColor.startsWith('#')) finalUseColor = finalUseColor.slice(1);
-      if (typeof finalUseColor !== 'string' || !/^[0-9A-Fa-f]{6}$/.test(finalUseColor)) finalUseColor = '000000';
-      const updatedImageBuffer = await generateRecruitCard(finalRecruitData, [interaction.user.id], interaction.client, finalUseColor);
-      const updatedImage = new AttachmentBuilder(updatedImageBuffer, { name: 'recruit-card.png' });
-      const finalAccentColor = /^[0-9A-Fa-f]{6}$/.test(finalUseColor) ? parseInt(finalUseColor, 16) : 0x000000;
-      const updatedContainer = buildContainer({ headerTitle: `${user.username}さんの募集`, participantText, recruitIdText: actualRecruitId, accentColor: finalAccentColor, imageAttachmentName: 'attachment://recruit-card.png', recruiterId: interaction.user.id, requesterId: interaction.user.id });
-      try { await actualMessage.edit({ files: [updatedImage], components: [updatedContainer], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } }); } catch (editError) { console.error('メッセージ更新エラー:', editError); }
-
-      // 自動締切タイマー（8h）
-      setTimeout(async () => {
-        try {
-          if (recruitParticipants.has(actualMessageId)) {
-            console.log('8時間経過による自動締切実行:', actualMessageId);
-            try { await autoCloseRecruitment(interaction.client, interaction.guildId, interaction.channelId, actualMessageId); } catch (e) { console.error('autoCloseRecruitment failed:', e); }
-          }
-        } catch (error) { console.error('自動締切処理でエラー:', error); }
-      }, 8 * 60 * 60 * 1000);
-
-      try { if (!EXEMPT_GUILD_IDS.has(String(interaction.guildId))) await setCooldown(`rect:${interaction.guildId}`, 60); } catch (e) { console.warn('[rect cooldown set at submit] failed:', e?.message || e); }
+      await finalizePersistAndEdit({ interaction, recruitDataObj, guildSettings, user, participantText, followUpMessage });
     } catch (error) { console.error('メッセージ取得エラー:', error); }
   } catch (error) {
     console.error('handleModalSubmit error:', error);
@@ -261,7 +319,6 @@ async function handleButton(interaction) {
     }
   } catch (e) { console.warn('参加者リスト復元に失敗:', e?.message || e); }
 
-  const { getRecruitFromRedis, listRecruitsFromRedis } = require('../../utils/db');
   let savedRecruitData = null;
   try {
     const recruitId = String(messageId).slice(-8);

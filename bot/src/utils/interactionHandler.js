@@ -8,10 +8,10 @@ const { MessageFlags } = require('discord.js');
 /**
  * 安全にdeferReplyを実行（既にdefer済み/返信済みの場合はスキップ）
  * @param {Interaction} interaction 
- * @param {Object} options defer options (ephemeral等)
+ * @param {Object} options defer options (flags推奨)
  * @returns {Promise<boolean>} defer成功ならtrue
  */
-async function safeDeferReply(interaction, options = { ephemeral: true }) {
+async function safeDeferReply(interaction, options = { flags: MessageFlags.Ephemeral }) {
   try {
     if (interaction.deferred || interaction.replied) {
       return false;
@@ -55,14 +55,14 @@ async function safeRespond(interaction, payload) {
  * 統一エラーハンドリング: コマンド実行をtry/catchでラップし、エラー時に安全に返信
  * @param {Interaction} interaction 
  * @param {Function} handler コマンドの実行関数
- * @param {Object} deferOptions deferReplyのオプション
+ * @param {Object} deferOptions deferReplyのオプション（flags推奨）
  */
-async function handleCommandSafely(interaction, handler, options = { defer: true, deferOptions: { ephemeral: true } }) {
+async function handleCommandSafely(interaction, handler, options = { defer: true, deferOptions: { flags: MessageFlags.Ephemeral } }) {
   try {
     // P0修正: コマンド処理前に標準的にdeferReply
     const shouldDefer = !(options && options.defer === false);
     if (shouldDefer) {
-      const deferOpts = (options && options.deferOptions) ? options.deferOptions : { ephemeral: true };
+      const deferOpts = (options && options.deferOptions) ? options.deferOptions : { flags: MessageFlags.Ephemeral };
       await safeDeferReply(interaction, deferOpts);
     }
     

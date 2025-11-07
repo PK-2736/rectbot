@@ -140,14 +140,14 @@ async function showRoleSelect(interaction, settingType, placeholder) {
   const actionRow = new ActionRowBuilder().addComponents(roleSelect);
   try {
     if (!interaction.replied && !interaction.deferred) {
-      await interaction.reply({ content: placeholder, components: [actionRow], ephemeral: true });
+      await interaction.reply({ content: placeholder, components: [actionRow], flags: MessageFlags.Ephemeral });
     } else {
-      await safeReply(interaction, { content: placeholder, components: [actionRow], ephemeral: true });
+      await safeReply(interaction, { content: placeholder, components: [actionRow], flags: MessageFlags.Ephemeral });
     }
   } catch (error) {
     console.error('[guildSettings] showRoleSelect response error:', error);
     if (!interaction.replied && !interaction.deferred) {
-      await safeReply(interaction, { content: '❌ ロール選択メニューの表示に失敗しました。時間を置いて再度お試しください。', ephemeral: true });
+      await safeReply(interaction, { content: '❌ ロール選択メニューの表示に失敗しました。時間を置いて再度お試しください。', flags: MessageFlags.Ephemeral });
     }
   }
 }

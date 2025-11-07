@@ -149,12 +149,12 @@ class ErrorHandler {
       if (interaction.replied || interaction.deferred) {
         await interaction.followUp({
           content: errorMessage,
-          ephemeral: true
+          flags: (require('discord.js').MessageFlags).Ephemeral
         });
       } else {
         await interaction.reply({
           content: errorMessage,
-          ephemeral: true
+          flags: (require('discord.js').MessageFlags).Ephemeral
         });
       }
     } catch (replyError) {

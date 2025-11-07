@@ -1,2 +1,3 @@
 // Wrapper delegating to the split db module index.
-module.exports = require('./db');
+// NOTE: Use explicit path to avoid resolving this file (db.js) again.
+module.exports = require('./db/index.js');
