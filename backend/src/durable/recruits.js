@@ -247,7 +247,7 @@ function buildRecruitRecord(data, env) {
     recruitId: data?.recruitId || data?.id,
     ownerId: data?.ownerId || data?.owner_id,
     title: (data?.title || "").toString(),
-    description: (data?.description || "").toString(),
+    description: (data?.description || data?.content || "").toString(),
     game: (data?.game || "").toString(),
     platform: (data?.platform || "").toString(),
     startTime: data?.startTime || now.toISOString(),
