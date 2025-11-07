@@ -1,5 +1,33 @@
 import { resolveSupabaseRestUrl, buildSupabaseHeaders, pingSupabase } from '../supabase.js';
 
+// Lightweight fetch with retry for transient errors from Supabase/edge
+async function fetchWithRetry(url, options, { retries = 2, backoffMs = 300, retryOn = new Set([429, 500, 502, 503, 504, 520, 522, 523, 524, 530]) } = {}) {
+  let lastErr;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const res = await fetch(url, options);
+      if (retryOn.has(res.status)) {
+        if (attempt < retries) {
+          const delay = backoffMs * Math.pow(2, attempt);
+          await new Promise(r => setTimeout(r, delay));
+          continue;
+        }
+      }
+      return res;
+    } catch (e) {
+      lastErr = e;
+      if (attempt < retries) {
+        const delay = backoffMs * Math.pow(2, attempt);
+        await new Promise(r => setTimeout(r, delay));
+        continue;
+      }
+      throw e;
+    }
+  }
+  // Should not reach here; throw last error just in case
+  throw lastErr || new Error('fetchWithRetry: unknown error');
+}
+
 // POST /api/guild-settings/finalize
 async function handleFinalize(request, env, corsHeaders) {
   try {
@@ -76,12 +104,14 @@ async function handleFinalize(request, env, corsHeaders) {
     }
 
     // Check existing
-    const existingRes = await fetch(`${supabaseRestUrl}/rest/v1/guild_settings?guild_id=eq.${guildId}`, {
+    const existingRes = await fetchWithRetry(`${supabaseRestUrl}/rest/v1/guild_settings?guild_id=eq.${guildId}`, {
       method: 'GET',
       headers: supabaseHeaders,
     });
     if (!existingRes.ok) {
-      throw new Error(`Failed to check existing settings: ${existingRes.status} - ${await existingRes.text()}`);
+      const errorText = await existingRes.text();
+      console.error('[finalize] Check existing failed:', existingRes.status, errorText);
+      throw new Error(`Failed to check existing settings: ${existingRes.status} - ${errorText}`);
     }
     const existingData = await existingRes.json();
 
@@ -94,13 +124,13 @@ async function handleFinalize(request, env, corsHeaders) {
       if (supabaseData.default_color) patchBody.default_color = supabaseData.default_color;
       if (supabaseData.update_channel_id !== null) patchBody.update_channel_id = supabaseData.update_channel_id;
 
-      supaRes = await fetch(`${supabaseRestUrl}/rest/v1/guild_settings?guild_id=eq.${guildId}`, {
+      supaRes = await fetchWithRetry(`${supabaseRestUrl}/rest/v1/guild_settings?guild_id=eq.${guildId}`, {
         method: 'PATCH',
         headers: supabaseHeaders,
         body: JSON.stringify(patchBody),
       });
     } else {
-      supaRes = await fetch(`${supabaseRestUrl}/rest/v1/guild_settings`, {
+      supaRes = await fetchWithRetry(`${supabaseRestUrl}/rest/v1/guild_settings`, {
         method: 'POST',
         headers: supabaseHeaders,
         body: JSON.stringify(supabaseData),

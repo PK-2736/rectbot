@@ -173,15 +173,31 @@ async function finalizeSettingsHandler(interaction) {
   } catch (error) {
     console.error('Finalize settings error:', error);
     let errorMessage = '❌ 設定の保存に失敗しました。';
-    if (error.message && error.message.includes('404')) {
+  const status = error?.status;
+    if (status === 404 || (error.message && error.message.includes('404'))) {
       errorMessage += '\nセッションが見つかりません。設定を再度お試しください。';
-    } else if (error.message && error.message.includes('500')) {
-      errorMessage += '\nデータベース接続に問題があります。一時的に設定が保存されている可能性があります。';
+    } else if ((typeof status === 'number' && status >= 500) || (error.message && error.message.includes('500'))) {
+      errorMessage += '\nバックエンドで一時的なエラーが発生しました。数分後にもう一度お試しください。';
+      errorMessage += '\nローカルキャッシュ（Redis）には反映済みのため、復旧後に再保存されます。';
     } else if (error.message && error.message.includes('fetch')) {
       errorMessage += '\nネットワーク接続に問題があります。接続を確認してください。';
     }
     errorMessage += `\n詳細: ${error.message}`;
     await safeReply(interaction, { content: errorMessage, flags: MessageFlags.Ephemeral });
+
+    // Background single retry for transient 5xx
+    try {
+      if (typeof status === 'number' && status >= 500) {
+        setTimeout(async () => {
+          try {
+            const retryResult = await finalizeGuildSettings(interaction.guildId);
+            console.log('[finalizeSettings] background retry result:', retryResult);
+          } catch (e) {
+            console.warn('[finalizeSettings] background retry failed:', e?.status || '', e?.message || e);
+          }
+        }, 30_000);
+      }
+    } catch (_) { /* no-op */ }
   }
 }
 
