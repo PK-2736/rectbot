@@ -364,8 +364,8 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
   // 情報配列
   const infoItems = [
     { label: '人数：', value: `${participantIds.length}/${recruitData.participants || 4}人` },
-    { label: '時間：', value: recruitData.startTime || '未定' },
-    { label: '通話：', value: recruitData.vc || '未定' }
+    { label: '時間：', value: recruitData.startTime || '指定なし' },
+    { label: '通話：', value: recruitData.vc || '指定なし' }
   ];
   
   // 各情報を縦に並べて表示

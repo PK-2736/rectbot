@@ -107,8 +107,8 @@ async function execute(interaction) {
     if (guildSettings.defaultTitle) titleInput.setValue(guildSettings.defaultTitle);
     const contentInput = new TextInputBuilder().setCustomId('content').setLabel('募集内容（例: ガチエリア / 初心者歓迎 / 2時間）').setStyle(TextInputStyle.Paragraph).setRequired(true).setMaxLength(1000).setPlaceholder('詳細な募集内容を入力してください...');
     const participantsInput = new TextInputBuilder().setCustomId('participants').setLabel('参加人数（例: 4）').setStyle(TextInputStyle.Short).setRequired(true).setMinLength(1).setMaxLength(2).setPlaceholder('1-16の数字を入力してください');
-    const timeInput = new TextInputBuilder().setCustomId('startTime').setLabel('開始時間（例: 21:00）').setStyle(TextInputStyle.Short).setRequired(true);
-    const vcInput = new TextInputBuilder().setCustomId('vc').setLabel('VCの有無（あり / なし）').setStyle(TextInputStyle.Short).setRequired(true);
+    const timeInput = new TextInputBuilder().setCustomId('startTime').setLabel('開始時間（例: 21:00）').setStyle(TextInputStyle.Short).setRequired(false);
+    const vcInput = new TextInputBuilder().setCustomId('vc').setLabel('VCの有無（あり / なし）').setStyle(TextInputStyle.Short).setRequired(false);
 
     modal.addComponents(
       new ActionRowBuilder().addComponents(titleInput),
