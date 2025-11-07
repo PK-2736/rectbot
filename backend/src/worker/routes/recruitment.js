@@ -58,6 +58,16 @@ export async function routeRecruitment(request, env, ctx, url, corsHeaders, send
   // Grafana JSON datasource endpoints
   if (url.pathname === '/api/grafana/recruits' && request.method === 'POST') {
     try {
+      // Check Grafana access token for security
+      const grafanaToken = env.GRAFANA_ACCESS_TOKEN;
+      if (grafanaToken) {
+        const providedToken = request.headers.get('x-grafana-token') || request.headers.get('authorization')?.replace('Bearer ', '');
+        if (!providedToken || providedToken !== grafanaToken) {
+          console.warn('[Grafana API] Unauthorized access attempt');
+          return new Response(JSON.stringify({ error: 'unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+      }
+
       // Debug incoming headers
       try {
         const hdrs = {};
@@ -129,6 +139,15 @@ export async function routeRecruitment(request, env, ctx, url, corsHeaders, send
 
   if (url.pathname === '/api/grafana/recruits/history' && request.method === 'POST') {
     try {
+      // Check Grafana access token for security
+      const grafanaToken = env.GRAFANA_ACCESS_TOKEN;
+      if (grafanaToken) {
+        const providedToken = request.headers.get('x-grafana-token') || request.headers.get('authorization')?.replace('Bearer ', '');
+        if (!providedToken || providedToken !== grafanaToken) {
+          console.warn('[Grafana API] Unauthorized access attempt');
+          return new Response(JSON.stringify({ error: 'unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+      }
       let body = {}; try { body = await request.json(); } catch {}
       const range = body?.range || {};
       const toMs = range?.to ? Date.parse(range.to) : Date.now();
@@ -147,6 +166,15 @@ export async function routeRecruitment(request, env, ctx, url, corsHeaders, send
 
   if (url.pathname === '/api/grafana/recruits/at' && request.method === 'POST') {
     try {
+      // Check Grafana access token for security
+      const grafanaToken = env.GRAFANA_ACCESS_TOKEN;
+      if (grafanaToken) {
+        const providedToken = request.headers.get('x-grafana-token') || request.headers.get('authorization')?.replace('Bearer ', '');
+        if (!providedToken || providedToken !== grafanaToken) {
+          console.warn('[Grafana API] Unauthorized access attempt');
+          return new Response(JSON.stringify({ error: 'unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+      }
       let body = {}; try { body = await request.json(); } catch {}
       const range = body?.range || {};
       const ts = range?.to ? Date.parse(range.to) : Date.now();

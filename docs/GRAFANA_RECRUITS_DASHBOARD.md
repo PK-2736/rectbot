@@ -87,6 +87,7 @@ POST https://api.recrubo.net/api/grafana/recruits
 2. **Cloudflare-Recruits-API** (`json-api.yml`)
    - Type: `marcusolsson-json-datasource`
    - URL: `https://api.recrubo.net`
+   - Custom Headers: `X-Grafana-Token: <GRAFANA_ACCESS_TOKEN>`
    - 用途: 募集詳細データのテーブル表示
 
 ### ダッシュボードパネル

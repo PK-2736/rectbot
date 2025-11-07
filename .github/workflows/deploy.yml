@@ -1,0 +1,152 @@
+name: Deploy to OCI
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  oci-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+      - name: Set up SSH key (id_ed25519)
+        env:
+          OCI_SSH_KEY: ${{ secrets.OCI_SSH_KEY }}
+          OCI_HOST: ${{ secrets.OCI_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          # Support raw PEM or base64-encoded private key
+          if printf '%s' "$OCI_SSH_KEY" | grep -q -- "-----BEGIN"; then
+            printf '%s' "$OCI_SSH_KEY" | sed 's/\r$//' > ~/.ssh/id_ed25519
+          else
+            printf '%s' "$OCI_SSH_KEY" | tr -d '\r' | base64 -d > ~/.ssh/id_ed25519
+          fi
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H $OCI_HOST >> ~/.ssh/known_hosts 2>/dev/null || true
+
+          # Output public key fingerprint for debugging
+          ssh-keygen -y -f ~/.ssh/id_ed25519 | ssh-keygen -lf - || true
+
+          # Quick non-interactive SSH test to surface authentication errors
+          set +e
+          ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=no ${{ secrets.OCI_USER }}@${OCI_HOST} 'echo SSH-OK' >/tmp/ssh_test_output 2>&1
+          SSH_TEST_EXIT=$?
+          set -e
+          if [ ${SSH_TEST_EXIT} -ne 0 ]; then
+            echo "ERROR: SSH test connection failed (exit=${SSH_TEST_EXIT}). Output:" >&2
+            sed -n '1,200p' /tmp/ssh_test_output || true
+            exit ${SSH_TEST_EXIT}
+          fi
+      - name: Deploy via SSH (production)
+        env:
+          OCI_USER: ${{ secrets.OCI_USER }}
+          OCI_HOST: ${{ secrets.OCI_HOST }}
+          SERVICE_TOKEN: ${{ secrets.SERVICE_TOKEN }}
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          INTERNAL_SECRET: ${{ secrets.INTERNAL_SECRET }}
+          BACKEND_API_URL: ${{ secrets.BACKEND_API_URL }}
+          DISCORD_CLIENT_ID: ${{ secrets.DISCORD_CLIENT_ID }}
+          REDIS_HOST: ${{ secrets.REDIS_HOST }}
+          REDIS_PORT: ${{ secrets.REDIS_PORT }}
+          # Monitoring / Grafana secrets
+          GRAFANA_ADMIN_USER: ${{ secrets.GRAFANA_ADMIN_USER }}
+          GRAFANA_ADMIN_PASSWORD: ${{ secrets.GRAFANA_ADMIN_PASSWORD }}
+          GRAFANA_TOKEN: ${{ secrets.GRAFANA_TOKEN }}
+          # Backup 関連の環境変数
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+        run: |
+          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no $OCI_USER@$OCI_HOST '
+            export SERVICE_TOKEN="'"$SERVICE_TOKEN"'" || true; \
+            export DISCORD_BOT_TOKEN="'"$DISCORD_BOT_TOKEN"'" || true; \
+            export DISCORD_CLIENT_ID="'"$DISCORD_CLIENT_ID"'" || true; \
+            export CLIENT_ID="'$DISCORD_CLIENT_ID'" || true; \
+            export INTERNAL_SECRET="'"$INTERNAL_SECRET"'" || true; \
+            export BACKEND_API_URL="'"$BACKEND_API_URL"'" || true; \
+            export REDIS_HOST="'"$REDIS_HOST"'" || true; \
+            export REDIS_PORT="'"$REDIS_PORT"'" || true; \
+            export GRAFANA_ADMIN_USER="'"$GRAFANA_ADMIN_USER"'" || true; \
+            export GRAFANA_ADMIN_PASSWORD="'"$GRAFANA_ADMIN_PASSWORD"'" || true; \
+            export GRAFANA_TOKEN="'"$GRAFANA_TOKEN"'" || true; \
+            source ~/.bashrc || true; \
+            source ~/.nvm/nvm.sh || true; \
+            cd ~/rectbot || exit 1; \
+            git pull origin main || true; \
+
+            # Monitoring stack (Grafana/Loki/Promtail/Prometheus/Pushgateway)
+            echo "Deploying monitoring stack (docker compose)..."; \
+            docker compose -f docker-compose.monitoring.yml pull || true; \
+            docker compose -f docker-compose.monitoring.yml build log-receiver || true; \
+              # Grafanaを完全に再作成してデータソース設定をリセット（ボリュームごと削除）
+              echo "Recreating Grafana with fresh volume to fix datasource conflicts..."; \
+              docker compose -f docker-compose.monitoring.yml stop grafana || true; \
+              docker compose -f docker-compose.monitoring.yml rm -v -f grafana || true; \
+              # Exclude pushgateway-proxy to prevent failure when host files are missing
+              docker compose -f docker-compose.monitoring.yml up -d --remove-orphans loki promtail log-receiver prometheus grafana node-exporter cadvisor pushgateway; \
+            echo "Checking Grafana status..."; \
+            sleep 5; \
+            docker logs grafana --tail 50 || true; \
+            docker ps --filter "name=grafana" || true; \
+            
+            # Bot デプロイ（ディレクトリが存在する場合のみ）
+            if [ -d ~/rectbot/bot ]; then \
+              cd ~/rectbot/bot || exit 1; \
+              echo "Writing environment variables to .env..."; \
+              echo "SERVICE_TOKEN=${SERVICE_TOKEN}" > .env; \
+              echo "DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN}" >> .env; \
+              echo "DISCORD_CLIENT_ID=${DISCORD_CLIENT_ID}" >> .env; \
+              echo "CLIENT_ID=${CLIENT_ID}" >> .env; \
+              echo "INTERNAL_SECRET=${INTERNAL_SECRET}" >> .env; \
+              echo "BACKEND_API_URL=${BACKEND_API_URL}" >> .env; \
+              echo "REDIS_HOST=${REDIS_HOST}" >> .env; \
+              echo "REDIS_PORT=${REDIS_PORT}" >> .env; \
+              node src/deploy-commands.js || true; \
+              pm2 restart rectbot --update-env || pm2 start pm2-server.config.js --env production; \
+            else \
+              echo "Bot directory not found, skipping bot deployment"; \
+            fi; \
+            
+            # Backend deployment is handled by deploy-cloudflare-workers.yml workflow
+            # Skip backend deployment here as it's done separately
+            echo "Backend deployment is handled by dedicated workflow (deploy-cloudflare-workers.yml)";
+            
+            # Frontend deployment
+            if [ -d ~/rectbot/frontend/astro ]; then \
+              cd ~/rectbot/frontend/astro || exit 1; \
+              echo "Deploying Astro frontend..."; \
+              npm ci || true; \
+              npm run build || true; \
+              # Add your frontend deployment commands here \
+            fi; \
+            
+            if [ -d ~/rectbot/frontend/dashboard ]; then \
+              cd ~/rectbot/frontend/dashboard || exit 1; \
+              echo "Deploying dashboard..."; \
+              npm ci || true; \
+              npm run build || true; \
+              # Add your dashboard deployment commands here \
+            fi; \
+            
+            # バックアップ設定のセットアップ
+            cd ~/rectbot || exit 1; \
+            echo "Setting up backup environment variables..."; \
+            echo "SUPABASE_PROJECT_REF='"$SUPABASE_PROJECT_REF"'" > .env.backup; \
+            echo "SUPABASE_DB_PASSWORD='"$SUPABASE_DB_PASSWORD"'" >> .env.backup; \
+            echo "R2_ACCOUNT_ID='"$R2_ACCOUNT_ID"'" >> .env.backup; \
+            echo "R2_ACCESS_KEY_ID='"$R2_ACCESS_KEY_ID"'" >> .env.backup; \
+            echo "R2_SECRET_ACCESS_KEY='"$R2_SECRET_ACCESS_KEY"'" >> .env.backup; \
+            echo "R2_BUCKET_NAME='"$R2_BUCKET_NAME"'" >> .env.backup; \
+            echo "BACKUP_RETENTION_DAYS=30" >> .env.backup; \
+            chmod 600 .env.backup; \
+            chmod +x backup_supabase_to_r2.sh; \
+            chmod +x restore_from_r2.sh; \
+            mkdir -p backups; \
+            echo "Backup system configured successfully!"
+          '

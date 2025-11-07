@@ -33,6 +33,7 @@ jobs:
           SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
           SUPPORT_EMAIL: ${{ secrets.SUPPORT_EMAIL }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          GRAFANA_TOKEN: ${{ secrets.GRAFANA_TOKEN }}
         run: |
           echo "Checking GitHub Secrets for Workers..."
           missing=()
@@ -46,7 +47,7 @@ jobs:
           done
 
           # recommended
-          for v in RECAPTCHA_SECRET SENTRY_DSN SUPPORT_EMAIL DISCORD_WEBHOOK_URL DISCORD_CLIENT_SECRET; do
+          for v in RECAPTCHA_SECRET SENTRY_DSN SUPPORT_EMAIL DISCORD_WEBHOOK_URL DISCORD_CLIENT_SECRET GRAFANA_TOKEN; do
             if [ -z "${!v}" ]; then
               echo "WARN: Recommended secret $v is not set"
             else
@@ -90,6 +91,7 @@ jobs:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           RECAPTCHA_SECRET: ${{ secrets.RECAPTCHA_SECRET }}
           MAILCHANNELS_API_KEY: ${{ secrets.MAILCHANNELS_API_KEY }}
+          GRAFANA_TOKEN: ${{ secrets.GRAFANA_TOKEN }}
         run: |
           cd backend
           set -euo pipefail
@@ -124,6 +126,7 @@ jobs:
           register_secret DISCORD_WEBHOOK_URL DISCORD_WEBHOOK_URL
           register_secret RECAPTCHA_SECRET RECAPTCHA_SECRET
           register_secret MAILCHANNELS_API_KEY MAILCHANNELS_API_KEY
+          register_secret GRAFANA_ACCESS_TOKEN GRAFANA_TOKEN
 
       - name: List registered wrangler secrets (for debug)
         run: |
