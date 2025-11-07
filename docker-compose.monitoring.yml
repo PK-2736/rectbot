@@ -88,7 +88,7 @@ services:
       GF_USERS_ALLOW_SIGN_UP: "false"
       GF_PATHS_PROVISIONING: /etc/grafana/provisioning
       # Use Infinity datasource for flexible JSON API access
-      GF_INSTALL_PLUGINS: yesoreyeram-infinity-datasource
+      GF_INSTALL_PLUGINS: yesoreyeram-infinity-datasource,simpod-json-datasource,grafana-sentry-datasource
       # 以下の2つは grafana.ini をマウントしない代替として設定
       GF_SERVER_DOMAIN: ${GRAFANA_DOMAIN:-grafana.recrubo.net}
       GF_SERVER_ROOT_URL: ${GRAFANA_ROOT_URL:-https://grafana.recrubo.net/}
