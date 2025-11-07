@@ -92,6 +92,7 @@ services:
       # 以下の2つは grafana.ini をマウントしない代替として設定
       GF_SERVER_DOMAIN: ${GRAFANA_DOMAIN:-grafana.recrubo.net}
       GF_SERVER_ROOT_URL: ${GRAFANA_ROOT_URL:-https://grafana.recrubo.net/}
+      GRAFANA_TOKEN: ${GRAFANA_TOKEN}
     volumes:
       - grafana_data:/var/lib/grafana
       - ./docker/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
