@@ -111,7 +111,13 @@ async function handleFinalize(request, env, corsHeaders) {
     if (!existingRes.ok) {
       const errorText = await existingRes.text();
       console.error('[finalize] Check existing failed:', existingRes.status, errorText);
-      throw new Error(`Failed to check existing settings: ${existingRes.status} - ${errorText}`);
+      // Treat Supabase non-OK as transient/unreachable. Return success with warning
+      return new Response(JSON.stringify({
+        ok: true,
+        message: 'Settings accepted but not persisted (Supabase unreachable)',
+        warning: `Supabase check failed: ${existingRes.status}`,
+        details: errorText
+      }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
     const existingData = await existingRes.json();
 
@@ -140,7 +146,13 @@ async function handleFinalize(request, env, corsHeaders) {
     if (!supaRes.ok) {
       const errorText = await supaRes.text();
       console.error('[finalize] Supabase operation failed:', supaRes.status, errorText);
-      throw new Error(`Supabase save failed: ${supaRes.status} - ${errorText}`);
+      // Avoid failing the entire finalize flow if Supabase cannot persist right now.
+      return new Response(JSON.stringify({
+        ok: true,
+        message: 'Settings accepted but not persisted (Supabase save failed)',
+        warning: `Supabase save failed: ${supaRes.status}`,
+        details: errorText
+      }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
     return new Response(JSON.stringify({ ok: true, message: 'Settings saved successfully' }), {

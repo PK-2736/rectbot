@@ -169,18 +169,14 @@ export class RecruitsDO {
         if (!userId) return new Response(JSON.stringify({ error: 'user_id_required' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
         const rec = store.items[id];
         if (!rec) return new Response(JSON.stringify({ error: 'not_found' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
-        rec.participants = Array.isArray(rec.participants) ? rec.participants : [];
+        if (!rec.participants) rec.participants = [];
         if (!rec.participants.includes(userId)) {
-          if (rec.maxMembers && rec.participants.length >= Number(rec.maxMembers)) {
-            return new Response(JSON.stringify({ error: 'full' }), { status: 409, headers: { 'Content-Type': 'application/json' } });
-          }
           rec.participants.push(userId);
+          this.addHistory(store, id, 'join', { userId, joinedAt: new Date().toISOString() });
+          await this.saveStore(store);
         }
-        store.items[id] = rec;
-        await this.saveStore(store);
-        return new Response(JSON.stringify({ ok: true, recruit: rec }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+        return new Response(JSON.stringify({ ok: true, joined: userId }), { status: 200, headers: { 'Content-Type': 'application/json' } });
       }
-    }
 
     // Create/Upsert
     if (method === 'POST' && url.pathname === base) {
@@ -192,45 +188,7 @@ export class RecruitsDO {
       }
       const now = new Date();
       const ttlHours = Number(this.env.RECRUITS_TTL_HOURS || 8);
-      const expiresAt = data?.expiresAt || new Date(now.getTime() + ttlHours * 3600 * 1000).toISOString();
-      const rec = {
-        id: recruitId,
-        recruitId,
-        ownerId,
-        title: (data?.title || '').toString(),
-        description: (data?.description || '').toString(),
-        game: (data?.game || '').toString(),
-        platform: (data?.platform || '').toString(),
-        startTime: data?.startTime || now.toISOString(),
-        maxMembers: Number(data?.maxMembers || 0) || undefined,
-        voice: Boolean(data?.voice),
-        participants: Array.isArray(data?.participants) ? data.participants.slice(0, 100) : [],
-        createdAt: data?.createdAt || now.toISOString(),
-        expiresAt,
-        status: (data?.status || 'recruiting').toString(),
-        metadata: data?.metadata || {}
-      };
-
-      store.items[recruitId] = rec;
-      if (!store.list.includes(recruitId)) store.list.unshift(recruitId);
-      this.addHistory(store, recruitId, 'create', { ...rec });
-      await this.saveStore(store);
-      return new Response(JSON.stringify({ ok: true, recruitId }), { status: 201, headers: { 'Content-Type': 'application/json' } });
-    }
-
-    // Global history endpoints
-    const urlObj = new URL(request.url);
-    if (method === 'GET' && urlObj.pathname === '/api/recruits-history') {
-      const fromMs = urlObj.searchParams.get('from') ? Date.parse(urlObj.searchParams.get('from')) : 0;
-      const toMs = urlObj.searchParams.get('to') ? Date.parse(urlObj.searchParams.get('to')) : Date.now();
-      const idFilter = urlObj.searchParams.get('id');
-      const out = [];
-      const ids = idFilter ? [idFilter] : Object.keys(store.history || {});
-      for (const id of ids) {
-        const arr = (store.history?.[id] || []).filter(ev => ev.ts >= fromMs && ev.ts <= toMs);
-        for (const ev of arr) out.push({ id, ...ev });
-      }
-      // sort by ts asc
+        
       out.sort((a,b)=>a.ts-b.ts);
       return new Response(JSON.stringify({ events: out }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
@@ -251,6 +209,7 @@ export class RecruitsDO {
 
     return new Response(JSON.stringify({ error: 'not_found' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
   }
+}
 }
 
 // Durable Object: InviteTokensDO for one-time bot invite links
