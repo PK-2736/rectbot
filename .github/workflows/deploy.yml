@@ -93,7 +93,9 @@ jobs:
               # Exclude pushgateway-proxy to prevent failure when host files are missing
               docker compose -f docker-compose.monitoring.yml up -d --remove-orphans loki promtail log-receiver prometheus grafana node-exporter cadvisor pushgateway; \
             echo "Checking Grafana status..."; \
-            sleep 5; \
+            sleep 35; \
             docker logs grafana --tail 50 || true; \
-            docker ps --filter "name=grafana" || true;
+            docker ps --filter "name=grafana" || true; \
+            echo "Checking Grafana datasources..."; \
+            curl -s -u "$GRAFANA_ADMIN_USER:$GRAFANA_ADMIN_PASSWORD" https://grafana.recrubo.net/api/datasources | jq . || true;
           '
