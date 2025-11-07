@@ -86,8 +86,8 @@ async function handleFinalize(request, env, corsHeaders) {
       return new Response(
         JSON.stringify({
           ok: true,
-          message: 'Settings accepted but not persisted (Supabase not configured)',
-          warning: 'Supabase is not configured on the backend. No data was saved.',
+          message: '設定を受け付けましたが、保存されませんでした（Supabaseが設定されていません）',
+          warning: 'バックエンドでSupabaseが設定されていません。データは保存されませんでした。',
           details: detailMessage,
         }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -99,8 +99,23 @@ async function handleFinalize(request, env, corsHeaders) {
     try {
       const pingOk = await pingSupabase(env, 4000);
       console.log('[finalize] Supabase ping result:', pingOk);
+      if (!pingOk) {
+        console.warn('[finalize] Supabase ping failed, treating as unreachable');
+        return new Response(JSON.stringify({
+          ok: true,
+          message: '設定を受け付けましたが、保存されませんでした（Supabaseに接続できません）',
+          warning: 'Supabaseに接続できませんでした。',
+          details: 'ping failed'
+        }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
     } catch (e) {
       console.warn('[finalize] Supabase ping error:', e?.message || e);
+      return new Response(JSON.stringify({
+        ok: true,
+        message: '設定を受け付けましたが、保存されませんでした（Supabaseに接続できません）',
+        warning: 'Supabase pingでエラーが発生しました。',
+        details: e?.message || e
+      }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
     // Check existing
@@ -114,8 +129,8 @@ async function handleFinalize(request, env, corsHeaders) {
       // Treat Supabase non-OK as transient/unreachable. Return success with warning
       return new Response(JSON.stringify({
         ok: true,
-        message: 'Settings accepted but not persisted (Supabase unreachable)',
-        warning: `Supabase check failed: ${existingRes.status}`,
+        message: '設定を受け付けましたが、保存されませんでした（Supabaseに接続できません）',
+        warning: `Supabaseチェックに失敗しました: ${existingRes.status}`,
         details: errorText
       }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
@@ -149,13 +164,13 @@ async function handleFinalize(request, env, corsHeaders) {
       // Avoid failing the entire finalize flow if Supabase cannot persist right now.
       return new Response(JSON.stringify({
         ok: true,
-        message: 'Settings accepted but not persisted (Supabase save failed)',
-        warning: `Supabase save failed: ${supaRes.status}`,
+        message: '設定を受け付けましたが、保存されませんでした（Supabase保存失敗）',
+        warning: `Supabase保存に失敗しました: ${supaRes.status}`,
         details: errorText
       }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    return new Response(JSON.stringify({ ok: true, message: 'Settings saved successfully' }), {
+    return new Response(JSON.stringify({ ok: true, message: '設定が正常に保存されました' }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
