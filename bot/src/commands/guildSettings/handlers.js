@@ -166,7 +166,7 @@ async function finalizeSettingsHandler(interaction) {
     const guildId = interaction.guildId;
     const result = await finalizeGuildSettings(guildId);
 
-    let message = '✅ 設定が保存されました！設定が有効になりました。';
+    let message = '✅ 設定の保存が完了しました。設定が有効化されました。';
     if (result && typeof result.message === 'string') message = `✅ ${result.message}`;
 
     await safeReply(interaction, { content: message, flags: MessageFlags.Ephemeral });

@@ -54,7 +54,7 @@ module.exports = {
     .setName('rect')
     .setDescription('ゲーム募集を作成します（/rect）')
     .addStringOption(option =>
-      option.setName('color')
+      option.setName('色')
         .setDescription('募集パネルの色を選択（任意）')
         .setRequired(false)
         .addChoices(
@@ -73,7 +73,7 @@ module.exports = {
         )
     )
     .addRoleOption(option =>
-      option.setName('notification_role')
+      option.setName('通知ロール')
         .setDescription('募集作成時に通知するロール（任意）')
         .setRequired(false)
     ),

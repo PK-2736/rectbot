@@ -68,10 +68,10 @@ async function execute(interaction) {
     }
 
     // 色オプション
-    let selectedColor = interaction.options.getString('color') || undefined;
+    let selectedColor = interaction.options.getString('色') || undefined;
 
     // 通知ロール（任意）を一旦バリデーション（設定済みロールのみ可）
-    const selectedRoleObj = interaction.options.getRole('notification_role');
+    const selectedRoleObj = interaction.options.getRole('通知ロール');
     let selectedRoleId = selectedRoleObj ? String(selectedRoleObj.id) : null;
     if (selectedRoleId) {
       const configuredNotificationRoleIds = (() => {
