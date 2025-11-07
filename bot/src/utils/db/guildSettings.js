@@ -77,6 +77,13 @@ async function finalizeGuildSettings(guildId) {
   try {
     // backendFetch returns parsed JSON on success, or throws an Error with status/body on non-OK
     const body = await backendFetch(url, { method: 'POST', headers, body: JSON.stringify(payload) });
+    // Supabase保存成功したらRedisキャッシュを削除
+    if (body && body.ok) {
+      const redis = await ensureRedisConnection();
+      const key = `guildsettings:${guildId}`;
+      await redis.del(key);
+      console.log(`[finalizeGuildSettings] Redis cache cleared for guild ${guildId}`);
+    }
     return body;
   } catch (err) {
     // Enrich logs for easier debugging of 500 errors on the backend.
