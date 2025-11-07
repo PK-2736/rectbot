@@ -8,10 +8,14 @@ async function backendFetch(path, opts = {}) {
   const method = (init.method || 'GET').toUpperCase();
 
   init.headers = init.headers ? { ...init.headers } : {};
-  if ((method === 'POST' || method === 'DELETE' || method === 'PATCH') && SERVICE_TOKEN && !init.headers.authorization) {
-    init.headers.authorization = `Bearer ${SERVICE_TOKEN}`;
+  // Normalize header existence checks (case-insensitive) and set service token headers when needed.
+  const hasAuthHeader = Object.keys(init.headers).some(k => k.toLowerCase() === 'authorization');
+  const hasXServiceToken = Object.keys(init.headers).some(k => k.toLowerCase() === 'x-service-token');
+  if ((method === 'POST' || method === 'DELETE' || method === 'PATCH') && SERVICE_TOKEN) {
+    if (!hasAuthHeader) init.headers.authorization = `Bearer ${SERVICE_TOKEN}`;
+    if (!hasXServiceToken) init.headers['x-service-token'] = SERVICE_TOKEN;
   }
-  if (!init.headers['content-type']) init.headers['content-type'] = 'application/json; charset=utf-8';
+  if (!Object.keys(init.headers).some(k => k.toLowerCase() === 'content-type')) init.headers['content-type'] = 'application/json; charset=utf-8';
 
   const res = await fetch(url, init);
   const text = await res.text();
