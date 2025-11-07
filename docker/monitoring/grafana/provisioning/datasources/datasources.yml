@@ -42,6 +42,7 @@ datasources:
     uid: cloudflare-recruits-api
     type: yesoreyeram-infinity-datasource
     access: proxy
+    url: https://api.recrubo.net
     isDefault: false
     version: 1
     editable: false
