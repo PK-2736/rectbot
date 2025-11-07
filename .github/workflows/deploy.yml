@@ -88,6 +88,7 @@ jobs:
               echo "Recreating Grafana with fresh volume to fix datasource conflicts..."; \
               docker compose -f docker-compose.monitoring.yml stop grafana || true; \
               docker compose -f docker-compose.monitoring.yml rm -v -f grafana || true; \
+              docker volume rm rectbot_grafana_data || true; \
               # Exclude pushgateway-proxy to prevent failure when host files are missing
               docker compose -f docker-compose.monitoring.yml up -d --remove-orphans loki promtail log-receiver prometheus grafana node-exporter cadvisor pushgateway; \
             echo "Checking Grafana status..."; \
