@@ -1,2 +1,2 @@
-// Minimal wrapper delegating to the single clean implementation.
-module.exports = require('./db.__fixed');
+// Wrapper delegating to the split db module index.
+module.exports = require('./db');

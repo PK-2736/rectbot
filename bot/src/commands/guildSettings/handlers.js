@@ -1,0 +1,226 @@
+const {
+  SlashCommandBuilder,
+  PermissionFlagsBits,
+  MessageFlags,
+} = require('discord.js');
+
+const { saveGuildSettingsToRedis, getGuildSettingsFromRedis, finalizeGuildSettings } = require('../../utils/db');
+const { safeReply } = require('../../utils/safeReply');
+const {
+  showSettingsUI,
+  showChannelSelect,
+  showRoleSelect,
+  showTitleModal,
+  showColorModal,
+} = require('./ui');
+
+async function execute(interaction) {
+  try {
+    if (!interaction.guild || !interaction.member || !interaction.member.permissions?.has(PermissionFlagsBits.Administrator)) {
+      return await safeReply(interaction, { content: '❌ この機能を使用するには「管理者」権限が必要です。', flags: MessageFlags.Ephemeral });
+    }
+    const currentSettings = await getGuildSettingsFromRedis(interaction.guildId);
+    await showSettingsUI(interaction, currentSettings);
+  } catch (error) {
+    console.error('Guild settings command error:', error);
+    if (!interaction.replied && !interaction.deferred) {
+      await safeReply(interaction, { content: '❌ 設定画面の表示でエラーが発生しました。', flags: MessageFlags.Ephemeral });
+    }
+  }
+}
+
+async function handleButtonInteraction(interaction) {
+  const { customId } = interaction;
+  try {
+    if (!interaction.guild || !interaction.member || !interaction.member.permissions?.has(PermissionFlagsBits.Administrator)) {
+      return await safeReply(interaction, { content: '❌ この操作を実行するには「管理者」権限が必要です。', flags: MessageFlags.Ephemeral });
+    }
+    switch (customId) {
+      case 'set_recruit_channel':
+        await showChannelSelect(interaction, 'recruit_channel', '📍 募集チャンネルを選択してください');
+        break;
+      case 'set_notification_role':
+        await showRoleSelect(interaction, 'notification_roles', '🔔 通知ロールを選択してください');
+        break;
+      case 'set_default_title':
+        await showTitleModal(interaction);
+        break;
+      case 'set_default_color':
+        await showColorModal(interaction);
+        break;
+      case 'set_update_channel':
+        await showChannelSelect(interaction, 'update_channel', '📢 アップデート通知チャンネルを選択してください');
+        break;
+      case 'reset_all_settings':
+        await resetAllSettings(interaction);
+        break;
+      case 'finalize_settings':
+        await finalizeSettingsHandler(interaction);
+        break;
+    }
+  } catch (error) {
+    console.error('Button interaction error:', error);
+    if (!interaction.replied && !interaction.deferred) {
+      await safeReply(interaction, { content: '❌ 処理中にエラーが発生しました。', flags: MessageFlags.Ephemeral });
+    }
+  }
+}
+
+async function handleSelectMenuInteraction(interaction) {
+  const { customId, values } = interaction;
+  try {
+    if (!interaction.guild || !interaction.member || !interaction.member.permissions?.has(PermissionFlagsBits.Administrator)) {
+      return await safeReply(interaction, { content: '❌ この操作を実行するには「管理者」権限が必要です。', flags: MessageFlags.Ephemeral });
+    }
+    if (customId.startsWith('channel_select_')) {
+      const settingType = customId.replace('channel_select_', '');
+      const channelId = values[0];
+      await updateGuildSetting(interaction, settingType, channelId);
+    } else if (customId.startsWith('role_select_')) {
+      const settingType = customId.replace('role_select_', '');
+      const roleIds = Array.isArray(values) ? values : [];
+      await updateGuildSetting(interaction, settingType, roleIds);
+    }
+  } catch (error) {
+    console.error('Select menu interaction error:', error);
+    if (!interaction.replied && !interaction.deferred) {
+      await safeReply(interaction, { content: '❌ 設定の更新でエラーが発生しました。', flags: MessageFlags.Ephemeral });
+    }
+  }
+}
+
+async function handleModalSubmit(interaction) {
+  const { customId } = interaction;
+  try {
+    if (!interaction.guild || !interaction.member || !interaction.member.permissions?.has(PermissionFlagsBits.Administrator)) {
+      return await safeReply(interaction, { content: '❌ この操作を実行するには「管理者」権限が必要です。', flags: MessageFlags.Ephemeral });
+    }
+    if (customId === 'default_title_modal') {
+      const title = interaction.fields.getTextInputValue('default_title');
+      await updateGuildSetting(interaction, 'defaultTitle', title);
+    } else if (customId === 'default_color_modal') {
+      const color = interaction.fields.getTextInputValue('default_color');
+      if (color && !/^[0-9A-Fa-f]{6}$/.test(color)) {
+        return await safeReply(interaction, { content: '❌ 無効なカラーコードです。6桁の16進数（例: 5865F2）を入力してください。', flags: MessageFlags.Ephemeral });
+      }
+      await updateGuildSetting(interaction, 'defaultColor', color);
+    }
+  } catch (error) {
+    console.error('Modal submit error:', error);
+    if (!interaction.replied && !interaction.deferred) {
+      await safeReply(interaction, { content: '❌ 設定の更新でエラーが発生しました。', flags: MessageFlags.Ephemeral });
+    }
+  }
+}
+
+async function updateGuildSetting(interaction, settingKey, value) {
+  try {
+    if (!interaction.guild || !interaction.member || !interaction.member.permissions?.has(PermissionFlagsBits.Administrator)) {
+      return await safeReply(interaction, { content: '❌ この操作を実行するには「管理者」権限が必要です。', flags: MessageFlags.Ephemeral });
+    }
+    const guildId = interaction.guildId;
+    let payload = { [settingKey]: value };
+
+    if (settingKey === 'notification_roles') {
+      const uniqueRoles = Array.isArray(value) ? [...new Set(value.filter(Boolean).map(String))] : [];
+      payload = { notification_roles: uniqueRoles, notification_role: uniqueRoles.length > 0 ? uniqueRoles[0] : null };
+    } else if (settingKey === 'notification_role') {
+      const roleId = value ? String(value) : null;
+      payload = { notification_role: roleId, notification_roles: roleId ? [roleId] : [] };
+    }
+
+    const result = await saveGuildSettingsToRedis(guildId, payload);
+
+    const settingNames = {
+      recruit_channel: '募集チャンネル',
+      notification_roles: '通知ロール',
+      notification_role: '通知ロール',
+      defaultTitle: '既定タイトル',
+      defaultColor: '既定カラー',
+      update_channel: 'アップデート通知チャンネル',
+    };
+
+    const settingName = settingNames[settingKey] || settingKey;
+    await safeReply(interaction, { content: `✅ ${settingName}を更新しました！`, flags: MessageFlags.Ephemeral });
+
+    setTimeout(async () => {
+      try {
+        const latestSettings = await getGuildSettingsFromRedis(guildId);
+        await showSettingsUI(interaction, latestSettings);
+      } catch (error) {
+        console.error('Settings UI update error:', error);
+      }
+    }, 1000);
+  } catch (error) {
+    console.error('Guild setting update error:', error);
+    await safeReply(interaction, { content: '❌ 設定の更新に失敗しました。', flags: MessageFlags.Ephemeral });
+  }
+}
+
+async function finalizeSettingsHandler(interaction) {
+  try {
+    if (!interaction.guild || !interaction.member || !interaction.member.permissions?.has(PermissionFlagsBits.Administrator)) {
+      return await safeReply(interaction, { content: '❌ この操作を実行するには「管理者」権限が必要です。', flags: MessageFlags.Ephemeral });
+    }
+
+    const guildId = interaction.guildId;
+    const result = await finalizeGuildSettings(guildId);
+
+    let message = '✅ 設定が保存されました！設定が有効になりました。';
+    if (result && typeof result.message === 'string') message = `✅ ${result.message}`;
+
+    await safeReply(interaction, { content: message, flags: MessageFlags.Ephemeral });
+  } catch (error) {
+    console.error('Finalize settings error:', error);
+    let errorMessage = '❌ 設定の保存に失敗しました。';
+    if (error.message && error.message.includes('404')) {
+      errorMessage += '\nセッションが見つかりません。設定を再度お試しください。';
+    } else if (error.message && error.message.includes('500')) {
+      errorMessage += '\nデータベース接続に問題があります。一時的に設定が保存されている可能性があります。';
+    } else if (error.message && error.message.includes('fetch')) {
+      errorMessage += '\nネットワーク接続に問題があります。接続を確認してください。';
+    }
+    errorMessage += `\n詳細: ${error.message}`;
+    await safeReply(interaction, { content: errorMessage, flags: MessageFlags.Ephemeral });
+  }
+}
+
+async function resetAllSettings(interaction) {
+  try {
+    if (!interaction.guild || !interaction.member || !interaction.member.permissions?.has(PermissionFlagsBits.Administrator)) {
+      return await safeReply(interaction, { content: '❌ この操作を実行するには「管理者」権限が必要です。', flags: MessageFlags.Ephemeral });
+    }
+    const guildId = interaction.guildId;
+    const result = await saveGuildSettingsToRedis(guildId, {
+      recruit_channel: null,
+      notification_role: null,
+      notification_roles: [],
+      defaultTitle: null,
+      defaultColor: null,
+      update_channel: null,
+    });
+    await safeReply(interaction, { content: '✅ すべての設定をリセットしました！', flags: MessageFlags.Ephemeral });
+
+    setTimeout(async () => {
+      try {
+        const resetSettings = await getGuildSettingsFromRedis(guildId);
+        await showSettingsUI(interaction, resetSettings);
+      } catch (error) {
+        console.error('Settings UI update error:', error);
+      }
+    }, 1000);
+  } catch (error) {
+    console.error('Reset settings error:', error);
+    await safeReply(interaction, { content: '❌ 設定のリセットに失敗しました。', flags: MessageFlags.Ephemeral });
+  }
+}
+
+module.exports = {
+  execute,
+  handleButtonInteraction,
+  handleSelectMenuInteraction,
+  handleModalSubmit,
+  updateGuildSetting,
+  finalizeSettingsHandler,
+  resetAllSettings,
+};

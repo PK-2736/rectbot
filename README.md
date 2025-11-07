@@ -164,7 +164,7 @@
 | --- | --- |
 | `backendFetch.js` | バックエンドとの通信 |
 | `canvasRecruit.js` | Canvasで画像生成 |
-| `db.js`, `db.js.rewrite`, `db.__fixed.js` | DB操作（複数バージョン） |
+| `db/`（分割モジュール）, `db.js`（ラッパー）, `db.js.rewrite`（レガシー） | DB操作 |
 | `embedBuilder.js` | Embed生成ユーティリティ |
 | `recruitHelpers.js` | 募集補助関数 |
 | `safeReply.js` | 安全な返信処理 |
