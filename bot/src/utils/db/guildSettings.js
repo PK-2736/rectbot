@@ -74,14 +74,33 @@ async function finalizeGuildSettings(guildId) {
   payload.notification_role = notificationRoles.length > 0 ? notificationRoles[0] : null;
 
   const headers = { 'Content-Type': 'application/json' };
-  const res = await backendFetch(url, { method: 'POST', headers, body: JSON.stringify(payload) });
-  let text = '';
-  try { text = await res.text(); } catch (_) { text = ''; }
-  let body = null; try { body = text ? JSON.parse(text) : null; } catch (_) { body = text; }
-  if (!res.ok) {
-    throw new Error(`API error: ${res.status} - ${text}`);
+  try {
+    // backendFetch returns parsed JSON on success, or throws an Error with status/body on non-OK
+    const body = await backendFetch(url, { method: 'POST', headers, body: JSON.stringify(payload) });
+    return body;
+  } catch (err) {
+    // Enrich logs for easier debugging of 500 errors on the backend.
+    try {
+      console.error('[finalizeGuildSettings] backend request failed', {
+        url,
+        payloadSummary: {
+          guildId,
+          hasNotificationRoles: Array.isArray(payload.notification_roles) ? payload.notification_roles.length : 0,
+          notification_role: payload.notification_role || null,
+          recruit_channel: payload.recruit_channel || null,
+          update_channel: payload.update_channel || null,
+          defaultColor: payload.defaultColor || null,
+          defaultTitle: payload.defaultTitle || null,
+        },
+        errorStatus: err && err.status,
+        errorBody: err && err.body
+      });
+    } catch (logErr) {
+      console.error('[finalizeGuildSettings] failed to log error details', logErr);
+    }
+    // Re-throw original error for upstream handling
+    throw err;
   }
-  return body;
 }
 
 module.exports = {
