@@ -75,6 +75,7 @@ jobs:
             export GRAFANA_ADMIN_USER="'"$GRAFANA_ADMIN_USER"'" || true; \
             export GRAFANA_ADMIN_PASSWORD="'"$GRAFANA_ADMIN_PASSWORD"'" || true; \
             export GRAFANA_TOKEN="'"$GRAFANA_TOKEN"'" || true; \
+            echo "GRAFANA_TOKEN length: ${#GRAFANA_TOKEN}"; \
             source ~/.bashrc || true; \
             source ~/.nvm/nvm.sh || true; \
             cd ~/rectbot || exit 1; \
