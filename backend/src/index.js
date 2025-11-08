@@ -144,7 +144,7 @@ export default {
       try {
         let items = [];
         if (store && store.forwardToDO) {
-          const res = await store.forwardToDO('/list', 'GET');
+          const res = await store.forwardToDO('/api/recruits', 'GET');
           const data = await res.json();
           items = data.items || [];
         } else if (store) {
@@ -183,7 +183,7 @@ export default {
       try {
         let items = [];
         if (store && store.forwardToDO) {
-          const res = await store.forwardToDO('/list', 'GET');
+          const res = await store.forwardToDO('/api/recruits', 'GET');
           const data = await res.json();
           items = data.items || [];
         } else if (store) {
@@ -233,7 +233,7 @@ export default {
     if (url.pathname === '/api/recruitments' && request.method === 'GET') {
       try {
         if (store.forwardToDO) {
-          const res = await store.forwardToDO('/list', 'GET');
+          const res = await store.forwardToDO('/api/recruits', 'GET');
           const text = await res.text();
           return new Response(text, { status: res.status, headers: { ...cors, 'content-type': 'application/json; charset=utf-8' }});
         } else {
