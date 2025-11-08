@@ -642,6 +642,23 @@ const recruits = await Promise.all(ids.map(id => redis.get(`recruit:${id}`)));
 - 通知: Discord へリアルタイム通知
 - 目的: エラー、バックアップ失敗、デプロイ通知の監視
 
+### Grafana 認証設定
+
+**📋 募集状況ダッシュボード** を使用する場合は、API 認証トークンの設定が必要です:
+
+```bash
+# 1. トークン設定
+./scripts/setup-grafana-token.sh
+
+# 2. Cloudflare Worker にトークンを設定
+cd backend && wrangler secret put GRAFANA_ACCESS_TOKEN
+
+# 3. Grafana を再起動
+docker-compose -f docker-compose.monitoring.yml restart grafana
+```
+
+**トラブルシューティング**: `401 Unauthorized` エラーが発生する場合は、[GRAFANA_AUTH_TROUBLESHOOTING.md](docs/GRAFANA_AUTH_TROUBLESHOOTING.md) を参照してください。
+
 ---
 
 ## セキュリティ

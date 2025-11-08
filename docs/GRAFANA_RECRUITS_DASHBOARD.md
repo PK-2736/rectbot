@@ -149,11 +149,41 @@ curl 'http://localhost:9090/api/v1/query?query=recruits_active'
 
 ### JSON datasource でデータが取得できない
 ```bash
-# APIレスポンス確認
-curl -X POST https://api.recrubo.net/api/grafana/recruits
+# APIレスポンス確認（認証あり）
+TOKEN=$(grep GRAFANA_TOKEN .env | cut -d= -f2)
+curl -H "Authorization: Bearer $TOKEN" \
+     -X POST https://api.recrubo.net/api/grafana/recruits
+
+# または
+curl -H "X-Grafana-Token: $TOKEN" \
+     -X POST https://api.recrubo.net/api/grafana/recruits
 
 # Grafana logs確認
 docker compose -f docker-compose.monitoring.yml logs grafana | grep json
+```
+
+**よくある原因:**
+1. **GRAFANA_TOKEN が未設定**: `.env` に `GRAFANA_TOKEN` を追加
+2. **Cloudflare Worker のトークン不一致**: `GRAFANA_ACCESS_TOKEN` を Worker に設定
+3. **401 Unauthorized**: トークンが一致していない
+
+**解決方法:**
+```bash
+# 1. トークン設定スクリプトを実行
+./scripts/setup-grafana-token.sh
+
+# 2. Cloudflare Worker にトークンを設定
+cd backend
+wrangler secret put GRAFANA_ACCESS_TOKEN
+# プロンプトで .env の GRAFANA_TOKEN と同じ値を入力
+
+# 3. Grafana を再起動
+docker-compose -f docker-compose.monitoring.yml restart grafana
+
+# 4. 接続テスト
+TOKEN=$(grep GRAFANA_TOKEN .env | cut -d= -f2)
+curl -H "Authorization: Bearer $TOKEN" \
+     https://api.recrubo.net/api/grafana/recruits
 ```
 
 ### CORS エラーが出る場合

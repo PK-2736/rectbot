@@ -33,9 +33,28 @@ echo "3️⃣  Grafana ログを確認..."
 docker logs grafana --tail 100 2>&1 | grep -i "datasource\|infinity\|error\|401\|404" || echo "（関連ログなし）"
 
 echo ""
-echo "4️⃣  エンドポイント動作確認..."
+echo "4️⃣  環境変数 GRAFANA_TOKEN の確認..."
+if [ -f "${PROJECT_ROOT}/.env" ]; then
+    if grep -q "^GRAFANA_TOKEN=" "${PROJECT_ROOT}/.env"; then
+        TOKEN_VALUE=$(grep "^GRAFANA_TOKEN=" "${PROJECT_ROOT}/.env" | cut -d '=' -f2)
+        if [ -z "$TOKEN_VALUE" ] || [ "$TOKEN_VALUE" = "your_grafana_access_token_here" ]; then
+            echo "⚠️  GRAFANA_TOKEN が未設定またはデフォルト値です"
+            echo "   トークン設定: ./scripts/setup-grafana-token.sh"
+        else
+            echo "✅ GRAFANA_TOKEN が設定されています"
+        fi
+    else
+        echo "⚠️  GRAFANA_TOKEN が .env に見つかりません"
+        echo "   トークン設定: ./scripts/setup-grafana-token.sh"
+    fi
+else
+    echo "⚠️  .env ファイルが見つかりません"
+fi
+
 echo ""
-echo "📊 /metrics エンドポイント:"
+echo "5️⃣  エンドポイント動作確認..."
+echo ""
+echo "📊 /metrics エンドポイント (認証不要):"
 if curl -s -f -m 5 https://api.recrubo.net/metrics > /tmp/metrics.txt 2>&1; then
     echo "✅ https://api.recrubo.net/metrics"
     head -15 /tmp/metrics.txt
@@ -45,42 +64,67 @@ fi
 
 echo ""
 echo "🎮 /api/grafana/recruits エンドポイント:"
-RECRUITS_DATA=$(curl -s -X POST -H "Content-Type: application/json" -d '{}' https://api.recrubo.net/api/grafana/recruits 2>&1)
-if echo "$RECRUITS_DATA" | jq . > /dev/null 2>&1; then
-    echo "✅ https://api.recrubo.net/api/grafana/recruits"
-    echo "$RECRUITS_DATA" | jq -r 'if type=="array" then "募集数: \(length)件" else . end'
+
+# トークンなしでテスト
+RECRUITS_DATA_UNAUTH=$(curl -s -X POST -H "Content-Type: application/json" -d '{}' https://api.recrubo.net/api/grafana/recruits 2>&1)
+if echo "$RECRUITS_DATA_UNAUTH" | grep -q "unauthorized"; then
+    echo "⚠️  認証なし: 401 Unauthorized (これは正常)"
+    
+    # トークンありでテスト
+    if [ -f "${PROJECT_ROOT}/.env" ] && grep -q "^GRAFANA_TOKEN=" "${PROJECT_ROOT}/.env"; then
+        TOKEN_VALUE=$(grep "^GRAFANA_TOKEN=" "${PROJECT_ROOT}/.env" | cut -d '=' -f2)
+        if [ -n "$TOKEN_VALUE" ] && [ "$TOKEN_VALUE" != "your_grafana_access_token_here" ]; then
+            echo ""
+            echo "   認証ありでテスト中..."
+            RECRUITS_DATA_AUTH=$(curl -s -X POST -H "Content-Type: application/json" \
+                                      -H "Authorization: Bearer $TOKEN_VALUE" \
+                                      -d '{}' https://api.recrubo.net/api/grafana/recruits 2>&1)
+            if echo "$RECRUITS_DATA_AUTH" | jq . > /dev/null 2>&1; then
+                echo "   ✅ 認証あり: 成功!"
+                echo "   $(echo "$RECRUITS_DATA_AUTH" | jq -r 'if type=="array" then "募集数: \(length)件" else . end')"
+            else
+                echo "   ❌ 認証あり: エラー"
+                echo "   $RECRUITS_DATA_AUTH"
+            fi
+        fi
+    fi
 else
-    echo "❌ https://api.recrubo.net/api/grafana/recruits"
-    echo "$RECRUITS_DATA"
+    echo "✅ https://api.recrubo.net/api/grafana/recruits"
+    if echo "$RECRUITS_DATA_UNAUTH" | jq . > /dev/null 2>&1; then
+        echo "$RECRUITS_DATA_UNAUTH" | jq -r 'if type=="array" then "募集数: \(length)件" else . end'
+    else
+        echo "$RECRUITS_DATA_UNAUTH"
+    fi
 fi
 
 echo ""
 echo "=========================================="
 echo "✅ 処理完了！"
 echo ""
-echo "📋 次の手順:"
+echo "📋 次のステップ:"
 echo ""
-echo "1. Grafana にアクセス: https://grafana.recrubo.net"
+echo "🔐 1. トークンの設定（まだの場合）:"
+echo "   ./scripts/setup-grafana-token.sh"
 echo ""
-echo "2. Configuration → Data Sources"
-echo "   → 'Cloudflare-Recruits-API' を選択"
+echo "   その後、Cloudflare Worker にも設定:"
+echo "   cd backend && wrangler secret put GRAFANA_ACCESS_TOKEN"
 echo ""
-echo "3. 以下を確認・修正:"
+echo "🌐 2. Grafana にアクセス:"
+echo "   https://grafana.recrubo.net"
+echo ""
+echo "⚙️  3. データソースを確認:"
+echo "   Configuration → Data Sources → 'Cloudflare-Recruits-API'"
+echo ""
+echo "   確認事項:"
 echo "   ✓ URL: https://api.recrubo.net （パスなし）"
-echo "   ✓ Authentication: Bearer Token"
-echo "   ✓ Bearer Token: 正しいトークンを設定"
-echo "   ✓ 'Save & Test' をクリック"
+echo "   ✓ Auth Method: Bearer Token"
+echo "   ✓ Bearer Token: ${GRAFANA_TOKEN} と同じ値"
+echo "   ✓ 'Save & Test' で接続確認"
 echo ""
-echo "4. Dashboards → '📋 募集状況ダッシュボード'"
-echo "   → パネルにデータが表示されることを確認"
+echo "📊 4. ダッシュボードでデータ確認:"
+echo "   Dashboards → '📋 募集状況ダッシュボード'"
 echo ""
-echo "💡 よくある問題:"
-echo "   - URL に '/api/grafana' や '/api/gtafana' が含まれている"
-echo "     → URL は https://api.recrubo.net のみにする"
-echo "   - Bearer Token が未設定または期限切れ"
-echo "     → Cloudflare ダッシュボードで新しいトークンを発行"
-echo "   - ダッシュボードのパネル設定で相対パス '/api/grafana/recruits' を使用"
-echo "     → これは正しい（データソースのBase URLに追加される）"
-echo ""
-echo "詳細: docs/GRAFANA_RECRUITS_DASHBOARD.md"
+echo "💡 トラブルシューティング:"
+echo "   401 Unauthorized → docs/GRAFANA_AUTH_TROUBLESHOOTING.md"
+echo "   詳細ガイド → docs/GRAFANA_RECRUITS_DASHBOARD.md"
 echo "=========================================="
