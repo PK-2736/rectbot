@@ -40,6 +40,7 @@ jobs:
             echo "ERROR: SSH test connection failed (exit=${SSH_TEST_EXIT}). Output:" >&2
             sed -n '1,200p' /tmp/ssh_test_output || true
             exit ${SSH_TEST_EXIT}
+          fi
       - name: Deploy via SSH (production)
         env:
           OCI_USER: ${{ secrets.OCI_USER }}
