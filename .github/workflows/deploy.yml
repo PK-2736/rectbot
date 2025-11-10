@@ -39,47 +39,39 @@ jobs:
             echo "ERROR: SSH test connection failed (exit=${SSH_TEST_EXIT}). Output:" >&2
             sed -n '1,200p' /tmp/ssh_test_output || true
             exit ${SSH_TEST_EXIT}
-          fi
+      - name: Create .env file for docker compose
+        run: |
+          echo "GRAFANA_ADMIN_USER=${{ secrets.GRAFANA_ADMIN_USER }}" > .env
+          echo "GRAFANA_ADMIN_PASSWORD=${{ secrets.GRAFANA_ADMIN_PASSWORD }}" >> .env
+          echo "GRAFANA_TOKEN=${{ secrets.GRAFANA_TOKEN }}" >> .env
+          GRAFANA_DOMAIN="${{ secrets.GRAFANA_DOMAIN }}"
+          if [ -z "$GRAFANA_DOMAIN" ]; then GRAFANA_DOMAIN="grafana.recrubo.net"; fi
+          echo "GRAFANA_DOMAIN=$GRAFANA_DOMAIN" >> .env
+          GRAFANA_ROOT_URL="${{ secrets.GRAFANA_ROOT_URL }}"
+          if [ -z "$GRAFANA_ROOT_URL" ]; then GRAFANA_ROOT_URL="https://grafana.recrubo.net/"; fi
+          echo "GRAFANA_ROOT_URL=$GRAFANA_ROOT_URL" >> .env
       - name: Deploy via SSH (production)
         env:
           OCI_USER: ${{ secrets.OCI_USER }}
           OCI_HOST: ${{ secrets.OCI_HOST }}
-          SERVICE_TOKEN: ${{ secrets.SERVICE_TOKEN }}
-          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
-          INTERNAL_SECRET: ${{ secrets.INTERNAL_SECRET }}
-          BACKEND_API_URL: ${{ secrets.BACKEND_API_URL }}
-          DISCORD_CLIENT_ID: ${{ secrets.DISCORD_CLIENT_ID }}
-          REDIS_HOST: ${{ secrets.REDIS_HOST }}
-          REDIS_PORT: ${{ secrets.REDIS_PORT }}
-          # Monitoring / Grafana secrets
           GRAFANA_ADMIN_USER: ${{ secrets.GRAFANA_ADMIN_USER }}
           GRAFANA_ADMIN_PASSWORD: ${{ secrets.GRAFANA_ADMIN_PASSWORD }}
           GRAFANA_TOKEN: ${{ secrets.GRAFANA_TOKEN }}
-          # Backup 関連の環境変数
-          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
-          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
-          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
         run: |
           ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no $OCI_USER@$OCI_HOST '
-            export SERVICE_TOKEN="'"$SERVICE_TOKEN"'" || true; \
-            export DISCORD_BOT_TOKEN="'"$DISCORD_BOT_TOKEN"'" || true; \
-            export DISCORD_CLIENT_ID="'"$DISCORD_CLIENT_ID"'" || true; \
-            export CLIENT_ID="'$DISCORD_CLIENT_ID'" || true; \
-            export INTERNAL_SECRET="'"$INTERNAL_SECRET"'" || true; \
-            export BACKEND_API_URL="'"$BACKEND_API_URL"'" || true; \
-            export REDIS_HOST="'"$REDIS_HOST"'" || true; \
-            export REDIS_PORT="'"$REDIS_PORT"'" || true; \
-            export GRAFANA_ADMIN_USER="'"$GRAFANA_ADMIN_USER"'" || true; \
-            export GRAFANA_ADMIN_PASSWORD="'"$GRAFANA_ADMIN_PASSWORD"'" || true; \
-            export GRAFANA_TOKEN="'"$GRAFANA_TOKEN"'" || true; \
-            echo "GRAFANA_TOKEN length: ${#GRAFANA_TOKEN}"; \
             source ~/.bashrc || true; \
             source ~/.nvm/nvm.sh || true; \
             cd ~/rectbot || exit 1; \
             git pull origin main || true; \
+
+            # Create .env file temporarily
+            echo "GRAFANA_ADMIN_USER='"$GRAFANA_ADMIN_USER"'" > .env; \
+            echo "GRAFANA_ADMIN_PASSWORD='"$GRAFANA_ADMIN_PASSWORD"'" >> .env; \
+            echo "GRAFANA_TOKEN='"$GRAFANA_TOKEN"'" >> .env; \
+            GRAFANA_DOMAIN="grafana.recrubo.net"; \
+            echo "GRAFANA_DOMAIN=$GRAFANA_DOMAIN" >> .env; \
+            GRAFANA_ROOT_URL="https://grafana.recrubo.net/"; \
+            echo "GRAFANA_ROOT_URL=$GRAFANA_ROOT_URL" >> .env; \
 
             # Monitoring stack (Grafana/Loki/Promtail/Prometheus/Pushgateway)
             echo "Deploying monitoring stack (docker compose)..."; \
@@ -97,5 +89,10 @@ jobs:
             docker logs grafana --tail 50 || true; \
             docker ps --filter "name=grafana" || true; \
             echo "Checking Grafana datasources..."; \
-            curl -s -u "$GRAFANA_ADMIN_USER:$GRAFANA_ADMIN_PASSWORD" https://grafana.recrubo.net/api/datasources | jq . || true;
+            GRAFANA_ADMIN_USER=$(grep '\''^GRAFANA_ADMIN_USER='\'' .env | cut -d'\''='\'' -f2); \
+            GRAFANA_ADMIN_PASSWORD=$(grep '\''^GRAFANA_ADMIN_PASSWORD='\'' .env | cut -d'\''='\'' -f2); \
+            curl -s -u "$GRAFANA_ADMIN_USER:$GRAFANA_ADMIN_PASSWORD" https://grafana.recrubo.net/api/datasources | jq . || true; \
+
+            # Clean up .env file
+            rm .env;
           '
