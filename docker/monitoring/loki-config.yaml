@@ -10,12 +10,8 @@ distributor:
   ring:
     kvstore:
       store: inmemory
-  replication_factor: 1
 
 querier:
-  ring:
-    kvstore:
-      store: inmemory
 
 ingester:
   lifecycler:
