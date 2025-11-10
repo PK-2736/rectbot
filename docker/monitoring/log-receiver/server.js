@@ -22,6 +22,15 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // Check Authorization header
+  const authHeader = req.headers['authorization'];
+  const expectedToken = process.env.LOG_RECEIVER_TOKEN;
+  if (!authHeader || !authHeader.startsWith('Bearer ') || authHeader.slice(7) !== expectedToken) {
+    res.statusCode = 401;
+    res.end('unauthorized');
+    return;
+  }
+
   let buf = [];
   req.on('data', (chunk) => buf.push(chunk));
   req.on('end', () => {

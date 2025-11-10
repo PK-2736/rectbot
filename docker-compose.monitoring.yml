@@ -33,6 +33,8 @@ services:
   log-receiver:
     build: ./docker/monitoring/log-receiver
     container_name: log-receiver
+    environment:
+      LOG_RECEIVER_TOKEN: ${LOG_RECEIVER_TOKEN:-default-token}
     ports:
       - "18080:8080" # optional: expose for external posting (protect via tunnel/proxy in production)
     networks:

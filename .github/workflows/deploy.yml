@@ -48,11 +48,12 @@ jobs:
           GRAFANA_TOKEN: ${{ secrets.GRAFANA_TOKEN }}
           GRAFANA_ADMIN_USER: ${{ secrets.GRAFANA_ADMIN_USER }}
           GRAFANA_ADMIN_PASSWORD: ${{ secrets.GRAFANA_ADMIN_PASSWORD }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ZONE_ID: ${{ secrets.CLOUDFLARE_ZONE_ID }}
         run: |
           ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no $OCI_USER@$OCI_HOST '
             export GRAFANA_ADMIN_USER="'"$GRAFANA_ADMIN_USER"'" || true; \
             export GRAFANA_ADMIN_PASSWORD="'"$GRAFANA_ADMIN_PASSWORD"'" || true; \
-            export GRAFANA_TOKEN="'"$GRAFANA_TOKEN"'" || true; \
             source ~/.bashrc || true; \
             source ~/.nvm/nvm.sh || true; \
             cd ~/rectbot || exit 1; \
@@ -83,7 +84,7 @@ jobs:
             docker logs grafana --tail 50 || true; \
             docker ps --filter "name=grafana" || true; \
             echo "Checking Grafana datasources..."; \
-            echo "Using Grafana user: $GRAFANA_ADMIN_USER pass: [hidden] token: $GRAFANA_TOKEN"; \
+            echo "Using Grafana user: $GRAFANA_ADMIN_USER pass: [hidden] token: [hidden]"; \
             for i in {1..5}; do \
               if curl -s -u "$GRAFANA_ADMIN_USER:$GRAFANA_ADMIN_PASSWORD" http://localhost:3000/api/datasources | jq . 2>/dev/null; then \
                 echo "Grafana API check successful"; \
@@ -93,6 +94,23 @@ jobs:
                 sleep 10; \
               fi; \
             done || echo "Grafana API check failed after retries"; \
+
+            # Create Cloudflare Logpush job for Workers logs
+            echo "Creating Cloudflare Logpush job for Workers logs..."; \
+            LOGPUSH_DESTINATION="https://logs.recrubo.net/logs?header_Authorization=Bearer%20${LOG_RECEIVER_TOKEN}"; \
+            curl -s -X POST "https://api.cloudflare.com/client/v4/zones/${CLOUDFLARE_ZONE_ID}/logpush/jobs" \
+              -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d "{
+                \"name\": \"workers-logs-to-grafana\",
+                \"dataset\": \"http_requests\",
+                \"destination_conf\": \"${LOGPUSH_DESTINATION}\",
+                \"enabled\": true,
+                \"output_options\": {
+                  \"field_names\": [\"EdgeStartTimestamp\", \"RayID\", \"ClientIP\", \"ClientRequestMethod\", \"ClientRequestURI\", \"EdgeResponseStatus\", \"OriginResponseStatus\"],
+                  \"timestamp_format\": \"rfc3339\"
+                }
+              }" | jq . || echo "Logpush job creation failed"; \
 
             # Clean up .env file
             rm .env;
