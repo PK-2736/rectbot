@@ -16,6 +16,7 @@ jobs:
         env:
           OCI_SSH_KEY: ${{ secrets.OCI_SSH_KEY }}
           OCI_HOST: ${{ secrets.OCI_HOST }}
+          OCI_USER: ${{ secrets.OCI_USER }}
         run: |
           mkdir -p ~/.ssh
           # Support raw PEM or base64-encoded private key
@@ -32,7 +33,7 @@ jobs:
 
           # Quick non-interactive SSH test to surface authentication errors
           set +e
-          ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=no ${{ secrets.OCI_USER }}@${OCI_HOST} 'echo SSH-OK' >/tmp/ssh_test_output 2>&1
+          ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=no $OCI_USER@$OCI_HOST 'echo SSH-OK' >/tmp/ssh_test_output 2>&1
           SSH_TEST_EXIT=$?
           set -e
           if [ ${SSH_TEST_EXIT} -ne 0 ]; then
