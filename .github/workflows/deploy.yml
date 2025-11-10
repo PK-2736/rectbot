@@ -65,9 +65,9 @@ jobs:
             git pull origin main || true; \
 
             # Create .env file temporarily
-            echo "GRAFANA_ADMIN_USER='"$GRAFANA_ADMIN_USER"'" > .env; \
-            echo "GRAFANA_ADMIN_PASSWORD='"$GRAFANA_ADMIN_PASSWORD"'" >> .env; \
-            echo "GRAFANA_TOKEN='"$GRAFANA_TOKEN"'" >> .env; \
+            echo "GRAFANA_ADMIN_USER=$GRAFANA_ADMIN_USER" > .env; \
+            echo "GRAFANA_ADMIN_PASSWORD=$GRAFANA_ADMIN_PASSWORD" >> .env; \
+            echo "GRAFANA_TOKEN=$GRAFANA_TOKEN" >> .env; \
             GRAFANA_DOMAIN="grafana.recrubo.net"; \
             echo "GRAFANA_DOMAIN=$GRAFANA_DOMAIN" >> .env; \
             GRAFANA_ROOT_URL="https://grafana.recrubo.net/"; \
@@ -89,8 +89,8 @@ jobs:
             docker logs grafana --tail 50 || true; \
             docker ps --filter "name=grafana" || true; \
             echo "Checking Grafana datasources..."; \
-            GRAFANA_ADMIN_USER=$(grep '\''^GRAFANA_ADMIN_USER='\'' .env | cut -d'\''='\'' -f2); \
-            GRAFANA_ADMIN_PASSWORD=$(grep '\''^GRAFANA_ADMIN_PASSWORD='\'' .env | cut -d'\''='\'' -f2); \
+            GRAFANA_ADMIN_USER=$(grep '^GRAFANA_ADMIN_USER=' .env | cut -d'=' -f2); \
+            GRAFANA_ADMIN_PASSWORD=$(grep '^GRAFANA_ADMIN_PASSWORD=' .env | cut -d'=' -f2); \
             curl -s -u "$GRAFANA_ADMIN_USER:$GRAFANA_ADMIN_PASSWORD" https://grafana.recrubo.net/api/datasources | jq . || true; \
 
             # Clean up .env file
