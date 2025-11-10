@@ -76,14 +76,22 @@ jobs:
               # Exclude pushgateway-proxy to prevent failure when host files are missing
               docker compose -f docker-compose.monitoring.yml up -d --remove-orphans loki promtail log-receiver prometheus grafana node-exporter cadvisor pushgateway; \
             echo "Checking Grafana status..."; \
-            sleep 35; \
+            sleep 60; \
             docker logs grafana --tail 50 || true; \
             docker ps --filter "name=grafana" || true; \
             echo "Checking Grafana datasources..."; \
             GRAFANA_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}; \
             GRAFANA_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}; \
             echo "Using Grafana user: $GRAFANA_ADMIN_USER pass: [hidden] token: [hidden]"; \
-            curl -s -u "$GRAFANA_ADMIN_USER:$GRAFANA_ADMIN_PASSWORD" http://localhost:3000/api/datasources | jq . || true; \
+            for i in {1..5}; do \
+              if curl -s -u "$GRAFANA_ADMIN_USER:$GRAFANA_ADMIN_PASSWORD" http://localhost:3000/api/datasources | jq . 2>/dev/null; then \
+                echo "Grafana API check successful"; \
+                break; \
+              else \
+                echo "Grafana API check failed, retrying in 10 seconds... ($i/5)"; \
+                sleep 10; \
+              fi; \
+            done || echo "Grafana API check failed after retries"; \
 
             # Clean up .env file
             rm .env;
