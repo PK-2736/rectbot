@@ -1,0 +1,43 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "Cloudflare Workers Logs",
+    "tags": ["cloudflare", "workers", "logs"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Workers Logs",
+        "type": "logs",
+        "targets": [
+          {
+            "expr": "{job=\"cloudflare-worker\"}",
+            "refId": "A"
+          }
+        ],
+        "datasource": "Loki",
+        "gridPos": {
+          "h": 8,
+          "w": 24,
+          "x": 0,
+          "y": 0
+        }
+      }
+    ],
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "timepicker": {},
+    "templating": {
+      "list": []
+    },
+    "annotations": {
+      "list": []
+    },
+    "refresh": "5s",
+    "schemaVersion": 27,
+    "version": 0,
+    "links": []
+  }
+}

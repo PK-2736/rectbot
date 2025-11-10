@@ -73,6 +73,7 @@ export async function routeRecruitment(request, env, ctx, url, corsHeaders, send
         const hdrs = {};
         for (const [k, v] of request.headers.entries()) hdrs[k] = v;
         console.log('[Grafana API] Incoming headers:', JSON.stringify(hdrs));
+        console.log('[Grafana API] Request received for recruits data');
       } catch (_) {}
 
       const id = env.RECRUITS_DO.idFromName('global');
@@ -140,7 +141,7 @@ export async function routeRecruitment(request, env, ctx, url, corsHeaders, send
   if (url.pathname === '/api/grafana/recruits/history' && request.method === 'POST') {
     try {
       // Check Grafana access token for security
-      const grafanaToken = env.GRAFANA_ACCESS_TOKEN;
+      const grafanaToken = env.GRAFANA_TOKEN;
       if (grafanaToken) {
         const providedToken = request.headers.get('x-grafana-token') || request.headers.get('authorization')?.replace('Bearer ', '');
         if (!providedToken || providedToken !== grafanaToken) {
