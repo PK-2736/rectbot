@@ -42,7 +42,6 @@ schema_config:
 limits_config:
   enforce_metric_name: false
   max_streams_per_user: 0
-  replication_factor: 1
 
 compactor:
   working_directory: /loki/compactor
