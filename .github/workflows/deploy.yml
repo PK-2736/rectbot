@@ -1,4 +1,4 @@
-name: Deploy to OCI
+name: Deploy Monitoring to OCI
 
 on:
   push:

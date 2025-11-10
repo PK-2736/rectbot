@@ -48,10 +48,6 @@ jobs:
           DISCORD_CLIENT_ID: ${{ secrets.DISCORD_CLIENT_ID }}
           REDIS_HOST: ${{ secrets.REDIS_HOST }}
           REDIS_PORT: ${{ secrets.REDIS_PORT }}
-          # Monitoring / Grafana secrets
-          GRAFANA_ADMIN_USER: ${{ secrets.GRAFANA_ADMIN_USER }}
-          GRAFANA_ADMIN_PASSWORD: ${{ secrets.GRAFANA_ADMIN_PASSWORD }}
-          GRAFANA_TOKEN: ${{ secrets.GRAFANA_TOKEN }}
           # Backup 関連の環境変数
           SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
@@ -69,35 +65,11 @@ jobs:
             export BACKEND_API_URL="'"$BACKEND_API_URL"'" || true; \
             export REDIS_HOST="'"$REDIS_HOST"'" || true; \
             export REDIS_PORT="'"$REDIS_PORT"'" || true; \
-            export GRAFANA_ADMIN_USER="'"$GRAFANA_ADMIN_USER"'" || true; \
-            export GRAFANA_ADMIN_PASSWORD="'"$GRAFANA_ADMIN_PASSWORD"'" || true; \
             source ~/.bashrc || true; \
             source ~/.nvm/nvm.sh || true; \
             cd ~/rectbot || exit 1; \
             git pull origin main || true; \
 
-            # Create .env file for docker-compose
-            echo "GRAFANA_ADMIN_USER=$GRAFANA_ADMIN_USER" > .env; \
-            echo "GRAFANA_ADMIN_PASSWORD=$GRAFANA_ADMIN_PASSWORD" >> .env; \
-            echo "GRAFANA_TOKEN=$GRAFANA_TOKEN" >> .env; \
-            echo "GRAFANA_DOMAIN=grafana.recrubo.net" >> .env; \
-            echo "GRAFANA_ROOT_URL=https://grafana.recrubo.net/" >> .env; \
-
-            # Monitoring stack (Grafana/Loki/Promtail/Prometheus/Pushgateway)
-            echo "Deploying monitoring stack (docker compose)..."; \
-            docker compose -f docker-compose.monitoring.yml pull || true; \
-            docker compose -f docker-compose.monitoring.yml build log-receiver || true; \
-              # Grafanaを完全に再作成してデータソース設定をリセット（ボリュームごと削除）
-              echo "Recreating Grafana with fresh volume to fix datasource conflicts..."; \
-              docker compose -f docker-compose.monitoring.yml stop grafana || true; \
-              docker compose -f docker-compose.monitoring.yml rm -v -f grafana || true; \
-              # Exclude pushgateway-proxy to prevent failure when host files are missing
-              docker compose -f docker-compose.monitoring.yml up -d --remove-orphans loki promtail log-receiver prometheus grafana node-exporter cadvisor pushgateway; \
-            echo "Checking Grafana status..."; \
-            sleep 5; \
-            docker logs grafana --tail 50 || true; \
-            docker ps --filter "name=grafana" || true; \
-            
             # Bot デプロイ（ディレクトリが存在する場合のみ）
             if [ -d ~/rectbot/bot ]; then \
               cd ~/rectbot/bot || exit 1; \
