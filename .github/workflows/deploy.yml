@@ -52,6 +52,7 @@ jobs:
           ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no $OCI_USER@$OCI_HOST '
             export GRAFANA_ADMIN_USER="'"$GRAFANA_ADMIN_USER"'" || true; \
             export GRAFANA_ADMIN_PASSWORD="'"$GRAFANA_ADMIN_PASSWORD"'" || true; \
+            export GRAFANA_TOKEN="'"$GRAFANA_TOKEN"'" || true; \
             source ~/.bashrc || true; \
             source ~/.nvm/nvm.sh || true; \
             cd ~/rectbot || exit 1; \
@@ -78,11 +79,11 @@ jobs:
               # Exclude pushgateway-proxy to prevent failure when host files are missing
               docker compose -f docker-compose.monitoring.yml up -d --remove-orphans loki promtail log-receiver prometheus grafana node-exporter cadvisor pushgateway; \
             echo "Checking Grafana status..."; \
-            sleep 60; \
+            sleep 30; \
             docker logs grafana --tail 50 || true; \
             docker ps --filter "name=grafana" || true; \
             echo "Checking Grafana datasources..."; \
-            echo "Using Grafana user: $GRAFANA_ADMIN_USER pass: [hidden] token: [hidden]"; \
+            echo "Using Grafana user: $GRAFANA_ADMIN_USER pass: [hidden] token: $GRAFANA_TOKEN"; \
             for i in {1..5}; do \
               if curl -s -u "$GRAFANA_ADMIN_USER:$GRAFANA_ADMIN_PASSWORD" http://localhost:3000/api/datasources | jq . 2>/dev/null; then \
                 echo "Grafana API check successful"; \
