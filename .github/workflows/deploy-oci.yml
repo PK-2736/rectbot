@@ -76,6 +76,13 @@ jobs:
             cd ~/rectbot || exit 1; \
             git pull origin main || true; \
 
+            # Create .env file for docker-compose
+            echo "GRAFANA_ADMIN_USER=$GRAFANA_ADMIN_USER" > .env; \
+            echo "GRAFANA_ADMIN_PASSWORD=$GRAFANA_ADMIN_PASSWORD" >> .env; \
+            echo "GRAFANA_TOKEN=$GRAFANA_TOKEN" >> .env; \
+            echo "GRAFANA_DOMAIN=grafana.recrubo.net" >> .env; \
+            echo "GRAFANA_ROOT_URL=https://grafana.recrubo.net/" >> .env; \
+
             # Monitoring stack (Grafana/Loki/Promtail/Prometheus/Pushgateway)
             echo "Deploying monitoring stack (docker compose)..."; \
             docker compose -f docker-compose.monitoring.yml pull || true; \

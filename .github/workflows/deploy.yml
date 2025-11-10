@@ -82,6 +82,7 @@ jobs:
             echo "Checking Grafana datasources..."; \
             GRAFANA_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}; \
             GRAFANA_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}; \
+            echo "Using Grafana user: $GRAFANA_ADMIN_USER pass: [hidden] token: [hidden]"; \
             curl -s -u "$GRAFANA_ADMIN_USER:$GRAFANA_ADMIN_PASSWORD" http://localhost:3000/api/datasources | jq . || true; \
 
             # Clean up .env file
