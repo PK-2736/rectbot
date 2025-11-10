@@ -59,7 +59,7 @@ export async function routeRecruitment(request, env, ctx, url, corsHeaders, send
   if (url.pathname === '/api/grafana/recruits' && request.method === 'POST') {
     try {
       // Check Grafana access token for security
-      const grafanaToken = env.GRAFANA_ACCESS_TOKEN;
+      const grafanaToken = env.GRAFANA_TOKEN;
       if (grafanaToken) {
         const providedToken = request.headers.get('x-grafana-token') || request.headers.get('authorization')?.replace('Bearer ', '');
         if (!providedToken || providedToken !== grafanaToken) {
@@ -167,7 +167,7 @@ export async function routeRecruitment(request, env, ctx, url, corsHeaders, send
   if (url.pathname === '/api/grafana/recruits/at' && request.method === 'POST') {
     try {
       // Check Grafana access token for security
-      const grafanaToken = env.GRAFANA_ACCESS_TOKEN;
+      const grafanaToken = env.GRAFANA_TOKEN;
       if (grafanaToken) {
         const providedToken = request.headers.get('x-grafana-token') || request.headers.get('authorization')?.replace('Bearer ', '');
         if (!providedToken || providedToken !== grafanaToken) {
