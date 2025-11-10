@@ -4,6 +4,8 @@ server:
   http_listen_port: 3100
   log_level: info
 
+target: all
+
 ingester:
   lifecycler:
     ring:
