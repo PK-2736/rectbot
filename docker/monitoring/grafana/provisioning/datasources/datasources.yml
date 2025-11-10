@@ -54,5 +54,3 @@ datasources:
         - https://api.recrubo.net
     secureJsonData:
       bearerToken: ${GRAFANA_TOKEN}
-    secureJsonData:
-      bearerToken: ${GRAFANA_TOKEN}
