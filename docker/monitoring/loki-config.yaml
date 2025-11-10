@@ -5,6 +5,7 @@ server:
   log_level: info
 
 target: all
+replication_factor: 1
 
 distributor:
   ring:
