@@ -10,6 +10,12 @@ distributor:
   ring:
     kvstore:
       store: inmemory
+  replication_factor: 1
+
+querier:
+  ring:
+    kvstore:
+      store: inmemory
 
 ingester:
   lifecycler:
@@ -18,7 +24,6 @@ ingester:
         store: inmemory
     final_sleep: 0s
   chunk_target_size: 1048576
-  replication_factor: 1
 
 storage_config:
   boltdb_shipper:
