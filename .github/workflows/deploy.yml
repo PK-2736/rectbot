@@ -80,9 +80,7 @@ jobs:
             docker logs grafana --tail 50 || true; \
             docker ps --filter "name=grafana" || true; \
             echo "Checking Grafana datasources..."; \
-            GRAFANA_ADMIN_USER=$(grep '^GRAFANA_ADMIN_USER=' .env | cut -d'=' -f2); \
-            GRAFANA_ADMIN_PASSWORD=$(grep '^GRAFANA_ADMIN_PASSWORD=' .env | cut -d'=' -f2); \
-            curl -s -u "$GRAFANA_ADMIN_USER:$GRAFANA_ADMIN_PASSWORD" http://localhost:3000/api/datasources | jq . || true; \
+            curl -s -u "admin:admin" http://localhost:3000/api/datasources | jq . || true; \
 
             # Clean up .env file
             rm .env;
