@@ -45,9 +45,9 @@ jobs:
         env:
           OCI_USER: ${{ secrets.OCI_USER }}
           OCI_HOST: ${{ secrets.OCI_HOST }}
+          GRAFANA_TOKEN: ${{ secrets.GRAFANA_TOKEN }}
           GRAFANA_ADMIN_USER: ${{ secrets.GRAFANA_ADMIN_USER }}
           GRAFANA_ADMIN_PASSWORD: ${{ secrets.GRAFANA_ADMIN_PASSWORD }}
-          GRAFANA_TOKEN: ${{ secrets.GRAFANA_TOKEN }}
         run: |
           ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no $OCI_USER@$OCI_HOST '
             source ~/.bashrc || true; \
@@ -80,8 +80,6 @@ jobs:
             docker logs grafana --tail 50 || true; \
             docker ps --filter "name=grafana" || true; \
             echo "Checking Grafana datasources..."; \
-            GRAFANA_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}; \
-            GRAFANA_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}; \
             echo "Using Grafana user: $GRAFANA_ADMIN_USER pass: [hidden] token: [hidden]"; \
             for i in {1..5}; do \
               if curl -s -u "$GRAFANA_ADMIN_USER:$GRAFANA_ADMIN_PASSWORD" http://localhost:3000/api/datasources | jq . 2>/dev/null; then \
