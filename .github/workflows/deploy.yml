@@ -39,17 +39,6 @@ jobs:
             echo "ERROR: SSH test connection failed (exit=${SSH_TEST_EXIT}). Output:" >&2
             sed -n '1,200p' /tmp/ssh_test_output || true
             exit ${SSH_TEST_EXIT}
-      - name: Create .env file for docker compose
-        run: |
-          echo "GRAFANA_ADMIN_USER=${{ secrets.GRAFANA_ADMIN_USER }}" > .env
-          echo "GRAFANA_ADMIN_PASSWORD=${{ secrets.GRAFANA_ADMIN_PASSWORD }}" >> .env
-          echo "GRAFANA_TOKEN=${{ secrets.GRAFANA_TOKEN }}" >> .env
-          GRAFANA_DOMAIN="${{ secrets.GRAFANA_DOMAIN }}"
-          if [ -z "$GRAFANA_DOMAIN" ]; then GRAFANA_DOMAIN="grafana.recrubo.net"; fi
-          echo "GRAFANA_DOMAIN=$GRAFANA_DOMAIN" >> .env
-          GRAFANA_ROOT_URL="${{ secrets.GRAFANA_ROOT_URL }}"
-          if [ -z "$GRAFANA_ROOT_URL" ]; then GRAFANA_ROOT_URL="https://grafana.recrubo.net/"; fi
-          echo "GRAFANA_ROOT_URL=$GRAFANA_ROOT_URL" >> .env
       - name: Deploy via SSH (production)
         env:
           OCI_USER: ${{ secrets.OCI_USER }}
