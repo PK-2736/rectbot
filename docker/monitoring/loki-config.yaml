@@ -6,6 +6,11 @@ server:
 
 target: all
 
+distributor:
+  ring:
+    kvstore:
+      store: inmemory
+
 ingester:
   lifecycler:
     ring:
