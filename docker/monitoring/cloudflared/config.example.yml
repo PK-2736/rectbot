@@ -6,5 +6,5 @@ credentials-file: /home/ubuntu/.cloudflared/a98d9cf0-6170-46a0-b93e-d7f4c1eb3234
 
 ingress:
   - hostname: grafana.recrubo.net
-    service: http://localhost:8443
+    service: http://localhost:3000
   - service: http_status:404
