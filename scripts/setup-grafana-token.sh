@@ -1,7 +1,9 @@
 #!/bin/bash
 
-# Grafana トークン設定スクリプト
-# このスクリプトは Grafana データソースの認証トークンを設定します
+# Grafana トークン設定スクリプト (CI / ローカル両対応)
+# 目的:
+#  - ローカル: .env を補助しつつ安全にトークン生成
+#  - CI: GRAFANA_TOKEN 環境変数を渡してファイルを書かずに後続処理へ
 
 set -e
 
@@ -9,83 +11,70 @@ echo "🔐 Grafana トークン設定"
 echo "=========================================="
 echo ""
 
-# .env ファイルの確認
-if [ ! -f .env ]; then
-    echo "❌ .env ファイルが見つかりません"
-    echo "💡 .env.example をコピーして .env を作成してください:"
-    echo "   cp .env.example .env"
-    echo ""
+MODE_CI="false"
+if [ -n "${GRAFANA_TOKEN}" ]; then
+    MODE_CI="true"
+    echo "CIモード検出: 環境変数 GRAFANA_TOKEN を使用 (.env 変更なし)"
+fi
+
+if [ "${MODE_CI}" = "false" ] && [ ! -f .env ]; then
+    echo "❌ .env ファイルが見つかりません (ローカル)"
+    echo "💡 cp .env.example .env で作成してください"
     exit 1
 fi
 
-# GRAFANA_TOKEN の確認
-if grep -q "^GRAFANA_TOKEN=" .env; then
-    echo "✅ GRAFANA_TOKEN が .env に設定されています"
-    TOKEN_VALUE=$(grep "^GRAFANA_TOKEN=" .env | cut -d '=' -f2)
-    if [ -z "$TOKEN_VALUE" ] || [ "$TOKEN_VALUE" = "your_grafana_access_token_here" ]; then
-        echo "⚠️  トークンの値が未設定またはデフォルト値です"
-        echo ""
-        echo "新しいトークンを生成しますか? (y/N): "
-        read -r GENERATE
-        if [ "$GENERATE" = "y" ] || [ "$GENERATE" = "Y" ]; then
-            NEW_TOKEN=$(openssl rand -hex 32)
-            echo ""
-            echo "🔑 新しいトークン:"
-            echo "   $NEW_TOKEN"
-            echo ""
-            
-            # .env を更新
-            if [[ "$OSTYPE" == "darwin"* ]]; then
-                sed -i '' "s/^GRAFANA_TOKEN=.*/GRAFANA_TOKEN=$NEW_TOKEN/" .env
-            else
-                sed -i "s/^GRAFANA_TOKEN=.*/GRAFANA_TOKEN=$NEW_TOKEN/" .env
+if [ "${MODE_CI}" = "true" ]; then
+    echo "✅ CIモード: トークン先頭20桁 => ${GRAFANA_TOKEN:0:20}..."
+else
+    if grep -q "^GRAFANA_TOKEN=" .env 2>/dev/null; then
+        echo "✅ .env に GRAFANA_TOKEN が存在"
+        TOKEN_VALUE=$(grep "^GRAFANA_TOKEN=" .env | cut -d '=' -f2)
+        if [ -z "${TOKEN_VALUE}" ] || [ "${TOKEN_VALUE}" = "your_grafana_access_token_here" ]; then
+            echo "⚠️  未設定またはダミー値"
+            read -r -p "新しいトークンを生成しますか? (y/N): " GEN
+            if [[ "${GEN}" =~ ^[Yy]$ ]]; then
+                NEW_TOKEN=$(openssl rand -hex 32)
+                if [[ "${OSTYPE}" == "darwin"* ]]; then
+                    sed -i '' "s/^GRAFANA_TOKEN=.*/GRAFANA_TOKEN=${NEW_TOKEN}/" .env
+                else
+                    sed -i "s/^GRAFANA_TOKEN=.*/GRAFANA_TOKEN=${NEW_TOKEN}/" .env
+                fi
+                echo "✅ 更新: ${NEW_TOKEN}"
             fi
-            
-            echo "✅ .env の GRAFANA_TOKEN を更新しました"
-            echo ""
+        else
+            echo "   現在値: ${TOKEN_VALUE:0:20}..."
         fi
     else
-        echo "   現在の値: ${TOKEN_VALUE:0:20}..."
-        echo ""
-    fi
-else
-    echo "⚠️  GRAFANA_TOKEN が .env に見つかりません"
-    echo ""
-    echo "新しいトークンを追加しますか? (y/N): "
-    read -r ADD
-    if [ "$ADD" = "y" ] || [ "$ADD" = "Y" ]; then
-        NEW_TOKEN=$(openssl rand -hex 32)
-        echo "" >> .env
-        echo "# Grafana データソース用トークン" >> .env
-        echo "GRAFANA_TOKEN=$NEW_TOKEN" >> .env
-        echo ""
-        echo "✅ .env に GRAFANA_TOKEN を追加しました"
-        echo "   トークン: $NEW_TOKEN"
-        echo ""
+        echo "⚠️  .env に GRAFANA_TOKEN がありません"
+        read -r -p "追加しますか? (y/N): " ADD
+        if [[ "${ADD}" =~ ^[Yy]$ ]]; then
+            NEW_TOKEN=$(openssl rand -hex 32)
+            printf "\n# Grafana データソース用トークン\nGRAFANA_TOKEN=%s\n" "${NEW_TOKEN}" >> .env
+            echo "✅ 追加: ${NEW_TOKEN}"
+        fi
     fi
 fi
 
 echo "=========================================="
+echo "📋 次のステップ"
 echo ""
-echo "📋 次のステップ:"
+echo "1️⃣  Cloudflare Worker Secret 同期"
+if [ "${MODE_CI}" = "true" ]; then
+    echo "   echo \"$GRAFANA_TOKEN\" | wrangler secret put GRAFANA_ACCESS_TOKEN"
+else
+    echo "   cd backend && wrangler secret put GRAFANA_ACCESS_TOKEN  # .env の値を貼り付け"
+fi
 echo ""
-echo "1️⃣  Cloudflare Worker にも同じトークンを設定:"
-echo ""
-echo "   cd backend"
-echo "   wrangler secret put GRAFANA_ACCESS_TOKEN"
-echo "   # プロンプトが表示されたら、.env の GRAFANA_TOKEN と同じ値を入力"
-echo ""
-echo "   または Cloudflare Dashboard:"
-echo "   Workers & Pages → [あなたのWorker] → Settings → Variables"
-echo "   → 'GRAFANA_ACCESS_TOKEN' を追加"
-echo ""
-echo "2️⃣  Grafana コンテナを再起動:"
-echo ""
+echo "2️⃣  Grafana 再起動 (必要なら)"
 echo "   docker-compose -f docker-compose.monitoring.yml restart grafana"
 echo ""
-echo "3️⃣  データソース接続をテスト:"
+echo "3️⃣  テスト"
+if [ "${MODE_CI}" = "true" ]; then
+    echo "   curl -H 'Authorization: Bearer ${GRAFANA_TOKEN}' https://api.recrubo.net/api/grafana/recruits -X POST"
+else
+    echo "   TOKEN=\$(grep GRAFANA_TOKEN .env | cut -d= -f2)"
+    echo "   curl -H \"Authorization: Bearer $TOKEN\" -X POST https://api.recrubo.net/api/grafana/recruits"
+fi
 echo ""
-echo "   curl -H \"Authorization: Bearer \$(grep GRAFANA_TOKEN .env | cut -d= -f2)\" \\"
-echo "        https://api.recrubo.net/api/grafana/recruits"
-echo ""
+echo "✅ 完了"
 echo "=========================================="

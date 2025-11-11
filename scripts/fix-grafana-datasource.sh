@@ -33,22 +33,22 @@ echo "3️⃣  Grafana ログを確認..."
 docker logs grafana --tail 100 2>&1 | grep -i "datasource\|infinity\|error\|401\|404" || echo "（関連ログなし）"
 
 echo ""
-echo "4️⃣  環境変数 GRAFANA_TOKEN の確認..."
-if [ -f "${PROJECT_ROOT}/.env" ]; then
-    if grep -q "^GRAFANA_TOKEN=" "${PROJECT_ROOT}/.env"; then
-        TOKEN_VALUE=$(grep "^GRAFANA_TOKEN=" "${PROJECT_ROOT}/.env" | cut -d '=' -f2)
-        if [ -z "$TOKEN_VALUE" ] || [ "$TOKEN_VALUE" = "your_grafana_access_token_here" ]; then
-            echo "⚠️  GRAFANA_TOKEN が未設定またはデフォルト値です"
-            echo "   トークン設定: ./scripts/setup-grafana-token.sh"
-        else
-            echo "✅ GRAFANA_TOKEN が設定されています"
-        fi
+echo "4️⃣  トークン取得..."
+# 優先順位: 1) 環境変数 GRAFANA_TOKEN 2) .env 3) なし
+TOKEN_VALUE=""
+if [ -n "${GRAFANA_TOKEN}" ]; then
+    TOKEN_VALUE="${GRAFANA_TOKEN}"
+    echo "✅ 環境変数 GRAFANA_TOKEN がセットされています (CI/一時利用モード)"
+elif [ -f "${PROJECT_ROOT}/.env" ] && grep -q "^GRAFANA_TOKEN=" "${PROJECT_ROOT}/.env"; then
+    TOKEN_VALUE=$(grep "^GRAFANA_TOKEN=" "${PROJECT_ROOT}/.env" | cut -d '=' -f2)
+    if [ -z "$TOKEN_VALUE" ] || [ "$TOKEN_VALUE" = "your_grafana_access_token_here" ]; then
+        echo "⚠️  GRAFANA_TOKEN が未設定またはダミー値 (.env)"
     else
-        echo "⚠️  GRAFANA_TOKEN が .env に見つかりません"
-        echo "   トークン設定: ./scripts/setup-grafana-token.sh"
+        echo "✅ .env から GRAFANA_TOKEN を取得"
     fi
 else
-    echo "⚠️  .env ファイルが見つかりません"
+    echo "⚠️  トークンが見つかりません (環境変数 / .env なし)"
+    echo "   CIなら 'GRAFANA_TOKEN=xxxx ./scripts/fix-grafana-datasource.sh' のように実行可能"
 fi
 
 echo ""
@@ -65,35 +65,22 @@ fi
 echo ""
 echo "🎮 /api/grafana/recruits エンドポイント:"
 
-# トークンなしでテスト
-RECRUITS_DATA_UNAUTH=$(curl -s -X POST -H "Content-Type: application/json" -d '{}' https://api.recrubo.net/api/grafana/recruits 2>&1)
-if echo "$RECRUITS_DATA_UNAUTH" | grep -q "unauthorized"; then
-    echo "⚠️  認証なし: 401 Unauthorized (これは正常)"
-    
-    # トークンありでテスト
-    if [ -f "${PROJECT_ROOT}/.env" ] && grep -q "^GRAFANA_TOKEN=" "${PROJECT_ROOT}/.env"; then
-        TOKEN_VALUE=$(grep "^GRAFANA_TOKEN=" "${PROJECT_ROOT}/.env" | cut -d '=' -f2)
-        if [ -n "$TOKEN_VALUE" ] && [ "$TOKEN_VALUE" != "your_grafana_access_token_here" ]; then
-            echo ""
-            echo "   認証ありでテスト中..."
-            RECRUITS_DATA_AUTH=$(curl -s -X POST -H "Content-Type: application/json" \
-                                      -H "Authorization: Bearer $TOKEN_VALUE" \
-                                      -d '{}' https://api.recrubo.net/api/grafana/recruits 2>&1)
-            if echo "$RECRUITS_DATA_AUTH" | jq . > /dev/null 2>&1; then
-                echo "   ✅ 認証あり: 成功!"
-                echo "   $(echo "$RECRUITS_DATA_AUTH" | jq -r 'if type=="array" then "募集数: \(length)件" else . end')"
-            else
-                echo "   ❌ 認証あり: エラー"
-                echo "   $RECRUITS_DATA_AUTH"
-            fi
-        fi
-    fi
+# まず未認証
+RECRUITS_DATA_UNAUTH=$(curl -s -X POST -H "Content-Type: application/json" -d '{}' https://api.recrubo.net/api/grafana/recruits 2>&1 || true)
+if echo "$RECRUITS_DATA_UNAUTH" | grep -qi unauthorized; then
+    echo "⚠️  未認証リクエスト: 401 (想定通り)"
 else
-    echo "✅ https://api.recrubo.net/api/grafana/recruits"
-    if echo "$RECRUITS_DATA_UNAUTH" | jq . > /dev/null 2>&1; then
-        echo "$RECRUITS_DATA_UNAUTH" | jq -r 'if type=="array" then "募集数: \(length)件" else . end'
+    echo "✅ 未認証でも 200 (公開状態)"
+fi
+
+# 認証ありテスト (トークンがある場合のみ)
+if [ -n "$TOKEN_VALUE" ] && [ "$TOKEN_VALUE" != "your_grafana_access_token_here" ]; then
+    echo "   認証付きテスト中 (Bearer)..."
+    RECRUITS_DATA_AUTH=$(curl -s -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN_VALUE" -d '{}' https://api.recrubo.net/api/grafana/recruits 2>&1 || true)
+    if echo "$RECRUITS_DATA_AUTH" | jq . > /dev/null 2>&1; then
+        echo "   ✅ 成功 $(echo "$RECRUITS_DATA_AUTH" | jq 'length? // empty') 件"
     else
-        echo "$RECRUITS_DATA_UNAUTH"
+        echo "   ❌ 失敗: $RECRUITS_DATA_AUTH"
     fi
 fi
 
@@ -118,7 +105,7 @@ echo ""
 echo "   確認事項:"
 echo "   ✓ URL: https://api.recrubo.net （パスなし）"
 echo "   ✓ Auth Method: Bearer Token"
-echo "   ✓ Bearer Token: ${GRAFANA_TOKEN} と同じ値"
+echo "   ✓ Bearer Token: (CIでは環境変数注入 / ローカルは .env 参照)"
 echo "   ✓ 'Save & Test' で接続確認"
 echo ""
 echo "📊 4. ダッシュボードでデータ確認:"
