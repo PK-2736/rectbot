@@ -1,10 +1,12 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
 
-// Use import.meta.env for public env vars so build works across Astro/Vite versions
-const inviteUrl =
-  import.meta.env.PUBLIC_DISCORD_INVITE_URL ?? 'https://discord.com/api/oauth2/authorize?client_id=YOUR_CLIENT_ID&permissions=274878221312&scope=bot%20applications.commands';
+// 公開設定（ヘルプセンター）
 const supportUrl = import.meta.env.PUBLIC_SUPPORT_PORTAL_URL ?? 'https://support.recrubo.net';
+// サポートサーバー招待（固定URL指定）
+const supportServerUrl = 'https://discord.gg/tJAGc9aRdc';
+// ボット招待はバックエンド経由で一回きりのURLを生成
+const inviteApiUrl = 'https://api.recrubo.net/api/bot-invite';
 ---
 <BaseLayout>
   <!-- Hero Section -->
@@ -25,8 +27,11 @@ const supportUrl = import.meta.env.PUBLIC_SUPPORT_PORTAL_URL ?? 'https://support
         </div>
         
         <div class="flex flex-col sm:flex-row gap-4 justify-center">
-          <a href={inviteUrl} class="btn-primary text-lg px-8 py-4" target="_blank" rel="noopener">
-            今すぐサーバーに招待
+          <a href={inviteApiUrl} class="btn-primary text-lg px-8 py-4" target="_blank" rel="noopener">
+            今すぐボットを招待
+          </a>
+          <a href={supportServerUrl} class="btn-secondary text-lg px-8 py-4" target="_blank" rel="noopener">
+            サポートサーバーに参加
           </a>
           <a href="#features" class="btn-secondary text-lg px-8 py-4">
             機能を詳しく見る
@@ -97,8 +102,8 @@ const supportUrl = import.meta.env.PUBLIC_SUPPORT_PORTAL_URL ?? 'https://support
           簡単なセットアップで、使い始めれます。
         </p>
         <div class="flex flex-col sm:flex-row gap-4 justify-center">
-          <a href={inviteUrl} class="btn-primary py-4 px-8 text-lg" target="_blank" rel="noopener">
-            Discordサーバーに招待
+          <a href={inviteApiUrl} class="btn-primary py-4 px-8 text-lg" target="_blank" rel="noopener">
+            Discordにボットを招待
           </a>
         </div>
       </div>
@@ -130,7 +135,7 @@ const supportUrl = import.meta.env.PUBLIC_SUPPORT_PORTAL_URL ?? 'https://support
             <a href="https://discord.gg/tJAGc9aRdc" class="text-brand-600 hover:text-brand-700 underline" target="_blank" rel="noopener">公式ディスコードサーバー</a>
             でどうぞ
           </p>
-          <a href={inviteUrl} class="text-brand-600 hover:text-brand-700 transition-colors" target="_blank" rel="noopener">
+          <a href={supportServerUrl} class="text-brand-600 hover:text-brand-700 transition-colors" target="_blank" rel="noopener">
             サーバーに参加 →
           </a>
         </div>
