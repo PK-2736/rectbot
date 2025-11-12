@@ -32,7 +32,7 @@ scrape_configs:
         target_label: k8s_container
     pipeline_stages:
       - match:
-          selector: '{container="log-receiver"}'
+          selector: '{container="/log-receiver"}'
           stages:
             - json:
                 expressions:
