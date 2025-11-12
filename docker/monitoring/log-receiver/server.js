@@ -10,20 +10,29 @@ function toEntries(payload) {
 }
 
 const server = http.createServer((req, res) => {
-  if (req.method === 'GET' && req.url === '/') {
+  const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+
+  if (req.method === 'GET' && url.pathname === '/') {
     res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8' });
     res.end('log-receiver ok');
     return;
   }
 
-  if (req.method !== 'POST' || req.url !== '/logs') {
+  if (req.method !== 'POST' || url.pathname !== '/logs') {
     res.statusCode = 404;
     res.end('not found');
     return;
   }
 
   // Check Authorization header
-  const authHeader = req.headers['authorization'];
+  let authHeader = req.headers['authorization'];
+  if (!authHeader) {
+    // Check query parameter for Authorization
+    const headerAuth = url.searchParams.get('header_Authorization');
+    if (headerAuth) {
+      authHeader = headerAuth;
+    }
+  }
   const expectedToken = process.env.LOG_RECEIVER_TOKEN;
   if (!authHeader || !authHeader.startsWith('Bearer ') || authHeader.slice(7) !== expectedToken) {
     res.statusCode = 401;
