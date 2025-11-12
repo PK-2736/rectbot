@@ -6,6 +6,7 @@ function toEntries(payload) {
   if (payload == null) return [];
   if (Array.isArray(payload)) return payload;
   if (payload.logs && Array.isArray(payload.logs)) return payload.logs;
+  if (payload.Logs && Array.isArray(payload.Logs)) return payload.Logs; // Cloudflare Workers logpush
   return [payload];
 }
 
