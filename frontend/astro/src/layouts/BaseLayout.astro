@@ -43,8 +43,9 @@ const updatedDisplay = new Date(updatedISO).toLocaleString('ja-JP', { timeZone: 
     <meta property="twitter:description" content={description} />
     
   <!-- Favicon -->
-  <link rel="icon" href="/favicon.ico" sizes="any" />
-  <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon" />
+  <!-- Cache-busting query to avoid old favicon caches -->
+  <link rel="icon" href="/favicon.ico?v=20251112" sizes="any" />
+  <link rel="shortcut icon" href="/favicon.ico?v=20251112" type="image/x-icon" />
     
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">

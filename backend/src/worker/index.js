@@ -324,7 +324,9 @@ export default {
       '/metrics',
       '/api/grafana/recruits',
       // One-time bot invite wrapper is public (GET only)
-      '/api/bot-invite/t/'
+      '/api/bot-invite/t/',
+      // One-time bot invite token creation (public POST)
+      '/api/bot-invite/one-time'
     ];
     const requiresAuth = isApiPath && !skipTokenPaths.some(path => url.pathname.startsWith(path));
     
