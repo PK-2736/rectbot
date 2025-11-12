@@ -287,6 +287,7 @@ async function safeReadJson(request) {
 
 export default {
   async fetch(request, env, ctx) {
+    console.log(`Worker request: ${request.method} ${request.url}`);
     const url = new URL(request.url);
     const origin = request.headers.get('Origin') || '';
     const corsHeaders = getCorsHeaders(origin);
