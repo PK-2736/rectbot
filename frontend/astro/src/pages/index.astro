@@ -5,8 +5,10 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 const supportUrl = import.meta.env.PUBLIC_SUPPORT_PORTAL_URL ?? 'https://support.recrubo.net';
 // サポートサーバー招待（固定URL指定）
 const supportServerUrl = 'https://discord.gg/tJAGc9aRdc';
-// ボット招待はバックエンドでワンタイムURLを発行
+// ボット招待はバックエンドでワンタイムURLを発行（失敗時フォールバックを使用）
 const inviteApiOneTimeUrl = 'https://api.recrubo.net/api/bot-invite/one-time';
+// フォールバック（固定OAuth招待URL）: 環境変数で指定可能、なければnull
+const fallbackInviteUrl = import.meta.env.PUBLIC_DISCORD_INVITE_URL ?? '';
 ---
 <BaseLayout>
   <!-- Hero Section -->
@@ -162,6 +164,7 @@ const inviteApiOneTimeUrl = 'https://api.recrubo.net/api/bot-invite/one-time';
 <script>
   // ワンタイム招待URLを発行して遷移
   const API_URL = "{inviteApiOneTimeUrl}";
+  const FALLBACK_URL = "{fallbackInviteUrl}";
   function handleInviteClick(e) {
     e.preventDefault();
     // 先に空タブを開いてポップアップブロックを回避
@@ -178,8 +181,13 @@ const inviteApiOneTimeUrl = 'https://api.recrubo.net/api/bot-invite/one-time';
         if (newWin) newWin.location = url; else window.location.href = url;
       })
       .catch(() => {
-        if (newWin) try { newWin.close(); } catch (_) {}
-        alert('招待リンクの生成に失敗しました。時間をおいて再度お試しください。');
+        // フォールバックURLがあればそれに遷移、なければエラーダイアログ
+        if (FALLBACK_URL) {
+          if (newWin) newWin.location = FALLBACK_URL; else window.location.href = FALLBACK_URL;
+        } else {
+          if (newWin) try { newWin.close(); } catch (_) {}
+          alert('招待リンクの生成に失敗しました。時間をおいて再度お試しください。');
+        }
       });
   }
   document.querySelectorAll('.js-bot-invite').forEach(el => {
