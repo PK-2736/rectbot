@@ -5,11 +5,13 @@ services:
   loki:
     image: grafana/loki:2.8.2
     container_name: loki
-    command: -config.file=/etc/loki/loki-config.yaml
+    user: root
+    command: -config.file=/etc/loki/loki-config.yaml -target=all
     volumes:
       - ./docker/monitoring/loki-config.yaml:/etc/loki/loki-config.yaml:ro
-      - loki_data:/loki
-      - loki_wal:/wal
+      - ./docker/monitoring/runtime-config.yaml:/etc/loki/runtime-config.yaml:ro
+      - /tmp/loki-data:/loki
+      - /tmp/loki-wal:/wal
     ports:
       - "127.0.0.1:3100:3100"
     networks:

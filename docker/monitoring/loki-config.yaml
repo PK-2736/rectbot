@@ -2,13 +2,17 @@ auth_enabled: false
 
 server:
   http_listen_port: 3100
-  log_level: info
 
-common:
-  replication_factor: 1
-
-memberlist:
-  join_members: []
+ingester:
+  lifecycler:
+    address: 127.0.0.1
+    ring:
+      kvstore:
+        store: inmemory
+      replication_factor: 1
+    final_sleep: 0s
+  chunk_idle_period: 5m
+  chunk_retain_period: 30s
 
 schema_config:
   configs:
@@ -24,13 +28,15 @@ storage_config:
   boltdb_shipper:
     active_index_directory: /loki/index
     cache_location: /loki/cache
+    cache_ttl: 24h
     shared_store: filesystem
   filesystem:
     directory: /loki/chunks
 
 limits_config:
   enforce_metric_name: false
-  max_streams_per_user: 0
+  reject_old_samples: true
+  reject_old_samples_max_age: 168h
 
 chunk_store_config:
   max_look_back_period: 0s
@@ -39,36 +45,9 @@ table_manager:
   retention_deletes_enabled: false
   retention_period: 0s
 
-ingester:
-  lifecycler:
-    ring:
-      kvstore:
-        store: inmemory
-    final_sleep: 0s
-  chunk_idle_period: 5m
-  chunk_block_size: 262144
-  chunk_retain_period: 30s
-  max_transfer_retries: 0
-
-runtime_config:
-  file: /etc/loki/runtime-config.yaml
-
 compactor:
   working_directory: /loki/compactor
   shared_store: filesystem
 
-querier:
-  max_concurrent: 16
-
-query_range:
-  parallelise_shardable_queries: true
-  cache_results: false
-
-frontend_worker:
-  frontend_address: 127.0.0.1:9095
-
-frontend:
-  scheduler_address: 127.0.0.1:9095
-
-query_scheduler:
-  max_outstanding_requests_per_tenant: 100
+# Single process mode
+target: all
