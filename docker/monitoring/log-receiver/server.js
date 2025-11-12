@@ -1,4 +1,5 @@
 const http = require('http');
+const zlib = require('zlib');
 
 const PORT = process.env.PORT || 8080;
 
@@ -44,34 +45,51 @@ const server = http.createServer((req, res) => {
   let buf = [];
   req.on('data', (chunk) => buf.push(chunk));
   req.on('end', () => {
-    const raw = Buffer.concat(buf).toString('utf8');
-    let payload;
-    try { payload = JSON.parse(raw); } catch { payload = raw; }
+    const processPayload = (raw) => {
+      let payload;
+      try { payload = JSON.parse(raw); } catch { payload = raw; }
 
-    const entries = toEntries(payload);
-    const nowIso = new Date().toISOString();
+      const entries = toEntries(payload);
+      const nowIso = new Date().toISOString();
 
-    let count = 0;
-    for (const item of entries) {
-      let obj;
-      if (typeof item === 'string') obj = { message: item };
-      else if (item && typeof item === 'object') obj = item;
-      else obj = { message: String(item) };
+      let count = 0;
+      for (const item of entries) {
+        let obj;
+        if (typeof item === 'string') obj = { message: item };
+        else if (item && typeof item === 'object') obj = item;
+        else obj = { message: String(item) };
 
-      if (!obj.timestamp) obj.timestamp = nowIso;
-      obj.source = obj.source || 'cloudflare-worker';
-      // Print as one-line JSON for Promtail docker_sd to pick up
-      try {
-        console.log(JSON.stringify(obj));
-        count++;
-      } catch (e) {
-        console.log(String(obj.message || obj));
-        count++;
+        if (!obj.timestamp) obj.timestamp = nowIso;
+        obj.source = obj.source || 'cloudflare-worker';
+        // Print as one-line JSON for Promtail docker_sd to pick up
+        try {
+          console.log(JSON.stringify(obj));
+          count++;
+        } catch (e) {
+          console.log(String(obj.message || obj));
+          count++;
+        }
       }
-    }
 
-    res.writeHead(200, { 'content-type': 'application/json' });
-    res.end(JSON.stringify({ ok: true, received: count }));
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, received: count }));
+    };
+
+    if (req.headers['content-encoding'] === 'gzip') {
+      zlib.gunzip(Buffer.concat(buf), (err, decompressed) => {
+        if (err) {
+          console.error('Gzip decompression error:', err);
+          res.statusCode = 400;
+          res.end('bad request');
+          return;
+        }
+        const raw = decompressed.toString('utf8');
+        processPayload(raw);
+      });
+    } else {
+      const raw = Buffer.concat(buf).toString('utf8');
+      processPayload(raw);
+    }
   });
 });
 
