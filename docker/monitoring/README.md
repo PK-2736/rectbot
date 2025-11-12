@@ -8,7 +8,7 @@ Monitoring stack (OCI side)
 - Metabase (optional BI)
 
 目的（本番に近い挙動の再現）
-- 公開は Grafana のみ（本番では Cloudflare Tunnel 経由）
+- 公開は Grafana のみ（本番では Cloudflare Tunnel または Caddy 経由）
 - Loki/Prometheus/Pushgateway は内部通信（localhost/同一ホスト）
 - Pushgateway への push は「自己署名TLS + IP制限 + Basic Auth」を Nginx リバースプロキシで再現
 
@@ -33,8 +33,11 @@ Monitoring stack (OCI side)
      - PUSHGATEWAY_INSECURE=true（検証を無効にしたい場合のみ）
 
 4) Grafana
-   - http://localhost:3000 （開発ではポート公開）
-   - 本番は Cloudflare Tunnel + Basic Auth（例: docker/monitoring/grafana/grafana.ini を使用し、ホスト側でトンネル設定）
+    - http://localhost:3000 （開発ではポート公開）
+    - 本番公開方式:
+       - Cloudflare Tunnel + Basic Auth（従来方式）
+       - Caddy リバースプロキシ（新方式・推奨）: `docker-compose.monitoring.yml` の `caddy` サービス + `docker/monitoring/caddy/Caddyfile`
+          - 手順: docs/GRAFANA_CADDY_SETUP.md を参照
 
 5) アラート（遅延を考慮した緩めのルール）
     - Prometheus は `/etc/prometheus/alerts/*.yml` を読み込みます（本リポでは `prometheus/alerts/xserver.yml`）。
@@ -72,10 +75,16 @@ IP 制限（Nginx）
 - Grafana データソース: `grafana/provisioning/datasources/datasources.yaml`
 - ダッシュボード: `grafana/dashboards` に配置（自動で読み込み）
 
-Cloudflare Tunnel（本番）
-- 公開対象は Grafana のみ（例: grafana.recrubo.net -> localhost:3000）
-- loki/prom はトンネル公開しない（内部通信）
-- サンプル: `cloudflared/config.example.yml`
+公開方式
+- Cloudflare Tunnel（本番従来）
+   - 公開対象は Grafana のみ（例: grafana.recrubo.net -> localhost:3000）
+   - loki/prom はトンネル公開しない（内部通信）
+   - サンプル: `cloudflared/config.example.yml`
+- Caddy（新方式）
+   - DNS: `grafana.recrubo.net` をこのホストのパブリックIPに向ける
+   - 80/443 を開放（初回 ACME 取得に 80 必須）
+   - Caddy が Let's Encrypt 証明書を自動管理し grafana コンテナへ reverse_proxy
+   - 設定ファイル: `docker/monitoring/caddy/Caddyfile`
 
 Xserver 側 push スクリプト
 - `scripts/prometheus-push.sh` を cron から実行（毎分など）

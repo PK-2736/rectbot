@@ -106,6 +106,14 @@ services:
     depends_on:
       - loki
       - prometheus
+    # IPv6 を無効化して IPv4 のみ使用（OCI 環境で IPv6 到達不能問題対応）
+    sysctls:
+      - net.ipv6.conf.all.disable_ipv6=1
+      - net.ipv6.conf.default.disable_ipv6=1
+    # DNS を Google Public DNS に設定（OCI デフォルト DNS が IPv6 優先で問題発生する場合）
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
 
   node-exporter:
     image: prom/node-exporter:v1.8.1
