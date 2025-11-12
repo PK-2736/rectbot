@@ -32,19 +32,17 @@ scrape_configs:
         target_label: k8s_container
     pipeline_stages:
       - match:
-          selector: '{container="/log-receiver"}'
+          selector: '{job="cloudflare-worker"}'
           stages:
             - json:
                 expressions:
-                  env: env
-                  instance: instance
-                  service: service
-                  level: level
+                  timestamp:
+                  source:
+            - timestamp:
+                source: timestamp
+                format: RFC3339
             - labels:
-                env:
-                instance:
-                service:
-                level:
+                source:
 
   - job_name: pm2-logs
     static_configs:
