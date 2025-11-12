@@ -23,6 +23,8 @@ const updatedDisplay = new Date(updatedISO).toLocaleString('ja-JP', { timeZone: 
     <meta property="og:updated_time" content={updatedISO} />
     <meta property="article:modified_time" content={updatedISO} />
     <meta name="modified" content={updatedISO} />
+    <meta name="last-modified" content={updatedISO} />
+    <meta itemprop="dateModified" content={updatedISO} />
     <script type="application/ld+json">{JSON.stringify({
       "@context": "https://schema.org",
       "@type": "WebPage",
@@ -44,8 +46,9 @@ const updatedDisplay = new Date(updatedISO).toLocaleString('ja-JP', { timeZone: 
     
   <!-- Favicon -->
   <!-- Cache-busting query to avoid old favicon caches -->
-  <link rel="icon" href="/favicon.ico?v=20251112" sizes="any" />
-  <link rel="shortcut icon" href="/favicon.ico?v=20251112" type="image/x-icon" />
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon" />
+  <link rel="apple-touch-icon" href="/favicon.ico" />
     
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">

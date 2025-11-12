@@ -5,10 +5,16 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 const supportUrl = import.meta.env.PUBLIC_SUPPORT_PORTAL_URL ?? 'https://support.recrubo.net';
 // サポートサーバー招待（固定URL指定）
 const supportServerUrl = 'https://discord.gg/tJAGc9aRdc';
-// ボット招待はバックエンドでワンタイムURLを発行（失敗時フォールバックを使用）
+// ボット招待: バックエンドでワンタイムURLを発行
 const inviteApiOneTimeUrl = 'https://api.recrubo.net/api/bot-invite/one-time';
-// フォールバック（固定OAuth招待URL）: 環境変数で指定可能、なければnull
-const fallbackInviteUrl = import.meta.env.PUBLIC_DISCORD_INVITE_URL ?? '';
+// フォールバック（固定OAuth招待URL）: 環境変数で指定可能。未設定なら null 扱い
+const fallbackInviteUrl = (import.meta.env.PUBLIC_DISCORD_INVITE_URL && import.meta.env.PUBLIC_DISCORD_INVITE_URL.trim() !== '')
+  ? import.meta.env.PUBLIC_DISCORD_INVITE_URL.trim()
+  : null;
+
+// クライアント側 script に安全に埋め込むため JSON.stringify 済み文字列を用意
+const serializedInviteApiUrl = JSON.stringify(inviteApiOneTimeUrl);
+const serializedFallbackUrl = JSON.stringify(fallbackInviteUrl);
 ---
 <BaseLayout>
   <!-- Hero Section -->
@@ -29,7 +35,7 @@ const fallbackInviteUrl = import.meta.env.PUBLIC_DISCORD_INVITE_URL ?? '';
         </div>
         
         <div class="flex flex-col sm:flex-row gap-4 justify-center">
-          <a href="#" class="btn-primary text-lg px-8 py-4 js-bot-invite">
+          <a href={fallbackInviteUrl || inviteApiOneTimeUrl} class="btn-primary text-lg px-8 py-4 js-bot-invite" data-invite="primary">
             今すぐボットを招待
           </a>
           <a href={supportServerUrl} class="btn-secondary text-lg px-8 py-4" target="_blank" rel="noopener">
@@ -104,7 +110,7 @@ const fallbackInviteUrl = import.meta.env.PUBLIC_DISCORD_INVITE_URL ?? '';
           簡単なセットアップで、使い始めれます。
         </p>
         <div class="flex flex-col sm:flex-row gap-4 justify-center">
-          <a href="#" class="btn-primary py-4 px-8 text-lg js-bot-invite">
+          <a href={fallbackInviteUrl || inviteApiOneTimeUrl} class="btn-primary py-4 px-8 text-lg js-bot-invite" data-invite="cta">
             Discordにボットを招待
           </a>
         </div>
@@ -162,34 +168,40 @@ const fallbackInviteUrl = import.meta.env.PUBLIC_DISCORD_INVITE_URL ?? '';
 </BaseLayout>
 
 <script>
-  // ワンタイム招待URLを発行して遷移
-  const API_URL = "{inviteApiOneTimeUrl}";
-  const FALLBACK_URL = "{fallbackInviteUrl}";
-  function handleInviteClick(e) {
+  // ボット招待の動的取得 + フォールバック処理
+  const API_URL = {serializedInviteApiUrl};
+  const FALLBACK_URL = {serializedFallbackUrl};
+
+  async function fetchInviteUrl() {
+    try {
+      const res = await fetch(API_URL, { method: 'POST', mode: 'cors', credentials: 'omit' });
+      if (!res.ok) throw new Error('bad status');
+      const data = await res.json();
+      return data && (data.url || data.inviteUrl) ? (data.url || data.inviteUrl) : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  async function handleInviteClick(e) {
     e.preventDefault();
-    // 先に空タブを開いてポップアップブロックを回避
+    const el = e.currentTarget;
+    el.classList.add('opacity-70','pointer-events-none');
+    el.textContent = '生成中...';
     let newWin = null;
     try { newWin = window.open('', '_blank', 'noopener'); } catch (_) {}
-    fetch(API_URL, { method: 'POST', mode: 'cors', credentials: 'omit' })
-      .then(res => {
-        if (!res.ok) throw new Error('failed');
-        return res.json();
-      })
-      .then(data => {
-        const url = data && (data.url || data.inviteUrl);
-        if (!url) throw new Error('no url');
-        if (newWin) newWin.location = url; else window.location.href = url;
-      })
-      .catch(() => {
-        // フォールバックURLがあればそれに遷移、なければエラーダイアログ
-        if (FALLBACK_URL) {
-          if (newWin) newWin.location = FALLBACK_URL; else window.location.href = FALLBACK_URL;
-        } else {
-          if (newWin) try { newWin.close(); } catch (_) {}
-          alert('招待リンクの生成に失敗しました。時間をおいて再度お試しください。');
-        }
-      });
+    const dynamicUrl = await fetchInviteUrl();
+    const finalUrl = dynamicUrl || FALLBACK_URL || el.getAttribute('href');
+    if (finalUrl) {
+      if (newWin) newWin.location = finalUrl; else window.location.href = finalUrl;
+    } else {
+      if (newWin) try { newWin.close(); } catch (_) {}
+      alert('招待リンクが取得できませんでした。時間をおいて再度お試しください。');
+      el.classList.remove('opacity-70','pointer-events-none');
+      el.textContent = '今すぐボットを招待';
+    }
   }
+
   document.querySelectorAll('.js-bot-invite').forEach(el => {
     el.addEventListener('click', handleInviteClick);
   });
