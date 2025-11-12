@@ -7,6 +7,9 @@ export interface Props {
 }
 
 const { title = "rectbot - Discordのゲーム募集をより円滑に", description = "Recrubo（りくるぼ）は、ゲーミングコミュニティのためのDiscordボット。募集機能、フレンドコード管理機能でサーバー運営をサポートします。" } = Astro.props;
+// ビルド時刻（検索結果に更新日を表示させるためのメタ・構造化データに使用）
+const updatedISO = new Date().toISOString();
+const updatedDisplay = new Date(updatedISO).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
 ---
 <!DOCTYPE html>
 <html lang="ja">
@@ -16,6 +19,18 @@ const { title = "rectbot - Discordのゲーム募集をより円滑に", descrip
     <title>{title}</title>
     <meta name="description" content={description} />
     <meta name="theme-color" content="#ffffff" />
+    <!-- Updated time for SEO snippets -->
+    <meta property="og:updated_time" content={updatedISO} />
+    <meta property="article:modified_time" content={updatedISO} />
+    <meta name="modified" content={updatedISO} />
+    <script type="application/ld+json">{JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "WebPage",
+      name: title,
+      description,
+      dateModified: updatedISO,
+      inLanguage: "ja"
+    })}</script>
     
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
@@ -29,6 +44,7 @@ const { title = "rectbot - Discordのゲーム募集をより円滑に", descrip
     
   <!-- Favicon -->
   <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon" />
     
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -118,7 +134,7 @@ const { title = "rectbot - Discordのゲーム募集をより円滑に", descrip
         <div class="mt-8 pt-8 border-t border-brand-100">
           <div class="flex flex-col md:flex-row justify-between items-center">
             <p class="text-slate-500 text-sm">
-              © 2025 rectbot. All rights reserved.
+              © 2025 rectbot. All rights reserved.｜最終更新: {updatedDisplay}
             </p>
             <div class="flex space-x-6 mt-4 md:mt-0">
               <a href="/privacy" class="text-slate-500 hover:text-slate-900 text-sm transition-colors">プライバシーポリシー</a>

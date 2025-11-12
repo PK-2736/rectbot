@@ -5,8 +5,8 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 const supportUrl = import.meta.env.PUBLIC_SUPPORT_PORTAL_URL ?? 'https://support.recrubo.net';
 // サポートサーバー招待（固定URL指定）
 const supportServerUrl = 'https://discord.gg/tJAGc9aRdc';
-// ボット招待はバックエンド経由で一回きりのURLを生成
-const inviteApiUrl = 'https://api.recrubo.net/api/bot-invite';
+// ボット招待はバックエンドでワンタイムURLを発行
+const inviteApiOneTimeUrl = 'https://api.recrubo.net/api/bot-invite/one-time';
 ---
 <BaseLayout>
   <!-- Hero Section -->
@@ -27,7 +27,7 @@ const inviteApiUrl = 'https://api.recrubo.net/api/bot-invite';
         </div>
         
         <div class="flex flex-col sm:flex-row gap-4 justify-center">
-          <a href={inviteApiUrl} class="btn-primary text-lg px-8 py-4" target="_blank" rel="noopener">
+          <a href="#" class="btn-primary text-lg px-8 py-4 js-bot-invite">
             今すぐボットを招待
           </a>
           <a href={supportServerUrl} class="btn-secondary text-lg px-8 py-4" target="_blank" rel="noopener">
@@ -102,7 +102,7 @@ const inviteApiUrl = 'https://api.recrubo.net/api/bot-invite';
           簡単なセットアップで、使い始めれます。
         </p>
         <div class="flex flex-col sm:flex-row gap-4 justify-center">
-          <a href={inviteApiUrl} class="btn-primary py-4 px-8 text-lg" target="_blank" rel="noopener">
+          <a href="#" class="btn-primary py-4 px-8 text-lg js-bot-invite">
             Discordにボットを招待
           </a>
         </div>
@@ -158,3 +158,31 @@ const inviteApiUrl = 'https://api.recrubo.net/api/bot-invite';
     </div>
   </section>
 </BaseLayout>
+
+<script>
+  // ワンタイム招待URLを発行して遷移
+  const API_URL = "{inviteApiOneTimeUrl}";
+  function handleInviteClick(e) {
+    e.preventDefault();
+    // 先に空タブを開いてポップアップブロックを回避
+    let newWin = null;
+    try { newWin = window.open('', '_blank', 'noopener'); } catch (_) {}
+    fetch(API_URL, { method: 'POST', mode: 'cors', credentials: 'omit' })
+      .then(res => {
+        if (!res.ok) throw new Error('failed');
+        return res.json();
+      })
+      .then(data => {
+        const url = data && (data.url || data.inviteUrl);
+        if (!url) throw new Error('no url');
+        if (newWin) newWin.location = url; else window.location.href = url;
+      })
+      .catch(() => {
+        if (newWin) try { newWin.close(); } catch (_) {}
+        alert('招待リンクの生成に失敗しました。時間をおいて再度お試しください。');
+      });
+  }
+  document.querySelectorAll('.js-bot-invite').forEach(el => {
+    el.addEventListener('click', handleInviteClick);
+  });
+</script>
