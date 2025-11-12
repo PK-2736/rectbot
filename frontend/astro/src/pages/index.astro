@@ -8,20 +8,20 @@ const supportUrl = import.meta.env.PUBLIC_SUPPORT_PORTAL_URL ?? 'https://support
 ---
 <BaseLayout>
   <!-- Hero Section -->
-  <section class="section-padding bg-slate-900">
+  <section class="section-padding bg-white">
     <div class="container">
       <div class="text-center max-w-4xl mx-auto">
         <div class="mb-12">
-          <h1 class="text-3xl md:text-4xl font-bold mb-6">
-             <span class="text-blue-400">Recruboで募集をスムーズに</span>
+          <h1 class="text-3xl md:text-4xl font-bold mb-6 bg-gradient-to-r from-brand-500 to-accent-500 text-transparent bg-clip-text">
+             Recruboで募集をスムーズに
           </h1>
-          <p class="text-base md:text-lg text-slate-400 mb-6">
+          <p class="text-base md:text-lg text-slate-600 mb-6">
             Recrubo は、 Discord 内の募集を円滑に行うためのボットです<br>
             募集機能・フレンドコード管理でサーバー運営をサポートします。
           </p>
         </div>
         <div class="mt-6 text-center">
-          <a href={supportUrl} class="text-blue-400 hover:text-blue-300 underline text-base md:text-lg" target="_blank" rel="noopener">サポートポータル</a>で質問・お問い合わせ受付中！
+          <a href={supportUrl} class="text-brand-600 hover:text-brand-700 underline text-base md:text-lg" target="_blank" rel="noopener">サポートポータル</a>で質問・お問い合わせ受付中！
         </div>
         
         <div class="flex flex-col sm:flex-row gap-4 justify-center">
@@ -37,47 +37,47 @@ const supportUrl = import.meta.env.PUBLIC_SUPPORT_PORTAL_URL ?? 'https://support
   </section>
 
   <!-- Features Section -->
-  <section id="features" class="section-padding bg-slate-800">
+  <section id="features" class="section-padding bg-brand-50">
     <div class="container">
       <div class="text-center mb-16">
-        <h2 class="text-3xl md:text-4xl font-bold mb-6">
-          <span class="text-blue-400">豊富な機能</span>でサーバー運営を効率化
+        <h2 class="text-3xl md:text-4xl font-bold mb-6 text-slate-900">
+          <span class="bg-gradient-to-r from-brand-500 to-accent-500 text-transparent bg-clip-text">豊富な機能</span>でサーバー運営を効率化
         </h2>
       </div>
       
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         <a href="/commands/gameRecruit" class="card block hover:shadow-lg transition-shadow">
-          <div class="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center mb-4">
+          <div class="w-12 h-12 bg-brand-500 rounded-lg flex items-center justify-center mb-4">
             <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
             </svg>
           </div>
-          <h3 class="text-xl font-semibold mb-3 text-white">ゲーム募集機能</h3>
-          <p class="text-slate-400">
+          <h3 class="text-xl font-semibold mb-3 text-slate-900">ゲーム募集機能</h3>
+          <p class="text-slate-600">
             埋め込み画像形式でゲーム募集を投稿。参加者管理も簡単で、コミュニティの活発化に貢献します。
           </p>
         </a>
         
         <a href="/commands/friendCode" class="card block hover:shadow-lg transition-shadow">
-          <div class="w-12 h-12 bg-purple-600 rounded-lg flex items-center justify-center mb-4">
+          <div class="w-12 h-12 bg-accent-500 rounded-lg flex items-center justify-center mb-4">
             <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V4a2 2 0 118 0v2m-4 0a2 2 0 104 0m-4 0a2 2 0 014 0z"></path>
             </svg>
           </div>
-          <h3 class="text-xl font-semibold mb-3 text-white">フレンドコード管理</h3>
-          <p class="text-slate-400">
+          <h3 class="text-xl font-semibold mb-3 text-slate-900">フレンドコード管理</h3>
+          <p class="text-slate-600">
             各プラットフォームのフレンドコードを一元管理。メンバー同士の繋がりをサポートします。（開発中）
           </p>
         </a>
         
         <a href="/commands/fastResponse" class="card block hover:shadow-lg transition-shadow">
-          <div class="w-12 h-12 bg-indigo-600 rounded-lg flex items-center justify-center mb-4">
+          <div class="w-12 h-12 bg-gradient-to-br from-brand-500 to-accent-500 rounded-lg flex items-center justify-center mb-4">
             <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
             </svg>
           </div>
-          <h3 class="text-xl font-semibold mb-3 text-white">高速レスポンス</h3>
-          <p class="text-slate-400">
+          <h3 class="text-xl font-semibold mb-3 text-slate-900">高速レスポンス</h3>
+          <p class="text-slate-600">
             遅延の少ない技術スタックで構築されていてレスポンスが高速なボット。ストレスのない快適な操作を実現します。
           </p>
         </a>
@@ -86,14 +86,14 @@ const supportUrl = import.meta.env.PUBLIC_SUPPORT_PORTAL_URL ?? 'https://support
   </section>
 
   <!-- CTA Section -->
-  <section id="invite" class="section-padding bg-slate-900">
+  <section id="invite" class="section-padding bg-white">
     <div class="container">
       <div class="text-center max-w-3xl mx-auto">
-        <h2 class="text-3xl md:text-4xl font-bold mb-6 text-white">
+        <h2 class="text-3xl md:text-4xl font-bold mb-6 text-slate-900">
           Recruboを<br>
           サーバーに招待
         </h2>
-        <p class="text-lg text-slate-300 mb-8">
+        <p class="text-lg text-slate-600 mb-8">
           簡単なセットアップで、使い始めれます。
         </p>
         <div class="flex flex-col sm:flex-row gap-4 justify-center">
@@ -106,46 +106,46 @@ const supportUrl = import.meta.env.PUBLIC_SUPPORT_PORTAL_URL ?? 'https://support
   </section>
 
   <!-- Support Section -->
-  <section id="support" class="section-padding bg-slate-800">
+  <section id="support" class="section-padding bg-rose-50">
     <div class="container">
       <div class="text-center mb-12">
         <h2 class="text-3xl md:text-4xl font-bold mb-6">
-          <span class="text-blue-400">サポート</span>
+          <span class="bg-gradient-to-r from-brand-500 to-accent-500 text-transparent bg-clip-text">サポート</span>
         </h2>
-        <p class="text-lg text-slate-400 max-w-2xl mx-auto">
+        <p class="text-lg text-slate-600 max-w-2xl mx-auto">
           困ったときはいつでも公式サーバーのフォームにお問い合わせください。
         </p>
       </div>
       
       <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
         <div class="card text-center">
-          <div class="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center mb-4 mx-auto">
+          <div class="w-12 h-12 bg-brand-500 rounded-lg flex items-center justify-center mb-4 mx-auto">
             <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
               <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
             </svg>
           </div>
-          <h3 class="text-xl font-semibold mb-3 text-white">Discordサーバー</h3>
-          <p class="text-slate-400 mb-4">
+          <h3 class="text-xl font-semibold mb-3 text-slate-900">Discordサーバー</h3>
+          <p class="text-slate-600 mb-4">
             コミュニティでの質問や情報交換は
-            <a href="https://discord.gg/tJAGc9aRdc" class="text-blue-400 hover:text-blue-300 underline" target="_blank" rel="noopener">公式ディスコードサーバー</a>
+            <a href="https://discord.gg/tJAGc9aRdc" class="text-brand-600 hover:text-brand-700 underline" target="_blank" rel="noopener">公式ディスコードサーバー</a>
             でどうぞ
           </p>
-          <a href={inviteUrl} class="text-blue-400 hover:text-blue-300 transition-colors" target="_blank" rel="noopener">
+          <a href={inviteUrl} class="text-brand-600 hover:text-brand-700 transition-colors" target="_blank" rel="noopener">
             サーバーに参加 →
           </a>
         </div>
         
         <div class="card text-center">
-          <div class="w-12 h-12 bg-purple-600 rounded-lg flex items-center justify-center mb-4 mx-auto">
+          <div class="w-12 h-12 bg-accent-500 rounded-lg flex items-center justify-center mb-4 mx-auto">
             <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
             </svg>
           </div>
-          <h3 class="text-xl font-semibold mb-3 text-white">ヘルプセンター</h3>
-          <p class="text-slate-400 mb-4">
+          <h3 class="text-xl font-semibold mb-3 text-slate-900">ヘルプセンター</h3>
+          <p class="text-slate-600 mb-4">
             よくある質問やガイドをチェック
           </p>
-          <a href={supportUrl} class="text-blue-400 hover:text-blue-300 transition-colors" target="_blank" rel="noopener">
+          <a href={supportUrl} class="text-brand-600 hover:text-brand-700 transition-colors" target="_blank" rel="noopener">
             ヘルプを見る →
           </a>
         </div>
