@@ -4,7 +4,10 @@ on:
   push:
     branches:
       - main
-  workflow_dispatch:
+    paths:
+      - 'docker-compose.monitoring.yml'
+      - 'docker/**'
+      - '.github/workflows/deploy.yml'
 
 jobs:
   oci-deploy:

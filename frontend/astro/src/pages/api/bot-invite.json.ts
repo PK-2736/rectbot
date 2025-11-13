@@ -3,7 +3,6 @@ import type { APIRoute } from 'astro';
 export const prerender = false;
 
 const DEFAULT_API_BASE = (process.env.PRIVATE_API_BASE_URL || process.env.PUBLIC_API_BASE_URL || 'https://api.recrubo.net').trim().replace(/\/$/, '');
-const SERVICE_TOKEN = (process.env.PRIVATE_SERVICE_TOKEN || process.env.SERVICE_TOKEN || '').trim();
 
 const TARGET_ENDPOINT = '/api/bot-invite/one-time';
 
@@ -11,10 +10,6 @@ function buildHeaders() {
   const headers: Record<string, string> = {
     'content-type': 'application/json; charset=utf-8'
   };
-  if (SERVICE_TOKEN) {
-    headers['authorization'] = `Bearer ${SERVICE_TOKEN}`;
-    headers['x-service-token'] = SERVICE_TOKEN;
-  }
   return headers;
 }
 
