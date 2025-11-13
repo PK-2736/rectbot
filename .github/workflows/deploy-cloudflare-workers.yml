@@ -84,6 +84,7 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           DISCORD_CLIENT_SECRET: ${{ secrets.DISCORD_CLIENT_SECRET }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           SERVICE_TOKEN: ${{ secrets.SERVICE_TOKEN }}
           SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
@@ -119,6 +120,7 @@ jobs:
           # register secrets (read from env variables passed to this step)
           register_secret DISCORD_CLIENT_SECRET DISCORD_CLIENT_SECRET
           register_secret JWT_SECRET JWT_SECRET
+          register_secret SUPABASE_URL SUPABASE_URL
           register_secret SUPABASE_SERVICE_ROLE_KEY SUPABASE_SERVICE_ROLE_KEY
           register_secret SERVICE_TOKEN SERVICE_TOKEN
           register_secret SENTRY_DSN SENTRY_DSN
