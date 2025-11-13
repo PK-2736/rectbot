@@ -211,6 +211,7 @@ const serializedApiBaseUrl = JSON.stringify(apiBaseUrl);
   }
 
   async function handleInviteClick(e) {
+    console.log('Invite button clicked');
     e.preventDefault();
     const el = e.currentTarget;
     const originalText = el.dataset.label || el.textContent || '今すぐボットを招待';
