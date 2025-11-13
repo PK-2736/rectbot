@@ -67,20 +67,26 @@ async function getGuildSettingsSmart(guildId) {
   const noSingleRole = !normalized.notification_role;
   const noChannel = !normalized.recruit_channel;
 
+  console.log(`[getGuildSettingsSmart] Guild ${guildId}: Redis val=${!!val}, rolesEmpty=${rolesEmpty}, noSingleRole=${noSingleRole}, noChannel=${noChannel}`);
+
   if (!val || (rolesEmpty && noSingleRole && noChannel)) {
     try {
       const apiBase = (config && config.BACKEND_API_URL) ? config.BACKEND_API_URL.replace(/\/$/, '') : '';
       const path = `${apiBase}/api/guild-settings/${guildId}`;
+      console.log(`[getGuildSettingsSmart] Fetching from API: ${path}`);
       const fromApi = await backendFetch(path, { method: 'GET' });
+      console.log(`[getGuildSettingsSmart] API response for guild ${guildId}:`, fromApi);
       if (fromApi && typeof fromApi === 'object') {
         const merged = normalizeGuildSettingsObject(fromApi);
         await redis.set(key, JSON.stringify(merged));
+        console.log(`[getGuildSettingsSmart] Cached API result for guild ${guildId}`);
         return merged;
       }
     } catch (e) {
-      // fallback to current normalized (may be empty)
+      console.error(`[getGuildSettingsSmart] API fetch failed for guild ${guildId}:`, e?.message || e);
     }
   }
+  console.log(`[getGuildSettingsSmart] Returning for guild ${guildId}:`, normalized);
   return normalized;
 }
 

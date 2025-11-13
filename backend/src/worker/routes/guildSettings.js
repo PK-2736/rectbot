@@ -195,6 +195,7 @@ async function handleGet(request, env, corsHeaders, url, ctx) {
   };
   try {
     const guildId = url.pathname.split('/api/guild-settings/')[1];
+    console.log('[guild-settings:get] Fetching settings for guild:', guildId);
     if (!guildId) {
       return new Response(JSON.stringify({ error: 'Guild ID required' }), {
         status: 400,
@@ -218,6 +219,7 @@ async function handleGet(request, env, corsHeaders, url, ctx) {
     });
     if (!supaRes.ok) throw new Error(`Supabase fetch failed: ${supaRes.status}`);
     const data = await supaRes.json();
+    console.log('[guild-settings:get] Supabase data for guild', guildId, ':', data);
     if (!Array.isArray(data) || data.length === 0) {
       return new Response(JSON.stringify(defaultSettings), {
         status: 200,
@@ -249,6 +251,7 @@ async function handleGet(request, env, corsHeaders, url, ctx) {
       defaultColor: data[0].default_color || '#00FFFF',
       update_channel: data[0].update_channel_id,
     };
+    console.log('[guild-settings:get] Returning settings for guild', guildId, ':', settings);
     return new Response(JSON.stringify(settings), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
