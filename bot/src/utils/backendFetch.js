@@ -11,7 +11,7 @@ async function backendFetch(path, opts = {}) {
   // Normalize header existence checks (case-insensitive) and set service token headers when needed.
   const hasAuthHeader = Object.keys(init.headers).some(k => k.toLowerCase() === 'authorization');
   const hasXServiceToken = Object.keys(init.headers).some(k => k.toLowerCase() === 'x-service-token');
-  if ((method === 'POST' || method === 'DELETE' || method === 'PATCH') && SERVICE_TOKEN) {
+  if (SERVICE_TOKEN) {
     if (!hasAuthHeader) init.headers.authorization = `Bearer ${SERVICE_TOKEN}`;
     if (!hasXServiceToken) init.headers['x-service-token'] = SERVICE_TOKEN;
   }
