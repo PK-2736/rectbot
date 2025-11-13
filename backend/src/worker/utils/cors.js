@@ -5,7 +5,10 @@ export function getCorsHeaders(origin) {
     'https://recrubo.net',
     'https://www.recrubo.net',
     'http://localhost:3000',
-    'http://localhost:3001'
+    'http://localhost:3001',
+    // Astro dev server defaults
+    'http://localhost:4321',
+    'http://127.0.0.1:4321'
   ];
 
   const corsOrigin = allowedOrigins.includes(origin) ? origin : allowedOrigins[0];

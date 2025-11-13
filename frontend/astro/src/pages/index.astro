@@ -216,7 +216,15 @@ const fallbackInviteUrl = (import.meta.env.PUBLIC_DISCORD_INVITE_URL && import.m
     el.textContent = '生成中...';
 
     let popup = null;
-    try { popup = window.open('', '_blank', 'noopener'); } catch (_) {}
+    try {
+      // 先に空タブを開く（ユーザー操作内で開くことでブロック回避）
+      popup = window.open('about:blank', '_blank');
+      if (popup && !popup.closed) {
+        try {
+          popup.document.write('<!doctype html><title>招待リンクを生成中…</title><body style="font-family:sans-serif;padding:16px;">招待リンクを生成中…</body>');
+        } catch (_) {}
+      }
+    } catch (_) {}
 
     try {
       const dynamicUrl = await fetchInviteUrl(apiBaseOverride);
@@ -226,8 +234,8 @@ const fallbackInviteUrl = (import.meta.env.PUBLIC_DISCORD_INVITE_URL && import.m
         throw new Error('invite_url_unavailable');
       }
 
-      if (popup) {
-        popup.location = finalUrl;
+      if (popup && !popup.closed) {
+        try { popup.location.href = finalUrl; } catch (_) { popup.location = finalUrl; }
       } else {
         window.open(finalUrl, '_blank', 'noopener');
       }
