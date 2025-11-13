@@ -9,17 +9,10 @@ const supportServerUrl = 'https://discord.gg/tJAGc9aRdc';
 const apiBaseUrl = (import.meta.env.PUBLIC_API_BASE_URL && import.meta.env.PUBLIC_API_BASE_URL.trim() !== '')
   ? import.meta.env.PUBLIC_API_BASE_URL.trim().replace(/\/$/, '')
   : 'https://api.recrubo.net';
-// Astro サーバー経由のワンタイム招待生成エンドポイント
-const inviteRequestEndpoint = '/api/bot-invite.json';
 // フォールバック（固定OAuth招待URL）: 環境変数で指定可能。未設定なら null 扱い
 const fallbackInviteUrl = (import.meta.env.PUBLIC_DISCORD_INVITE_URL && import.meta.env.PUBLIC_DISCORD_INVITE_URL.trim() !== '')
   ? import.meta.env.PUBLIC_DISCORD_INVITE_URL.trim()
   : null;
-
-// クライアント側 script に安全に埋め込むため JSON.stringify 済み文字列を用意
-const serializedInviteEndpoint = JSON.stringify(inviteRequestEndpoint);
-const serializedFallbackUrl = JSON.stringify(fallbackInviteUrl);
-const serializedApiBaseUrl = JSON.stringify(apiBaseUrl);
 ---
 <BaseLayout>
   <!-- Hero Section -->
@@ -186,29 +179,28 @@ const serializedApiBaseUrl = JSON.stringify(apiBaseUrl);
       </div>
     </div>
   </section>
-</BaseLayout>
-
 <script is:inline>
   console.log('Script loaded');
-  // ボット招待の動的取得 + フォールバック処理
-  const API_ENDPOINT = {serializedInviteEndpoint};
-  const DEFAULT_FALLBACK_URL = {serializedFallbackUrl};
-  const DEFAULT_API_BASE = {serializedApiBaseUrl};
+  // バックエンド(Worker)へ直POST（CORS対応前提）
+  const DEFAULT_API_BASE = 'https://api.recrubo.net';
+  const TARGET_PATH = '/api/bot-invite/one-time';
+  const DEFAULT_FALLBACK_URL = null;
+
+  function resolveApiBase(override) {
+    const base = (override && override.trim()) ? override.trim() : DEFAULT_API_BASE;
+    return base.replace(/\/$/, '');
+  }
 
   async function fetchInviteUrl(apiBaseOverride) {
     try {
-      const payload = apiBaseOverride && apiBaseOverride !== DEFAULT_API_BASE
-        ? JSON.stringify({ apiBase: apiBaseOverride })
-        : '{}';
-      const res = await fetch(API_ENDPOINT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json; charset=utf-8' },
-        body: payload
-      });
+      const base = resolveApiBase(apiBaseOverride);
+      const url = base + TARGET_PATH;
+      const res = await fetch(url, { method: 'POST' });
       if (!res.ok) throw new Error('bad status');
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
       return data && (data.url || data.inviteUrl) ? (data.url || data.inviteUrl) : null;
     } catch (e) {
+      console.error('[bot-invite] direct POST failed:', e);
       return null;
     }
   }
@@ -219,7 +211,7 @@ const serializedApiBaseUrl = JSON.stringify(apiBaseUrl);
     const el = e.currentTarget;
     const originalText = el.dataset.label || el.textContent || '今すぐボットを招待';
     const fallbackUrl = el.dataset.fallback || DEFAULT_FALLBACK_URL || '';
-    const apiBaseOverride = el.dataset.apiBase || DEFAULT_API_BASE;
+    const apiBaseOverride = el.dataset.apiBase || '';
     el.classList.add('opacity-70', 'pointer-events-none');
     el.textContent = '生成中...';
 
@@ -265,3 +257,5 @@ const serializedApiBaseUrl = JSON.stringify(apiBaseUrl);
   });
   console.log('Event listeners added');
 </script>
+
+</BaseLayout>
