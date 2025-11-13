@@ -17,16 +17,20 @@ async function backendFetch(path, opts = {}) {
   }
   if (!Object.keys(init.headers).some(k => k.toLowerCase() === 'content-type')) init.headers['content-type'] = 'application/json; charset=utf-8';
 
+  console.log(`[backendFetch] ${method} ${url}`);
   const res = await fetch(url, init);
+  console.log(`[backendFetch] Response status: ${res.status}`);
   const text = await res.text();
   let json = null;
   try { json = text ? JSON.parse(text) : null; } catch {}
   if (!res.ok) {
+    console.error(`[backendFetch] Request failed ${res.status}: ${text}`);
     const err = new Error(`Request failed ${res.status}`);
     err.status = res.status;
     err.body = json || text;
     throw err;
   }
+  console.log(`[backendFetch] Response:`, json);
   return json;
 }
 
