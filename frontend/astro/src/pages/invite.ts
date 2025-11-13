@@ -1,5 +1,8 @@
 import type { APIRoute } from 'astro';
 
+// 動的生成（プリレンダー禁止）: 静的出力時に空ファイルとして保存されダウンロード扱いになるのを防ぐ
+export const prerender = false;
+
 const DEFAULT_API_BASE = (process.env.PRIVATE_API_BASE_URL || process.env.PUBLIC_API_BASE_URL || 'https://api.recrubo.net').trim().replace(/\/$/, '');
 const TARGET_ENDPOINT = '/api/bot-invite/one-time';
 
