@@ -55,6 +55,35 @@ async function getGuildSettingsFromRedis(guildId) {
   return normalizeGuildSettingsObject(parsed);
 }
 
+// Hybrid getter: prefer Redis, but if missing/empty, fetch from backend API and cache.
+async function getGuildSettingsSmart(guildId) {
+  const redis = await ensureRedisConnection();
+  const key = `guildsettings:${guildId}`;
+  let val = await redis.get(key);
+  let parsed = val ? JSON.parse(val) : {};
+  let normalized = normalizeGuildSettingsObject(parsed);
+
+  const rolesEmpty = !Array.isArray(normalized.notification_roles) || normalized.notification_roles.length === 0;
+  const noSingleRole = !normalized.notification_role;
+  const noChannel = !normalized.recruit_channel;
+
+  if (!val || (rolesEmpty && noSingleRole && noChannel)) {
+    try {
+      const apiBase = (config && config.BACKEND_API_URL) ? config.BACKEND_API_URL.replace(/\/$/, '') : '';
+      const path = `${apiBase}/api/guild-settings/${guildId}`;
+      const fromApi = await backendFetch(path, { method: 'GET' });
+      if (fromApi && typeof fromApi === 'object') {
+        const merged = normalizeGuildSettingsObject(fromApi);
+        await redis.set(key, JSON.stringify(merged));
+        return merged;
+      }
+    } catch (e) {
+      // fallback to current normalized (may be empty)
+    }
+  }
+  return normalized;
+}
+
 async function finalizeGuildSettings(guildId) {
   if (!guildId) throw new Error('Guild ID is required');
   const settings = normalizeGuildSettingsObject(await getGuildSettingsFromRedis(guildId));
@@ -114,5 +143,6 @@ module.exports = {
   normalizeGuildSettingsObject,
   saveGuildSettingsToRedis,
   getGuildSettingsFromRedis,
+  getGuildSettingsSmart,
   finalizeGuildSettings,
 };
