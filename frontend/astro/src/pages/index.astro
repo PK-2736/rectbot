@@ -257,7 +257,12 @@ const serializedApiBaseUrl = JSON.stringify(apiBaseUrl);
       if (fallbackUrl) {
         window.open(fallbackUrl, '_blank', 'noopener');
       } else {
-        alert('招待リンクが取得できませんでした。時間をおいて再度お試しください。');
+        // スマホ対応: ポップアップがブロックされた場合、現在のタブで開く
+        try {
+          window.open(finalUrl, '_blank', 'noopener');
+        } catch (e) {
+          window.location.href = finalUrl;
+        }
       }
     } finally {
       el.classList.remove('opacity-70', 'pointer-events-none');
