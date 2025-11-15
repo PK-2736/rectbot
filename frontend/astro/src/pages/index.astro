@@ -190,8 +190,8 @@ const serializedApiBaseUrl = JSON.stringify(apiBaseUrl);
   console.log('Script loaded');
   // ボット招待の動的取得 + フォールバック処理
   const API_ENDPOINT = 'https://api.recrubo.net/api/bot-invite/one-time';
-  const DEFAULT_FALLBACK_URL = {serializedFallbackUrl};
-  const DEFAULT_API_BASE = {serializedApiBaseUrl};
+  const DEFAULT_FALLBACK_URL = null;
+  const DEFAULT_API_BASE = "https://api.recrubo.net";
 
   async function fetchInviteUrl(apiBaseOverride) {
     try {
