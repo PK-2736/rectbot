@@ -251,11 +251,12 @@ const serializedApiBaseUrl = JSON.stringify(apiBaseUrl);
         throw new Error('invite_url_unavailable');
       }
 
-      window.open(finalUrl, '_blank', 'noopener');
+      // スマホ対応: ポップアップがブロックされる可能性があるので、location.hrefを使用
+      window.location.href = finalUrl;
     } catch (error) {
       console.error('[bot-invite] failed to resolve one-time invite link:', error);
       if (fallbackUrl) {
-        window.open(fallbackUrl, '_blank', 'noopener');
+        window.location.href = fallbackUrl;
       } else {
         // スマホ対応: ポップアップがブロックされた場合、現在のタブで開く
         try {
