@@ -195,14 +195,20 @@ const serializedApiBaseUrl = JSON.stringify(apiBaseUrl);
 
   async function fetchInviteUrl(apiBaseOverride) {
     try {
+      console.log('Starting fetch to', API_ENDPOINT);
       const res = await fetch(API_ENDPOINT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json; charset=utf-8' }
       });
+      console.log('Response status:', res.status, 'ok:', res.ok);
       if (!res.ok) throw new Error('bad status');
       const data = await res.json();
-      return data && (data.url || data.inviteUrl) ? (data.url || data.inviteUrl) : null;
+      console.log('Parsed data:', data);
+      const url = data && (data.url || data.inviteUrl) ? (data.url || data.inviteUrl) : null;
+      console.log('Returning URL:', url);
+      return url;
     } catch (e) {
+      console.error('Fetch error:', e);
       return null;
     }
   }
@@ -222,7 +228,9 @@ const serializedApiBaseUrl = JSON.stringify(apiBaseUrl);
 
     try {
       const dynamicUrl = await fetchInviteUrl(apiBaseOverride);
+      console.log('Dynamic URL:', dynamicUrl);
       const finalUrl = dynamicUrl || fallbackUrl;
+      console.log('Final URL:', finalUrl);
 
       if (!finalUrl) {
         throw new Error('invite_url_unavailable');
