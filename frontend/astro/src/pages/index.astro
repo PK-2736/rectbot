@@ -223,9 +223,6 @@ const serializedApiBaseUrl = JSON.stringify(apiBaseUrl);
     el.classList.add('opacity-70', 'pointer-events-none');
     el.textContent = '生成中...';
 
-    let popup = null;
-    try { popup = window.open('', '_blank', 'noopener'); } catch (_) {}
-
     try {
       const dynamicUrl = await fetchInviteUrl(apiBaseOverride);
       console.log('Dynamic URL:', dynamicUrl);
@@ -236,23 +233,12 @@ const serializedApiBaseUrl = JSON.stringify(apiBaseUrl);
         throw new Error('invite_url_unavailable');
       }
 
-      if (popup) {
-        popup.location = finalUrl;
-      } else {
-        window.open(finalUrl, '_blank', 'noopener');
-      }
+      window.open(finalUrl, '_blank', 'noopener');
     } catch (error) {
       console.error('[bot-invite] failed to resolve one-time invite link:', error);
       if (fallbackUrl) {
-        if (popup) {
-          popup.location = fallbackUrl;
-        } else {
-          window.open(fallbackUrl, '_blank', 'noopener');
-        }
+        window.open(fallbackUrl, '_blank', 'noopener');
       } else {
-        if (popup) {
-          try { popup.close(); } catch (_) {}
-        }
         alert('招待リンクが取得できませんでした。時間をおいて再度お試しください。');
       }
     } finally {
