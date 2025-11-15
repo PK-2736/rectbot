@@ -5,16 +5,21 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 const supportUrl = import.meta.env.PUBLIC_SUPPORT_PORTAL_URL ?? 'https://support.recrubo.net';
 // サポートサーバー招待（固定URL指定）
 const supportServerUrl = 'https://discord.gg/tJAGc9aRdc';
-// ボット招待: バックエンドでワンタイムURLを発行
-const inviteApiOneTimeUrl = 'https://api.recrubo.net/api/bot-invite/one-time';
+// APIベース URL（環境変数で上書き可能 / 末尾スラッシュ除去）
+const apiBaseUrl = (import.meta.env.PUBLIC_API_BASE_URL && import.meta.env.PUBLIC_API_BASE_URL.trim() !== '')
+  ? import.meta.env.PUBLIC_API_BASE_URL.trim().replace(/\/$/, '')
+  : 'https://api.recrubo.net';
+// Astro サーバー経由のワンタイム招待生成エンドポイント
+const inviteRequestEndpoint = '/api/bot-invite.json';
 // フォールバック（固定OAuth招待URL）: 環境変数で指定可能。未設定なら null 扱い
 const fallbackInviteUrl = (import.meta.env.PUBLIC_DISCORD_INVITE_URL && import.meta.env.PUBLIC_DISCORD_INVITE_URL.trim() !== '')
   ? import.meta.env.PUBLIC_DISCORD_INVITE_URL.trim()
   : null;
 
 // クライアント側 script に安全に埋め込むため JSON.stringify 済み文字列を用意
-const serializedInviteApiUrl = JSON.stringify(inviteApiOneTimeUrl);
+const serializedInviteEndpoint = JSON.stringify(inviteRequestEndpoint);
 const serializedFallbackUrl = JSON.stringify(fallbackInviteUrl);
+const serializedApiBaseUrl = JSON.stringify(apiBaseUrl);
 ---
 <BaseLayout>
   <!-- Hero Section -->
@@ -35,7 +40,14 @@ const serializedFallbackUrl = JSON.stringify(fallbackInviteUrl);
         </div>
         
         <div class="flex flex-col sm:flex-row gap-4 justify-center">
-          <a href={fallbackInviteUrl || inviteApiOneTimeUrl} class="btn-primary text-lg px-8 py-4 js-bot-invite" data-invite="primary">
+          <a
+            href="/invite"
+            class="btn-primary text-lg px-8 py-4 js-bot-invite"
+            data-invite="primary"
+            data-label="今すぐボットを招待"
+            data-fallback={fallbackInviteUrl || ''}
+            data-api-base={apiBaseUrl}
+          >
             今すぐボットを招待
           </a>
           <a href={supportServerUrl} class="btn-secondary text-lg px-8 py-4" target="_blank" rel="noopener">
@@ -110,7 +122,14 @@ const serializedFallbackUrl = JSON.stringify(fallbackInviteUrl);
           簡単なセットアップで、使い始めれます。
         </p>
         <div class="flex flex-col sm:flex-row gap-4 justify-center">
-          <a href={fallbackInviteUrl || inviteApiOneTimeUrl} class="btn-primary py-4 px-8 text-lg js-bot-invite" data-invite="cta">
+          <a
+            href="javascript:void(0)"
+            class="btn-primary py-4 px-8 text-lg js-bot-invite"
+            data-invite="cta"
+            data-label="Discordにボットを招待"
+            data-fallback={fallbackInviteUrl || ''}
+            data-api-base={apiBaseUrl}
+          >
             Discordにボットを招待
           </a>
         </div>
@@ -167,14 +186,23 @@ const serializedFallbackUrl = JSON.stringify(fallbackInviteUrl);
   </section>
 </BaseLayout>
 
-<script>
+<script is:inline>
+  console.log('Script loaded');
   // ボット招待の動的取得 + フォールバック処理
-  const API_URL = {serializedInviteApiUrl};
-  const FALLBACK_URL = {serializedFallbackUrl};
+  const API_ENDPOINT = {serializedInviteEndpoint};
+  const DEFAULT_FALLBACK_URL = {serializedFallbackUrl};
+  const DEFAULT_API_BASE = {serializedApiBaseUrl};
 
-  async function fetchInviteUrl() {
+  async function fetchInviteUrl(apiBaseOverride) {
     try {
-      const res = await fetch(API_URL, { method: 'POST', mode: 'cors', credentials: 'omit' });
+      const payload = apiBaseOverride && apiBaseOverride !== DEFAULT_API_BASE
+        ? JSON.stringify({ apiBase: apiBaseOverride })
+        : '{}';
+      const res = await fetch(API_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json; charset=utf-8' },
+        body: payload
+      });
       if (!res.ok) throw new Error('bad status');
       const data = await res.json();
       return data && (data.url || data.inviteUrl) ? (data.url || data.inviteUrl) : null;
@@ -184,25 +212,54 @@ const serializedFallbackUrl = JSON.stringify(fallbackInviteUrl);
   }
 
   async function handleInviteClick(e) {
+    console.log('Invite button clicked');
     e.preventDefault();
     const el = e.currentTarget;
-    el.classList.add('opacity-70','pointer-events-none');
+    const originalText = el.dataset.label || el.textContent || '今すぐボットを招待';
+    const fallbackUrl = el.dataset.fallback || DEFAULT_FALLBACK_URL || '';
+    const apiBaseOverride = el.dataset.apiBase || DEFAULT_API_BASE;
+    el.classList.add('opacity-70', 'pointer-events-none');
     el.textContent = '生成中...';
-    let newWin = null;
-    try { newWin = window.open('', '_blank', 'noopener'); } catch (_) {}
-    const dynamicUrl = await fetchInviteUrl();
-    const finalUrl = dynamicUrl || FALLBACK_URL || el.getAttribute('href');
-    if (finalUrl) {
-      if (newWin) newWin.location = finalUrl; else window.location.href = finalUrl;
-    } else {
-      if (newWin) try { newWin.close(); } catch (_) {}
-      alert('招待リンクが取得できませんでした。時間をおいて再度お試しください。');
-      el.classList.remove('opacity-70','pointer-events-none');
-      el.textContent = '今すぐボットを招待';
+
+    let popup = null;
+    try { popup = window.open('', '_blank', 'noopener'); } catch (_) {}
+
+    try {
+      const dynamicUrl = await fetchInviteUrl(apiBaseOverride);
+      const finalUrl = dynamicUrl || fallbackUrl;
+
+      if (!finalUrl) {
+        throw new Error('invite_url_unavailable');
+      }
+
+      if (popup) {
+        popup.location = finalUrl;
+      } else {
+        window.open(finalUrl, '_blank', 'noopener');
+      }
+    } catch (error) {
+      console.error('[bot-invite] failed to resolve one-time invite link:', error);
+      if (fallbackUrl) {
+        if (popup) {
+          popup.location = fallbackUrl;
+        } else {
+          window.open(fallbackUrl, '_blank', 'noopener');
+        }
+      } else {
+        if (popup) {
+          try { popup.close(); } catch (_) {}
+        }
+        alert('招待リンクが取得できませんでした。時間をおいて再度お試しください。');
+      }
+    } finally {
+      el.classList.remove('opacity-70', 'pointer-events-none');
+      el.textContent = originalText;
     }
   }
 
   document.querySelectorAll('.js-bot-invite').forEach(el => {
+    console.log('Adding event listener to', el);
     el.addEventListener('click', handleInviteClick);
   });
+  console.log('Event listeners added');
 </script>
