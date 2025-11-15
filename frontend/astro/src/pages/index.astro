@@ -41,7 +41,7 @@ const serializedApiBaseUrl = JSON.stringify(apiBaseUrl);
         
         <div class="flex flex-col sm:flex-row gap-4 justify-center">
           <a
-            href="/invite"
+            href="javascript:void(0)"
             class="btn-primary text-lg px-8 py-4 js-bot-invite"
             data-invite="primary"
             data-label="今すぐボットを招待"
@@ -189,19 +189,15 @@ const serializedApiBaseUrl = JSON.stringify(apiBaseUrl);
 <script is:inline>
   console.log('Script loaded');
   // ボット招待の動的取得 + フォールバック処理
-  const API_ENDPOINT = {serializedInviteEndpoint};
-  const DEFAULT_FALLBACK_URL = {serializedFallbackUrl};
-  const DEFAULT_API_BASE = {serializedApiBaseUrl};
+  const API_ENDPOINT = 'https://api.recrubo.net/api/bot-invite/one-time';
+  const DEFAULT_FALLBACK_URL = {JSON.stringify(fallbackInviteUrl)};
+  const DEFAULT_API_BASE = {JSON.stringify(apiBaseUrl)};
 
   async function fetchInviteUrl(apiBaseOverride) {
     try {
-      const payload = apiBaseOverride && apiBaseOverride !== DEFAULT_API_BASE
-        ? JSON.stringify({ apiBase: apiBaseOverride })
-        : '{}';
       const res = await fetch(API_ENDPOINT, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json; charset=utf-8' },
-        body: payload
+        headers: { 'Content-Type': 'application/json; charset=utf-8' }
       });
       if (!res.ok) throw new Error('bad status');
       const data = await res.json();
