@@ -6,7 +6,7 @@ export interface Props {
   description?: string;
 }
 
-const { title = "rectbot - Discordのゲーム募集をより円滑に", description = "Recrubo（りくるぼ）は、ゲーミングコミュニティのためのDiscordボット。募集機能、フレンドコード管理機能でサーバー運営をサポートします。" } = Astro.props;
+const { title = "Recrubo - Discordボットでゲーム募集をスムーズに", description = "Recrubo（りくるぼ）は、Discordのゲーム募集をスムーズにするボット。埋め込み画像で視覚的に分りやすい募集を投稿、フレンドコードの一元管理、高速レスポンスでサーバー運営を効率化。" } = Astro.props;
 // ビルド時刻（検索結果に更新日を表示させるためのメタ・構造化データに使用）
 const updatedISO = new Date().toISOString();
 const updatedDisplay = new Date(updatedISO).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
@@ -45,10 +45,14 @@ const updatedDisplay = new Date(updatedISO).toLocaleString('ja-JP', { timeZone: 
     <meta property="twitter:description" content={description} />
     
   <!-- Favicon -->
-  <!-- Cache-busting query to avoid old favicon caches -->
   <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="icon" href="/favicon.ico" sizes="32x32" type="image/x-icon" />
+  <link rel="icon" href="/favicon.ico" sizes="16x16" type="image/x-icon" />
   <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon" />
   <link rel="apple-touch-icon" href="/favicon.ico" />
+  <link rel="apple-touch-icon" href="/favicon.ico" sizes="180x180" />
+  <meta name="msapplication-TileImage" content="/favicon.ico" />
+  <meta name="msapplication-TileColor" content="#ffffff" />
     
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
