@@ -272,6 +272,15 @@ module.exports = {
         return;
       }
 
+      // helpコマンドのボタンを処理
+      if (interaction.customId === 'help_back') {
+        const helpCommand = client.commands.get('help');
+        if (helpCommand && typeof helpCommand.handleButton === 'function') {
+          await handleComponentSafely(interaction, () => helpCommand.handleButton(interaction));
+          return;
+        }
+      }
+
       // どのハンドラにも該当しない場合、エフェメラルで案内（サイレント失敗を防止）
       try {
         await safeRespond(interaction, { content: '⚠️ このボタンの処理が見つかりませんでした。', flags: require('discord.js').MessageFlags.Ephemeral });
