@@ -12,13 +12,17 @@ function buildContainer({ headerTitle = '募集', participantText = '', recruitI
   container.addTextDisplayComponents(
     new TextDisplayBuilder().setContent(`🎮✨ **${headerTitle}** ✨🎮`)
   );
-  container.addSeparatorComponents(
-    new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
-  );
   if (subHeaderText && String(subHeaderText).trim().length > 0) {
+    // ヘッダー直下に通知ロールを表示（区切り線は入れない）
     container.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(String(subHeaderText))
     );
+    // 通知ロールの後に区切り線を配置し、画像セクションへ
+    container.addSeparatorComponents(
+      new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+    );
+  } else {
+    // 通知ロールがない場合のみ、ヘッダーの直後に区切り線
     container.addSeparatorComponents(
       new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
     );
@@ -60,6 +64,7 @@ function buildContainer({ headerTitle = '募集', participantText = '', recruitI
   );
   const footerParts = [`募集ID：\`${recruitIdText}\``];
   if (footerExtra) footerParts.push(footerExtra);
+  footerParts.push('powered by recrubo');
   const footerText = footerParts.join(' | ');
   container.addTextDisplayComponents(
     new TextDisplayBuilder().setContent(footerText)
