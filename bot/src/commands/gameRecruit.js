@@ -53,15 +53,15 @@ module.exports = {
   data: new SlashCommandBuilder()
     .setName('rect')
     .setDescription('ゲーム募集を作成します（/rect）')
-    // 必須: 募集タイトル
+    // 募集タイトル（既定タイトルがあれば省略可）
     .addStringOption(option =>
-      option.setName('title')
-        .setDescription('募集タイトル（必須）例: スプラ3 ガチマ募集')
-        .setRequired(true)
+      option.setName('タイトル')
+        .setDescription('募集タイトル（省略可: サーバーの既定タイトルを使用）')
+        .setRequired(false)
     )
     // 必須: 募集人数
     .addIntegerOption(option =>
-      option.setName('members')
+      option.setName('人数')
         .setDescription('募集人数（必須）1-16')
         .setRequired(true)
         .setMinValue(1)
@@ -69,30 +69,28 @@ module.exports = {
     )
     // 必須: 開始時間（HH:mm 24時間表記）
     .addStringOption(option =>
-      option.setName('start')
+      option.setName('開始時間')
         .setDescription('開始時間（必須）例: 21:00（24時間表記）')
         .setRequired(true)
     )
-    // 任意: 募集期限（1〜8時間）
-    .addIntegerOption(option =>
-      option.setName('deadline')
-        .setDescription('募集期限（任意）1〜8時間の間で指定')
+    // 任意: 締切時間（当日/翌日のHH:mm）
+    .addStringOption(option =>
+      option.setName('締切時間')
+        .setDescription('募集の締切時間（任意）例: 23:00（24時間表記）')
         .setRequired(false)
-        .setMinValue(1)
-        .setMaxValue(8)
     )
     // 任意: 通話の有無（true/false）
     .addBooleanOption(option =>
-      option.setName('voice')
+      option.setName('通話有無')
         .setDescription('通話の有無（任意）')
         .setRequired(false)
     )
-    // 任意: 通話場所
-    .addStringOption(option =>
-      option.setName('voice_place')
-        .setDescription('通話場所（任意）例: #通話1 / 外部VCリンクなど')
+    // 任意: 通話場所（サーバーのボイスチャンネル）
+    .addChannelOption(option =>
+      option.setName('通話場所')
+        .setDescription('通話で使うボイスチャンネル（任意）')
+        .addChannelTypes(2, 13) // GuildVoice=2, GuildStageVoice=13
         .setRequired(false)
-        .setMaxLength(100)
     )
     .addStringOption(option =>
       option.setName('色')

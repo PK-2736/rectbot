@@ -67,13 +67,19 @@ async function execute(interaction) {
       });
     }
 
-    // スラッシュ引数の取得
-    const titleArg = interaction.options.getString('title', true);
-    const membersArg = interaction.options.getInteger('members', true);
-    const startArg = interaction.options.getString('start', true);
-    const deadlineHoursArg = interaction.options.getInteger('deadline') || null; // 1-8 or null
-    const voiceArg = interaction.options.getBoolean('voice'); // true/false/undefined
-    const voicePlaceArg = interaction.options.getString('voice_place') || null;
+    // スラッシュ引数の取得（日本語名）
+    const guildSettings = await getGuildSettings(interaction.guildId);
+    const titleArg = interaction.options.getString('タイトル') || guildSettings?.defaultTitle || null;
+    if (!titleArg) {
+      await safeReply(interaction, { content: '❌ 募集タイトルを入力してください（サーバーの既定タイトルが未設定です）。', flags: MessageFlags.Ephemeral });
+      return;
+    }
+    const membersArg = interaction.options.getInteger('人数', true);
+    const startArg = interaction.options.getString('開始時間', true);
+    const deadlineTimeArg = interaction.options.getString('締切時間') || null; // HH:mm or null
+    const voiceArg = interaction.options.getBoolean('通話有無'); // true/false/undefined
+    const voiceChannel = interaction.options.getChannel('通話場所');
+    const voicePlaceArg = voiceChannel ? (voiceChannel.isVoiceBased?.() ? `<#${voiceChannel.id}>` : voiceChannel.name) : null;
 
     // 色オプション（既存互換）
     let selectedColor = interaction.options.getString('色') || undefined;
@@ -98,10 +104,21 @@ async function execute(interaction) {
       }
     }
 
+    // 入力バリデーション: 開始時間と締切時間
+    const hhmm = /^\s*(\d{1,2}):(\d{2})\s*$/;
+    if (!hhmm.test(String(startArg))) {
+      await safeReply(interaction, { content: '❌ 開始時間は HH:mm の形式で入力してください（例: 21:00）。', flags: MessageFlags.Ephemeral });
+      return;
+    }
+    if (deadlineTimeArg && !hhmm.test(String(deadlineTimeArg))) {
+      await safeReply(interaction, { content: '❌ 締切時間は HH:mm の形式で入力してください（例: 23:00）。', flags: MessageFlags.Ephemeral });
+      return;
+    }
+
     // 開始時刻のパース（HH:mm）→ 直近の将来日時に補正
     let startAtISO = null;
     try {
-      const m = String(startArg).match(/^\s*(\d{1,2}):(\d{2})\s*$/);
+      const m = String(startArg).match(hhmm);
       if (m) {
         const hh = Math.min(23, Math.max(0, parseInt(m[1], 10)));
         const mm = Math.min(59, Math.max(0, parseInt(m[2], 10)));
@@ -117,11 +134,24 @@ async function execute(interaction) {
       }
     } catch (_) {}
 
-    // 期限（任意）→ now + hours
+    // 締切時間（任意）→ 直近の将来日時に補正
     let expiresAtISO = null;
-    if (deadlineHoursArg && deadlineHoursArg >= 1 && deadlineHoursArg <= 8) {
-      const now = new Date();
-      expiresAtISO = new Date(now.getTime() + deadlineHoursArg * 3600 * 1000).toISOString();
+    if (deadlineTimeArg) {
+      try {
+        const m2 = String(deadlineTimeArg).match(hhmm);
+        if (m2) {
+          const hh = Math.min(23, Math.max(0, parseInt(m2[1], 10)));
+          const mm = Math.min(59, Math.max(0, parseInt(m2[2], 10)));
+          const now2 = new Date();
+          const exp = new Date(now2);
+          exp.setSeconds(0, 0);
+          exp.setHours(hh, mm, 0, 0);
+          if (exp.getTime() <= now2.getTime()) {
+            exp.setDate(exp.getDate() + 1);
+          }
+          expiresAtISO = exp.toISOString();
+        }
+      } catch (_) {}
     }
 
     // 一時保存（モーダル→別インタラクションになるため）
@@ -140,7 +170,7 @@ async function execute(interaction) {
           voice: typeof voiceArg === 'boolean' ? voiceArg : null,
           voicePlace: voicePlaceArg,
           expiresAt: expiresAtISO,
-          deadlineHours: deadlineHoursArg
+          deadlineHours: null
         });
       }
     } catch (e) {

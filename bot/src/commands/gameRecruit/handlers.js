@@ -207,7 +207,7 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
   const updatedImage = new AttachmentBuilder(updatedImageBuffer, { name: 'recruit-card.png' });
   const finalAccentColor = /^[0-9A-Fa-f]{6}$/.test(finalUseColor) ? parseInt(finalUseColor, 16) : 0x000000;
   const footerExtra = finalRecruitData.expiresAt ? `締切: ${formatJST(finalRecruitData.expiresAt)}` : null;
-  const updatedContainer = buildContainer({ headerTitle: `${user.username}さんの募集`, participantText, recruitIdText: actualRecruitId, accentColor: finalAccentColor, imageAttachmentName: 'attachment://recruit-card.png', recruiterId: interaction.user.id, requesterId: interaction.user.id, footerExtra });
+  const updatedContainer = buildContainer({ headerTitle: `${user.username}さんの募集`, participantText, recruitIdText: actualRecruitId, accentColor: finalAccentColor, imageAttachmentName: 'attachment://recruit-card.png', recruiterId: interaction.user.id, requesterId: interaction.user.id, footerExtra, subHeaderText: (recruitDataObj.notificationRoleId ? `🔔 通知ロール: <@&${recruitDataObj.notificationRoleId}>` : null) });
   try { await actualMessage.edit({ files: [updatedImage], components: [updatedContainer], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } }); } catch (editError) { console.error('メッセージ更新エラー:', editError); }
 
   // 自動締切タイマー（指定期限 or 8h）
@@ -425,7 +425,7 @@ async function processClose(interaction, messageId, savedRecruitData) {
     disabledContainer.addSeparatorComponents(
       new (require('discord.js').SeparatorBuilder)().setSpacing(require('discord.js').SeparatorSpacingSize.Small).setDivider(true)
     ).addTextDisplayComponents(
-      new (require('discord.js').TextDisplayBuilder)().setContent(`募集ID：\`${footerMessageId.slice(-8)}\` | powered by **rectbot**`)
+      new (require('discord.js').TextDisplayBuilder)().setContent(`募集ID：\`${footerMessageId.slice(-8)}\``)
     );
     await interaction.message.edit({ components: [disabledContainer], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } });
 
@@ -518,11 +518,11 @@ async function handleModalSubmit(interaction) {
 
     const image = new AttachmentBuilder(buffer, { name: 'recruit-card.png' });
     let participantText = `🎯✨ 参加リスト ✨🎯\n🎮 <@${interaction.user.id}>`;
-    if (selectedNotificationRole) participantText += `\n🔔 通知ロール: <@&${selectedNotificationRole}>`;
+    const subHeaderText = selectedNotificationRole ? `🔔 通知ロール: <@&${selectedNotificationRole}>` : null;
     const panelColorForAccent = normalizeHex(panelColor, guildSettings.defaultColor && /^[0-9A-Fa-f]{6}$/.test(guildSettings.defaultColor) ? guildSettings.defaultColor : '000000');
     const accentColor = /^[0-9A-Fa-f]{6}$/.test(panelColorForAccent) ? parseInt(panelColorForAccent, 16) : 0x000000;
     const footerExtra = recruitDataObj.expiresAt ? `締切: ${formatJST(recruitDataObj.expiresAt)}` : null;
-    const container = buildContainer({ headerTitle: `${user.username}さんの募集`, participantText, recruitIdText: '(送信後決定)', accentColor, imageAttachmentName: 'attachment://recruit-card.png', recruiterId: interaction.user.id, requesterId: interaction.user.id, footerExtra });
+    const container = buildContainer({ headerTitle: `${user.username}さんの募集`, participantText, recruitIdText: '(送信後決定)', accentColor, imageAttachmentName: 'attachment://recruit-card.png', recruiterId: interaction.user.id, requesterId: interaction.user.id, footerExtra, subHeaderText });
     const followUpMessage = await sendAnnouncements(interaction, selectedNotificationRole, configuredNotificationRoleIds, image, container, guildSettings);
     try { await safeReply(interaction, { content: '募集を作成しました。', flags: MessageFlags.Ephemeral }); } catch (e) { console.warn('safeReply failed (non-fatal):', e?.message || e); }
     // 送信後の保存とUI更新

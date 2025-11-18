@@ -6,7 +6,7 @@ const {
 } = require('discord.js');
 
 // Build a consistent ContainerBuilder for recruit messages
-function buildContainer({ headerTitle = '募集', participantText = '', recruitIdText = '(unknown)', accentColor = 0x000000, imageAttachmentName = 'attachment://recruit-card.png', recruiterId = null, requesterId = null, footerExtra = null }) {
+function buildContainer({ headerTitle = '募集', participantText = '', recruitIdText = '(unknown)', accentColor = 0x000000, imageAttachmentName = 'attachment://recruit-card.png', recruiterId = null, requesterId = null, footerExtra = null, subHeaderText = null }) {
   const container = new ContainerBuilder();
   container.setAccentColor(typeof accentColor === 'number' ? accentColor : parseInt(String(accentColor), 16) || 0x000000);
   container.addTextDisplayComponents(
@@ -15,6 +15,14 @@ function buildContainer({ headerTitle = '募集', participantText = '', recruitI
   container.addSeparatorComponents(
     new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
   );
+  if (subHeaderText && String(subHeaderText).trim().length > 0) {
+    container.addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(String(subHeaderText))
+    );
+    container.addSeparatorComponents(
+      new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+    );
+  }
   container.addMediaGalleryComponents(
     new MediaGalleryBuilder().addItems(
       new MediaGalleryItemBuilder().setURL(imageAttachmentName)
@@ -50,8 +58,9 @@ function buildContainer({ headerTitle = '募集', participantText = '', recruitI
   container.addSeparatorComponents(
     new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
   );
-  const footerBase = `募集ID：\`${recruitIdText}\` | powered by **rectbot**`;
-  const footerText = footerExtra ? `${footerBase} | ${footerExtra}` : footerBase;
+  const footerParts = [`募集ID：\`${recruitIdText}\``];
+  if (footerExtra) footerParts.push(footerExtra);
+  const footerText = footerParts.join(' | ');
   container.addTextDisplayComponents(
     new TextDisplayBuilder().setContent(footerText)
   );
