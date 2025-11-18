@@ -73,7 +73,7 @@ async function execute(interaction) {
     const optBool = (name) => { try { return interaction.options.getBoolean(name); } catch { return null; } };
     const optChan = (name) => { try { return interaction.options.getChannel(name); } catch { return null; } };
 
-    const titleArg = optStr('タイトル') ?? optStr('title') ?? null; // 既定タイトルは候補提示のみ（自動適用しない）
+    const titleArg = optStr('タイトル') ?? optStr('title') ?? null;
     const membersArg = optInt('人数') ?? optInt('members');
     const startArg = optStr('開始時間') ?? optStr('start');
     const deadlineTimeArg = optStr('締切時間'); // HH:mm or null（新）
@@ -172,6 +172,13 @@ async function execute(interaction) {
       expiresAtISO = new Date(now.getTime() + legacyDeadlineHours * 3600 * 1000).toISOString();
     }
 
+    // タイトル必須: 入力 or 既定タイトルのどちらか
+    const effectiveTitle = titleArg || (guildSettings && guildSettings.defaultTitle) || null;
+    if (!effectiveTitle) {
+      await safeReply(interaction, { content: '❌ 募集タイトルは必須です。入力するか、サーバーの既定タイトルを設定してください。', flags: MessageFlags.Ephemeral });
+      return;
+    }
+
     // 一時保存（モーダル→別インタラクションになるため）
     try {
       if (interaction.user && interaction.user.id) {
@@ -180,8 +187,8 @@ async function execute(interaction) {
           ...prev,
           panelColor: selectedColor,
           notificationRoleId: selectedRoleId,
-          // 新規: スラッシュ引数を保持（タイトル未指定ならプレースホルダ）
-          title: titleArg || '募集',
+          // タイトル: 入力がなければ既定タイトルを使用
+          title: effectiveTitle,
           participants: membersArg,
           startTime: startArg, // 表示用
           startAt: startAtISO, // 予約実行用
