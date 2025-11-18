@@ -68,7 +68,6 @@ async function execute(interaction) {
     }
 
     // スラッシュ引数の取得（日本語名）
-    const guildSettings = await getGuildSettings(interaction.guildId);
     const titleArg = interaction.options.getString('タイトル') || guildSettings?.defaultTitle || null;
     if (!titleArg) {
       await safeReply(interaction, { content: '❌ 募集タイトルを入力してください（サーバーの既定タイトルが未設定です）。', flags: MessageFlags.Ephemeral });

@@ -56,8 +56,9 @@ module.exports = {
     // 募集タイトル（既定タイトルがあれば省略可）
     .addStringOption(option =>
       option.setName('タイトル')
-        .setDescription('募集タイトル（省略可: サーバーの既定タイトルを使用）')
+        .setDescription('募集タイトル（省略可）')
         .setRequired(false)
+        .setAutocomplete(true)
     )
     // 必須: 募集人数
     .addIntegerOption(option =>

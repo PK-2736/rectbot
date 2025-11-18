@@ -41,6 +41,31 @@ module.exports = {
     // ギルド設定コマンド解決ヘルパー（setting が優先）
     const getGuildSettingsCommand = () => client.commands.get('setting') || client.commands.get('rect-setting');
 
+    // オートコンプリート（タイトル候補など）
+    if (interaction.isAutocomplete && interaction.isAutocomplete()) {
+      try {
+        const focused = interaction.options.getFocused(true);
+        const name = focused?.name;
+        const value = (focused?.value || '').toString();
+        const choices = [];
+        // タイトルのオートコンプリート: 既定タイトルを提示
+        if (name === 'タイトル') {
+          try {
+            const { getGuildSettings } = require('../utils/db');
+            const settings = await getGuildSettings(interaction.guildId).catch(() => null);
+            const def = settings?.defaultTitle;
+            if (def && (!value || def.includes(value))) {
+              choices.push({ name: `既定: ${def}`, value: def });
+            }
+          } catch (_) {}
+        }
+        await interaction.respond(choices.slice(0, 10));
+      } catch (e) {
+        console.warn('[interactionCreate] autocomplete error:', e?.message || e);
+      }
+      return;
+    }
+
     // P0修正: スラッシュコマンドの処理を統一ハンドラーでラップ
     if (interaction.isChatInputCommand && interaction.isChatInputCommand()) {
       const command = client.commands.get(interaction.commandName);
