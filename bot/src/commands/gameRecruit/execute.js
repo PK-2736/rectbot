@@ -67,7 +67,15 @@ async function execute(interaction) {
       });
     }
 
-    // 色オプション
+    // スラッシュ引数の取得
+    const titleArg = interaction.options.getString('title', true);
+    const membersArg = interaction.options.getInteger('members', true);
+    const startArg = interaction.options.getString('start', true);
+    const deadlineHoursArg = interaction.options.getInteger('deadline') || null; // 1-8 or null
+    const voiceArg = interaction.options.getBoolean('voice'); // true/false/undefined
+    const voicePlaceArg = interaction.options.getString('voice_place') || null;
+
+    // 色オプション（既存互換）
     let selectedColor = interaction.options.getString('色') || undefined;
 
     // 通知ロール（任意）を一旦バリデーション（設定済みロールのみ可）
@@ -90,32 +98,68 @@ async function execute(interaction) {
       }
     }
 
+    // 開始時刻のパース（HH:mm）→ 直近の将来日時に補正
+    let startAtISO = null;
+    try {
+      const m = String(startArg).match(/^\s*(\d{1,2}):(\d{2})\s*$/);
+      if (m) {
+        const hh = Math.min(23, Math.max(0, parseInt(m[1], 10)));
+        const mm = Math.min(59, Math.max(0, parseInt(m[2], 10)));
+        const now = new Date();
+        const startAt = new Date(now);
+        startAt.setSeconds(0, 0);
+        startAt.setHours(hh, mm, 0, 0);
+        if (startAt.getTime() <= now.getTime()) {
+          // すでに過ぎている場合は翌日に
+          startAt.setDate(startAt.getDate() + 1);
+        }
+        startAtISO = startAt.toISOString();
+      }
+    } catch (_) {}
+
+    // 期限（任意）→ now + hours
+    let expiresAtISO = null;
+    if (deadlineHoursArg && deadlineHoursArg >= 1 && deadlineHoursArg <= 8) {
+      const now = new Date();
+      expiresAtISO = new Date(now.getTime() + deadlineHoursArg * 3600 * 1000).toISOString();
+    }
+
     // 一時保存（モーダル→別インタラクションになるため）
     try {
       if (interaction.user && interaction.user.id) {
         const prev = pendingModalOptions.get(interaction.user.id) || {};
-        pendingModalOptions.set(interaction.user.id, { ...prev, panelColor: selectedColor, notificationRoleId: selectedRoleId });
+        pendingModalOptions.set(interaction.user.id, {
+          ...prev,
+          panelColor: selectedColor,
+          notificationRoleId: selectedRoleId,
+          // 新規: スラッシュ引数を保持
+          title: titleArg,
+          participants: membersArg,
+          startTime: startArg, // 表示用
+          startAt: startAtISO, // 予約実行用
+          voice: typeof voiceArg === 'boolean' ? voiceArg : null,
+          voicePlace: voicePlaceArg,
+          expiresAt: expiresAtISO,
+          deadlineHours: deadlineHoursArg
+        });
       }
     } catch (e) {
       console.warn('pendingModalOptions set failed:', e?.message || e);
     }
 
-    // モーダル表示
+    // モーダル表示（内容のみ）
     console.log('[gameRecruit.execute] showing modal for user:', interaction.user?.id);
     const modal = new ModalBuilder().setCustomId('recruitModal').setTitle('🎮 募集内容入力');
-    const titleInput = new TextInputBuilder().setCustomId('title').setLabel('タイトル（例: スプラトゥーン3 ガチマッチ募集）').setStyle(TextInputStyle.Short).setRequired(true);
-    if (guildSettings.defaultTitle) titleInput.setValue(guildSettings.defaultTitle);
-    const contentInput = new TextInputBuilder().setCustomId('content').setLabel('募集内容（例: ガチエリア / 初心者歓迎 / 2時間）').setStyle(TextInputStyle.Paragraph).setRequired(true).setMaxLength(1000).setPlaceholder('詳細な募集内容を入力してください...');
-    const participantsInput = new TextInputBuilder().setCustomId('participants').setLabel('参加人数（例: 4）').setStyle(TextInputStyle.Short).setRequired(true).setMinLength(1).setMaxLength(2).setPlaceholder('1-16の数字を入力してください');
-    const timeInput = new TextInputBuilder().setCustomId('startTime').setLabel('開始時間（例: 21:00）').setStyle(TextInputStyle.Short).setRequired(false);
-    const vcInput = new TextInputBuilder().setCustomId('vc').setLabel('VCの有無（あり / なし）').setStyle(TextInputStyle.Short).setRequired(false);
+    const contentInput = new TextInputBuilder()
+      .setCustomId('content')
+      .setLabel('募集内容（例: ガチエリア / 初心者歓迎 / 2時間）')
+      .setStyle(TextInputStyle.Paragraph)
+      .setRequired(true)
+      .setMaxLength(1000)
+      .setPlaceholder('詳細な募集内容を入力してください...');
 
     modal.addComponents(
-      new ActionRowBuilder().addComponents(titleInput),
-      new ActionRowBuilder().addComponents(contentInput),
-      new ActionRowBuilder().addComponents(participantsInput),
-      new ActionRowBuilder().addComponents(timeInput),
-      new ActionRowBuilder().addComponents(vcInput)
+      new ActionRowBuilder().addComponents(contentInput)
     );
 
     await interaction.showModal(modal);

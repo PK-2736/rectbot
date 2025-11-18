@@ -53,6 +53,47 @@ module.exports = {
   data: new SlashCommandBuilder()
     .setName('rect')
     .setDescription('ゲーム募集を作成します（/rect）')
+    // 必須: 募集タイトル
+    .addStringOption(option =>
+      option.setName('title')
+        .setDescription('募集タイトル（必須）例: スプラ3 ガチマ募集')
+        .setRequired(true)
+    )
+    // 必須: 募集人数
+    .addIntegerOption(option =>
+      option.setName('members')
+        .setDescription('募集人数（必須）1-16')
+        .setRequired(true)
+        .setMinValue(1)
+        .setMaxValue(16)
+    )
+    // 必須: 開始時間（HH:mm 24時間表記）
+    .addStringOption(option =>
+      option.setName('start')
+        .setDescription('開始時間（必須）例: 21:00（24時間表記）')
+        .setRequired(true)
+    )
+    // 任意: 募集期限（1〜8時間）
+    .addIntegerOption(option =>
+      option.setName('deadline')
+        .setDescription('募集期限（任意）1〜8時間の間で指定')
+        .setRequired(false)
+        .setMinValue(1)
+        .setMaxValue(8)
+    )
+    // 任意: 通話の有無（true/false）
+    .addBooleanOption(option =>
+      option.setName('voice')
+        .setDescription('通話の有無（任意）')
+        .setRequired(false)
+    )
+    // 任意: 通話場所
+    .addStringOption(option =>
+      option.setName('voice_place')
+        .setDescription('通話場所（任意）例: #通話1 / 外部VCリンクなど')
+        .setRequired(false)
+        .setMaxLength(100)
+    )
     .addStringOption(option =>
       option.setName('色')
         .setDescription('募集パネルの色を選択（任意）')
