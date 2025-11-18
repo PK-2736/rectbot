@@ -67,18 +67,33 @@ async function execute(interaction) {
       });
     }
 
-    // スラッシュ引数の取得（日本語名）
-    const titleArg = interaction.options.getString('タイトル') || guildSettings?.defaultTitle || null;
-    if (!titleArg) {
-      await safeReply(interaction, { content: '❌ 募集タイトルを入力してください（サーバーの既定タイトルが未設定です）。', flags: MessageFlags.Ephemeral });
+    // スラッシュ引数の取得（日本語/英語両対応、必須でも例外にしない）
+    const optStr = (name) => { try { return interaction.options.getString(name); } catch { return null; } };
+    const optInt = (name) => { try { return interaction.options.getInteger(name); } catch { return null; } };
+    const optBool = (name) => { try { return interaction.options.getBoolean(name); } catch { return null; } };
+    const optChan = (name) => { try { return interaction.options.getChannel(name); } catch { return null; } };
+
+    const titleArg = optStr('タイトル') ?? optStr('title') ?? null; // 既定タイトルは候補提示のみ（自動適用しない）
+    const membersArg = optInt('人数') ?? optInt('members');
+    const startArg = optStr('開始時間') ?? optStr('start');
+    const deadlineTimeArg = optStr('締切時間'); // HH:mm or null（新）
+    const legacyDeadlineHours = optInt('deadline'); // 旧: 時間数
+    const voiceArg = optBool('通話有無') ?? optBool('voice'); // true/false/undefined
+    const voiceChannel = optChan('通話場所');
+    const legacyVoicePlace = optStr('voice_place');
+    const voicePlaceArg = voiceChannel
+      ? (typeof voiceChannel.isVoiceBased === 'function' ? (voiceChannel.isVoiceBased() ? `<#${voiceChannel.id}>` : voiceChannel.name) : `<#${voiceChannel.id}>`)
+      : (legacyVoicePlace || null);
+
+    // 必須不足チェック（例外ではなくエフェメラル返信で案内）
+    if (!membersArg || membersArg < 1 || membersArg > 16) {
+      await safeReply(interaction, { content: '❌ 人数は1〜16の範囲で指定してください。', flags: MessageFlags.Ephemeral });
       return;
     }
-    const membersArg = interaction.options.getInteger('人数', true);
-    const startArg = interaction.options.getString('開始時間', true);
-    const deadlineTimeArg = interaction.options.getString('締切時間') || null; // HH:mm or null
-    const voiceArg = interaction.options.getBoolean('通話有無'); // true/false/undefined
-    const voiceChannel = interaction.options.getChannel('通話場所');
-    const voicePlaceArg = voiceChannel ? (voiceChannel.isVoiceBased?.() ? `<#${voiceChannel.id}>` : voiceChannel.name) : null;
+    if (!startArg) {
+      await safeReply(interaction, { content: '❌ 開始時間（HH:mm）を指定してください。', flags: MessageFlags.Ephemeral });
+      return;
+    }
 
     // 色オプション（既存互換）
     let selectedColor = interaction.options.getString('色') || undefined;
@@ -133,7 +148,7 @@ async function execute(interaction) {
       }
     } catch (_) {}
 
-    // 締切時間（任意）→ 直近の将来日時に補正
+    // 締切時間（任意）→ 直近の将来日時に補正（旧オプション deadline=時間数 も互換）
     let expiresAtISO = null;
     if (deadlineTimeArg) {
       try {
@@ -152,6 +167,10 @@ async function execute(interaction) {
         }
       } catch (_) {}
     }
+    if (!expiresAtISO && legacyDeadlineHours && legacyDeadlineHours >= 1 && legacyDeadlineHours <= 8) {
+      const now = new Date();
+      expiresAtISO = new Date(now.getTime() + legacyDeadlineHours * 3600 * 1000).toISOString();
+    }
 
     // 一時保存（モーダル→別インタラクションになるため）
     try {
@@ -161,8 +180,8 @@ async function execute(interaction) {
           ...prev,
           panelColor: selectedColor,
           notificationRoleId: selectedRoleId,
-          // 新規: スラッシュ引数を保持
-          title: titleArg,
+          // 新規: スラッシュ引数を保持（タイトル未指定ならプレースホルダ）
+          title: titleArg || '募集',
           participants: membersArg,
           startTime: startArg, // 表示用
           startAt: startAtISO, // 予約実行用
