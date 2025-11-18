@@ -53,14 +53,7 @@ module.exports = {
   data: new SlashCommandBuilder()
     .setName('rect')
     .setDescription('ゲーム募集を作成します（/rect）')
-    // 募集タイトル（既定タイトルがあれば省略可）
-    .addStringOption(option =>
-      option.setName('タイトル')
-        .setDescription('募集タイトル（省略可）')
-        .setRequired(false)
-        .setAutocomplete(true)
-    )
-    // 必須: 募集人数
+    // 必須: 募集人数（必須は任意より前に定義する必要あり）
     .addIntegerOption(option =>
       option.setName('人数')
         .setDescription('募集人数（必須）1-16')
@@ -73,6 +66,13 @@ module.exports = {
       option.setName('開始時間')
         .setDescription('開始時間（必須）例: 21:00（24時間表記）')
         .setRequired(true)
+    )
+    // 募集タイトル（既定タイトルがあれば省略可）
+    .addStringOption(option =>
+      option.setName('タイトル')
+        .setDescription('募集タイトル（省略可）')
+        .setRequired(false)
+        .setAutocomplete(true)
     )
     // 任意: 締切時間（当日/翌日のHH:mm）
     .addStringOption(option =>
