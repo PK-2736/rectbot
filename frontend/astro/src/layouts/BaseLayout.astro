@@ -25,13 +25,36 @@ const updatedDisplay = new Date(updatedISO).toLocaleString('ja-JP', { timeZone: 
     <meta name="modified" content={updatedISO} />
     <meta name="last-modified" content={updatedISO} />
     <meta itemprop="dateModified" content={updatedISO} />
+    
+    <!-- Schema.org structured data for Organization -->
+    <script type="application/ld+json">{JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      name: "Recrubo",
+      url: "https://recrubo.net",
+      logo: "https://recrubo.net/favicon.ico",
+      description: "Discordのゲーム募集をスムーズにするボット",
+      sameAs: [
+        "https://discord.gg/tJAGc9aRdc"
+      ]
+    })}</script>
+    
+    <!-- Schema.org structured data for WebPage -->
     <script type="application/ld+json">{JSON.stringify({
       "@context": "https://schema.org",
       "@type": "WebPage",
       name: title,
       description,
       dateModified: updatedISO,
-      inLanguage: "ja"
+      inLanguage: "ja",
+      publisher: {
+        "@type": "Organization",
+        name: "Recrubo",
+        logo: {
+          "@type": "ImageObject",
+          url: "https://recrubo.net/favicon.ico"
+        }
+      }
     })}</script>
     
     <!-- Open Graph / Facebook -->
