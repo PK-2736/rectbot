@@ -20,8 +20,51 @@ const fallbackInviteUrl = (import.meta.env.PUBLIC_DISCORD_INVITE_URL && import.m
 const serializedInviteEndpoint = JSON.stringify(inviteRequestEndpoint);
 const serializedFallbackUrl = JSON.stringify(fallbackInviteUrl);
 const serializedApiBaseUrl = JSON.stringify(apiBaseUrl);
+
+// FAQ構造化データ（検索スニペット強化）
+const faqSchema = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: [
+    {
+      "@type": "Question",
+      name: "Recruboとは何ですか？",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "RecruboはDiscordのゲーム募集を効率化するボットです。埋め込み画像で視覚的にわかりやすい募集投稿、フレンドコード管理、高速レスポンスでサーバー運営をサポートします。"
+      }
+    },
+    {
+      "@type": "Question",
+      name: "Recruboは無料で使えますか？",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "はい、Recruboは完全無料でご利用いただけます。基本機能はすべて無料で提供しており、追加料金は一切かかりません。"
+      }
+    },
+    {
+      "@type": "Question",
+      name: "Recruboをサーバーに導入する方法は？",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "公式サイトの招待ボタンをクリックし、Discordの認証画面でサーバーを選択するだけで導入完了です。管理者権限が必要です。"
+      }
+    },
+    {
+      "@type": "Question",
+      name: "どのようなゲームの募集に対応していますか？",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "あらゆるゲームの募集に対応しています。FPS、MMORPG、カードゲーム、協力プレイなど、ジャンルを問わず利用できます。"
+      }
+    }
+  ]
+};
 ---
 <BaseLayout>
+  <!-- FAQ構造化データ -->
+  <script type="application/ld+json" set:html={JSON.stringify(faqSchema)}></script>
+  
   <!-- Hero Section -->
   <section class="section-padding bg-gradient-to-br from-blue-50 via-white to-purple-50 relative overflow-hidden">
     <div class="absolute inset-0 bg-gradient-to-r from-brand-500/5 to-accent-500/5"></div>
