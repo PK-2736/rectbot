@@ -122,7 +122,7 @@ const serializedApiBaseUrl = JSON.stringify(apiBaseUrl);
               label: 'workflow.yml',
               language: 'yaml',
               filename: '.github/workflows/deploy-bot-dev.yml',
-              code: `name: Deploy Bot (Development)\non:\n  push:\n    branches: [\"main\"]\n    paths: [\"bot/**\"]\njobs:\n  bot-dev-deploy:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v3\n      - name: Set up SSH key\n        run: |\n          mkdir -p ~/.ssh\n          # ...省略...\n      - name: Deploy Dev Bot via SSH\n        run: |\n          ssh -i ~/.ssh/id_ed25519 \${{ secrets.OCI_USER }}@\${{ secrets.OCI_HOST }} '...'
+              code: `name: Deploy Bot (Development)\non:\n  push:\n    branches: [\"main\"]\n    paths: [\"bot/**\"]\njobs:\n  bot-dev-deploy:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v3\n      - name: Set up SSH key\n        run: |\n          mkdir -p ~/.ssh\n          # ...省略...\n      - name: Deploy Dev Bot via SSH\n        run: |\n          ssh -i ~/.ssh/id_ed25519 \${{ secrets.OCI_USER }}@\${{ secrets.OCI_HOST }} '...'`
             },
             {
               id: 'pm2',
