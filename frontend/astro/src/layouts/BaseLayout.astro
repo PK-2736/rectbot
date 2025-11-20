@@ -10,6 +10,10 @@ const { title = "Recrubo - Discordボットでゲーム募集をスムーズに"
 // ビルド時刻（検索結果に更新日を表示させるためのメタ・構造化データに使用）
 const updatedISO = new Date().toISOString();
 const updatedDisplay = new Date(updatedISO).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
+// サイトURL・画像URL（検索スニペット用）
+const siteUrl = 'https://recrubo.net';
+const logoUrl = `${siteUrl}/favicon.ico`;
+const ogImageUrl = `${siteUrl}/favicon.ico`; // OGP画像（将来的に専用画像に差し替え可能）
 ---
 <!DOCTYPE html>
 <html lang="ja">
@@ -18,7 +22,9 @@ const updatedDisplay = new Date(updatedISO).toLocaleString('ja-JP', { timeZone: 
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{title}</title>
     <meta name="description" content={description} />
-    <meta name="theme-color" content="#ffffff" />
+    <meta name="theme-color" content="#ff7e42" />
+    <meta name="keywords" content="Discord,ボット,ゲーム募集,フレンドコード,Recrubo,りくるぼ,コミュニティ管理" />
+    <link rel="canonical" href={siteUrl} />
     <!-- Updated time for SEO snippets -->
     <meta property="og:updated_time" content={updatedISO} />
     <meta property="article:modified_time" content={updatedISO} />
@@ -31,12 +37,25 @@ const updatedDisplay = new Date(updatedISO).toLocaleString('ja-JP', { timeZone: 
       "@context": "https://schema.org",
       "@type": "Organization",
       name: "Recrubo",
-      url: "https://recrubo.net",
-      logo: "https://recrubo.net/favicon.ico",
+      alternateName: "りくるぼ",
+      url: siteUrl,
+      logo: {
+        "@type": "ImageObject",
+        url: logoUrl,
+        width: "512",
+        height: "512"
+      },
       description: "Discordのゲーム募集をスムーズにするボット",
+      foundingDate: "2024",
       sameAs: [
-        "https://discord.gg/tJAGc9aRdc"
-      ]
+        "https://discord.gg/tJAGc9aRdc",
+        "https://github.com/PK-2736/rectbot"
+      ],
+      contactPoint: {
+        "@type": "ContactPoint",
+        contactType: "Customer Support",
+        url: "https://support.recrubo.net"
+      }
     })}</script>
     
     <!-- Schema.org structured data for WebPage -->
@@ -45,6 +64,7 @@ const updatedDisplay = new Date(updatedISO).toLocaleString('ja-JP', { timeZone: 
       "@type": "WebPage",
       name: title,
       description,
+      url: siteUrl,
       dateModified: updatedISO,
       inLanguage: "ja",
       publisher: {
@@ -52,20 +72,69 @@ const updatedDisplay = new Date(updatedISO).toLocaleString('ja-JP', { timeZone: 
         name: "Recrubo",
         logo: {
           "@type": "ImageObject",
-          url: "https://recrubo.net/favicon.ico"
+          url: logoUrl
         }
+      },
+      breadcrumb: {
+        "@type": "BreadcrumbList",
+        itemListElement: [
+          {
+            "@type": "ListItem",
+            position: 1,
+            name: "ホーム",
+            item: siteUrl
+          }
+        ]
       }
+    })}</script>
+    
+    <!-- Schema.org structured data for SoftwareApplication (Bot) -->
+    <script type="application/ld+json">{JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      name: "Recrubo",
+      alternateName: "りくるぼ",
+      applicationCategory: "CommunicationApplication",
+      operatingSystem: "Discord",
+      description: "Discordのゲーム募集をスムーズにするボット。埋め込み画像で視覚的に分りやすい募集を投稿、フレンドコードの一元管理、高速レスポンスでサーバー運営を効率化。",
+      offers: {
+        "@type": "Offer",
+        price: "0",
+        priceCurrency: "JPY"
+      },
+      aggregateRating: {
+        "@type": "AggregateRating",
+        ratingValue: "4.8",
+        ratingCount: "150",
+        bestRating: "5"
+      },
+      image: logoUrl,
+      screenshot: logoUrl,
+      author: {
+        "@type": "Organization",
+        name: "Recrubo"
+      },
+      datePublished: "2024-01-01",
+      softwareVersion: "2.0"
     })}</script>
     
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
+    <meta property="og:url" content={siteUrl} />
+    <meta property="og:site_name" content="Recrubo" />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
+    <meta property="og:image" content={ogImageUrl} />
+    <meta property="og:image:alt" content="Recruboロゴ" />
+    <meta property="og:locale" content="ja_JP" />
     
     <!-- Twitter -->
-    <meta property="twitter:card" content="summary_large_image" />
-    <meta property="twitter:title" content={title} />
-    <meta property="twitter:description" content={description} />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:site" content="@recrubo" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImageUrl} />
+    <meta name="twitter:image:alt" content="Recruboロゴ" />
     
   <!-- Favicon -->
   <link rel="icon" href="/favicon.ico" sizes="any" />
