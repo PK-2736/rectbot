@@ -1,0 +1,67 @@
+---
+import CodeSnippet from './CodeSnippet.astro';
+
+export interface Tab {
+  id: string;
+  label: string;
+  language?: string;
+  filename?: string;
+  code: string;
+  highlights?: number[];
+}
+
+export interface Props {
+  title?: string;
+  tabs: Tab[];
+}
+
+const { title = '', tabs } = Astro.props as Props;
+const firstId = tabs[0]?.id ?? 'tab-0';
+---
+<section class="rounded-2xl border border-brand-200/70 bg-white/70 backdrop-blur p-4 shadow-lg">
+  {title && (<h3 class="text-lg font-semibold text-slate-900 mb-3">{title}</h3>)}
+  <div class="flex flex-wrap gap-2 mb-3" role="tablist">
+    {tabs.map((t, i) => (
+      <button class={`tab-btn px-3 py-1.5 rounded-lg border text-sm transition-colors ${i === 0 ? 'is-active bg-brand-500 text-white border-brand-500' : 'bg-white text-slate-700 border-brand-200 hover:bg-brand-50'}`} data-tab={t.id} role="tab" aria-selected={i===0 ? 'true' : 'false'}>
+        {t.label}
+      </button>
+    ))}
+  </div>
+  <div class="tab-panels">
+    {tabs.map((t, i) => (
+      <div class={`tab-panel ${i === 0 ? '' : 'hidden'}`} data-tab-panel={t.id} role="tabpanel">
+        <CodeSnippet title={t.label} filename={t.filename} language={t.language} code={t.code} />
+      </div>
+    ))}
+  </div>
+</section>
+
+<script>
+  const root = (Astro as any).root as HTMLElement | null;
+  if (root) {
+    const buttons = root.querySelectorAll('.tab-btn');
+    const panels = root.querySelectorAll('.tab-panel');
+    function activate(id: string) {
+      buttons.forEach((b) => {
+        const active = b.getAttribute('data-tab') === id;
+        b.classList.toggle('is-active', active);
+        b.setAttribute('aria-selected', active ? 'true' : 'false');
+        b.classList.toggle('bg-brand-500', active);
+        b.classList.toggle('text-white', active);
+        b.classList.toggle('border-brand-500', active);
+        b.classList.toggle('bg-white', !active);
+        b.classList.toggle('text-slate-700', !active);
+      });
+      panels.forEach((p) => {
+        const show = p.getAttribute('data-tab-panel') === id;
+        p.classList.toggle('hidden', !show);
+      });
+    }
+    buttons.forEach((b) => {
+      b.addEventListener('click', () => {
+        const id = b.getAttribute('data-tab');
+        if (id) activate(id);
+      });
+    });
+  }
+</script>

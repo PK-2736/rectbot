@@ -1,5 +1,7 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
+import CodeTabs from "../components/CodeTabs.astro";
+import CodeSnippet from "../components/CodeSnippet.astro";
 
 // 公開設定（ヘルプセンター）
 const supportUrl = import.meta.env.PUBLIC_SUPPORT_PORTAL_URL ?? 'https://support.recrubo.net';
@@ -68,6 +70,79 @@ const serializedApiBaseUrl = JSON.stringify(apiBaseUrl);
             機能を詳しく見る
           </a>
         </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Showcase Section (Snippets) -->
+  <section id="showcase" class="section-padding bg-white">
+    <div class="container">
+      <div class="text-center mb-10">
+        <h2 class="text-3xl md:text-4xl font-bold mb-3 text-slate-900">
+          <span class="bg-gradient-to-r from-brand-500 to-accent-500 text-transparent bg-clip-text">クイックスタート</span>
+        </h2>
+        <p class="text-slate-600">APIの呼び出しやセットアップのコード例をサッと確認</p>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <CodeTabs
+          title="ワンタイム招待リンクを取得"
+          tabs={[
+            {
+              id: 'curl',
+              label: 'cURL',
+              language: 'bash',
+              filename: 'invite.sh',
+              code: `curl -X POST \
+  -H 'Content-Type: application/json' \
+  https://api.recrubo.net/api/bot-invite/one-time`
+            },
+            {
+              id: 'node',
+              label: 'Node.js',
+              language: 'javascript',
+              filename: 'invite.js',
+              code: `const res = await fetch('https://api.recrubo.net/api/bot-invite/one-time', {\n  method: 'POST',\n  headers: { 'Content-Type': 'application/json; charset=utf-8' }\n});\nconst { url } = await res.json();\nconsole.log(url); // Discord招待URL`
+            },
+            {
+              id: 'python',
+              label: 'Python',
+              language: 'python',
+              filename: 'invite.py',
+              code: `import requests\nres = requests.post('https://api.recrubo.net/api/bot-invite/one-time')\nprint(res.json().get('url'))`
+            }
+          ]}
+        />
+
+        <CodeTabs
+          title="GitHub ActionsでDevボットをデプロイ"
+          tabs={[
+            {
+              id: 'yaml',
+              label: 'workflow.yml',
+              language: 'yaml',
+              filename: '.github/workflows/deploy-bot-dev.yml',
+              code: `name: Deploy Bot (Development)\non:\n  push:\n    branches: [\"main\"]\n    paths: [\"bot/**\"]\njobs:\n  bot-dev-deploy:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v3\n      - name: Set up SSH key\n        run: |\n          mkdir -p ~/.ssh\n          # ...省略...\n      - name: Deploy Dev Bot via SSH\n        run: |\n          ssh -i ~/.ssh/id_ed25519 \${{ secrets.OCI_USER }}@\${{ secrets.OCI_HOST }} '...'
+            },
+            {
+              id: 'pm2',
+              label: 'PM2 起動',
+              language: 'bash',
+              filename: 'pm2.sh',
+              code: `NODE_ENV=development env $(cat .env.dev | xargs) pm2 start src/index.js --name rectbot-dev --time\npm2 save`
+            }
+          ]}
+        />
+      </div>
+
+      <div class="mt-8">
+        <CodeSnippet
+          title="Slashコマンドをギルドに即時デプロイ"
+          filename="bot/src/deploy-commands-guild.js"
+          language="bash"
+          code={`# 環境変数から読み取り\nNODE_ENV=development env $(cat .env.dev | xargs) node src/deploy-commands-guild.js`}
+          highlights={[2]}
+        />
       </div>
     </div>
   </section>
