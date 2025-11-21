@@ -34,16 +34,12 @@ module.exports = {
       const buttons = new ActionRowBuilder()
         .addComponents(
           new ButtonBuilder()
-            .setCustomId('welcome_help')
-            .setLabel('📖 ヘルプを見る')
-            .setStyle(ButtonStyle.Primary),
-          new ButtonBuilder()
             .setURL('https://recrubo.net')
             .setLabel('🌐 公式サイト')
             .setStyle(ButtonStyle.Link),
           new ButtonBuilder()
-            .setURL('https://support.recrubo.net')
-            .setLabel('🛠 サポートポータル')
+            .setURL('https://recrubo.net/help')
+            .setLabel('📖 ヘルプを見る')
             .setStyle(ButtonStyle.Link)
         );
 
