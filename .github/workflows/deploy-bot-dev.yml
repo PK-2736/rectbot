@@ -54,6 +54,7 @@ jobs:
           REDIS_HOST_DEV: ${{ secrets.REDIS_HOST_DEV }}
           REDIS_PORT_DEV: ${{ secrets.REDIS_PORT_DEV }}
           INTERNAL_SECRET_DEV: ${{ secrets.INTERNAL_SECRET_DEV }}
+          DISCORD_GUILD_ID_DEV: ${{ secrets.DISCORD_GUILD_ID_DEV }}
         run: |
           # 必須シークレットの最低限チェック
           : "${SERVICE_TOKEN_DEV:?Missing SERVICE_TOKEN_DEV}"
@@ -69,6 +70,7 @@ jobs:
             export REDIS_HOST_DEV="'"$REDIS_HOST_DEV"'"; \
             export REDIS_PORT_DEV="'"$REDIS_PORT_DEV"'"; \
             export INTERNAL_SECRET_DEV="'"$INTERNAL_SECRET_DEV"'"; \
+            export DISCORD_GUILD_ID_DEV="'"$DISCORD_GUILD_ID_DEV"'"; \
             source ~/.bashrc || true; \
             source ~/.nvm/nvm.sh || true; \
             cd ~/rectbot || exit 1; \
@@ -87,10 +89,9 @@ jobs:
               echo "BACKEND_API_URL=${BACKEND_API_URL_DEV}" >> .env.dev; \
               echo "REDIS_HOST=${REDIS_HOST_DEV}" >> .env.dev; \
               echo "REDIS_PORT=${REDIS_PORT_DEV}" >> .env.dev; \
-              # スラッシュコマンドをDevアプリにデプロイ（スクリプトが環境変数を読む前提）
-                # スラッシュコマンドを開発用ギルドにデプロイ（即時反映）
-                echo "GUILD_ID=${DISCORD_GUILD_ID_DEV:-802345513495822336}" >> .env.dev; \
-                NODE_ENV=development env $(cat .env.dev | xargs) node src/deploy-commands-guild.js || true; \
+              echo "GUILD_ID=${DISCORD_GUILD_ID_DEV:-802345513495822336}" >> .env.dev; \
+              echo "Deploying slash commands to dev guild..."; \
+              NODE_ENV=development env $(cat .env.dev | xargs) node src/deploy-commands-guild.js || { echo "Failed to deploy commands"; exit 1; }; \
               # PM2: rectbot-dev として起動/再起動
               NODE_ENV=development env $(cat .env.dev | xargs) pm2 restart rectbot-dev --update-env || \
                 NODE_ENV=development env $(cat .env.dev | xargs) pm2 start src/index.js --name rectbot-dev --time; \

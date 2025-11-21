@@ -73,19 +73,22 @@ async function execute(interaction) {
     const optBool = (name) => { try { return interaction.options.getBoolean(name); } catch { return null; } };
     const optChan = (name) => { try { return interaction.options.getChannel(name); } catch { return null; } };
 
-    const titleArg = optStr('タイトル') ?? optStr('title') ?? null;
+    const titleArg = optStr('タイトル') ?? optStr('title');
     const membersArg = optInt('人数') ?? optInt('members');
     const startArg = optStr('開始時間') ?? optStr('start');
-    const deadlineTimeArg = optStr('締切時間'); // HH:mm or null（新）
-    const legacyDeadlineHours = optInt('deadline'); // 旧: 時間数
     const voiceArg = optBool('通話有無') ?? optBool('voice'); // true/false/undefined
     const voiceChannel = optChan('通話場所');
     const legacyVoicePlace = optStr('voice_place');
     const voicePlaceArg = voiceChannel
-      ? (typeof voiceChannel.isVoiceBased === 'function' ? (voiceChannel.isVoiceBased() ? `<#${voiceChannel.id}>` : voiceChannel.name) : `<#${voiceChannel.id}>`)
+      ? voiceChannel.name
       : (legacyVoicePlace || null);
+    const voiceChannelId = voiceChannel ? voiceChannel.id : null;
 
     // 必須不足チェック（例外ではなくエフェメラル返信で案内）
+    if (!titleArg) {
+      await safeReply(interaction, { content: '❌ タイトルを指定してください。', flags: MessageFlags.Ephemeral });
+      return;
+    }
     if (!membersArg || membersArg < 1 || membersArg > 16) {
       await safeReply(interaction, { content: '❌ 人数は1〜16の範囲で指定してください。', flags: MessageFlags.Ephemeral });
       return;
@@ -118,14 +121,10 @@ async function execute(interaction) {
       }
     }
 
-    // 入力バリデーション: 開始時間と締切時間
+    // 入力バリデーション: 開始時間
     const hhmm = /^\s*(\d{1,2}):(\d{2})\s*$/;
     if (!hhmm.test(String(startArg))) {
       await safeReply(interaction, { content: '❌ 開始時間は HH:mm の形式で入力してください（例: 21:00）。', flags: MessageFlags.Ephemeral });
-      return;
-    }
-    if (deadlineTimeArg && !hhmm.test(String(deadlineTimeArg))) {
-      await safeReply(interaction, { content: '❌ 締切時間は HH:mm の形式で入力してください（例: 23:00）。', flags: MessageFlags.Ephemeral });
       return;
     }
 
@@ -148,36 +147,7 @@ async function execute(interaction) {
       }
     } catch (_) {}
 
-    // 締切時間（任意）→ 直近の将来日時に補正（旧オプション deadline=時間数 も互換）
-    let expiresAtISO = null;
-    if (deadlineTimeArg) {
-      try {
-        const m2 = String(deadlineTimeArg).match(hhmm);
-        if (m2) {
-          const hh = Math.min(23, Math.max(0, parseInt(m2[1], 10)));
-          const mm = Math.min(59, Math.max(0, parseInt(m2[2], 10)));
-          const now2 = new Date();
-          const exp = new Date(now2);
-          exp.setSeconds(0, 0);
-          exp.setHours(hh, mm, 0, 0);
-          if (exp.getTime() <= now2.getTime()) {
-            exp.setDate(exp.getDate() + 1);
-          }
-          expiresAtISO = exp.toISOString();
-        }
-      } catch (_) {}
-    }
-    if (!expiresAtISO && legacyDeadlineHours && legacyDeadlineHours >= 1 && legacyDeadlineHours <= 8) {
-      const now = new Date();
-      expiresAtISO = new Date(now.getTime() + legacyDeadlineHours * 3600 * 1000).toISOString();
-    }
 
-    // タイトル必須: 入力 or 既定タイトルのどちらか
-    const effectiveTitle = titleArg || (guildSettings && guildSettings.defaultTitle) || null;
-    if (!effectiveTitle) {
-      await safeReply(interaction, { content: '❌ 募集タイトルは必須です。入力するか、サーバーの既定タイトルを設定してください。', flags: MessageFlags.Ephemeral });
-      return;
-    }
 
     // 一時保存（モーダル→別インタラクションになるため）
     try {
@@ -187,15 +157,13 @@ async function execute(interaction) {
           ...prev,
           panelColor: selectedColor,
           notificationRoleId: selectedRoleId,
-          // タイトル: 入力がなければ既定タイトルを使用
-          title: effectiveTitle,
+          title: titleArg,
           participants: membersArg,
           startTime: startArg, // 表示用
           startAt: startAtISO, // 予約実行用
           voice: typeof voiceArg === 'boolean' ? voiceArg : null,
           voicePlace: voicePlaceArg,
-          expiresAt: expiresAtISO,
-          deadlineHours: null
+          voiceChannelId: voiceChannelId
         });
       }
     } catch (e) {

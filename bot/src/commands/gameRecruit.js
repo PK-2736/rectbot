@@ -67,18 +67,12 @@ module.exports = {
         .setDescription('開始時間（必須）例: 21:00（24時間表記）')
         .setRequired(true)
     )
-    // 募集タイトル（既定タイトルがあれば省略可）
+    // 募集タイトル（必須）
     .addStringOption(option =>
       option.setName('タイトル')
-        .setDescription('募集タイトル（省略可）')
-        .setRequired(false)
+        .setDescription('募集タイトル（必須）')
+        .setRequired(true)
         .setAutocomplete(true)
-    )
-    // 任意: 締切時間（当日/翌日のHH:mm）
-    .addStringOption(option =>
-      option.setName('締切時間')
-        .setDescription('募集の締切時間（任意）例: 23:00（24時間表記）')
-        .setRequired(false)
     )
     // 任意: 通話の有無（true/false）
     .addBooleanOption(option =>

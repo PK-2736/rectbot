@@ -206,21 +206,19 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
   const updatedImageBuffer = await generateRecruitCard(finalRecruitData, [interaction.user.id], interaction.client, finalUseColor);
   const updatedImage = new AttachmentBuilder(updatedImageBuffer, { name: 'recruit-card.png' });
   const finalAccentColor = /^[0-9A-Fa-f]{6}$/.test(finalUseColor) ? parseInt(finalUseColor, 16) : 0x000000;
-  const footerExtra = finalRecruitData.expiresAt ? `締切: ${formatJST(finalRecruitData.expiresAt)}` : null;
-  const updatedContainer = buildContainer({ headerTitle: `${user.username}さんの募集`, participantText, recruitIdText: actualRecruitId, accentColor: finalAccentColor, imageAttachmentName: 'attachment://recruit-card.png', recruiterId: interaction.user.id, requesterId: interaction.user.id, footerExtra, subHeaderText: (recruitDataObj.notificationRoleId ? `🔔 通知ロール: <@&${recruitDataObj.notificationRoleId}>` : null) });
+  const updatedContainer = buildContainer({ headerTitle: `${user.username}さんの募集`, participantText, recruitIdText: actualRecruitId, accentColor: finalAccentColor, imageAttachmentName: 'attachment://recruit-card.png', recruiterId: interaction.user.id, requesterId: interaction.user.id, footerExtra: null, subHeaderText: (recruitDataObj.notificationRoleId ? `🔔 通知ロール: <@&${recruitDataObj.notificationRoleId}>` : null) });
   try { await actualMessage.edit({ files: [updatedImage], components: [updatedContainer], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } }); } catch (editError) { console.error('メッセージ更新エラー:', editError); }
 
-  // 自動締切タイマー（指定期限 or 8h）
+  // 自動締切タイマー（8時間固定）
   const eightHoursMs = 8 * 60 * 60 * 1000;
-  const expireDelay = Math.min(computeDelayMs(finalRecruitData.expiresAt, eightHoursMs), eightHoursMs);
   setTimeout(async () => {
     try {
       if (recruitParticipants.has(actualMessageId)) {
-        console.log('期限到来による自動締切実行:', actualMessageId);
+        console.log('8時間経過による自動締切実行:', actualMessageId);
         try { await autoCloseRecruitment(interaction.client, interaction.guildId, interaction.channelId, actualMessageId); } catch (e) { console.error('autoCloseRecruitment failed:', e); }
       }
     } catch (error) { console.error('自動締切処理でエラー:', error); }
-  }, expireDelay);
+  }, eightHoursMs);
 
   // 開始時刻メンション（任意）
   const startDelay = computeDelayMs(finalRecruitData.startAt, null);
@@ -230,15 +228,49 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
         if (!recruitParticipants.has(actualMessageId)) return; // 既に終了
         const ids = await getParticipantsFromRedis(actualMessageId).catch(() => null) || recruitParticipants.get(actualMessageId) || [];
         if (!Array.isArray(ids) || ids.length === 0) return;
+        
         const mentions = ids.map(id => `<@${id}>`).join(' ');
-        let content = `⏰ 開始時刻になりました！ ${mentions}`;
+        
+        // Embed作成
+        const notifyColor = hexToIntColor(finalRecruitData?.panelColor || '00FF00', 0x00FF00);
+        const notifyEmbed = new EmbedBuilder()
+          .setColor(notifyColor)
+          .setTitle('⏰ 開始時刻になりました！')
+          .setDescription(`**${finalRecruitData.title}** の募集開始時刻です。`)
+          .addFields(
+            { name: '参加者', value: mentions, inline: false }
+          )
+          .setTimestamp();
+        
         if (finalRecruitData.voice === true) {
-          if (finalRecruitData.voicePlace) content += `\n🔊 ボイスチャット: ${finalRecruitData.voicePlace}`;
-          else content += `\n🔊 ボイスチャット: あり`;
+          if (finalRecruitData.voicePlace) {
+            notifyEmbed.addFields({ name: '🔊 ボイスチャット', value: `あり (${finalRecruitData.voicePlace})`, inline: false });
+          } else {
+            notifyEmbed.addFields({ name: '🔊 ボイスチャット', value: 'あり', inline: false });
+          }
         } else if (finalRecruitData.voice === false) {
-          content += `\n🔇 ボイスチャット: なし`;
+          notifyEmbed.addFields({ name: '🔇 ボイスチャット', value: 'なし', inline: false });
         }
-        await interaction.channel.send({ content, allowedMentions: { users: ids } }).catch(() => {});
+        
+        // ボイスチャンネルURLの生成
+        let voiceUrl = null;
+        if (finalRecruitData.voiceChannelId) {
+          voiceUrl = `https://discord.com/channels/${interaction.guildId}/${finalRecruitData.voiceChannelId}`;
+        }
+        
+        // メッセージ送信
+        const sendOptions = { 
+          content: mentions, 
+          embeds: [notifyEmbed], 
+          allowedMentions: { users: ids } 
+        };
+        
+        await interaction.channel.send(sendOptions).catch(() => {});
+        
+        // ボイスチャンネルURLがあれば別メッセージで送信
+        if (voiceUrl) {
+          await interaction.channel.send({ content: `🔗 ボイスチャンネルに参加: ${voiceUrl}` }).catch(() => {});
+        }
       } catch (e) {
         console.warn('開始通知送信失敗:', e?.message || e);
       }
@@ -484,10 +516,17 @@ async function handleModalSubmit(interaction) {
     else if (typeof interaction.recruitPanelColor === 'string' && interaction.recruitPanelColor.length > 0) panelColor = interaction.recruitPanelColor;
     else if (guildSettings.defaultColor) panelColor = guildSettings.defaultColor;
 
-    // VC 表示文言
+    // VC 表示文言（画像内に表示するテキスト）
     let vcText = '指定なし';
-    if (pending.voice === true) vcText = pending.voicePlace ? pending.voicePlace : 'あり';
-    else if (pending.voice === false) vcText = 'なし';
+    if (pending.voice === true) {
+      if (pending.voicePlace) {
+        vcText = `有り/${pending.voicePlace}`;
+      } else {
+        vcText = '有り';
+      }
+    } else if (pending.voice === false) {
+      vcText = 'なし';
+    }
 
     const recruitDataObj = {
       title: pending.title,
@@ -495,10 +534,9 @@ async function handleModalSubmit(interaction) {
       participants: participantsNum,
       startTime: pending.startTime,
       startAt: pending.startAt || null,
-      expiresAt: pending.expiresAt || null,
-      deadlineHours: pending.deadlineHours || null,
       voice: typeof pending.voice === 'boolean' ? pending.voice : null,
       voicePlace: pending.voicePlace || null,
+      voiceChannelId: pending.voiceChannelId || null,
       vc: vcText,
       recruiterId: interaction.user.id,
       recruitId: '',
