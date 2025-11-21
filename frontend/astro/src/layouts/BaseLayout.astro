@@ -14,7 +14,7 @@ const updatedDisplay = new Date(updatedISO).toLocaleString('ja-JP', { timeZone: 
 const siteUrl = 'https://recrubo.net';
 const logoUrl = `${siteUrl}/logo.png`;
 const faviconUrl = `${siteUrl}/favicon.ico`;
-const ogImageUrl = `${siteUrl}/logo.png`; // OGP画像
+const ogImageUrl = `${siteUrl}/logo.png`; // OGP画像（検索スニペットに表示）
 ---
 <!DOCTYPE html>
 <html lang="ja">
@@ -138,7 +138,7 @@ const ogImageUrl = `${siteUrl}/logo.png`; // OGP画像
     <meta property="og:locale" content="ja_JP" />
     
     <!-- Twitter -->
-    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:site" content="@recrubo" />
     <meta name="twitter:creator" content="@recrubo" />
     <meta name="twitter:title" content={title} />
@@ -146,6 +146,11 @@ const ogImageUrl = `${siteUrl}/logo.png`; // OGP画像
     <meta name="twitter:image" content={ogImageUrl} />
     <meta name="twitter:image:alt" content="Recruboロゴ" />
     <meta name="twitter:domain" content="recrubo.net" />
+    
+    <!-- Google+ / Schema.org -->
+    <meta itemprop="name" content={title} />
+    <meta itemprop="description" content={description} />
+    <meta itemprop="image" content={ogImageUrl} />
     
   <!-- Favicon & Icons -->
   <link rel="icon" type="image/x-icon" href="/favicon.ico" />
