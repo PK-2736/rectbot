@@ -1,5 +1,4 @@
-const { MessageFlags, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
-const { UserSelectMenuBuilder } = require('@discordjs/builders');
+const { MessageFlags, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, LabelBuilder, UserSelectMenuBuilder } = require('discord.js');
 const { pendingModalOptions } = require('./state');
 const { safeReply } = require('../../utils/safeReply');
 const { listRecruitsFromRedis, getCooldownRemaining } = require('../../utils/db');
@@ -171,29 +170,35 @@ async function execute(interaction) {
       console.warn('pendingModalOptions set failed:', e?.message || e);
     }
 
-    // モーダル表示(内容のみ)
+    // モーダル表示(内容+既存参加者)
     console.log('[gameRecruit.execute] showing modal for user:', interaction.user?.id);
     const modal = new ModalBuilder().setCustomId('recruitModal').setTitle('🎮 募集内容入力');
     
-    const contentInput = new TextInputBuilder()
-      .setCustomId('content')
-      .setLabel('募集内容（例: ガチエリア / 初心者歓迎 / 2時間）')
-      .setStyle(TextInputStyle.Paragraph)
-      .setRequired(true)
-      .setMaxLength(1000)
-      .setPlaceholder('詳細な募集内容を入力してください...');
+    // 募集内容のテキスト入力
+    const contentInput = new LabelBuilder()
+      .setLabel('募集内容')
+      .setTextInputComponent(
+        new TextInputBuilder()
+          .setCustomId('content')
+          .setPlaceholder('例: ガチエリア / 初心者歓迎 / 2時間')
+          .setStyle(TextInputStyle.Paragraph)
+          .setRequired(true)
+          .setMaxLength(1000)
+      );
 
     // 既存参加者選択 (UserSelectMenu)
-    const existingMembersSelect = new UserSelectMenuBuilder()
-      .setCustomId('existingMembers')
-      .setPlaceholder('既存参加者を選択（任意）')
-      .setMinValues(0)
-      .setMaxValues(15);
+    const existingMembersSelect = new LabelBuilder()
+      .setLabel('既存参加者（任意）')
+      .setUserSelectMenuComponent(
+        new UserSelectMenuBuilder()
+          .setCustomId('existingMembers')
+          .setPlaceholder('既に参加しているメンバーを選択')
+          .setRequired(false)
+          .setMinValues(0)
+          .setMaxValues(15)
+      );
 
-    modal.addComponents(
-      new ActionRowBuilder().addComponents(contentInput),
-      new ActionRowBuilder().addComponents(existingMembersSelect)
-    );
+    modal.addComponents(contentInput, existingMembersSelect);
 
     await interaction.showModal(modal);
     console.log('[gameRecruit.execute] showModal called successfully for', interaction.user?.id);
