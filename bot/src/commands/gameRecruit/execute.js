@@ -212,7 +212,16 @@ async function execute(interaction) {
     if (configuredNotificationRoleIds.length > 0) {
       // ロール情報を取得して選択肢を作成
       const roleOptions = [];
-      for (const roleId of configuredNotificationRoleIds.slice(0, 25)) {
+      
+      // 「通知なし」オプションを最初に追加
+      roleOptions.push({
+        label: '通知ロールなし',
+        value: 'none',
+        description: '通知ロールを使用せずに募集します',
+        default: true
+      });
+
+      for (const roleId of configuredNotificationRoleIds.slice(0, 24)) {
         try {
           const role = await interaction.guild.roles.fetch(roleId);
           if (role) {
@@ -227,13 +236,6 @@ async function execute(interaction) {
         }
       }
 
-      // 「通知なし」オプションを追加
-      roleOptions.push({
-        label: '通知ロールなし',
-        value: 'none',
-        description: '通知ロールを使用せずに募集します'
-      });
-
       if (roleOptions.length > 0) {
         const notificationRoleSelect = new LabelBuilder()
           .setLabel('通知ロール（任意）')
@@ -241,7 +243,7 @@ async function execute(interaction) {
             new StringSelectMenuBuilder()
               .setCustomId('notificationRole')
               .setPlaceholder('通知するロールを選択')
-              .setMinValues(0)
+              .setMinValues(1)
               .setMaxValues(1)
               .addOptions(roleOptions)
           );
