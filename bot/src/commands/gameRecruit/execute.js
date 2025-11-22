@@ -219,7 +219,7 @@ async function execute(interaction) {
             .setRequired(false)
             .setMinValues(0)
             .setMaxValues(1)
-            .setDefaultRoles(configuredNotificationRoleIds.slice(0, 25))
+            // setDefaultRolesは使用しない（選択可能なロールを制限するにはモーダル送信後にバリデーション）
         );
       modalComponents.push(notificationRoleSelect);
     }
