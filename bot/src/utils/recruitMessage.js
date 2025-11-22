@@ -81,12 +81,22 @@ async function updateParticipantList(interactionOrMessage, participants, savedRe
     const buffer = await generateRecruitCard(savedRecruitData, participants, client, useColor);
     const updatedImage = new AttachmentBuilder(buffer, { name: 'recruit-card.png' });
 
-    let participantText = `🎯✨ 参加リスト ✨🎯\n${participants.map(id => `<@${id}>`).join(' ')}`;
+    // 参加リストテキスト（改行なし、残り人数表示）
+    const totalSlots = savedRecruitData?.participants || savedRecruitData?.participant_count || 1;
+    const remainingSlots = totalSlots - participants.length;
+    let participantText = `🎯✨ 参加リスト (あと${remainingSlots}人) ✨🎯\n${participants.map(id => `<@${id}>`).join(' ')}`;
+    
+    // 通知ロールを画像の上に表示
+    let notificationText = '';
     try {
       const rid = savedRecruitData && (savedRecruitData.notificationRoleId || savedRecruitData.notification_role_id || savedRecruitData.notification_role);
       const notifRoleId = rid ? String(rid) : null;
-      if (notifRoleId) participantText += `\n🔔 通知ロール: <@&${notifRoleId}>`;
+      if (notifRoleId) {
+        notificationText = `🔔 通知ロール: <@&${notifRoleId}>\n\n`;
+      }
     } catch (_) {}
+    
+    const fullText = notificationText + participantText;
 
     let headerTitle = savedRecruitData?.title || '募集';
     try {
@@ -102,7 +112,7 @@ async function updateParticipantList(interactionOrMessage, participants, savedRe
     const accentColor = parseInt(useColor, 16);
     const recruiterId = savedRecruitData?.recruiterId || null;
     const requesterId = interaction ? interaction.user?.id : null;
-    const updatedContainer = buildContainer({ headerTitle, participantText, recruitIdText: savedRecruitData?.recruitId || (savedRecruitData?.message_id ? savedRecruitData.message_id.slice(-8) : '(unknown)'), accentColor, imageAttachmentName: 'attachment://recruit-card.png', recruiterId, requesterId });
+    const updatedContainer = buildContainer({ headerTitle, participantText: fullText, recruitIdText: savedRecruitData?.recruitId || (savedRecruitData?.message_id ? savedRecruitData.message_id.slice(-8) : '(unknown)'), accentColor, imageAttachmentName: 'attachment://recruit-card.png', recruiterId, requesterId });
 
     if (message && message.edit) {
       await message.edit({ files: [updatedImage], components: [updatedContainer], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } });

@@ -1,4 +1,4 @@
-const { MessageFlags, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, LabelBuilder, UserSelectMenuBuilder } = require('discord.js');
+const { MessageFlags, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, LabelBuilder, UserSelectMenuBuilder, RoleSelectMenuBuilder } = require('discord.js');
 const { pendingModalOptions } = require('./state');
 const { safeReply } = require('../../utils/safeReply');
 const { listRecruitsFromRedis, getCooldownRemaining } = require('../../utils/db');
@@ -170,7 +170,7 @@ async function execute(interaction) {
       console.warn('pendingModalOptions set failed:', e?.message || e);
     }
 
-    // モーダル表示(内容+既存参加者)
+    // モーダル表示(内容+既存参加者+通知ロール)
     console.log('[gameRecruit.execute] showing modal for user:', interaction.user?.id);
     const modal = new ModalBuilder().setCustomId('recruitModal').setTitle('🎮 募集内容入力');
     
@@ -186,7 +186,7 @@ async function execute(interaction) {
           .setMaxLength(1000)
       );
 
-    // 既存参加者選択 (UserSelectMenu)
+    // 既存参加者選択 (UserSelectMenu) - botを除外
     const existingMembersSelect = new LabelBuilder()
       .setLabel('既存参加者（任意）')
       .setUserSelectMenuComponent(
@@ -198,7 +198,33 @@ async function execute(interaction) {
           .setMaxValues(15)
       );
 
-    modal.addComponents(contentInput, existingMembersSelect);
+    // 通知ロール選択 (RoleSelectMenu) - 設定されたロールのみ
+    const configuredNotificationRoleIds = (() => {
+      const roles = [];
+      if (Array.isArray(guildSettings.notification_roles)) roles.push(...guildSettings.notification_roles.filter(Boolean));
+      if (guildSettings.notification_role) roles.push(guildSettings.notification_role);
+      return [...new Set(roles.map(String))].filter(Boolean);
+    })();
+
+    const modalComponents = [contentInput, existingMembersSelect];
+
+    // 通知ロールが設定されている場合のみ追加
+    if (configuredNotificationRoleIds.length > 0) {
+      const notificationRoleSelect = new LabelBuilder()
+        .setLabel('通知ロール（任意）')
+        .setRoleSelectMenuComponent(
+          new RoleSelectMenuBuilder()
+            .setCustomId('notificationRole')
+            .setPlaceholder('通知するロールを選択')
+            .setRequired(false)
+            .setMinValues(0)
+            .setMaxValues(1)
+            .setDefaultRoles(configuredNotificationRoleIds.slice(0, 25))
+        );
+      modalComponents.push(notificationRoleSelect);
+    }
+
+    modal.addComponents(...modalComponents);
 
     await interaction.showModal(modal);
     console.log('[gameRecruit.execute] showModal called successfully for', interaction.user?.id);

@@ -450,18 +450,41 @@ async function handleModalSubmit(interaction) {
     // 色決定: select > settings > default
     const panelColor = resolvePanelColor(interaction, guildSettings);
 
-    // 既存参加者の取得（モーダル内のUserSelectMenuから）
+    // 既存参加者の取得（モーダル内のUserSelectMenuから） - botを除外
     let existingMembers = [];
     try {
       const selectedMembers = interaction.fields.getSelectedMembers('existingMembers');
       if (selectedMembers && selectedMembers.size > 0) {
-        // 募集主以外のメンバーを抽出
-        existingMembers = Array.from(selectedMembers.keys()).filter(id => id !== interaction.user.id);
+        // 募集主以外 & bot以外のメンバーを抽出
+        existingMembers = Array.from(selectedMembers.keys()).filter(id => {
+          const member = selectedMembers.get(id);
+          return id !== interaction.user.id && !(member?.user?.bot);
+        });
         console.log('[handleModalSubmit] existingMembers selected from modal:', existingMembers);
       }
     } catch (e) {
       console.log('[handleModalSubmit] no existing members selected or error:', e?.message || 'none');
       existingMembers = [];
+    }
+
+    // 通知ロールの取得（モーダル内のRoleSelectMenuから）
+    let selectedNotificationRole = null;
+    try {
+      const selectedRoles = interaction.fields.getSelectedRoles('notificationRole');
+      if (selectedRoles && selectedRoles.size > 0) {
+        const roleId = Array.from(selectedRoles.keys())[0];
+        // 設定されたロールのみ許可
+        const configuredNotificationRoleIds = buildConfiguredNotificationRoleIds(guildSettings);
+        if (configuredNotificationRoleIds.includes(roleId)) {
+          selectedNotificationRole = roleId;
+          console.log('[handleModalSubmit] notificationRole selected from modal:', selectedNotificationRole);
+        } else {
+          console.warn('[handleModalSubmit] selected role not in configured list:', roleId);
+        }
+      }
+    } catch (e) {
+      console.log('[handleModalSubmit] no notification role selected or error:', e?.message || 'none');
+      selectedNotificationRole = null;
     }
 
     const recruitDataObj = {
@@ -478,10 +501,7 @@ async function handleModalSubmit(interaction) {
       recruitId: '',
       panelColor
     };
-    // 通知ロールの決定
-    const configuredNotificationRoleIds = buildConfiguredNotificationRoleIds(guildSettings);
-    const { roleId: selectedNotificationRole, aborted } = await selectNotificationRole(interaction, configuredNotificationRoleIds);
-    if (aborted) return;
+    // 通知ロールをrecruitDataObjに追加
     recruitDataObj.notificationRoleId = selectedNotificationRole;
 
     // カード生成と初回送信
@@ -493,18 +513,30 @@ async function handleModalSubmit(interaction) {
 
     const image = new AttachmentBuilder(buffer, { name: 'recruit-card.png' });
     
-    // 参加リストテキストの構築（既存参加者を含む）
-    let participantText = `🎯✨ 参加リスト ✨🎯\n`;
-    participantText += currentParticipants.map(id => `🎮 <@${id}>`).join('\n');
-    if (selectedNotificationRole) participantText += `\n🔔 通知ロール: <@&${selectedNotificationRole}>`;
+    // 参加リストテキストの構築（既存参加者を含む、改行なし、残り人数表示）
+    const remainingSlots = participantsNum - currentParticipants.length;
+    let participantText = `🎯✨ 参加リスト (あと${remainingSlots}人) ✨🎯\n`;
+    participantText += currentParticipants.map(id => `<@${id}>`).join(' ');
+    
+    // 通知ロールを画像の上（participantTextの前）に表示
+    let notificationText = '';
+    if (selectedNotificationRole) {
+      notificationText = `🔔 通知ロール: <@&${selectedNotificationRole}>\n\n`;
+    }
+    
     const panelColorForAccent = normalizeHex(panelColor, guildSettings.defaultColor && /^[0-9A-Fa-f]{6}$/.test(guildSettings.defaultColor) ? guildSettings.defaultColor : '000000');
     const accentColor = /^[0-9A-Fa-f]{6}$/.test(panelColorForAccent) ? parseInt(panelColorForAccent, 16) : 0x000000;
-    const container = buildContainer({ headerTitle: `${user.username}さんの募集`, participantText, recruitIdText: '(送信後決定)', accentColor, imageAttachmentName: 'attachment://recruit-card.png', recruiterId: interaction.user.id, requesterId: interaction.user.id });
+    
+    // 通知ロールを含めた完全なテキスト
+    const fullText = notificationText + participantText;
+    
+    const configuredNotificationRoleIds = buildConfiguredNotificationRoleIds(guildSettings);
+    const container = buildContainer({ headerTitle: `${user.username}さんの募集`, participantText: fullText, recruitIdText: '(送信後決定)', accentColor, imageAttachmentName: 'attachment://recruit-card.png', recruiterId: interaction.user.id, requesterId: interaction.user.id });
     const followUpMessage = await sendAnnouncements(interaction, selectedNotificationRole, configuredNotificationRoleIds, image, container, guildSettings);
     try { await safeReply(interaction, { content: '募集を作成しました。', flags: MessageFlags.Ephemeral }); } catch (e) { console.warn('safeReply failed (non-fatal):', e?.message || e); }
     // 送信後の保存とUI更新
     try {
-      await finalizePersistAndEdit({ interaction, recruitDataObj, guildSettings, user, participantText, followUpMessage, currentParticipants });
+      await finalizePersistAndEdit({ interaction, recruitDataObj, guildSettings, user, participantText: fullText, followUpMessage, currentParticipants });
     } catch (error) { console.error('メッセージ取得エラー:', error); }
   } catch (error) {
     console.error('handleModalSubmit error:', error);
