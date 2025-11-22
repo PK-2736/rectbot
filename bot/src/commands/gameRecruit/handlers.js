@@ -190,7 +190,7 @@ async function sendAnnouncements(interaction, selectedNotificationRole, configur
   return followUpMessage;
 }
 
-async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettings, user, participantText, followUpMessage, currentParticipants }) {
+async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettings, user, participantText, subHeaderText, followUpMessage, currentParticipants }) {
   const actualMessage = followUpMessage;
   const actualMessageId = actualMessage.id;
   const actualRecruitId = actualMessageId.slice(-8);
@@ -217,7 +217,16 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
   const updatedImageBuffer = await generateRecruitCard(finalRecruitData, currentParticipants, interaction.client, finalUseColor);
   const updatedImage = new AttachmentBuilder(updatedImageBuffer, { name: 'recruit-card.png' });
   const finalAccentColor = /^[0-9A-Fa-f]{6}$/.test(finalUseColor) ? parseInt(finalUseColor, 16) : 0x000000;
-  const updatedContainer = buildContainer({ headerTitle: `${user.username}さんの募集`, participantText, recruitIdText: actualRecruitId, accentColor: finalAccentColor, imageAttachmentName: 'attachment://recruit-card.png', recruiterId: interaction.user.id, requesterId: interaction.user.id });
+  const updatedContainer = buildContainer({ 
+    headerTitle: `${user.username}さんの募集`, 
+    subHeaderText, 
+    participantText, 
+    recruitIdText: actualRecruitId, 
+    accentColor: finalAccentColor, 
+    imageAttachmentName: 'attachment://recruit-card.png', 
+    recruiterId: interaction.user.id, 
+    requesterId: interaction.user.id 
+  });
   try { await actualMessage.edit({ files: [updatedImage], components: [updatedContainer], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } }); } catch (editError) { console.error('メッセージ更新エラー:', editError); }
 
   // 自動締切タイマー（8h）
@@ -519,25 +528,31 @@ async function handleModalSubmit(interaction) {
     let participantText = `🎯✨ 参加リスト (あと${remainingSlots}人) ✨🎯\n`;
     participantText += currentParticipants.map(id => `<@${id}>`).join(' ');
     
-    // 通知ロールを画像の上（participantTextの前）に表示
-    let notificationText = '';
+    // 通知ロールをヘッダーの下（subHeaderText）に表示
+    let subHeaderText = null;
     if (selectedNotificationRole) {
-      notificationText = `🔔 通知ロール: <@&${selectedNotificationRole}>\n\n`;
+      subHeaderText = `🔔 通知ロール: <@&${selectedNotificationRole}>`;
     }
     
     const panelColorForAccent = normalizeHex(panelColor, guildSettings.defaultColor && /^[0-9A-Fa-f]{6}$/.test(guildSettings.defaultColor) ? guildSettings.defaultColor : '000000');
     const accentColor = /^[0-9A-Fa-f]{6}$/.test(panelColorForAccent) ? parseInt(panelColorForAccent, 16) : 0x000000;
     
-    // 通知ロールを含めた完全なテキスト
-    const fullText = notificationText + participantText;
-    
     const configuredNotificationRoleIds = buildConfiguredNotificationRoleIds(guildSettings);
-    const container = buildContainer({ headerTitle: `${user.username}さんの募集`, participantText: fullText, recruitIdText: '(送信後決定)', accentColor, imageAttachmentName: 'attachment://recruit-card.png', recruiterId: interaction.user.id, requesterId: interaction.user.id });
+    const container = buildContainer({ 
+      headerTitle: `${user.username}さんの募集`, 
+      subHeaderText, 
+      participantText, 
+      recruitIdText: '(送信後決定)', 
+      accentColor, 
+      imageAttachmentName: 'attachment://recruit-card.png', 
+      recruiterId: interaction.user.id, 
+      requesterId: interaction.user.id 
+    });
     const followUpMessage = await sendAnnouncements(interaction, selectedNotificationRole, configuredNotificationRoleIds, image, container, guildSettings);
     try { await safeReply(interaction, { content: '募集を作成しました。', flags: MessageFlags.Ephemeral }); } catch (e) { console.warn('safeReply failed (non-fatal):', e?.message || e); }
     // 送信後の保存とUI更新
     try {
-      await finalizePersistAndEdit({ interaction, recruitDataObj, guildSettings, user, participantText: fullText, followUpMessage, currentParticipants });
+      await finalizePersistAndEdit({ interaction, recruitDataObj, guildSettings, user, participantText, subHeaderText, followUpMessage, currentParticipants });
     } catch (error) { console.error('メッセージ取得エラー:', error); }
   } catch (error) {
     console.error('handleModalSubmit error:', error);
