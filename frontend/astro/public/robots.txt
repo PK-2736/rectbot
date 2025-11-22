@@ -1,7 +1,4 @@
-# Recrubo - robots.txt
-
-User-agent: *
-Allow: /
-Disallow: /api/
+# This file is managed by Cloudflare
+# AI training bots are automatically blocked by Cloudflare
 
 Sitemap: https://recrubo.net/sitemap.xml

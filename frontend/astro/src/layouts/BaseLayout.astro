@@ -23,9 +23,15 @@ const ogImageUrl = `${siteUrl}/logo.png`; // OGP画像（検索スニペット�
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     
-    <!-- Favicon - 最優先で読み込み -->
-    <link rel="icon" href="/favicon.ico" sizes="32x32" />
-    <link rel="icon" href="/logo.png" type="image/png" />
+    <!-- Favicon - 検索結果とブラウザタブ用 -->
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon.ico" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon.ico" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/logo.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/logo.png" />
+    <link rel="apple-touch-icon" href="/favicon.ico" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/logo.png" />
     
     <title>{title}</title>
     <meta name="description" content={description} />
@@ -159,24 +165,16 @@ const ogImageUrl = `${siteUrl}/logo.png`; // OGP画像（検索スニペット�
     <meta itemprop="image" content={ogImageUrl} />
     
   <!-- Favicon & Icons -->
-    
-  <!-- Favicon & Icons (検索結果のアイコン表示用) -->
-  <link rel="icon" href="/favicon.ico" sizes="any" />
-  <link rel="icon" href="/logo.png" type="image/png" sizes="1024x1024" />
-  <link rel="apple-touch-icon" href="/logo.png" />
-  <link rel="shortcut icon" href="/favicon.ico" />
-  
-  <!-- Additional icon sizes for various platforms -->
+  <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+  <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon.ico" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.ico" />
   <link rel="icon" type="image/png" sizes="192x192" href="/logo.png" />
   <link rel="icon" type="image/png" sizes="512x512" href="/logo.png" />
+  <link rel="icon" type="image/png" sizes="1024x1024" href="/logo.png" />
   <link rel="apple-touch-icon" sizes="180x180" href="/logo.png" />
-  <link rel="apple-touch-icon" sizes="152x152" href="/logo.png" />
-  <link rel="apple-touch-icon" sizes="120x120" href="/logo.png" />
-  <link rel="apple-touch-icon" sizes="76x76" href="/logo.png" />
   <meta name="msapplication-TileImage" content="/logo.png" />
   <meta name="msapplication-TileColor" content="#ff7e42" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Recrubo" />
     
     <!-- PWA Manifest -->
