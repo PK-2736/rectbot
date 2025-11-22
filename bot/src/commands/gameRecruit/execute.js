@@ -1,4 +1,4 @@
-const { MessageFlags, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, LabelBuilder, UserSelectMenuBuilder, RoleSelectMenuBuilder } = require('discord.js');
+const { MessageFlags, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, LabelBuilder, UserSelectMenuBuilder, RoleSelectMenuBuilder, StringSelectMenuBuilder } = require('discord.js');
 const { pendingModalOptions } = require('./state');
 const { safeReply } = require('../../utils/safeReply');
 const { listRecruitsFromRedis, getCooldownRemaining } = require('../../utils/db');
@@ -198,7 +198,7 @@ async function execute(interaction) {
           .setMaxValues(15)
       );
 
-    // 通知ロール選択 (RoleSelectMenu) - 設定されたロールのみ
+    // 通知ロール選択 (StringSelectMenu) - 設定されたロールのみを選択肢に
     const configuredNotificationRoleIds = (() => {
       const roles = [];
       if (Array.isArray(guildSettings.notification_roles)) roles.push(...guildSettings.notification_roles.filter(Boolean));
@@ -210,18 +210,43 @@ async function execute(interaction) {
 
     // 通知ロールが設定されている場合のみ追加
     if (configuredNotificationRoleIds.length > 0) {
-      const notificationRoleSelect = new LabelBuilder()
-        .setLabel('通知ロール（任意）')
-        .setRoleSelectMenuComponent(
-          new RoleSelectMenuBuilder()
-            .setCustomId('notificationRole')
-            .setPlaceholder('通知するロールを選択')
-            .setRequired(false)
-            .setMinValues(0)
-            .setMaxValues(1)
-            // setDefaultRolesは使用しない（選択可能なロールを制限するにはモーダル送信後にバリデーション）
-        );
-      modalComponents.push(notificationRoleSelect);
+      // ロール情報を取得して選択肢を作成
+      const roleOptions = [];
+      for (const roleId of configuredNotificationRoleIds.slice(0, 25)) {
+        try {
+          const role = await interaction.guild.roles.fetch(roleId);
+          if (role) {
+            roleOptions.push({
+              label: role.name.slice(0, 100),
+              value: roleId,
+              description: `通知ロール: ${role.name}`.slice(0, 100)
+            });
+          }
+        } catch (e) {
+          console.warn('[gameRecruit.execute] failed to fetch role:', roleId, e?.message);
+        }
+      }
+
+      // 「通知なし」オプションを追加
+      roleOptions.push({
+        label: '通知ロールなし',
+        value: 'none',
+        description: '通知ロールを使用せずに募集します'
+      });
+
+      if (roleOptions.length > 0) {
+        const notificationRoleSelect = new LabelBuilder()
+          .setLabel('通知ロール（任意）')
+          .setStringSelectMenuComponent(
+            new StringSelectMenuBuilder()
+              .setCustomId('notificationRole')
+              .setPlaceholder('通知するロールを選択')
+              .setMinValues(0)
+              .setMaxValues(1)
+              .addOptions(roleOptions)
+          );
+        modalComponents.push(notificationRoleSelect);
+      }
     }
 
     modal.addComponents(...modalComponents);

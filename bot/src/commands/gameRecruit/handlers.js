@@ -467,19 +467,20 @@ async function handleModalSubmit(interaction) {
       existingMembers = [];
     }
 
-    // 通知ロールの取得（モーダル内のRoleSelectMenuから）
+    // 通知ロールの取得（モーダル内のStringSelectMenuから）
     let selectedNotificationRole = null;
     try {
-      const selectedRoles = interaction.fields.getSelectedRoles('notificationRole');
-      if (selectedRoles && selectedRoles.size > 0) {
-        const roleId = Array.from(selectedRoles.keys())[0];
-        // 設定されたロールのみ許可
-        const configuredNotificationRoleIds = buildConfiguredNotificationRoleIds(guildSettings);
-        if (configuredNotificationRoleIds.includes(roleId)) {
+      const values = interaction.fields.getStringSelectValues('notificationRole');
+      if (values && values.length > 0) {
+        const roleId = values[0];
+        if (roleId === 'none') {
+          // 「通知なし」が選択された
+          selectedNotificationRole = null;
+          console.log('[handleModalSubmit] no notification role selected (user chose none)');
+        } else {
+          // ロールIDが選択された（StringSelectMenuなので設定済みロールのみが選択肢）
           selectedNotificationRole = roleId;
           console.log('[handleModalSubmit] notificationRole selected from modal:', selectedNotificationRole);
-        } else {
-          console.warn('[handleModalSubmit] selected role not in configured list:', roleId);
         }
       }
     } catch (e) {
