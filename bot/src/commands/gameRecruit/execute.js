@@ -1,4 +1,5 @@
-const { MessageFlags, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, UserSelectMenuBuilder } = require('discord.js');
+const { MessageFlags, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
+const { UserSelectMenuBuilder } = require('@discordjs/builders');
 const { pendingModalOptions } = require('./state');
 const { safeReply } = require('../../utils/safeReply');
 const { listRecruitsFromRedis, getCooldownRemaining } = require('../../utils/db');
@@ -185,7 +186,7 @@ async function execute(interaction) {
     // 既存参加者選択 (UserSelectMenu)
     const existingMembersSelect = new UserSelectMenuBuilder()
       .setCustomId('existingMembers')
-      .setPlaceholder('既存参加者を選択（任意・スキップ可）')
+      .setPlaceholder('既存参加者を選択（任意）')
       .setMinValues(0)
       .setMaxValues(15);
 
