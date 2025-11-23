@@ -198,9 +198,21 @@ async function execute(interaction) {
       default: true
     });
 
+    // @everyone と @here を追加
+    roleOptions.push({
+      label: '@everyone',
+      value: 'everyone',
+      description: 'サーバー全員に通知'
+    });
+    roleOptions.push({
+      label: '@here',
+      value: 'here',
+      description: 'オンライン中のメンバーに通知'
+    });
+
     // 設定されたロールがある場合のみロール情報を追加
     if (configuredNotificationRoleIds.length > 0) {
-      for (const roleId of configuredNotificationRoleIds.slice(0, 24)) {
+      for (const roleId of configuredNotificationRoleIds.slice(0, 22)) { // @everyone, @here分を考慮して22に
         try {
           const role = await interaction.guild.roles.fetch(roleId);
           if (role) {

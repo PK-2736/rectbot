@@ -164,7 +164,16 @@ async function selectNotificationRole(interaction, configuredIds) {
 async function sendAnnouncements(interaction, selectedNotificationRole, configuredIds, image, container, guildSettings) {
   const shouldUseDefaultNotification = !selectedNotificationRole && configuredIds.length === 0;
   if (selectedNotificationRole) {
-    (async () => { try { await interaction.channel.send({ content: `新しい募集が作成されました。<@&${selectedNotificationRole}>`, allowedMentions: { roles: [selectedNotificationRole] } }); } catch (e) { console.warn('通知送信失敗 (selected)', e?.message || e); } })();
+    if (selectedNotificationRole === 'everyone') {
+      // @everyone の場合
+      (async () => { try { await interaction.channel.send({ content: '新しい募集が作成されました。@everyone', allowedMentions: { parse: ['everyone'] } }); } catch (e) { console.warn('通知送信失敗 (@everyone)', e?.message || e); } })();
+    } else if (selectedNotificationRole === 'here') {
+      // @here の場合
+      (async () => { try { await interaction.channel.send({ content: '新しい募集が作成されました。@here', allowedMentions: { parse: ['everyone'] } }); } catch (e) { console.warn('通知送信失敗 (@here)', e?.message || e); } })();
+    } else {
+      // 通常のロールの場合
+      (async () => { try { await interaction.channel.send({ content: `新しい募集が作成されました。<@&${selectedNotificationRole}>`, allowedMentions: { roles: [selectedNotificationRole] } }); } catch (e) { console.warn('通知送信失敗 (selected)', e?.message || e); } })();
+    }
   } else if (shouldUseDefaultNotification) {
     (async () => { try { await interaction.channel.send({ content: '新しい募集が作成されました。<@&1416797165769986161>', allowedMentions: { roles: ['1416797165769986161'] } }); } catch (e) { console.warn('通知送信失敗 (default)', e?.message || e); } })();
   }
@@ -178,7 +187,13 @@ async function sendAnnouncements(interaction, selectedNotificationRole, configur
       const recruitChannel = await interaction.guild.channels.fetch(guildSettings.recruit_channel);
       if (recruitChannel && recruitChannel.isTextBased()) {
         if (selectedNotificationRole) {
-          (async () => { try { await recruitChannel.send({ content: `新しい募集が作成されました。<@&${selectedNotificationRole}>`, allowedMentions: { roles: [selectedNotificationRole] } }); } catch (e) { console.warn('通知送信失敗 (指定ch, selected):', e?.message || e); } })();
+          if (selectedNotificationRole === 'everyone') {
+            (async () => { try { await recruitChannel.send({ content: '新しい募集が作成されました。@everyone', allowedMentions: { parse: ['everyone'] } }); } catch (e) { console.warn('通知送信失敗 (指定ch, @everyone):', e?.message || e); } })();
+          } else if (selectedNotificationRole === 'here') {
+            (async () => { try { await recruitChannel.send({ content: '新しい募集が作成されました。@here', allowedMentions: { parse: ['everyone'] } }); } catch (e) { console.warn('通知送信失敗 (指定ch, @here):', e?.message || e); } })();
+          } else {
+            (async () => { try { await recruitChannel.send({ content: `新しい募集が作成されました。<@&${selectedNotificationRole}>`, allowedMentions: { roles: [selectedNotificationRole] } }); } catch (e) { console.warn('通知送信失敗 (指定ch, selected):', e?.message || e); } })();
+          }
         } else if (shouldUseDefaultNotification) {
           (async () => { try { await recruitChannel.send({ content: '新しい募集が作成されました。<@&1416797165769986161>', allowedMentions: { roles: ['1416797165769986161'] } }); } catch (e) { console.warn('通知送信失敗 (指定ch, default):', e?.message || e); } })();
         }
@@ -486,6 +501,10 @@ async function handleModalSubmit(interaction) {
           // 「通知なし」が選択された
           selectedNotificationRole = null;
           console.log('[handleModalSubmit] no notification role selected (user chose none)');
+        } else if (roleId === 'everyone' || roleId === 'here') {
+          // @everyone または @here が選択された
+          selectedNotificationRole = roleId;
+          console.log('[handleModalSubmit] special notification role selected:', roleId);
         } else {
           // ロールIDが選択された（StringSelectMenuなので設定済みロールのみが選択肢）
           selectedNotificationRole = roleId;
@@ -531,7 +550,13 @@ async function handleModalSubmit(interaction) {
     // 通知ロールをヘッダーの下（subHeaderText）に表示
     let subHeaderText = null;
     if (selectedNotificationRole) {
-      subHeaderText = `🔔 通知ロール: <@&${selectedNotificationRole}>`;
+      if (selectedNotificationRole === 'everyone') {
+        subHeaderText = '🔔 通知ロール: @everyone';
+      } else if (selectedNotificationRole === 'here') {
+        subHeaderText = '🔔 通知ロール: @here';
+      } else {
+        subHeaderText = `🔔 通知ロール: <@&${selectedNotificationRole}>`;
+      }
     }
     
     const panelColorForAccent = normalizeHex(panelColor, guildSettings.defaultColor && /^[0-9A-Fa-f]{6}$/.test(guildSettings.defaultColor) ? guildSettings.defaultColor : '000000');
