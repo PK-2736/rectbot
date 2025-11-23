@@ -37,6 +37,7 @@ module.exports = {
   // Guild settings (Redis + Worker finalize)
   saveGuildSettingsToRedis,
   getGuildSettingsFromRedis,
+  getGuildSettingsSmart,
   finalizeGuildSettings,
   getGuildSettings: getGuildSettingsSmart,
   // Participants

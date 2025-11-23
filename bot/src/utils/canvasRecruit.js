@@ -365,7 +365,28 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
   const infoItems = [
     { label: '人数：', value: `${participantIds.length}/${recruitData.participants || 4}人` },
     { label: '時間：', value: recruitData.startTime || '指定なし' },
-    { label: '通話：', value: recruitData.vc || '指定なし' }
+    { 
+      label: '通話：', 
+      value: (() => {
+        // 通話有無の判定
+        const hasVoice = recruitData.vc === 'あり' || recruitData.vc === true;
+        const noVoice = recruitData.vc === 'なし' || recruitData.vc === false;
+        
+        if (hasVoice) {
+          // 通話ありの場合、チャンネル名があれば表示
+          if (recruitData.voiceChannelName) {
+            return `あり/${recruitData.voiceChannelName}`;
+          } else if (recruitData.voicePlace) {
+            return `あり/${recruitData.voicePlace}`;
+          }
+          return 'あり';
+        } else if (noVoice) {
+          return 'なし';
+        }
+        // 指定なしの場合
+        return '指定なし';
+      })()
+    }
   ];
   
   // 各情報を縦に並べて表示

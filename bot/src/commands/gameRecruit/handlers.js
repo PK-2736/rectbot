@@ -519,6 +519,19 @@ async function handleModalSubmit(interaction) {
     const pendingData = pendingModalOptions.get(interaction.user.id);
     console.log('[handleModalSubmit] pendingData:', pendingData);
     
+    // 通話場所のチャンネル名を取得
+    let voiceChannelName = null;
+    if (pendingData?.voiceChannelId) {
+      try {
+        const voiceChannel = await interaction.guild.channels.fetch(pendingData.voiceChannelId);
+        if (voiceChannel) {
+          voiceChannelName = voiceChannel.name;
+        }
+      } catch (e) {
+        console.warn('Failed to fetch voice channel:', e?.message || e);
+      }
+    }
+    
     const recruitDataObj = {
       title: (pendingData?.title && pendingData.title.trim().length > 0) ? pendingData.title : '参加者募集',
       content: interaction.fields.getTextInputValue('content'),
@@ -529,6 +542,7 @@ async function handleModalSubmit(interaction) {
         : '',
       voicePlace: pendingData?.voicePlace,
       voiceChannelId: pendingData?.voiceChannelId,
+      voiceChannelName: voiceChannelName,
       recruiterId: interaction.user.id,
       recruitId: '',
       panelColor
