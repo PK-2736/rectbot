@@ -105,11 +105,6 @@ module.exports = {
           { name: '黒', value: '000000' },
           { name: 'グレー', value: '808080' }
         )
-    )
-    .addRoleOption(option =>
-      option.setName('通知ロール')
-        .setDescription('募集作成時に通知するロール（任意）')
-        .setRequired(false)
     ),
   async execute(interaction) {
     // Delegate to extracted handler

@@ -101,26 +101,6 @@ async function execute(interaction) {
     // 色オプション（既存互換）
     let selectedColor = interaction.options.getString('色') || undefined;
 
-    // 通知ロール（任意）を一旦バリデーション（設定済みロールのみ可）
-    const selectedRoleObj = interaction.options.getRole('通知ロール');
-    let selectedRoleId = selectedRoleObj ? String(selectedRoleObj.id) : null;
-    if (selectedRoleId) {
-      const configuredNotificationRoleIds = (() => {
-        const roles = [];
-        if (Array.isArray(guildSettings.notification_roles)) roles.push(...guildSettings.notification_roles.filter(Boolean));
-        if (guildSettings.notification_role) roles.push(guildSettings.notification_role);
-        return [...new Set(roles.map(String))].slice(0, 25);
-      })();
-      if (configuredNotificationRoleIds.length === 0 || !configuredNotificationRoleIds.includes(selectedRoleId)) {
-        await safeReply(interaction, {
-          content: '❌ このロールを付けて募集を実行することはできません。サーバーの「通知ロール」に登録されているロールのみ指定できます。',
-          flags: MessageFlags.Ephemeral,
-          allowedMentions: { roles: [], users: [] }
-        });
-        return;
-      }
-    }
-
     // 入力バリデーション: 開始時間
     const hhmm = /^\s*(\d{1,2}):(\d{2})\s*$/;
     if (!hhmm.test(String(startArg))) {
@@ -156,7 +136,6 @@ async function execute(interaction) {
         pendingModalOptions.set(interaction.user.id, {
           ...prev,
           panelColor: selectedColor,
-          notificationRoleId: selectedRoleId,
           title: titleArg,
           participants: membersArg,
           startTime: startArg, // 表示用
