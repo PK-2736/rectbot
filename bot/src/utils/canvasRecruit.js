@@ -407,7 +407,9 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
   ctx.shadowOffsetX = 2;
   ctx.shadowOffsetY = 2;
 
-  return canvas.toBuffer('image/png');
+  // PNG圧縮レベルを最低に設定（高画質優先）
+  // compressionLevel: 0 = 圧縮なし（最高画質）、9 = 最大圧縮（最低画質）
+  return canvas.toBuffer('image/png', { compressionLevel: 3, filters: canvas.PNG_FILTER_NONE });
 }
 
 module.exports = { generateRecruitCard };
