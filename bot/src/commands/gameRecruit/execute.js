@@ -144,6 +144,13 @@ async function execute(interaction) {
           voicePlace: voicePlaceArg,
           voiceChannelId: voiceChannelId
         });
+        console.log('[gameRecruit.execute] saved to pendingModalOptions:', {
+          userId: interaction.user.id,
+          title: titleArg,
+          participants: membersArg,
+          startTime: startArg,
+          panelColor: selectedColor
+        });
       }
     } catch (e) {
       console.warn('pendingModalOptions set failed:', e?.message || e);

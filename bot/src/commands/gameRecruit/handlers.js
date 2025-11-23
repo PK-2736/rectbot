@@ -516,20 +516,24 @@ async function handleModalSubmit(interaction) {
       selectedNotificationRole = null;
     }
 
+    const pendingData = pendingModalOptions.get(interaction.user.id);
+    console.log('[handleModalSubmit] pendingData:', pendingData);
+    
     const recruitDataObj = {
-      title: (pendingModalOptions.get(interaction.user.id)?.title) || '',
+      title: (pendingData?.title && pendingData.title.trim().length > 0) ? pendingData.title : '参加者募集',
       content: interaction.fields.getTextInputValue('content'),
-      participants: participantsNum || (pendingModalOptions.get(interaction.user.id)?.participants) || 1,
-      startTime: (pendingModalOptions.get(interaction.user.id)?.startTime) || '',
-      vc: (pendingModalOptions.get(interaction.user.id)?.voice !== null) 
-        ? (pendingModalOptions.get(interaction.user.id)?.voice ? 'あり' : 'なし') 
+      participants: participantsNum || pendingData?.participants || 1,
+      startTime: pendingData?.startTime || '',
+      vc: (pendingData?.voice !== null && pendingData?.voice !== undefined) 
+        ? (pendingData.voice ? 'あり' : 'なし') 
         : '',
-      voicePlace: pendingModalOptions.get(interaction.user.id)?.voicePlace,
-      voiceChannelId: pendingModalOptions.get(interaction.user.id)?.voiceChannelId,
+      voicePlace: pendingData?.voicePlace,
+      voiceChannelId: pendingData?.voiceChannelId,
       recruiterId: interaction.user.id,
       recruitId: '',
       panelColor
     };
+    console.log('[handleModalSubmit] recruitDataObj.title:', recruitDataObj.title, 'from pending.title:', pendingData?.title);
     // 通知ロールをrecruitDataObjに追加
     recruitDataObj.notificationRoleId = selectedNotificationRole;
 
@@ -544,7 +548,7 @@ async function handleModalSubmit(interaction) {
     
     // 参加リストテキストの構築（既存参加者を含む、改行なし、残り人数表示）
     const remainingSlots = participantsNum - currentParticipants.length;
-    let participantText = `📋 参加リスト (あと${remainingSlots}人)\n`;
+    let participantText = `📋 参加リスト (あと${remainingSlots}人)\n> `;
     participantText += currentParticipants.map(id => `<@${id}>`).join(' ');
     
     // 通知ロールをヘッダーの下（subHeaderText）に表示
