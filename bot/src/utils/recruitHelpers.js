@@ -10,7 +10,7 @@ function buildContainer({ headerTitle = '募集', participantText = '', recruitI
   const container = new ContainerBuilder();
   container.setAccentColor(typeof accentColor === 'number' ? accentColor : parseInt(String(accentColor), 16) || 0x000000);
   container.addTextDisplayComponents(
-    new TextDisplayBuilder().setContent(`🎮 **${headerTitle}**`)
+    new TextDisplayBuilder().setContent(`# 🎮 ${headerTitle}`)
   );
   if (subHeaderText && String(subHeaderText).trim().length > 0) {
     // ヘッダー直下に通知ロールを表示（区切り線は入れない）
