@@ -78,7 +78,7 @@ function resolvePanelColor(interaction, guildSettings) {
     const pending = interaction.user && interaction.user.id ? pendingModalOptions.get(interaction.user.id) : null;
     if (pending && typeof pending.panelColor === 'string' && pending.panelColor.length > 0) {
       panelColor = pending.panelColor;
-      pendingModalOptions.delete(interaction.user.id);
+      // pendingModalOptions.delete(interaction.user.id); // ここでは削除しない（後で削除）
     } else if (typeof interaction.recruitPanelColor === 'string' && interaction.recruitPanelColor.length > 0) {
       panelColor = interaction.recruitPanelColor;
     } else if (guildSettings.defaultColor) {
@@ -534,6 +534,13 @@ async function handleModalSubmit(interaction) {
       panelColor
     };
     console.log('[handleModalSubmit] recruitDataObj.title:', recruitDataObj.title, 'from pending.title:', pendingData?.title);
+    
+    // pendingModalOptionsを削除（全データ取得済み）
+    if (interaction.user && interaction.user.id) {
+      pendingModalOptions.delete(interaction.user.id);
+      console.log('[handleModalSubmit] cleared pendingModalOptions for user:', interaction.user.id);
+    }
+    
     // 通知ロールをrecruitDataObjに追加
     recruitDataObj.notificationRoleId = selectedNotificationRole;
 
