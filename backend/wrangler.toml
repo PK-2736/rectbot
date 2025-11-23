@@ -33,9 +33,12 @@ DISCORD_REDIRECT_URI = "https://app.recrubo.net/auth/callback"
 PUBLIC_RECAPTCHA_SITE_KEY = "placeholder"
 ADMIN_DISCORD_ID = "placeholder"
 VPS_EXPRESS_URL = "http://localhost:3001"
+# SUPABASE_URL は公開可能なURLなので [vars] セクションに追加
+# デプロイ時に --var SUPABASE_URL=... で上書きされます
+SUPABASE_URL = "placeholder"
 # シークレットは wrangler secret put コマンドで設定されます:
 # - DISCORD_CLIENT_SECRET
-# - SUPABASE_SERVICE_ROLE_KEY
+# - SUPABASE_SERVICE_ROLE_KEY (機密情報なのでsecretとして設定)
 # - JWT_SECRET
 # - SERVICE_TOKEN
 # - SENTRY_DSN
@@ -44,3 +47,4 @@ VPS_EXPRESS_URL = "http://localhost:3001"
 # - RECAPTCHA_SECRET
 # - MAILCHANNELS_API_KEY
 # - GRAFANA_TOKEN
+# 注意: SUPABASE_URLはsecretではなく [vars] で設定されます（公開URL）
