@@ -74,19 +74,7 @@ module.exports = {
         .setDescription('開始時間（必須）例: 21:00（24時間表記）')
         .setRequired(true)
     )
-    // 任意: 通話の有無（true/false）
-    .addBooleanOption(option =>
-      option.setName('通話有無')
-        .setDescription('通話の有無（任意）')
-        .setRequired(false)
-    )
-    // 任意: 通話場所（サーバーのボイスチャンネル）
-    .addChannelOption(option =>
-      option.setName('通話場所')
-        .setDescription('通話で使うボイスチャンネル（任意）')
-        .addChannelTypes(2, 13) // GuildVoice=2, GuildStageVoice=13
-        .setRequired(false)
-    )
+    // 任意: 色
     .addStringOption(option =>
       option.setName('色')
         .setDescription('募集パネルの色を選択（任意）')
@@ -105,6 +93,19 @@ module.exports = {
           { name: '黒', value: '000000' },
           { name: 'グレー', value: '808080' }
         )
+    )
+    // 任意: 通話の有無（true/false）
+    .addBooleanOption(option =>
+      option.setName('通話有無')
+        .setDescription('通話の有無（任意）')
+        .setRequired(false)
+    )
+    // 任意: 通話場所（サーバーのボイスチャンネル）
+    .addChannelOption(option =>
+      option.setName('通話場所')
+        .setDescription('通話で使うボイスチャンネル（任意）')
+        .addChannelTypes(2, 13) // GuildVoice=2, GuildStageVoice=13
+        .setRequired(false)
     ),
   async execute(interaction) {
     // Delegate to extracted handler

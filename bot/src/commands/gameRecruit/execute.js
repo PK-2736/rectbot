@@ -153,19 +153,7 @@ async function execute(interaction) {
     console.log('[gameRecruit.execute] showing modal for user:', interaction.user?.id);
     const modal = new ModalBuilder().setCustomId('recruitModal').setTitle('🎮 募集内容入力');
     
-    // 募集内容のテキスト入力
-    const contentInput = new LabelBuilder()
-      .setLabel('募集内容')
-      .setTextInputComponent(
-        new TextInputBuilder()
-          .setCustomId('content')
-          .setPlaceholder('例: ガチエリア / 初心者歓迎 / 2時間')
-          .setStyle(TextInputStyle.Paragraph)
-          .setRequired(true)
-          .setMaxLength(1000)
-      );
-
-    // 既存参加者選択 (UserSelectMenu) - botを除外
+    // 既存参加者選択 (UserSelectMenu) - デフォルトで募集開始者を含む
     const existingMembersSelect = new LabelBuilder()
       .setLabel('既存参加者（任意）')
       .setUserSelectMenuComponent(
@@ -175,6 +163,7 @@ async function execute(interaction) {
           .setRequired(false)
           .setMinValues(0)
           .setMaxValues(15)
+          .setDefaultUsers([interaction.user.id]) // デフォルトで募集開始者を選択
       );
 
     // 通知ロール選択 (StringSelectMenu) - 設定されたロールのみを選択肢に
@@ -184,8 +173,6 @@ async function execute(interaction) {
       if (guildSettings.notification_role) roles.push(guildSettings.notification_role);
       return [...new Set(roles.map(String))].filter(Boolean);
     })();
-
-    const modalComponents = [contentInput, existingMembersSelect];
 
     // 通知ロール選択メニューを常に追加（設定なしの場合は「通知なし」のみ）
     const roleOptions = [];
@@ -239,7 +226,21 @@ async function execute(interaction) {
           .setMaxValues(1)
           .addOptions(roleOptions)
       );
-    modalComponents.push(notificationRoleSelect);
+
+    // 募集内容のテキスト入力
+    const contentInput = new LabelBuilder()
+      .setLabel('募集内容')
+      .setTextInputComponent(
+        new TextInputBuilder()
+          .setCustomId('content')
+          .setPlaceholder('例: ガチエリア / 初心者歓迎 / 2時間')
+          .setStyle(TextInputStyle.Paragraph)
+          .setRequired(true)
+          .setMaxLength(1000)
+      );
+
+    // モーダルコンポーネントの順番: 既存参加者 → 通知ロール → 募集内容
+    const modalComponents = [existingMembersSelect, notificationRoleSelect, contentInput];
 
     modal.addComponents(...modalComponents);
 

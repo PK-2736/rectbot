@@ -544,7 +544,7 @@ async function handleModalSubmit(interaction) {
     
     // 参加リストテキストの構築（既存参加者を含む、改行なし、残り人数表示）
     const remainingSlots = participantsNum - currentParticipants.length;
-    let participantText = `🎯✨ 参加リスト (あと${remainingSlots}人) ✨🎯\n`;
+    let participantText = `📋 参加リスト (あと${remainingSlots}人)\n`;
     participantText += currentParticipants.map(id => `<@${id}>`).join(' ');
     
     // 通知ロールをヘッダーの下（subHeaderText）に表示
