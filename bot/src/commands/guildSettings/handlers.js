@@ -4,7 +4,7 @@ const {
   MessageFlags,
 } = require('discord.js');
 
-const { saveGuildSettingsToRedis, getGuildSettingsFromRedis, finalizeGuildSettings } = require('../../utils/db');
+const { saveGuildSettingsToRedis, getGuildSettingsFromRedis, getGuildSettingsSmart, finalizeGuildSettings } = require('../../utils/db');
 const { safeReply } = require('../../utils/safeReply');
 const {
   showSettingsUI,
@@ -19,7 +19,7 @@ async function execute(interaction) {
     if (!interaction.guild || !interaction.member || !interaction.member.permissions?.has(PermissionFlagsBits.Administrator)) {
       return await safeReply(interaction, { content: '❌ この機能を使用するには「管理者」権限が必要です。', flags: MessageFlags.Ephemeral });
     }
-    const currentSettings = await getGuildSettingsFromRedis(interaction.guildId);
+    const currentSettings = await getGuildSettingsSmart(interaction.guildId);
     await showSettingsUI(interaction, currentSettings);
   } catch (error) {
     console.error('Guild settings command error:', error);

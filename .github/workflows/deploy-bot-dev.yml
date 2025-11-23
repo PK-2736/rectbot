@@ -50,7 +50,7 @@ jobs:
           SERVICE_TOKEN_DEV: ${{ secrets.SERVICE_TOKEN_DEV }}
           DISCORD_BOT_TOKEN_DEV: ${{ secrets.DISCORD_BOT_TOKEN_DEV }}
           DISCORD_CLIENT_ID_DEV: ${{ secrets.DISCORD_CLIENT_ID_DEV }}
-          BACKEND_API_URL_DEV: ${{ secrets.BACKEND_API_URL }}
+          BACKEND_API_URL_DEV: ${{ secrets.BACKEND_API_URL_DEV }}
           REDIS_HOST_DEV: ${{ secrets.REDIS_HOST_DEV }}
           REDIS_PORT_DEV: ${{ secrets.REDIS_PORT_DEV }}
           INTERNAL_SECRET_DEV: ${{ secrets.INTERNAL_SECRET_DEV }}
