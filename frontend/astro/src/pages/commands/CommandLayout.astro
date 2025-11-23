@@ -1,18 +1,23 @@
 ---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+
 export interface Props {
   title?: string;
+  description?: string;
 }
-const { title = "コマンド説明" } = Astro.props;
+const { title = "コマンド説明", description = "Recruboのコマンド使用方法と機能説明。Discordでゲーム募集やフレンドコード管理をスムーズに行うための詳しいガイド。" } = Astro.props;
 ---
-<section class="py-16 sm:py-20 bg-gradient-to-br from-brand-50 via-white to-rose-50">
-  <div class="container max-w-2xl mx-auto">
-    <div class="bg-white rounded-2xl shadow-sm hover:shadow-md transition-shadow p-8 border border-brand-100">
-      <h1 class="text-3xl md:text-4xl font-bold mb-4 text-center bg-gradient-to-r from-brand-500 to-accent-500 text-transparent bg-clip-text">
-        {title}
-      </h1>
-      <div class="prose prose-slate max-w-none">
-        <slot />
+<BaseLayout title={`${title} - Recrubo`} description={description}>
+  <section class="py-16 sm:py-20 bg-gradient-to-br from-brand-50 via-white to-rose-50">
+    <div class="container max-w-2xl mx-auto">
+      <div class="bg-white rounded-2xl shadow-sm hover:shadow-md transition-shadow p-8 border border-brand-100">
+        <h1 class="text-3xl md:text-4xl font-bold mb-4 text-center bg-gradient-to-r from-brand-500 to-accent-500 text-transparent bg-clip-text">
+          {title}
+        </h1>
+        <div class="prose prose-slate max-w-none">
+          <slot />
+        </div>
       </div>
     </div>
-  </div>
-</section>
+  </section>
+</BaseLayout>
