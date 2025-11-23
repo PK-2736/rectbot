@@ -187,19 +187,19 @@ async function execute(interaction) {
 
     const modalComponents = [contentInput, existingMembersSelect];
 
-    // 通知ロールが設定されている場合のみ追加
-    if (configuredNotificationRoleIds.length > 0) {
-      // ロール情報を取得して選択肢を作成
-      const roleOptions = [];
-      
-      // 「通知なし」オプションを最初に追加
-      roleOptions.push({
-        label: '通知ロールなし',
-        value: 'none',
-        description: '通知ロールを使用せずに募集します',
-        default: true
-      });
+    // 通知ロール選択メニューを常に追加（設定なしの場合は「通知なし」のみ）
+    const roleOptions = [];
+    
+    // 「通知なし」オプションを最初に追加
+    roleOptions.push({
+      label: '通知ロールなし',
+      value: 'none',
+      description: '通知ロールを使用せずに募集します',
+      default: true
+    });
 
+    // 設定されたロールがある場合のみロール情報を追加
+    if (configuredNotificationRoleIds.length > 0) {
       for (const roleId of configuredNotificationRoleIds.slice(0, 24)) {
         try {
           const role = await interaction.guild.roles.fetch(roleId);
@@ -214,21 +214,20 @@ async function execute(interaction) {
           console.warn('[gameRecruit.execute] failed to fetch role:', roleId, e?.message);
         }
       }
-
-      if (roleOptions.length > 0) {
-        const notificationRoleSelect = new LabelBuilder()
-          .setLabel('通知ロール（任意）')
-          .setStringSelectMenuComponent(
-            new StringSelectMenuBuilder()
-              .setCustomId('notificationRole')
-              .setPlaceholder('通知するロールを選択')
-              .setMinValues(1)
-              .setMaxValues(1)
-              .addOptions(roleOptions)
-          );
-        modalComponents.push(notificationRoleSelect);
-      }
     }
+
+    // 通知ロール選択メニューを常に追加
+    const notificationRoleSelect = new LabelBuilder()
+      .setLabel('通知ロール（任意）')
+      .setStringSelectMenuComponent(
+        new StringSelectMenuBuilder()
+          .setCustomId('notificationRole')
+          .setPlaceholder('通知するロールを選択')
+          .setMinValues(1)
+          .setMaxValues(1)
+          .addOptions(roleOptions)
+      );
+    modalComponents.push(notificationRoleSelect);
 
     modal.addComponents(...modalComponents);
 
