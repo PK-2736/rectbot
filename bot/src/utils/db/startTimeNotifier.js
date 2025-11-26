@@ -89,9 +89,13 @@ async function checkAndNotifyStartTime(client) {
  */
 async function sendStartTimeNotification(client, recruit) {
   try {
-    const recruitId = recruit.recruitId || recruit.message_id?.slice(-8);
-    const messageId = recruit.message_id || recruit.messageId;
-    const { channelId, guildId, title, participants: maxParticipants, vc, voiceChannelId, voiceChannelName, startTime } = recruit;
+    const recruitId = recruit.recruitId || recruit.id;
+    const messageId = recruit.metadata?.messageId;
+    const channelId = recruit.metadata?.channelId;
+    const guildId = recruit.metadata?.guildId;
+    const title = recruit.title || recruit.game || '募集';
+    const vc = recruit.voice;
+    const startTime = recruit.startTime;
 
     console.log(`[StartTimeNotifier] Sending notification for recruit ${recruitId} in channel ${channelId}`);
 
@@ -112,6 +116,8 @@ async function sendStartTimeNotification(client, recruit) {
       : 'なし';
 
     // ボイスチャット情報
+    const voiceChannelId = recruit.metadata?.raw?.voiceChannelId;
+    const voiceChannelName = recruit.metadata?.raw?.voiceChannelName;
     let voiceInfo = 'なし';
     let voiceLink = '';
     if (vc) {
