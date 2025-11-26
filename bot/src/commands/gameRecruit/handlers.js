@@ -164,18 +164,6 @@ async function selectNotificationRole(interaction, configuredIds) {
 async function sendAnnouncements(interaction, selectedNotificationRole, configuredIds, image, container, guildSettings, user) {
   const shouldUseDefaultNotification = !selectedNotificationRole && configuredIds.length === 0;
   
-  // 通知ロール情報を構築
-  let notificationText = '';
-  if (selectedNotificationRole) {
-    if (selectedNotificationRole === 'everyone') {
-      notificationText = '🔔 通知ロール: @everyone';
-    } else if (selectedNotificationRole === 'here') {
-      notificationText = '🔔 通知ロール: @here';
-    } else {
-      notificationText = `🔔 通知ロール: <@&${selectedNotificationRole}>`;
-    }
-  }
-  
   // メンション用の通知メッセージを送信
   if (selectedNotificationRole) {
     if (selectedNotificationRole === 'everyone') {
@@ -189,25 +177,13 @@ async function sendAnnouncements(interaction, selectedNotificationRole, configur
     (async () => { try { await interaction.channel.send({ content: '新しい募集が作成されました。<@&1416797165769986161>', allowedMentions: { roles: ['1416797165769986161'] } }); } catch (e) { console.warn('通知送信失敗 (default)', e?.message || e); } })();
   }
 
-  // 募集画像の上にヘッダーテキストを表示
-  const headerContent = notificationText 
-    ? `**${user.username}さんの募集**\n${notificationText}`
-    : `**${user.username}さんの募集**`;
-
-  // 画像とUIの投稿 (contentが空でないことを保証)
-  const messagePayload = { 
+  // 画像とUIの投稿 (Components V2使用、通知ロール情報はcontainer内に含まれる)
+  const followUpMessage = await interaction.channel.send({ 
     files: [image], 
     components: [container], 
     flags: MessageFlags.IsComponentsV2, 
     allowedMentions: { roles: [], users: [] }
-  };
-  
-  // headerContentが有効な場合のみcontentを追加
-  if (headerContent && headerContent.trim()) {
-    messagePayload.content = headerContent;
-  }
-  
-  const followUpMessage = await interaction.channel.send(messagePayload);
+  });
 
   // 別チャンネルにも投稿
   if (guildSettings.recruit_channel && guildSettings.recruit_channel !== interaction.channelId) {
@@ -225,21 +201,16 @@ async function sendAnnouncements(interaction, selectedNotificationRole, configur
         } else if (shouldUseDefaultNotification) {
           (async () => { try { await recruitChannel.send({ content: '新しい募集が作成されました。<@&1416797165769986161>', allowedMentions: { roles: ['1416797165769986161'] } }); } catch (e) { console.warn('通知送信失敗 (指定ch, default):', e?.message || e); } })();
         }
+        
+        // 募集メッセージ投稿 (通知ロール情報はcontainer内に含まれる)
         (async () => { 
           try {
-            const recruitChannelPayload = { 
+            await recruitChannel.send({ 
               files: [image], 
               components: [container], 
               flags: MessageFlags.IsComponentsV2, 
               allowedMentions: { roles: [], users: [] }
-            };
-            
-            // headerContentが有効な場合のみcontentを追加
-            if (headerContent && headerContent.trim()) {
-              recruitChannelPayload.content = headerContent;
-            }
-            
-            await recruitChannel.send(recruitChannelPayload); 
+            }); 
           } catch (e) { console.warn('募集メッセージ送信失敗(指定ch):', e?.message || e); } 
         })();
       }
