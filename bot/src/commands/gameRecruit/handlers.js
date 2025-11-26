@@ -194,14 +194,20 @@ async function sendAnnouncements(interaction, selectedNotificationRole, configur
     ? `**${user.username}さんの募集**\n${notificationText}`
     : `**${user.username}さんの募集**`;
 
-  // 画像とUIの投稿
-  const followUpMessage = await interaction.channel.send({ 
-    content: headerContent,
+  // 画像とUIの投稿 (contentが空でないことを保証)
+  const messagePayload = { 
     files: [image], 
     components: [container], 
     flags: MessageFlags.IsComponentsV2, 
-    allowedMentions: { roles: [], users: [] } 
-  });
+    allowedMentions: { roles: [], users: [] }
+  };
+  
+  // headerContentが有効な場合のみcontentを追加
+  if (headerContent && headerContent.trim()) {
+    messagePayload.content = headerContent;
+  }
+  
+  const followUpMessage = await interaction.channel.send(messagePayload);
 
   // 別チャンネルにも投稿
   if (guildSettings.recruit_channel && guildSettings.recruit_channel !== interaction.channelId) {
@@ -220,14 +226,20 @@ async function sendAnnouncements(interaction, selectedNotificationRole, configur
           (async () => { try { await recruitChannel.send({ content: '新しい募集が作成されました。<@&1416797165769986161>', allowedMentions: { roles: ['1416797165769986161'] } }); } catch (e) { console.warn('通知送信失敗 (指定ch, default):', e?.message || e); } })();
         }
         (async () => { 
-          try { 
-            await recruitChannel.send({ 
-              content: headerContent,
+          try {
+            const recruitChannelPayload = { 
               files: [image], 
               components: [container], 
               flags: MessageFlags.IsComponentsV2, 
-              allowedMentions: { roles: [], users: [] } 
-            }); 
+              allowedMentions: { roles: [], users: [] }
+            };
+            
+            // headerContentが有効な場合のみcontentを追加
+            if (headerContent && headerContent.trim()) {
+              recruitChannelPayload.content = headerContent;
+            }
+            
+            await recruitChannel.send(recruitChannelPayload); 
           } catch (e) { console.warn('募集メッセージ送信失敗(指定ch):', e?.message || e); } 
         })();
       }
