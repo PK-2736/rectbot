@@ -120,8 +120,7 @@ jobs:
           # register secrets (read from env variables passed to this step)
           register_secret DISCORD_CLIENT_SECRET DISCORD_CLIENT_SECRET
           register_secret JWT_SECRET JWT_SECRET
-          # SUPABASE_URL は --var で渡すため、secretとして登録しない
-          # register_secret SUPABASE_URL SUPABASE_URL
+          # SUPABASE_URL は wrangler secret put で永続化されるため、ここでは登録不要
           register_secret SUPABASE_SERVICE_ROLE_KEY SUPABASE_SERVICE_ROLE_KEY
           register_secret SERVICE_TOKEN SERVICE_TOKEN
           register_secret SENTRY_DSN SENTRY_DSN
@@ -158,17 +157,22 @@ jobs:
           DISCORD_REDIRECT_URI="${DISCORD_REDIRECT_URI:-https://api.recrubo.net/api/discord/callback}"
           VPS_EXPRESS_URL="${VPS_EXPRESS_URL:-https://80cbc750-94a4-4b87-b86d-b328b7e76779.cfargotunnel.com}"
           
+          # SUPABASE_URLが空の場合はエラー
+          if [ -z "${SUPABASE_URL}" ]; then
+            echo "ERROR: SUPABASE_URL is not set in GitHub Secrets"
+            exit 1
+          fi
+          
           echo "Deploying with environment variables:"
           echo "  DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID:+set}"
           echo "  DISCORD_REDIRECT_URI: ${DISCORD_REDIRECT_URI}"
           echo "  VPS_EXPRESS_URL: ${VPS_EXPRESS_URL}"
           echo "  ADMIN_DISCORD_ID: ${ADMIN_DISCORD_ID:+set}"
-          echo "  SUPABASE_URL: ${SUPABASE_URL:+set}"
+          echo "  SUPABASE_URL: will be loaded from wrangler secret"
           
           npx wrangler deploy --compatibility-date=2024-01-01 \
             --var DISCORD_CLIENT_ID:"${DISCORD_CLIENT_ID}" \
             --var DISCORD_REDIRECT_URI:"${DISCORD_REDIRECT_URI}" \
-            --var SUPABASE_URL:"${SUPABASE_URL}" \
             --var PUBLIC_RECAPTCHA_SITE_KEY:"${PUBLIC_RECAPTCHA_SITE_KEY}" \
             --var ADMIN_DISCORD_ID:"${ADMIN_DISCORD_ID}" \
             --var VPS_EXPRESS_URL:"${VPS_EXPRESS_URL}"

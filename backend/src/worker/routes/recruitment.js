@@ -210,6 +210,62 @@ export async function routeRecruitment(request, env, ctx, url, corsHeaders, send
     }
   }
 
+  // Bot -> Get active recruits for start time notifications
+  if (url.pathname === '/api/active-recruits' && request.method === 'GET') {
+    try {
+      // Service token authentication
+      const SERVICE_TOKEN = env.SERVICE_TOKEN || '';
+      const authHeader = request.headers.get('authorization') || '';
+      const serviceTokenHeader = request.headers.get('x-service-token') || '';
+      
+      const isAuthorized = SERVICE_TOKEN && (
+        authHeader === `Bearer ${SERVICE_TOKEN}` ||
+        serviceTokenHeader === SERVICE_TOKEN
+      );
+      
+      if (!isAuthorized && SERVICE_TOKEN) {
+        console.warn('[active-recruits] Unauthorized access attempt');
+        return new Response(JSON.stringify({ error: 'unauthorized' }), { 
+          status: 401, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        });
+      }
+
+      // Fetch all recruits from Durable Object
+      const id = env.RECRUITS_DO.idFromName('global');
+      const stub = env.RECRUITS_DO.get(id);
+      const listReq = new Request(new URL('/api/recruits', request.url).toString(), {
+        method: 'GET',
+        headers: { 'content-type': 'application/json' }
+      });
+      const resp = await stub.fetch(listReq);
+      const data = await resp.json();
+      const items = data.items || [];
+
+      // Filter for active recruits only
+      const now = Date.now();
+      const activeRecruits = items.filter(r => {
+        const exp = r.expiresAt ? new Date(r.expiresAt).getTime() : Infinity;
+        return exp > now && r.status === 'recruiting';
+      });
+
+      console.log(`[active-recruits] Returning ${activeRecruits.length} active recruits`);
+      return new Response(JSON.stringify(activeRecruits), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    } catch (e) {
+      console.error('[active-recruits] Error:', e);
+      if (typeof sendToSentry === 'function') { 
+        try { await sendToSentry(env, e, { path: url.pathname }, ctx); } catch (_) {} 
+      }
+      return new Response(JSON.stringify({ error: 'internal_error' }), { 
+        status: 500, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      });
+    }
+  }
+
   // Bot -> Backend push (auth by service token + UA gate)
   if (url.pathname === '/api/recruitment/push' && request.method === 'POST') {
     try {
