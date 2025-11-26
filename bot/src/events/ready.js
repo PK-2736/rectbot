@@ -1,10 +1,14 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits } = require('discord.js');
+const { setDiscordClient } = require('../utils/db');
 
 module.exports = {
   name: 'clientReady',
   once: true,
   async execute(client) {
     console.log(`Logged in as ${client.user.tag}`);
+
+    // Register Discord client for start time notifications
+    setDiscordClient(client);
 
     // ロール付与ボタンメッセージ送信処理
     const channelId = '1414751785272217745';

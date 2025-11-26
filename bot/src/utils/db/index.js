@@ -9,11 +9,27 @@ const { cleanupExpiredRecruits, runCleanupNow } = require('./cleanup');
 const { setCooldown, getCooldownRemaining } = require('./cooldown');
 const { getSupabase } = require('./supabase');
 const { saveRecruitStatus, deleteRecruitStatus, getActiveRecruits, saveRecruitmentData, deleteRecruitmentData, updateRecruitmentStatus, updateRecruitmentData } = require('./statusApi');
+const { checkAndNotifyStartTime } = require('./startTimeNotifier');
 
 // schedule periodic cleanup (same behavior as before)
 const CLEANUP_INTERVAL_MS = Number(process.env.CLEANUP_INTERVAL_MS || 1000 * 60 * 60);
 cleanupExpiredRecruits().catch(() => {});
 setInterval(() => { cleanupExpiredRecruits().catch(e => console.warn('periodic cleanup failed:', e?.message || e)); }, CLEANUP_INTERVAL_MS);
+
+// schedule start time notifications check (every minute)
+const START_TIME_CHECK_INTERVAL_MS = Number(process.env.START_TIME_CHECK_INTERVAL_MS || 60 * 1000);
+let discordClient = null;
+
+function setDiscordClient(client) {
+  discordClient = client;
+  console.log('[StartTimeNotifier] Discord client registered');
+}
+
+setInterval(() => {
+  if (discordClient) {
+    checkAndNotifyStartTime(discordClient).catch(e => console.warn('start time check failed:', e?.message || e));
+  }
+}, START_TIME_CHECK_INTERVAL_MS);
 
 module.exports = {
   // Supabase
@@ -58,4 +74,6 @@ module.exports = {
   normalizeRecruitId,
   ensureRedisConnection,
   scanKeys,
+  // Start time notifications
+  setDiscordClient,
 };

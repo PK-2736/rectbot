@@ -134,13 +134,13 @@ const softwareSchema = {
     <meta itemprop="dateModified" content={updatedISO} />
     
     <!-- Schema.org structured data for Organization -->
-    <script type="application/ld+json" set:html={JSON.stringify(organizationSchema)}></script>
+    <script type="application/ld+json">{JSON.stringify(organizationSchema)}</script>
     
     <!-- Schema.org structured data for WebPage -->
-    <script type="application/ld+json" set:html={JSON.stringify(webPageSchema)}></script>
+    <script type="application/ld+json">{JSON.stringify(webPageSchema)}</script>
     
     <!-- Schema.org structured data for SoftwareApplication (Bot) -->
-    <script type="application/ld+json" set:html={JSON.stringify(softwareSchema)}></script>
+    <script type="application/ld+json">{JSON.stringify(softwareSchema)}</script>
     
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />

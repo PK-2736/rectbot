@@ -210,7 +210,15 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
   const actualMessageId = actualMessage.id;
   const actualRecruitId = actualMessageId.slice(-8);
   recruitDataObj.recruitId = actualRecruitId;
-  const finalRecruitData = { ...recruitDataObj, guildId: interaction.guildId, channelId: interaction.channelId, message_id: actualMessageId, status: 'recruiting', start_time: new Date().toISOString() };
+  const finalRecruitData = { 
+    ...recruitDataObj, 
+    guildId: interaction.guildId, 
+    channelId: interaction.channelId, 
+    message_id: actualMessageId, 
+    status: 'recruiting', 
+    start_time: new Date().toISOString(),
+    startTimeNotified: false // 開始時間通知フラグを初期化
+  };
 
   try {
     await saveRecruitToRedis(actualRecruitId, finalRecruitData);
@@ -569,8 +577,8 @@ async function handleModalSubmit(interaction) {
     
     // 参加リストテキストの構築（既存参加者を含む、改行なし、残り人数表示）
     const remainingSlots = participantsNum - currentParticipants.length;
-    let participantText = `📋 参加リスト (**あと${remainingSlots}人**)\n> `;
-    participantText += currentParticipants.map(id => `<@${id}>`).join(' ');
+    let participantText = `📋 参加リスト (**あと${remainingSlots}人**)\n`;
+    participantText += currentParticipants.map(id => `<@${id}>`).join(' • ');
     
     // 通知ロールをヘッダーの下（subHeaderText）に表示
     let subHeaderText = null;
