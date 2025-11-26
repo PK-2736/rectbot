@@ -13,8 +13,14 @@ async function checkAndNotifyStartTime(client) {
 
   try {
     // すべてのアクティブな募集を取得
-    const activeRecruits = await getActiveRecruits();
-    if (!activeRecruits || activeRecruits.length === 0) {
+    const result = await getActiveRecruits();
+    if (!result.ok || !result.body) {
+      console.log(`[StartTimeNotifier] Failed to fetch active recruits: ${result.error || 'unknown error'}`);
+      return;
+    }
+    
+    const activeRecruits = result.body;
+    if (!Array.isArray(activeRecruits) || activeRecruits.length === 0) {
       return;
     }
 

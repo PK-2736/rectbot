@@ -364,7 +364,10 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
   // 情報配列
   const infoItems = [
     { label: '人数：', value: `${participantIds.length}/${recruitData.participants || 4}人` },
-    { label: '時間：', value: recruitData.startTime || '指定なし' },
+    { 
+      label: '時間：', 
+      value: recruitData.startTime ? `${recruitData.startTime}~` : '指定なし' 
+    },
     { 
       label: '通話：', 
       value: (() => {
