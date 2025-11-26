@@ -161,25 +161,47 @@ async function selectNotificationRole(interaction, configuredIds) {
   }
 }
 
-async function sendAnnouncements(interaction, selectedNotificationRole, configuredIds, image, container, guildSettings) {
+async function sendAnnouncements(interaction, selectedNotificationRole, configuredIds, image, container, guildSettings, user) {
   const shouldUseDefaultNotification = !selectedNotificationRole && configuredIds.length === 0;
+  
+  // 通知ロール情報を構築
+  let notificationText = '';
   if (selectedNotificationRole) {
     if (selectedNotificationRole === 'everyone') {
-      // @everyone の場合
+      notificationText = '🔔 通知ロール: @everyone';
+    } else if (selectedNotificationRole === 'here') {
+      notificationText = '🔔 通知ロール: @here';
+    } else {
+      notificationText = `🔔 通知ロール: <@&${selectedNotificationRole}>`;
+    }
+  }
+  
+  // メンション用の通知メッセージを送信
+  if (selectedNotificationRole) {
+    if (selectedNotificationRole === 'everyone') {
       (async () => { try { await interaction.channel.send({ content: '新しい募集が作成されました。@everyone', allowedMentions: { parse: ['everyone'] } }); } catch (e) { console.warn('通知送信失敗 (@everyone)', e?.message || e); } })();
     } else if (selectedNotificationRole === 'here') {
-      // @here の場合
       (async () => { try { await interaction.channel.send({ content: '新しい募集が作成されました。@here', allowedMentions: { parse: ['everyone'] } }); } catch (e) { console.warn('通知送信失敗 (@here)', e?.message || e); } })();
     } else {
-      // 通常のロールの場合
       (async () => { try { await interaction.channel.send({ content: `新しい募集が作成されました。<@&${selectedNotificationRole}>`, allowedMentions: { roles: [selectedNotificationRole] } }); } catch (e) { console.warn('通知送信失敗 (selected)', e?.message || e); } })();
     }
   } else if (shouldUseDefaultNotification) {
     (async () => { try { await interaction.channel.send({ content: '新しい募集が作成されました。<@&1416797165769986161>', allowedMentions: { roles: ['1416797165769986161'] } }); } catch (e) { console.warn('通知送信失敗 (default)', e?.message || e); } })();
   }
 
+  // 募集画像の上にヘッダーテキストを表示
+  const headerContent = notificationText 
+    ? `**${user.username}さんの募集**\n${notificationText}`
+    : `**${user.username}さんの募集**`;
+
   // 画像とUIの投稿
-  const followUpMessage = await interaction.channel.send({ files: [image], components: [container], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } });
+  const followUpMessage = await interaction.channel.send({ 
+    content: headerContent,
+    files: [image], 
+    components: [container], 
+    flags: MessageFlags.IsComponentsV2, 
+    allowedMentions: { roles: [], users: [] } 
+  });
 
   // 別チャンネルにも投稿
   if (guildSettings.recruit_channel && guildSettings.recruit_channel !== interaction.channelId) {
@@ -197,7 +219,17 @@ async function sendAnnouncements(interaction, selectedNotificationRole, configur
         } else if (shouldUseDefaultNotification) {
           (async () => { try { await recruitChannel.send({ content: '新しい募集が作成されました。<@&1416797165769986161>', allowedMentions: { roles: ['1416797165769986161'] } }); } catch (e) { console.warn('通知送信失敗 (指定ch, default):', e?.message || e); } })();
         }
-        (async () => { try { await recruitChannel.send({ files: [image], components: [container], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } }); } catch (e) { console.warn('募集メッセージ送信失敗(指定ch):', e?.message || e); } })();
+        (async () => { 
+          try { 
+            await recruitChannel.send({ 
+              content: headerContent,
+              files: [image], 
+              components: [container], 
+              flags: MessageFlags.IsComponentsV2, 
+              allowedMentions: { roles: [], users: [] } 
+            }); 
+          } catch (e) { console.warn('募集メッセージ送信失敗(指定ch):', e?.message || e); } 
+        })();
       }
     } catch (channelError) { console.error('指定チャンネルへの送信でエラー:', channelError); }
   }
@@ -606,7 +638,7 @@ async function handleModalSubmit(interaction) {
       recruiterId: interaction.user.id, 
       requesterId: interaction.user.id 
     });
-    const followUpMessage = await sendAnnouncements(interaction, selectedNotificationRole, configuredNotificationRoleIds, image, container, guildSettings);
+    const followUpMessage = await sendAnnouncements(interaction, selectedNotificationRole, configuredNotificationRoleIds, image, container, guildSettings, user);
     try { await safeReply(interaction, { content: '募集を作成しました。', flags: MessageFlags.Ephemeral }); } catch (e) { console.warn('safeReply failed (non-fatal):', e?.message || e); }
     // 送信後の保存とUI更新
     try {

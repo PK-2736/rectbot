@@ -29,32 +29,46 @@ async function checkAndNotifyStartTime(client) {
 
     for (const recruit of activeRecruits) {
       try {
+        const recruitId = recruit.recruitId || recruit.message_id?.slice(-8);
+        
         // 開始時間が設定されていない場合はスキップ
         if (!recruit.startTime) {
           continue;
         }
+
+        console.log(`[StartTimeNotifier] Recruit ${recruitId}: startTime=${recruit.startTime}, notified=${recruit.startTimeNotified}`);
 
         // 既に通知済みの場合はスキップ
         if (recruit.startTimeNotified) {
           continue;
         }
 
-        // 開始時間をパース
-        const [startHour, startMinute] = recruit.startTime.split(':').map(Number);
+        // 開始時間をパース (HH:mm または H:mm 形式)
+        const timeParts = recruit.startTime.split(':');
+        if (timeParts.length !== 2) {
+          console.warn(`[StartTimeNotifier] Invalid time format for recruit ${recruitId}: ${recruit.startTime}`);
+          continue;
+        }
+        
+        const startHour = parseInt(timeParts[0], 10);
+        const startMinute = parseInt(timeParts[1], 10);
+        
+        console.log(`[StartTimeNotifier] Comparing: current=${currentHour}:${currentMinute} vs start=${startHour}:${startMinute}`);
         
         // 現在時刻と比較(分単位で一致)
         if (currentHour === startHour && currentMinute === startMinute) {
-          console.log(`[StartTimeNotifier] Triggering notification for recruit ${recruit.recruitId} at ${recruit.startTime}`);
+          console.log(`[StartTimeNotifier] ✅ Triggering notification for recruit ${recruitId} at ${recruit.startTime}`);
           
           // 通知を送信
           await sendStartTimeNotification(client, recruit);
           
           // 通知済みフラグを立てる
           const { updateRecruitmentData } = require('./statusApi');
-          await updateRecruitmentData(recruit.recruitId, { startTimeNotified: true });
+          await updateRecruitmentData(recruitId, { startTimeNotified: true });
+          console.log(`[StartTimeNotifier] Notification sent and flag updated for recruit ${recruitId}`);
         }
       } catch (err) {
-        console.error(`[StartTimeNotifier] Error processing recruit ${recruit.recruitId}:`, err);
+        console.error(`[StartTimeNotifier] Error processing recruit ${recruit.recruitId || recruit.message_id}:`, err);
       }
     }
   } catch (error) {
@@ -69,7 +83,11 @@ async function checkAndNotifyStartTime(client) {
  */
 async function sendStartTimeNotification(client, recruit) {
   try {
-    const { channelId, guildId, messageId, recruitId, title, participants: maxParticipants, vc, voiceChannelId, voiceChannelName, startTime } = recruit;
+    const recruitId = recruit.recruitId || recruit.message_id?.slice(-8);
+    const messageId = recruit.message_id || recruit.messageId;
+    const { channelId, guildId, title, participants: maxParticipants, vc, voiceChannelId, voiceChannelName, startTime } = recruit;
+
+    console.log(`[StartTimeNotifier] Sending notification for recruit ${recruitId} in channel ${channelId}`);
 
     // チャンネルを取得
     const channel = await client.channels.fetch(channelId).catch(() => null);
@@ -78,8 +96,9 @@ async function sendStartTimeNotification(client, recruit) {
       return;
     }
 
-    // 参加者リストを取得
-    const participantIds = await getParticipantsFromRedis(recruitId).catch(() => []);
+    // 参加者リストを取得 (messageIdを使用)
+    const participantIds = await getParticipantsFromRedis(messageId).catch(() => []);
+    console.log(`[StartTimeNotifier] Found ${participantIds.length} participants for recruit ${recruitId}`);
     
     // 参加者のメンション
     const participantMentions = participantIds.length > 0 
