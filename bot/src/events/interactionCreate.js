@@ -279,6 +279,8 @@ module.exports = {
           'set_recruit_channel',
           'set_notification_role',
           'set_notification_roles',
+          'toggle_everyone',
+          'toggle_here',
           'set_default_title',
           'set_default_color',
           'set_update_channel',
