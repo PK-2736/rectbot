@@ -45,8 +45,18 @@ async function showSettingsUI(interaction, settings = {}) {
     return [...new Set(roles.map(String))];
   })();
 
-  const notificationRoleValue = notificationRoles.length > 0
-    ? notificationRoles.map(roleId => `<@&${roleId}>`).join('\n')
+  // everyone/here と実際のロールを分離
+  const specialMentions = notificationRoles.filter(r => r === 'everyone' || r === 'here');
+  const actualRoles = notificationRoles.filter(r => r !== 'everyone' && r !== 'here');
+
+  const notificationRoleLines = [];
+  if (specialMentions.includes('everyone')) notificationRoleLines.push('@everyone');
+  if (specialMentions.includes('here')) notificationRoleLines.push('@here');
+  if (actualRoles.length > 0) {
+    notificationRoleLines.push(...actualRoles.map(roleId => `<@&${roleId}>`));
+  }
+  const notificationRoleValue = notificationRoleLines.length > 0
+    ? notificationRoleLines.join('\n')
     : '未設定';
 
   container.addSectionComponents(
@@ -125,24 +135,54 @@ async function showRoleSelect(interaction, settingType, placeholder) {
     return [...new Set(roles.map(String))];
   })();
 
-  const maxValues = Math.min(25, Math.max(1, selectedRoles.length, 5));
+  // everyone/here と実際のロールを分離
+  const hasEveryone = selectedRoles.includes('everyone');
+  const hasHere = selectedRoles.includes('here');
+  const actualRoles = selectedRoles.filter(r => r !== 'everyone' && r !== 'here');
+
+  const maxValues = Math.min(25, Math.max(1, actualRoles.length || 5));
 
   const roleSelect = new RoleSelectMenuBuilder()
     .setCustomId(`role_select_${settingType}`)
-    .setPlaceholder(placeholder)
+    .setPlaceholder('通知するロールを選択')
     .setMinValues(0)
     .setMaxValues(maxValues);
 
-  if (selectedRoles.length > 0 && typeof roleSelect.setDefaultRoles === 'function') {
-    roleSelect.setDefaultRoles(...selectedRoles.slice(0, 25));
+  // 実際のロールIDのみをdefaultに設定
+  if (actualRoles.length > 0 && typeof roleSelect.setDefaultRoles === 'function') {
+    roleSelect.setDefaultRoles(...actualRoles.slice(0, 25));
   }
 
-  const actionRow = new ActionRowBuilder().addComponents(roleSelect);
+  const actionRows = [new ActionRowBuilder().addComponents(roleSelect)];
+
+  // @everyone/@here トグルボタンを追加
+  const specialButtonRow = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('toggle_everyone')
+      .setLabel('@everyone')
+      .setStyle(hasEveryone ? ButtonStyle.Success : ButtonStyle.Secondary)
+      .setEmoji(hasEveryone ? '✅' : '⬜'),
+    new ButtonBuilder()
+      .setCustomId('toggle_here')
+      .setLabel('@here')
+      .setStyle(hasHere ? ButtonStyle.Success : ButtonStyle.Secondary)
+      .setEmoji(hasHere ? '✅' : '⬜')
+  );
+  actionRows.push(specialButtonRow);
+
   try {
     if (!interaction.replied && !interaction.deferred) {
-      await interaction.reply({ content: placeholder, components: [actionRow], flags: MessageFlags.Ephemeral });
+      await interaction.reply({ 
+        content: `${placeholder}\n\n💡 **ヒント**: @everyone/@hereは下のボタンで切り替えできます`, 
+        components: actionRows, 
+        flags: MessageFlags.Ephemeral 
+      });
     } else {
-      await safeReply(interaction, { content: placeholder, components: [actionRow], flags: MessageFlags.Ephemeral });
+      await safeReply(interaction, { 
+        content: `${placeholder}\n\n💡 **ヒント**: @everyone/@hereは下のボタンで切り替えできます`, 
+        components: actionRows, 
+        flags: MessageFlags.Ephemeral 
+      });
     }
   } catch (error) {
     console.error('[guildSettings] showRoleSelect response error:', error);

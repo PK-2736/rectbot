@@ -51,6 +51,12 @@ async function handleButtonInteraction(interaction) {
       case 'set_update_channel':
         await showChannelSelect(interaction, 'update_channel', '📢 アップデート通知チャンネルを選択してください');
         break;
+      case 'toggle_everyone':
+        await toggleSpecialMention(interaction, 'everyone');
+        break;
+      case 'toggle_here':
+        await toggleSpecialMention(interaction, 'here');
+        break;
       case 'reset_all_settings':
         await resetAllSettings(interaction);
         break;
@@ -79,7 +85,18 @@ async function handleSelectMenuInteraction(interaction) {
     } else if (customId.startsWith('role_select_')) {
       const settingType = customId.replace('role_select_', '');
       const roleIds = Array.isArray(values) ? values : [];
-      await updateGuildSetting(interaction, settingType, roleIds);
+      
+      // 現在のeveryone/here設定を取得して保持
+      const currentSettings = await getGuildSettingsFromRedis(interaction.guildId);
+      const existingRoles = Array.isArray(currentSettings.notification_roles)
+        ? currentSettings.notification_roles.filter(Boolean).map(String)
+        : [];
+      const specialMentions = existingRoles.filter(r => r === 'everyone' || r === 'here');
+      
+      // 実際のロールIDと特殊メンションを結合
+      const mergedRoles = [...specialMentions, ...roleIds];
+      
+      await updateGuildSetting(interaction, settingType, mergedRoles);
     }
   } catch (error) {
     console.error('Select menu interaction error:', error);
@@ -231,6 +248,47 @@ async function resetAllSettings(interaction) {
   }
 }
 
+async function toggleSpecialMention(interaction, mentionType) {
+  try {
+    if (!interaction.guild || !interaction.member || !interaction.member.permissions?.has(PermissionFlagsBits.Administrator)) {
+      return await safeReply(interaction, { content: '❌ この操作を実行するには「管理者」権限が必要です。', flags: MessageFlags.Ephemeral });
+    }
+
+    const guildId = interaction.guildId;
+    const currentSettings = await getGuildSettingsFromRedis(guildId);
+    
+    // 現在の通知ロールリストを取得
+    const notificationRoles = Array.isArray(currentSettings.notification_roles)
+      ? [...currentSettings.notification_roles.filter(Boolean).map(String)]
+      : [];
+
+    // トグル処理
+    const index = notificationRoles.indexOf(mentionType);
+    if (index > -1) {
+      // 既に含まれている場合は削除
+      notificationRoles.splice(index, 1);
+    } else {
+      // 含まれていない場合は追加
+      notificationRoles.push(mentionType);
+    }
+
+    // 設定を更新
+    await saveGuildSettingsToRedis(guildId, {
+      notification_roles: notificationRoles,
+      notification_role: notificationRoles.length > 0 ? notificationRoles[0] : null,
+    });
+
+    // ロール選択UIを再表示
+    await showRoleSelect(interaction, 'notification_roles', '🔔 通知ロールを選択してください');
+
+  } catch (error) {
+    console.error('Toggle special mention error:', error);
+    if (!interaction.replied && !interaction.deferred) {
+      await safeReply(interaction, { content: '❌ 設定の更新に失敗しました。', flags: MessageFlags.Ephemeral });
+    }
+  }
+}
+
 module.exports = {
   execute,
   handleButtonInteraction,
@@ -239,4 +297,5 @@ module.exports = {
   updateGuildSetting,
   finalizeSettingsHandler,
   resetAllSettings,
+  toggleSpecialMention,
 };
