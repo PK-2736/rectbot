@@ -84,7 +84,8 @@ function resolvePanelColor(interaction, guildSettings) {
     } else if (guildSettings.defaultColor) {
       panelColor = guildSettings.defaultColor;
     } else {
-      panelColor = undefined;
+      // デフォルトは黒色
+      panelColor = '000000';
     }
   } catch (e) {
     console.warn('handleModalSubmit: failed to retrieve pending modal options:', e?.message || e);
@@ -93,7 +94,8 @@ function resolvePanelColor(interaction, guildSettings) {
     } else if (guildSettings.defaultColor) {
       panelColor = guildSettings.defaultColor;
     } else {
-      panelColor = undefined;
+      // デフォルトは黒色
+      panelColor = '000000';
     }
   }
   return panelColor;
