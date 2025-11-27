@@ -1,10 +1,27 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
+const { saveGuildSettingsToRedis } = require('../utils/db');
 
 module.exports = {
   name: 'guildCreate',
   async execute(guild) {
     try {
       console.log(`[guildCreate] 新しいサーバーに参加: ${guild.name} (ID: ${guild.id})`);
+      
+      // デフォルト募集設定を作成
+      try {
+        const defaultSettings = {
+          recruit_channel: null, // 未設定
+          notification_roles: ['everyone', 'here'], // everyone, here
+          notification_role: 'everyone', // メインはeveryone
+          defaultTitle: '参加者募集', // 規定タイトル
+          defaultColor: null, // 未設定
+          update_channel: null, // アップデート通知チャンネル: 未設定
+        };
+        await saveGuildSettingsToRedis(guild.id, defaultSettings);
+        console.log(`[guildCreate] デフォルト募集設定を作成: ${guild.name} (ID: ${guild.id})`);
+      } catch (settingsError) {
+        console.error('[guildCreate] デフォルト設定の作成に失敗:', settingsError);
+      }
       
       // 送信可能なチャンネルを探す
       let channel = guild.systemChannel;
