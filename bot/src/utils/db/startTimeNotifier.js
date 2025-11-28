@@ -44,8 +44,9 @@ async function checkAndNotifyStartTime(client) {
 
         console.log(`[StartTimeNotifier] Recruit ${recruitId}: startTime=${recruit.startTime}, notified=${recruit.startTimeNotified}`);
 
-        // 既に通知済みの場合はスキップ
-        if (recruit.startTimeNotified) {
+        // 既に通知済みの場合はスキップ（より厳密なチェック）
+        if (recruit.startTimeNotified === true || recruit.startTimeNotified === 'true') {
+          console.log(`[StartTimeNotifier] Recruit ${recruitId} already notified, skipping`);
           continue;
         }
 
