@@ -62,6 +62,7 @@ async function showSettingsUI(interaction, settings = {}, isAdmin = false) {
       container.addActionRowComponents(new ActionRowBuilder().addComponents(btn));
     }
   }
+  try { console.log('[guildSettings] section1.toJSON:', section1.toJSON()); } catch (e) { console.error('[guildSettings] section1.toJSON threw:', e); }
   container.addSectionComponents(section1);
 
   const notificationRoles = (() => {
@@ -96,6 +97,7 @@ async function showSettingsUI(interaction, settings = {}, isAdmin = false) {
       container.addActionRowComponents(new ActionRowBuilder().addComponents(btn));
     }
   }
+  try { console.log('[guildSettings] section2.toJSON:', section2.toJSON()); } catch (e) { console.error('[guildSettings] section2.toJSON threw:', e); }
   container.addSectionComponents(section2);
 
   const defaultTitleValue = settings.defaultTitle || settings.defaultRecruitTitle || '未設定';
@@ -109,6 +111,7 @@ async function showSettingsUI(interaction, settings = {}, isAdmin = false) {
       container.addActionRowComponents(new ActionRowBuilder().addComponents(btn));
     }
   }
+  try { console.log('[guildSettings] section3.toJSON:', section3.toJSON()); } catch (e) { console.error('[guildSettings] section3.toJSON threw:', e); }
   container.addSectionComponents(section3);
 
   const defaultColorValue = settings.defaultColor || settings.defaultRecruitColor || '未設定';
@@ -122,6 +125,7 @@ async function showSettingsUI(interaction, settings = {}, isAdmin = false) {
       container.addActionRowComponents(new ActionRowBuilder().addComponents(btn));
     }
   }
+  try { console.log('[guildSettings] section4.toJSON:', section4.toJSON()); } catch (e) { console.error('[guildSettings] section4.toJSON threw:', e); }
   container.addSectionComponents(section4);
 
   const updateChannelValue = settings.update_channel || settings.updateNotificationChannelId 
@@ -138,6 +142,7 @@ async function showSettingsUI(interaction, settings = {}, isAdmin = false) {
       container.addActionRowComponents(new ActionRowBuilder().addComponents(btn));
     }
   }
+  try { console.log('[guildSettings] section5.toJSON:', section5.toJSON()); } catch (e) { console.error('[guildSettings] section5.toJSON threw:', e); }
   container.addSectionComponents(section5);
 
   container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Large).setDivider(true));
