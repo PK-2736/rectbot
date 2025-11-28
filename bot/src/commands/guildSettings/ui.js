@@ -28,6 +28,19 @@ async function showSettingsUI(interaction, settings = {}, isAdmin = false) {
     ? `<#${settings.recruit_channel || settings.recruitmentChannelId}>` 
     : '未設定';
 
+  function addSafeSection(container, builder, fallbackText) {
+    try {
+      // Validate section builder
+      // eslint-disable-next-line no-unused-expressions
+      builder.toJSON();
+      container.addSectionComponents(builder);
+    } catch (sectionErr) {
+      console.warn('[guildSettings] Section validation failed; using fallback text-only section', { fallbackText, err: sectionErr?.message || sectionErr });
+      const fallback = new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(fallbackText));
+      container.addSectionComponents(fallback);
+    }
+  }
+
   const sectionBuilder1 = new SectionBuilder()
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(`📍 **募集チャンネル**\n${recruitChannelValue}`)
@@ -37,7 +50,7 @@ async function showSettingsUI(interaction, settings = {}, isAdmin = false) {
     console.log('[guildSettings:showSettingsUI] set button accessory for recruit channel');
     sectionBuilder1.setButtonAccessory(btn);
   }
-  container.addSectionComponents(sectionBuilder1);
+  addSafeSection(container, sectionBuilder1, `📍 **募集チャンネル**\n${recruitChannelValue}`);
 
   const notificationRoles = (() => {
     const roles = [];
@@ -68,7 +81,7 @@ async function showSettingsUI(interaction, settings = {}, isAdmin = false) {
     console.log('[guildSettings:showSettingsUI] set button accessory for notification role');
     sectionBuilder2.setButtonAccessory(btn);
   }
-  container.addSectionComponents(sectionBuilder2);
+  addSafeSection(container, sectionBuilder2, `🔔 **通知ロール**\n${notificationRoleValue}`);
 
   const defaultTitleValue = settings.defaultTitle || settings.defaultRecruitTitle || '未設定';
   const sectionBuilder3 = new SectionBuilder()
@@ -78,7 +91,7 @@ async function showSettingsUI(interaction, settings = {}, isAdmin = false) {
     console.log('[guildSettings:showSettingsUI] set button accessory for default title');
     sectionBuilder3.setButtonAccessory(btn);
   }
-  container.addSectionComponents(sectionBuilder3);
+  addSafeSection(container, sectionBuilder3, `📝 **既定タイトル**\n${defaultTitleValue}`);
 
   const defaultColorValue = settings.defaultColor || settings.defaultRecruitColor || '未設定';
   const sectionBuilder4 = new SectionBuilder()
@@ -88,7 +101,7 @@ async function showSettingsUI(interaction, settings = {}, isAdmin = false) {
     console.log('[guildSettings:showSettingsUI] set button accessory for default color');
     sectionBuilder4.setButtonAccessory(btn);
   }
-  container.addSectionComponents(sectionBuilder4);
+  addSafeSection(container, sectionBuilder4, `🎨 **既定カラー**\n${defaultColorValue}`);
 
   const updateChannelValue = settings.update_channel || settings.updateNotificationChannelId 
     ? `<#${settings.update_channel || settings.updateNotificationChannelId}>` 
@@ -101,7 +114,7 @@ async function showSettingsUI(interaction, settings = {}, isAdmin = false) {
     console.log('[guildSettings:showSettingsUI] set button accessory for update channel');
     sectionBuilder5.setButtonAccessory(btn);
   }
-  container.addSectionComponents(sectionBuilder5);
+  addSafeSection(container, sectionBuilder5, `📢 **アップデート通知チャンネル**\n${updateChannelValue}`);
 
   container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Large).setDivider(true));
 
