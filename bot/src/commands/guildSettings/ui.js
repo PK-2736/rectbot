@@ -9,7 +9,7 @@ const {
 } = require('discord.js');
 
 const { getGuildSettingsFromRedis } = require('../../utils/db');
-const { safeReply } = require('../../utils/safeReply');
+const { safeRespond } = require('../../utils/interactionHandler');
 
 async function showSettingsUI(interaction, settings = {}, isAdmin = false) {
   const container = new ContainerBuilder();
@@ -118,7 +118,7 @@ async function showSettingsUI(interaction, settings = {}, isAdmin = false) {
     flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
   };
 
-  await safeReply(interaction, replyOptions);
+  await safeRespond(interaction, replyOptions);
 
   setTimeout(async () => {
     try { await interaction.deleteReply(); } catch (error) {
