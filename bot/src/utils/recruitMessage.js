@@ -89,27 +89,16 @@ async function updateParticipantList(interactionOrMessage, participants, savedRe
     // 通知ロールを画像の上に表示
     let subHeaderText = null;
     try {
-      const notificationRoles = (() => {
-        const roles = [];
-        if (Array.isArray(guildSettings.notification_roles)) roles.push(...guildSettings.notification_roles.filter(Boolean));
-        if (roles.length === 0 && guildSettings.notification_role) roles.push(guildSettings.notification_role);
-        return [...new Set(roles.map(String))];
-      })();
-
-      if (notificationRoles.length > 0) {
-        // everyone/here と実際のロールを分離して表示
-        const specialMentions = notificationRoles.filter(r => r === 'everyone' || r === 'here');
-        const actualRoles = notificationRoles.filter(r => r !== 'everyone' && r !== 'here');
-
-        const notificationRoleLines = [];
-        if (specialMentions.includes('everyone')) notificationRoleLines.push('@everyone');
-        if (specialMentions.includes('here')) notificationRoleLines.push('@here');
-        if (actualRoles.length > 0) {
-          notificationRoleLines.push(...actualRoles.map(roleId => `<@&${roleId}>`));
-        }
-
-        if (notificationRoleLines.length > 0) {
-          subHeaderText = `🔔 通知ロール: ${notificationRoleLines.join(' ')}`;
+      // 保存された募集データから選択された通知ロールを取得
+      const selectedNotificationRole = savedRecruitData?.notificationRoleId;
+      
+      if (selectedNotificationRole) {
+        if (selectedNotificationRole === 'everyone') {
+          subHeaderText = '🔔 通知ロール: @everyone';
+        } else if (selectedNotificationRole === 'here') {
+          subHeaderText = '🔔 通知ロール: @here';
+        } else {
+          subHeaderText = `🔔 通知ロール: <@&${selectedNotificationRole}>`;
         }
       }
     } catch (e) {
