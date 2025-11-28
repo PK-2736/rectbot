@@ -70,7 +70,8 @@ async function handleFinalize(request, env, corsHeaders) {
       recruit_channel_id: incomingSettings.recruit_channel || null,
       notification_role_id: serializedNotificationRoleId,
       default_title: incomingSettings.defaultTitle || '参加者募集',
-      default_color: incomingSettings.defaultColor || '#00FFFF',
+  // default_color: include only if the caller sent the property (supports clearing with null)
+  default_color: Object.prototype.hasOwnProperty.call(incomingSettings, 'defaultColor') ? (incomingSettings.defaultColor || null) : undefined,
       update_channel_id: incomingSettings.update_channel || null,
       updated_at: new Date().toISOString(),
     };
@@ -142,7 +143,9 @@ async function handleFinalize(request, env, corsHeaders) {
       if (supabaseData.recruit_channel_id !== null) patchBody.recruit_channel_id = supabaseData.recruit_channel_id;
       patchBody.notification_role_id = supabaseData.notification_role_id;
       if (supabaseData.default_title) patchBody.default_title = supabaseData.default_title;
-      if (supabaseData.default_color) patchBody.default_color = supabaseData.default_color;
+  // default_color may be null to represent that the user wants to clear the value.
+  // Use property existence check to allow clearing the value explicitly.
+  if (Object.prototype.hasOwnProperty.call(incomingSettings, 'defaultColor')) patchBody.default_color = supabaseData.default_color;
       if (supabaseData.update_channel_id !== null) patchBody.update_channel_id = supabaseData.update_channel_id;
 
       supaRes = await fetchWithRetry(`${supabaseRestUrl}/rest/v1/guild_settings?guild_id=eq.${guildId}`, {
@@ -190,7 +193,7 @@ async function handleGet(request, env, corsHeaders, url, ctx) {
     notification_role: null,
     notification_roles: [],
     defaultTitle: '参加者募集',
-    defaultColor: '#00FFFF',
+  defaultColor: null,
     update_channel: null,
   };
   try {
@@ -248,7 +251,7 @@ async function handleGet(request, env, corsHeaders, url, ctx) {
       notification_role: notificationRoles.length > 0 ? notificationRoles[0] : null,
       notification_roles: notificationRoles,
       defaultTitle: data[0].default_title || '参加者募集',
-      defaultColor: data[0].default_color || '#00FFFF',
+  defaultColor: data[0].default_color || null,
       update_channel: data[0].update_channel_id,
     };
     console.log('[guild-settings:get] Returning settings for guild', guildId, ':', settings);

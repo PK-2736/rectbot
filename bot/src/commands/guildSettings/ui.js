@@ -148,9 +148,11 @@ async function showRoleSelect(interaction, settingType, placeholder) {
     .setMinValues(0)
     .setMaxValues(maxValues);
 
-  // 実際のロールIDのみをdefaultに設定
+  // 実際のロールIDのうち、主要な1つのみをdefaultに設定（以前はすべてプリセットされていた）
   if (actualRoles.length > 0 && typeof roleSelect.setDefaultRoles === 'function') {
-    roleSelect.setDefaultRoles(...actualRoles.slice(0, 25));
+    // 管理者が間違ってすべてプリセットされていた既存の挙動を修正し、
+    // 現在のprimary通知ロール（先頭）だけを初期選択にする
+    roleSelect.setDefaultRoles(...[actualRoles[0]]);
   }
 
   const actionRows = [new ActionRowBuilder().addComponents(roleSelect)];
