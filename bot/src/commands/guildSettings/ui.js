@@ -29,7 +29,24 @@ async function showSettingsUI(interaction, settings = {}, isAdmin = false) {
     : '未設定';
 
   function addSafeSection(container, builder, fallbackText) {
+    // NOTE: discord.js SectionBuilder's accessory union validator will throw when
+    // the accessory field is present but undefined. To avoid this library validation
+    // error (CombinedError), we only build SectionBuilder sections for admin users
+    // (which set a valid accessory). For non-admins we use simple TextDisplayBuilder
+    // components. addSafeSection is a final safety net to fallback to text-only if
+    // a SectionBuilder unexpectedly fails validation.
     try {
+      // Sanitize undefined accessory/thumbnail fields that cause validation to throw
+      try {
+        if (Object.prototype.hasOwnProperty.call(builder, 'accessory') && builder.accessory === undefined) {
+          delete builder.accessory;
+        }
+        if (Object.prototype.hasOwnProperty.call(builder, 'thumbnail') && builder.thumbnail === undefined) {
+          delete builder.thumbnail;
+        }
+      } catch (sanitizeErr) {
+        // ignore sanitize errors, continue to validation
+      }
       // Validate section builder
       // eslint-disable-next-line no-unused-expressions
       builder.toJSON();
@@ -45,25 +62,27 @@ async function showSettingsUI(interaction, settings = {}, isAdmin = false) {
       } catch (logErr) {
         console.warn('[guildSettings] Section validation and logging failed:', logErr?.message || logErr);
       }
-      const fallback = new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(fallbackText));
-      container.addSectionComponents(fallback);
+  // Fallback to a simple text-only display to avoid SectionBuilder accessory validation issues
+  container.addTextDisplayComponents(new TextDisplayBuilder().setContent(fallbackText));
     }
   }
 
-  // Section with optional inline accessory (Button) for horizontal layout
-  const section1 = new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(`📍 **募集チャンネル**\n${recruitChannelValue}`));
+  // Section with optional inline accessory (Button) for horizontal layout (admin only)
   if (isAdmin) {
+    const section1 = new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(`📍 **募集チャンネル**\n${recruitChannelValue}`));
     const btn = new ButtonBuilder().setCustomId('set_recruit_channel').setLabel('設定変更').setStyle(ButtonStyle.Primary);
     try {
       section1.setButtonAccessory(btn);
     } catch (e) {
-      // If Section accessory validation fails, fall back to ActionRow
       console.warn('[guildSettings] Section accessory set failed, falling back to action row for recruit channel:', e?.message || e);
       container.addActionRowComponents(new ActionRowBuilder().addComponents(btn));
     }
+    try { console.log('[guildSettings] section1.toJSON:', section1.toJSON()); } catch (e) { console.error('[guildSettings] section1.toJSON threw:', e); }
+    addSafeSection(container, section1, '募集チャンネル: ' + recruitChannelValue);
+  } else {
+    // Non-admins get a text-only display; avoid SectionBuilder accessory validation
+    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`📍 **募集チャンネル**\n${recruitChannelValue}`));
   }
-  try { console.log('[guildSettings] section1.toJSON:', section1.toJSON()); } catch (e) { console.error('[guildSettings] section1.toJSON threw:', e); }
-  container.addSectionComponents(section1);
 
   const notificationRoles = (() => {
     const roles = [];
@@ -87,8 +106,8 @@ async function showSettingsUI(interaction, settings = {}, isAdmin = false) {
     ? notificationRoleLines.join('\n')
     : '未設定';
 
-  const section2 = new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(`🔔 **通知ロール**\n${notificationRoleValue}`));
   if (isAdmin) {
+    const section2 = new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(`🔔 **通知ロール**\n${notificationRoleValue}`));
     const btn = new ButtonBuilder().setCustomId('set_notification_role').setLabel('設定変更').setStyle(ButtonStyle.Primary);
     try {
       section2.setButtonAccessory(btn);
@@ -96,13 +115,15 @@ async function showSettingsUI(interaction, settings = {}, isAdmin = false) {
       console.warn('[guildSettings] Section accessory set failed, falling back to action row for notification role:', e?.message || e);
       container.addActionRowComponents(new ActionRowBuilder().addComponents(btn));
     }
+    try { console.log('[guildSettings] section2.toJSON:', section2.toJSON()); } catch (e) { console.error('[guildSettings] section2.toJSON threw:', e); }
+    addSafeSection(container, section2, '通知ロール: ' + notificationRoleValue);
+  } else {
+    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`🔔 **通知ロール**\n${notificationRoleValue}`));
   }
-  try { console.log('[guildSettings] section2.toJSON:', section2.toJSON()); } catch (e) { console.error('[guildSettings] section2.toJSON threw:', e); }
-  container.addSectionComponents(section2);
 
   const defaultTitleValue = settings.defaultTitle || settings.defaultRecruitTitle || '未設定';
-  const section3 = new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(`📝 **既定タイトル**\n${defaultTitleValue}`));
   if (isAdmin) {
+    const section3 = new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(`📝 **既定タイトル**\n${defaultTitleValue}`));
     const btn = new ButtonBuilder().setCustomId('set_default_title').setLabel('設定変更').setStyle(ButtonStyle.Primary);
     try {
       section3.setButtonAccessory(btn);
@@ -110,13 +131,15 @@ async function showSettingsUI(interaction, settings = {}, isAdmin = false) {
       console.warn('[guildSettings] Section accessory set failed, falling back to action row for default title:', e?.message || e);
       container.addActionRowComponents(new ActionRowBuilder().addComponents(btn));
     }
+    try { console.log('[guildSettings] section3.toJSON:', section3.toJSON()); } catch (e) { console.error('[guildSettings] section3.toJSON threw:', e); }
+    addSafeSection(container, section3, '既定タイトル: ' + defaultTitleValue);
+  } else {
+    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`📝 **既定タイトル**\n${defaultTitleValue}`));
   }
-  try { console.log('[guildSettings] section3.toJSON:', section3.toJSON()); } catch (e) { console.error('[guildSettings] section3.toJSON threw:', e); }
-  container.addSectionComponents(section3);
 
   const defaultColorValue = settings.defaultColor || settings.defaultRecruitColor || '未設定';
-  const section4 = new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(`🎨 **既定カラー**\n${defaultColorValue}`));
   if (isAdmin) {
+    const section4 = new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(`🎨 **既定カラー**\n${defaultColorValue}`));
     const btn = new ButtonBuilder().setCustomId('set_default_color').setLabel('設定変更').setStyle(ButtonStyle.Primary);
     try {
       section4.setButtonAccessory(btn);
@@ -124,16 +147,18 @@ async function showSettingsUI(interaction, settings = {}, isAdmin = false) {
       console.warn('[guildSettings] Section accessory set failed, falling back to action row for default color:', e?.message || e);
       container.addActionRowComponents(new ActionRowBuilder().addComponents(btn));
     }
+    try { console.log('[guildSettings] section4.toJSON:', section4.toJSON()); } catch (e) { console.error('[guildSettings] section4.toJSON threw:', e); }
+    addSafeSection(container, section4, '既定カラー: ' + defaultColorValue);
+  } else {
+    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`🎨 **既定カラー**\n${defaultColorValue}`));
   }
-  try { console.log('[guildSettings] section4.toJSON:', section4.toJSON()); } catch (e) { console.error('[guildSettings] section4.toJSON threw:', e); }
-  container.addSectionComponents(section4);
 
   const updateChannelValue = settings.update_channel || settings.updateNotificationChannelId 
     ? `<#${settings.update_channel || settings.updateNotificationChannelId}>` 
     : '未設定';
 
-  const section5 = new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(`📢 **アップデート通知チャンネル**\n${updateChannelValue}`));
   if (isAdmin) {
+    const section5 = new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(`📢 **アップデート通知チャンネル**\n${updateChannelValue}`));
     const btn = new ButtonBuilder().setCustomId('set_update_channel').setLabel('設定変更').setStyle(ButtonStyle.Primary);
     try {
       section5.setButtonAccessory(btn);
@@ -141,9 +166,11 @@ async function showSettingsUI(interaction, settings = {}, isAdmin = false) {
       console.warn('[guildSettings] Section accessory set failed, falling back to action row for update channel:', e?.message || e);
       container.addActionRowComponents(new ActionRowBuilder().addComponents(btn));
     }
+    try { console.log('[guildSettings] section5.toJSON:', section5.toJSON()); } catch (e) { console.error('[guildSettings] section5.toJSON threw:', e); }
+    addSafeSection(container, section5, 'アップデート通知チャンネル: ' + updateChannelValue);
+  } else {
+    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`📢 **アップデート通知チャンネル**\n${updateChannelValue}`));
   }
-  try { console.log('[guildSettings] section5.toJSON:', section5.toJSON()); } catch (e) { console.error('[guildSettings] section5.toJSON threw:', e); }
-  container.addSectionComponents(section5);
 
   container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Large).setDivider(true));
 
@@ -255,7 +282,7 @@ async function showRoleSelect(interaction, settingType, placeholder) {
   } catch (error) {
     console.error('[guildSettings] showRoleSelect response error:', error);
     if (!interaction.replied && !interaction.deferred) {
-      await safeReply(interaction, { content: '❌ ロール選択メニューの表示に失敗しました。時間を置いて再度お試しください。', flags: MessageFlags.Ephemeral });
+      await safeRespond(interaction, { content: '❌ ロール選択メニューの表示に失敗しました。時間を置いて再度お試しください。', flags: MessageFlags.Ephemeral });
     }
   }
 }
