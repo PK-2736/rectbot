@@ -50,16 +50,19 @@ async function showSettingsUI(interaction, settings = {}, isAdmin = false) {
     }
   }
 
-  container.addTextDisplayComponents(
-    new TextDisplayBuilder().setContent(`📍 **募集チャンネル**\n${recruitChannelValue}`)
-  );
+  // Section with optional inline accessory (Button) for horizontal layout
+  const section1 = new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(`📍 **募集チャンネル**\n${recruitChannelValue}`));
   if (isAdmin) {
-    container.addActionRowComponents(
-      new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('set_recruit_channel').setLabel('設定変更').setStyle(ButtonStyle.Primary)
-      )
-    );
+    const btn = new ButtonBuilder().setCustomId('set_recruit_channel').setLabel('設定変更').setStyle(ButtonStyle.Primary);
+    try {
+      section1.setButtonAccessory(btn);
+    } catch (e) {
+      // If Section accessory validation fails, fall back to ActionRow
+      console.warn('[guildSettings] Section accessory set failed, falling back to action row for recruit channel:', e?.message || e);
+      container.addActionRowComponents(new ActionRowBuilder().addComponents(btn));
+    }
   }
+  container.addSectionComponents(section1);
 
   const notificationRoles = (() => {
     const roles = [];
@@ -83,47 +86,59 @@ async function showSettingsUI(interaction, settings = {}, isAdmin = false) {
     ? notificationRoleLines.join('\n')
     : '未設定';
 
-  container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`🔔 **通知ロール**\n${notificationRoleValue}`));
+  const section2 = new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(`🔔 **通知ロール**\n${notificationRoleValue}`));
   if (isAdmin) {
-    container.addActionRowComponents(
-      new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('set_notification_role').setLabel('設定変更').setStyle(ButtonStyle.Primary)
-      )
-    );
+    const btn = new ButtonBuilder().setCustomId('set_notification_role').setLabel('設定変更').setStyle(ButtonStyle.Primary);
+    try {
+      section2.setButtonAccessory(btn);
+    } catch (e) {
+      console.warn('[guildSettings] Section accessory set failed, falling back to action row for notification role:', e?.message || e);
+      container.addActionRowComponents(new ActionRowBuilder().addComponents(btn));
+    }
   }
+  container.addSectionComponents(section2);
 
   const defaultTitleValue = settings.defaultTitle || settings.defaultRecruitTitle || '未設定';
-  container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`📝 **既定タイトル**\n${defaultTitleValue}`));
+  const section3 = new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(`📝 **既定タイトル**\n${defaultTitleValue}`));
   if (isAdmin) {
-    container.addActionRowComponents(
-      new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('set_default_title').setLabel('設定変更').setStyle(ButtonStyle.Primary)
-      )
-    );
+    const btn = new ButtonBuilder().setCustomId('set_default_title').setLabel('設定変更').setStyle(ButtonStyle.Primary);
+    try {
+      section3.setButtonAccessory(btn);
+    } catch (e) {
+      console.warn('[guildSettings] Section accessory set failed, falling back to action row for default title:', e?.message || e);
+      container.addActionRowComponents(new ActionRowBuilder().addComponents(btn));
+    }
   }
+  container.addSectionComponents(section3);
 
   const defaultColorValue = settings.defaultColor || settings.defaultRecruitColor || '未設定';
-  container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`🎨 **既定カラー**\n${defaultColorValue}`));
+  const section4 = new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(`🎨 **既定カラー**\n${defaultColorValue}`));
   if (isAdmin) {
-    container.addActionRowComponents(
-      new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('set_default_color').setLabel('設定変更').setStyle(ButtonStyle.Primary)
-      )
-    );
+    const btn = new ButtonBuilder().setCustomId('set_default_color').setLabel('設定変更').setStyle(ButtonStyle.Primary);
+    try {
+      section4.setButtonAccessory(btn);
+    } catch (e) {
+      console.warn('[guildSettings] Section accessory set failed, falling back to action row for default color:', e?.message || e);
+      container.addActionRowComponents(new ActionRowBuilder().addComponents(btn));
+    }
   }
+  container.addSectionComponents(section4);
 
   const updateChannelValue = settings.update_channel || settings.updateNotificationChannelId 
     ? `<#${settings.update_channel || settings.updateNotificationChannelId}>` 
     : '未設定';
 
-  container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`📢 **アップデート通知チャンネル**\n${updateChannelValue}`));
+  const section5 = new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(`📢 **アップデート通知チャンネル**\n${updateChannelValue}`));
   if (isAdmin) {
-    container.addActionRowComponents(
-      new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('set_update_channel').setLabel('設定変更').setStyle(ButtonStyle.Primary)
-      )
-    );
+    const btn = new ButtonBuilder().setCustomId('set_update_channel').setLabel('設定変更').setStyle(ButtonStyle.Primary);
+    try {
+      section5.setButtonAccessory(btn);
+    } catch (e) {
+      console.warn('[guildSettings] Section accessory set failed, falling back to action row for update channel:', e?.message || e);
+      container.addActionRowComponents(new ActionRowBuilder().addComponents(btn));
+    }
   }
+  container.addSectionComponents(section5);
 
   container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Large).setDivider(true));
 
