@@ -14,7 +14,6 @@ module.exports = {
   data: new SlashCommandBuilder()
     .setName('setting')
     .setDescription('募集設定を管理します（/setting）')
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .setDMPermission(false),
 
   // Handlers
