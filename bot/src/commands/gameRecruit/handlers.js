@@ -11,6 +11,21 @@ const { EXEMPT_GUILD_IDS } = require('./constants');
 // Helper utilities (behavior-preserving refactor)
 // ------------------------------
 
+const eightHoursMs = 8 * 60 * 60 * 1000;
+
+function computeDelayMs(targetTime, now = null) {
+  if (!targetTime) return null;
+  const target = new Date(targetTime).getTime();
+  const current = now ? new Date(now).getTime() : Date.now();
+  return target - current;
+}
+
+// 満員DMの重複送信防止
+const fullNotifySent = new Set();
+
+// 開始時刻通知の重複送信防止
+const startNotifySent = new Set();
+
 function isGuildExempt(guildId) {
   return EXEMPT_GUILD_IDS.has(String(guildId));
 }
@@ -277,7 +292,73 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
         try { await autoCloseRecruitment(interaction.client, interaction.guildId, interaction.channelId, actualMessageId); } catch (e) { console.error('autoCloseRecruitment failed:', e); }
       }
     } catch (error) { console.error('自動締切処理でエラー:', error); }
-  }, 8 * 60 * 60 * 1000);
+  }, eightHoursMs);
+
+  // 開始時刻メンション（任意）- 重複防止のため1回のみ実行
+  const startDelay = computeDelayMs(finalRecruitData.startAt, null);
+  if (startDelay !== null && startDelay >= 0 && startDelay <= (36 * 60 * 60 * 1000)) { // 36h上限
+    setTimeout(async () => {
+      try {
+        // 重複送信チェック
+        if (startNotifySent.has(actualRecruitId)) {
+          console.log('[開始通知] 重複送信防止: 既に通知済み', actualRecruitId);
+          return;
+        }
+        startNotifySent.add(actualRecruitId);
+        
+        if (!recruitParticipants.has(actualMessageId)) return; // 既に終了
+        const ids = await getParticipantsFromRedis(actualMessageId).catch(() => null) || recruitParticipants.get(actualMessageId) || [];
+        if (!Array.isArray(ids) || ids.length === 0) return;
+        
+        const mentions = ids.map(id => `<@${id}>`).join(' ');
+        
+        // Embed作成
+        const notifyColor = hexToIntColor(finalRecruitData?.panelColor || '00FF00', 0x00FF00);
+        const notifyEmbed = new EmbedBuilder()
+          .setColor(notifyColor)
+          .setTitle('⏰ 開始時刻になりました！')
+          .setDescription(`**${finalRecruitData.title}** の募集開始時刻です。`)
+          .addFields(
+            { name: '📋 参加者', value: mentions, inline: false }
+          )
+          .setTimestamp();
+        
+        // ボイスチャット情報
+        if (finalRecruitData.voice === true) {
+          if (finalRecruitData.voicePlace) {
+            notifyEmbed.addFields({ name: '🔊 ボイスチャット', value: `あり (${finalRecruitData.voicePlace})`, inline: false });
+          } else {
+            notifyEmbed.addFields({ name: '🔊 ボイスチャット', value: 'あり', inline: false });
+          }
+        } else if (finalRecruitData.voice === false) {
+          notifyEmbed.addFields({ name: '🔇 ボイスチャット', value: 'なし', inline: false });
+        }
+        
+        // ボイスチャンネルURLをembedに追加
+        if (finalRecruitData.voiceChannelId) {
+          const voiceUrl = `https://discord.com/channels/${interaction.guildId}/${finalRecruitData.voiceChannelId}`;
+          notifyEmbed.addFields({ name: '🔗 ボイスチャンネル', value: `[参加する](${voiceUrl})`, inline: false });
+        }
+        
+        // 募集メッセージへのリンクを追加
+        const recruitUrl = `https://discord.com/channels/${interaction.guildId}/${interaction.channelId}/${actualMessageId}`;
+        notifyEmbed.addFields({ name: '📋 募集の詳細', value: `[メッセージを確認](${recruitUrl})`, inline: false });
+        
+        // メッセージ送信（1回のみ）
+        const sendOptions = { 
+          content: mentions, 
+          embeds: [notifyEmbed], 
+          allowedMentions: { users: ids } 
+        };
+        
+        await interaction.channel.send(sendOptions).catch(() => {});
+        
+        console.log('[開始通知] 送信完了:', actualRecruitId);
+      } catch (e) {
+        console.warn('開始通知送信失敗:', e?.message || e);
+      }
+    }, startDelay);
+  }
 
   // クールダウン設定
   try { if (!isGuildExempt(interaction.guildId)) await setCooldown(`rect:${interaction.guildId}`, 60); } catch (e) { console.warn('[rect cooldown set at submit] failed:', e?.message || e); }

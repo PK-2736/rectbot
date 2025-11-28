@@ -16,90 +16,6 @@ const currentUrl = new URL(Astro.url.pathname, siteUrl).toString();
 const logoUrl = `${siteUrl}/logo.png`;
 const faviconUrl = `${siteUrl}/favicon.ico`;
 const ogImageUrl = `${siteUrl}/logo.png`; // OGP画像（検索スニペットに表示）
-
-// 構造化データを事前に定義
-const organizationSchema = {
-  "@context": "https://schema.org",
-  "@type": "Organization",
-  "name": "Recrubo",
-  "alternateName": "りくるぼ",
-  "url": "https://recrubo.net",
-  "logo": {
-    "@type": "ImageObject",
-    "url": "https://recrubo.net/logo.png",
-    "width": "1024",
-    "height": "1024"
-  },
-  "description": "Discordのゲーム募集をスムーズにするボット",
-  "foundingDate": "2024",
-  "sameAs": [
-    "https://discord.gg/tJAGc9aRdc",
-    "https://github.com/PK-2736/rectbot"
-  ],
-  "contactPoint": {
-    "@type": "ContactPoint",
-    "contactType": "Customer Support",
-    "url": "https://support.recrubo.net"
-  }
-};
-
-const webPageSchema = {
-  "@context": "https://schema.org",
-  "@type": "WebPage",
-  "name": title,
-  "description": description,
-  "url": currentUrl,
-  "dateModified": updatedISO,
-  "inLanguage": "ja",
-  "publisher": {
-    "@type": "Organization",
-    "name": "Recrubo",
-    "logo": {
-      "@type": "ImageObject",
-      "url": "https://recrubo.net/logo.png"
-    }
-  },
-  "breadcrumb": {
-    "@type": "BreadcrumbList",
-    "itemListElement": [
-      {
-        "@type": "ListItem",
-        "position": 1,
-        "name": "ホーム",
-        "item": "https://recrubo.net"
-      }
-    ]
-  }
-};
-
-const softwareSchema = {
-  "@context": "https://schema.org",
-  "@type": "SoftwareApplication",
-  "name": "Recrubo",
-  "alternateName": "りくるぼ",
-  "applicationCategory": "CommunicationApplication",
-  "operatingSystem": "Discord",
-  "description": "Discordのゲーム募集をスムーズにするボット。埋め込み画像で視覚的に分りやすい募集を投稿、フレンドコードの一元管理、高速レスポンスでサーバー運営を効率化。",
-  "offers": {
-    "@type": "Offer",
-    "price": "0",
-    "priceCurrency": "JPY"
-  },
-  "aggregateRating": {
-    "@type": "AggregateRating",
-    "ratingValue": "4.8",
-    "ratingCount": "150",
-    "bestRating": "5"
-  },
-  "image": "https://recrubo.net/logo.png",
-  "screenshot": "https://recrubo.net/logo.png",
-  "author": {
-    "@type": "Organization",
-    "name": "Recrubo"
-  },
-  "datePublished": "2024-01-01",
-  "softwareVersion": "2.0"
-};
 ---
 <!DOCTYPE html>
 <html lang="ja">
@@ -134,13 +50,90 @@ const softwareSchema = {
     <meta itemprop="dateModified" content={updatedISO} />
     
     <!-- Schema.org structured data for Organization -->
-    <script type="application/ld+json">{JSON.stringify(organizationSchema)}</script>
+    <script type="application/ld+json" set:html={JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "Recrubo",
+      "alternateName": "りくるぼ",
+      "url": "https://recrubo.net",
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://recrubo.net/logo.png",
+        "width": "1024",
+        "height": "1024"
+      },
+      "description": "Discordのゲーム募集をスムーズにするボット",
+      "foundingDate": "2024",
+      "sameAs": [
+        "https://discord.gg/tJAGc9aRdc",
+        "https://github.com/PK-2736/rectbot"
+      ],
+      "contactPoint": {
+        "@type": "ContactPoint",
+        "contactType": "Customer Support",
+        "url": "https://support.recrubo.net"
+      }
+    })} />
     
     <!-- Schema.org structured data for WebPage -->
-    <script type="application/ld+json">{JSON.stringify(webPageSchema)}</script>
+    <script type="application/ld+json" set:html={JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "WebPage",
+      "name": title,
+      "description": description,
+      "url": currentUrl,
+      "dateModified": updatedISO,
+      "inLanguage": "ja",
+      "publisher": {
+        "@type": "Organization",
+        "name": "Recrubo",
+        "logo": {
+          "@type": "ImageObject",
+          "url": "https://recrubo.net/logo.png"
+        }
+      },
+      "breadcrumb": {
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          {
+            "@type": "ListItem",
+            "position": 1,
+            "name": "ホーム",
+            "item": "https://recrubo.net"
+          }
+        ]
+      }
+    })} />
     
     <!-- Schema.org structured data for SoftwareApplication (Bot) -->
-    <script type="application/ld+json">{JSON.stringify(softwareSchema)}</script>
+    <script type="application/ld+json" set:html={JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "Recrubo",
+      "alternateName": "りくるぼ",
+      "applicationCategory": "CommunicationApplication",
+      "operatingSystem": "Discord",
+      "description": "Discordのゲーム募集をスムーズにするボット。埋め込み画像で視覚的に分りやすい募集を投稿、フレンドコードの一元管理、高速レスポンスでサーバー運営を効率化。",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "JPY"
+      },
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": "4.8",
+        "ratingCount": "150",
+        "bestRating": "5"
+      },
+      "image": "https://recrubo.net/logo.png",
+      "screenshot": "https://recrubo.net/logo.png",
+      "author": {
+        "@type": "Organization",
+        "name": "Recrubo"
+      },
+      "datePublished": "2024-01-01",
+      "softwareVersion": "2.0"
+    })} />
     
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
@@ -199,7 +192,7 @@ const softwareSchema = {
         <div class="flex justify-between items-center h-16">
           <div class="flex items-center">
             <div class="flex-shrink-0">
-              <a href="/" class="text-2xl font-bold bg-gradient-to-r from-brand-500 to-accent-500 text-transparent bg-clip-text">rectbot</a>
+              <h1 class="text-2xl font-bold bg-gradient-to-r from-brand-500 to-accent-500 text-transparent bg-clip-text">rectbot</h1>
             </div>
           </div>
           <div class="hidden md:block">
