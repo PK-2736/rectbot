@@ -11,12 +11,12 @@ const {
 const { getGuildSettingsFromRedis } = require('../../utils/db');
 const { safeReply } = require('../../utils/safeReply');
 
-async function showSettingsUI(interaction, settings = {}) {
+async function showSettingsUI(interaction, settings = {}, isAdmin = false) {
   const container = new ContainerBuilder();
   container.setAccentColor(0x5865F2);
 
   container.addTextDisplayComponents(
-    new TextDisplayBuilder().setContent('⚙️✨ **ギルド募集設定** ✨⚙️')
+    new TextDisplayBuilder().setContent(`⚙️✨ **ギルド募集設定${isAdmin ? '' : ' (閲覧モード)'}** ✨⚙️`)
   );
 
   container.addSeparatorComponents(
@@ -27,15 +27,16 @@ async function showSettingsUI(interaction, settings = {}) {
     ? `<#${settings.recruit_channel || settings.recruitmentChannelId}>` 
     : '未設定';
 
-  container.addSectionComponents(
-    new SectionBuilder()
-      .addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(`📍 **募集チャンネル**\n${recruitChannelValue}`)
-      )
-      .setButtonAccessory(
-        new ButtonBuilder().setCustomId('set_recruit_channel').setLabel('設定変更').setStyle(ButtonStyle.Primary)
-      )
-  );
+  const sectionBuilder1 = new SectionBuilder()
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(`📍 **募集チャンネル**\n${recruitChannelValue}`)
+    );
+  if (isAdmin) {
+    sectionBuilder1.setButtonAccessory(
+      new ButtonBuilder().setCustomId('set_recruit_channel').setLabel('設定変更').setStyle(ButtonStyle.Primary)
+    );
+  }
+  container.addSectionComponents(sectionBuilder1);
 
   const notificationRoles = (() => {
     const roles = [];
@@ -59,44 +60,52 @@ async function showSettingsUI(interaction, settings = {}) {
     ? notificationRoleLines.join('\n')
     : '未設定';
 
-  container.addSectionComponents(
-    new SectionBuilder()
-      .addTextDisplayComponents(new TextDisplayBuilder().setContent(`🔔 **通知ロール**\n${notificationRoleValue}`))
-      .setButtonAccessory(new ButtonBuilder().setCustomId('set_notification_role').setLabel('設定変更').setStyle(ButtonStyle.Primary))
-  );
+  const sectionBuilder2 = new SectionBuilder()
+    .addTextDisplayComponents(new TextDisplayBuilder().setContent(`🔔 **通知ロール**\n${notificationRoleValue}`));
+  if (isAdmin) {
+    sectionBuilder2.setButtonAccessory(new ButtonBuilder().setCustomId('set_notification_role').setLabel('設定変更').setStyle(ButtonStyle.Primary));
+  }
+  container.addSectionComponents(sectionBuilder2);
 
-  const defaultTitleValue = settings.defaultTitle || settings.defaultRecruitTitle || '未設定';
-  container.addSectionComponents(
-    new SectionBuilder()
-      .addTextDisplayComponents(new TextDisplayBuilder().setContent(`📝 **既定タイトル**\n${defaultTitleValue}`))
-      .setButtonAccessory(new ButtonBuilder().setCustomId('set_default_title').setLabel('設定変更').setStyle(ButtonStyle.Primary))
-  );
+  const sectionBuilder3 = new SectionBuilder()
+    .addTextDisplayComponents(new TextDisplayBuilder().setContent(`📝 **既定タイトル**\n${defaultTitleValue}`));
+  if (isAdmin) {
+    sectionBuilder3.setButtonAccessory(new ButtonBuilder().setCustomId('set_default_title').setLabel('設定変更').setStyle(ButtonStyle.Primary));
+  }
+  container.addSectionComponents(sectionBuilder3);
 
-  const defaultColorValue = settings.defaultColor || settings.defaultRecruitColor || '未設定';
-  container.addSectionComponents(
-    new SectionBuilder()
-      .addTextDisplayComponents(new TextDisplayBuilder().setContent(`🎨 **既定カラー**\n${defaultColorValue}`))
-      .setButtonAccessory(new ButtonBuilder().setCustomId('set_default_color').setLabel('設定変更').setStyle(ButtonStyle.Primary))
-  );
+  const sectionBuilder4 = new SectionBuilder()
+    .addTextDisplayComponents(new TextDisplayBuilder().setContent(`🎨 **既定カラー**\n${defaultColorValue}`));
+  if (isAdmin) {
+    sectionBuilder4.setButtonAccessory(new ButtonBuilder().setCustomId('set_default_color').setLabel('設定変更').setStyle(ButtonStyle.Primary));
+  }
+  container.addSectionComponents(sectionBuilder4);
 
   const updateChannelValue = settings.update_channel || settings.updateNotificationChannelId 
     ? `<#${settings.update_channel || settings.updateNotificationChannelId}>` 
     : '未設定';
 
-  container.addSectionComponents(
-    new SectionBuilder()
-      .addTextDisplayComponents(new TextDisplayBuilder().setContent(`📢 **アップデート通知チャンネル**\n${updateChannelValue}`))
-      .setButtonAccessory(new ButtonBuilder().setCustomId('set_update_channel').setLabel('設定変更').setStyle(ButtonStyle.Primary))
-  );
+  const sectionBuilder5 = new SectionBuilder()
+    .addTextDisplayComponents(new TextDisplayBuilder().setContent(`📢 **アップデート通知チャンネル**\n${updateChannelValue}`));
+  if (isAdmin) {
+    sectionBuilder5.setButtonAccessory(new ButtonBuilder().setCustomId('set_update_channel').setLabel('設定変更').setStyle(ButtonStyle.Primary));
+  }
+  container.addSectionComponents(sectionBuilder5);
 
   container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Large).setDivider(true));
 
-  container.addActionRowComponents(
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId('finalize_settings').setLabel('設定完了').setStyle(ButtonStyle.Success).setEmoji('✅'),
-      new ButtonBuilder().setCustomId('reset_all_settings').setLabel('すべてリセット').setStyle(ButtonStyle.Danger).setEmoji('🔄')
-    )
-  );
+  if (isAdmin) {
+    container.addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('finalize_settings').setLabel('設定完了').setStyle(ButtonStyle.Success).setEmoji('✅'),
+        new ButtonBuilder().setCustomId('reset_all_settings').setLabel('すべてリセット').setStyle(ButtonStyle.Danger).setEmoji('🔄')
+      )
+    );
+  } else {
+    container.addTextDisplayComponents(
+      new TextDisplayBuilder().setContent('🔒 **管理者権限が必要です**\n設定変更を行うには管理者権限が必要です。')
+    );
+  }
 
   container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
   container.addTextDisplayComponents(new TextDisplayBuilder().setContent('powered by **RectBot**'))

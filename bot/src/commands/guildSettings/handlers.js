@@ -16,11 +16,9 @@ const {
 
 async function execute(interaction) {
   try {
-    if (!interaction.guild || !interaction.member || !interaction.member.permissions?.has(PermissionFlagsBits.Administrator)) {
-      return await safeReply(interaction, { content: '❌ この機能を使用するには「管理者」権限が必要です。', flags: MessageFlags.Ephemeral });
-    }
+    const isAdmin = interaction.guild && interaction.member && interaction.member.permissions?.has(PermissionFlagsBits.Administrator);
     const currentSettings = await getGuildSettingsSmart(interaction.guildId);
-    await showSettingsUI(interaction, currentSettings);
+    await showSettingsUI(interaction, currentSettings, isAdmin);
   } catch (error) {
     console.error('Guild settings command error:', error);
     if (!interaction.replied && !interaction.deferred) {
