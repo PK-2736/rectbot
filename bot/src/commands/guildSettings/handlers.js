@@ -161,7 +161,8 @@ async function updateGuildSetting(interaction, settingKey, value) {
     setTimeout(async () => {
       try {
         const latestSettings = await getGuildSettingsFromRedis(guildId);
-        await showSettingsUI(interaction, latestSettings);
+        const isAdmin = interaction.guild && interaction.member && interaction.member.permissions?.has(PermissionFlagsBits.Administrator);
+        await showSettingsUI(interaction, latestSettings, isAdmin);
       } catch (error) {
         console.error('Settings UI update error:', error);
       }
@@ -235,7 +236,8 @@ async function resetAllSettings(interaction) {
     setTimeout(async () => {
       try {
         const resetSettings = await getGuildSettingsFromRedis(guildId);
-        await showSettingsUI(interaction, resetSettings);
+        const isAdmin = interaction.guild && interaction.member && interaction.member.permissions?.has(PermissionFlagsBits.Administrator);
+        await showSettingsUI(interaction, resetSettings, isAdmin);
       } catch (error) {
         console.error('Settings UI update error:', error);
       }
