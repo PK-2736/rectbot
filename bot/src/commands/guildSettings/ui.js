@@ -118,6 +118,17 @@ async function showSettingsUI(interaction, settings = {}, isAdmin = false) {
     flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
   };
 
+  // Validate the container (to capture builder validation errors early and fall back)
+  try {
+    // container.toJSON() will validate internal structure; call it to trigger any builder validation errors
+    // eslint-disable-next-line no-unused-expressions
+    container.toJSON();
+  } catch (validateErr) {
+    console.error('[guildSettings] Container validation failed, falling back to plain text reply', validateErr);
+    await safeRespond(interaction, { content: '⚠️ 設定の表示に失敗しました。管理者にお問い合わせください。', flags: MessageFlags.Ephemeral });
+    return;
+  }
+
   await safeRespond(interaction, replyOptions);
 
   setTimeout(async () => {
@@ -133,7 +144,7 @@ async function showChannelSelect(interaction, settingType, placeholder) {
     .setPlaceholder(placeholder)
     .addChannelTypes(ChannelType.GuildText);
   const actionRow = new ActionRowBuilder().addComponents(channelSelect);
-  await safeReply(interaction, { content: placeholder, components: [actionRow], flags: MessageFlags.Ephemeral });
+  await safeRespond(interaction, { content: placeholder, components: [actionRow], flags: MessageFlags.Ephemeral });
 }
 
 async function showRoleSelect(interaction, settingType, placeholder) {
@@ -163,7 +174,7 @@ async function showRoleSelect(interaction, settingType, placeholder) {
   if (actualRoles.length > 0 && typeof roleSelect.setDefaultRoles === 'function') {
     // 管理者が間違ってすべてプリセットされていた既存の挙動を修正し、
     // 現在のprimary通知ロール（先頭）だけを初期選択にする
-    roleSelect.setDefaultRoles(...[actualRoles[0]]);
+    if (actualRoles[0]) roleSelect.setDefaultRoles(...[actualRoles[0]]);
   }
 
   const actionRows = [new ActionRowBuilder().addComponents(roleSelect)];
@@ -184,19 +195,12 @@ async function showRoleSelect(interaction, settingType, placeholder) {
   actionRows.push(specialButtonRow);
 
   try {
-    if (!interaction.replied && !interaction.deferred) {
-      await interaction.reply({ 
-        content: `${placeholder}\n\n💡 **ヒント**: @everyone/@hereは下のボタンで切り替えできます`, 
-        components: actionRows, 
-        flags: MessageFlags.Ephemeral 
-      });
-    } else {
-      await safeReply(interaction, { 
-        content: `${placeholder}\n\n💡 **ヒント**: @everyone/@hereは下のボタンで切り替えできます`, 
-        components: actionRows, 
-        flags: MessageFlags.Ephemeral 
-      });
-    }
+    await safeRespond(interaction, { 
+      content: `${placeholder}\n\n💡 **ヒント**: @everyone/@hereは下のボタンで切り替えできます`, 
+      components: actionRows, 
+      flags: MessageFlags.Ephemeral 
+    });
+    
   } catch (error) {
     console.error('[guildSettings] showRoleSelect response error:', error);
     if (!interaction.replied && !interaction.deferred) {
