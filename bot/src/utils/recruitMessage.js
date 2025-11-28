@@ -87,16 +87,34 @@ async function updateParticipantList(interactionOrMessage, participants, savedRe
     let participantText = `📋 参加リスト (**あと${remainingSlots}人**)\n${participants.map(id => `<@${id}>`).join(' • ')}`;
     
     // 通知ロールを画像の上に表示
-    let notificationText = '';
+    let subHeaderText = null;
     try {
-      const rid = savedRecruitData && (savedRecruitData.notificationRoleId || savedRecruitData.notification_role_id || savedRecruitData.notification_role);
-      const notifRoleId = rid ? String(rid) : null;
-      if (notifRoleId) {
-        notificationText = `🔔 通知ロール: <@&${notifRoleId}>\n\n`;
+      const notificationRoles = (() => {
+        const roles = [];
+        if (Array.isArray(guildSettings.notification_roles)) roles.push(...guildSettings.notification_roles.filter(Boolean));
+        if (roles.length === 0 && guildSettings.notification_role) roles.push(guildSettings.notification_role);
+        return [...new Set(roles.map(String))];
+      })();
+
+      if (notificationRoles.length > 0) {
+        // everyone/here と実際のロールを分離して表示
+        const specialMentions = notificationRoles.filter(r => r === 'everyone' || r === 'here');
+        const actualRoles = notificationRoles.filter(r => r !== 'everyone' && r !== 'here');
+
+        const notificationRoleLines = [];
+        if (specialMentions.includes('everyone')) notificationRoleLines.push('@everyone');
+        if (specialMentions.includes('here')) notificationRoleLines.push('@here');
+        if (actualRoles.length > 0) {
+          notificationRoleLines.push(...actualRoles.map(roleId => `<@&${roleId}>`));
+        }
+
+        if (notificationRoleLines.length > 0) {
+          subHeaderText = `🔔 通知ロール: ${notificationRoleLines.join(' ')}`;
+        }
       }
-    } catch (_) {}
-    
-    const fullText = notificationText + participantText;
+    } catch (e) {
+      console.warn('updateParticipantList: failed to build notification role text:', e?.message || e);
+    }
 
     let headerTitle = savedRecruitData?.title || '募集';
     try {
@@ -112,7 +130,16 @@ async function updateParticipantList(interactionOrMessage, participants, savedRe
     const accentColor = parseInt(useColor, 16);
     const recruiterId = savedRecruitData?.recruiterId || null;
     const requesterId = interaction ? interaction.user?.id : null;
-    const updatedContainer = buildContainer({ headerTitle, participantText: fullText, recruitIdText: savedRecruitData?.recruitId || (savedRecruitData?.message_id ? savedRecruitData.message_id.slice(-8) : '(unknown)'), accentColor, imageAttachmentName: 'attachment://recruit-card.png', recruiterId, requesterId });
+    const updatedContainer = buildContainer({ 
+      headerTitle, 
+      participantText, 
+      recruitIdText: savedRecruitData?.recruitId || (savedRecruitData?.message_id ? savedRecruitData.message_id.slice(-8) : '(unknown)'), 
+      accentColor, 
+      imageAttachmentName: 'attachment://recruit-card.png', 
+      recruiterId, 
+      requesterId,
+      subHeaderText 
+    });
 
     if (message && message.edit) {
       await message.edit({ files: [updatedImage], components: [updatedContainer], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } });

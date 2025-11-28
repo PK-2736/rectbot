@@ -66,13 +66,15 @@ async function checkAndNotifyStartTime(client) {
         if (currentHour === startHour && currentMinute === startMinute) {
           console.log(`[StartTimeNotifier] ✅ Triggering notification for recruit ${recruitId} at ${recruit.startTime}`);
           
+          // 重複通知を防ぐため、まずフラグを更新してから通知を送信
+          const { updateRecruitmentData } = require('./statusApi');
+          await updateRecruitmentData(recruitId, { startTimeNotified: true });
+          console.log(`[StartTimeNotifier] Flag updated for recruit ${recruitId}, now sending notification`);
+          
           // 通知を送信
           await sendStartTimeNotification(client, recruit);
           
-          // 通知済みフラグを立てる
-          const { updateRecruitmentData } = require('./statusApi');
-          await updateRecruitmentData(recruitId, { startTimeNotified: true });
-          console.log(`[StartTimeNotifier] Notification sent and flag updated for recruit ${recruitId}`);
+          console.log(`[StartTimeNotifier] Notification sent successfully for recruit ${recruitId}`);
         }
       } catch (err) {
         console.error(`[StartTimeNotifier] Error processing recruit ${recruit.recruitId || recruit.message_id}:`, err);
