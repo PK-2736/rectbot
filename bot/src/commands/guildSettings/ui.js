@@ -67,6 +67,7 @@ async function showSettingsUI(interaction, settings = {}, isAdmin = false) {
   }
   container.addSectionComponents(sectionBuilder2);
 
+  const defaultTitleValue = settings.defaultTitle || settings.defaultRecruitTitle || '未設定';
   const sectionBuilder3 = new SectionBuilder()
     .addTextDisplayComponents(new TextDisplayBuilder().setContent(`📝 **既定タイトル**\n${defaultTitleValue}`));
   if (isAdmin) {
@@ -74,6 +75,7 @@ async function showSettingsUI(interaction, settings = {}, isAdmin = false) {
   }
   container.addSectionComponents(sectionBuilder3);
 
+  const defaultColorValue = settings.defaultColor || settings.defaultRecruitColor || '未設定';
   const sectionBuilder4 = new SectionBuilder()
     .addTextDisplayComponents(new TextDisplayBuilder().setContent(`🎨 **既定カラー**\n${defaultColorValue}`));
   if (isAdmin) {
