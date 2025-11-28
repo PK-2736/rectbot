@@ -86,17 +86,13 @@ async function updateParticipantList(interactionOrMessage, participants, savedRe
     const remainingSlots = totalSlots - participants.length;
     let participantText = `📋 参加リスト (**あと${remainingSlots}人**)\n${participants.map(id => `<@${id}>`).join(' • ')}`;
     
-    // 通知ロールを画像の上に表示
-    let notificationText = '';
+    // 通知ロールをsubHeaderTextとして扱う（画像の上に配置）
+    let subHeaderText = null;
     try {
       const rid = savedRecruitData && (savedRecruitData.notificationRoleId || savedRecruitData.notification_role_id || savedRecruitData.notification_role);
       const notifRoleId = rid ? String(rid) : null;
-      if (notifRoleId) {
-        notificationText = `🔔 通知ロール: <@&${notifRoleId}>\n\n`;
-      }
+      if (notifRoleId) subHeaderText = `🔔 通知ロール: <@&${notifRoleId}>`;
     } catch (_) {}
-    
-    const fullText = notificationText + participantText;
 
     let headerTitle = savedRecruitData?.title || '募集';
     try {
@@ -112,7 +108,7 @@ async function updateParticipantList(interactionOrMessage, participants, savedRe
     const accentColor = parseInt(useColor, 16);
     const recruiterId = savedRecruitData?.recruiterId || null;
     const requesterId = interaction ? interaction.user?.id : null;
-    const updatedContainer = buildContainer({ headerTitle, participantText: fullText, recruitIdText: savedRecruitData?.recruitId || (savedRecruitData?.message_id ? savedRecruitData.message_id.slice(-8) : '(unknown)'), accentColor, imageAttachmentName: 'attachment://recruit-card.png', recruiterId, requesterId });
+    const updatedContainer = buildContainer({ headerTitle, participantText, recruitIdText: savedRecruitData?.recruitId || (savedRecruitData?.message_id ? savedRecruitData.message_id.slice(-8) : '(unknown)'), accentColor, imageAttachmentName: 'attachment://recruit-card.png', recruiterId, requesterId, subHeaderText });
 
     if (message && message.edit) {
       await message.edit({ files: [updatedImage], components: [updatedContainer], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } });
