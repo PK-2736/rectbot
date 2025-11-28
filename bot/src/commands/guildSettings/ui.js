@@ -35,7 +35,16 @@ async function showSettingsUI(interaction, settings = {}, isAdmin = false) {
       builder.toJSON();
       container.addSectionComponents(builder);
     } catch (sectionErr) {
-      console.warn('[guildSettings] Section validation failed; using fallback text-only section', { fallbackText, err: sectionErr?.message || sectionErr });
+      try {
+        console.warn('[guildSettings] Section validation failed; using fallback text-only section', { fallbackText, err: sectionErr?.message || sectionErr, stack: sectionErr?.stack });
+        // Attempt to log detailed toJSON if available
+        try {
+          const partial = JSON.stringify(builder, Object.getOwnPropertyNames(builder));
+          console.warn('[guildSettings] Section builder properties:', partial);
+        } catch (e) { /* ignore stringification errors */ }
+      } catch (logErr) {
+        console.warn('[guildSettings] Section validation and logging failed:', logErr?.message || logErr);
+      }
       const fallback = new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(fallbackText));
       container.addSectionComponents(fallback);
     }
