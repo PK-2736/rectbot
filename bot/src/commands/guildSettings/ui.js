@@ -50,16 +50,16 @@ async function showSettingsUI(interaction, settings = {}, isAdmin = false) {
     }
   }
 
-  const sectionBuilder1 = new SectionBuilder()
-    .addTextDisplayComponents(
-      new TextDisplayBuilder().setContent(`📍 **募集チャンネル**\n${recruitChannelValue}`)
-    );
+  container.addTextDisplayComponents(
+    new TextDisplayBuilder().setContent(`📍 **募集チャンネル**\n${recruitChannelValue}`)
+  );
   if (isAdmin) {
-    const btn = new ButtonBuilder().setCustomId('set_recruit_channel').setLabel('設定変更').setStyle(ButtonStyle.Primary);
-    console.log('[guildSettings:showSettingsUI] set button accessory for recruit channel');
-    sectionBuilder1.setButtonAccessory(btn);
+    container.addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('set_recruit_channel').setLabel('設定変更').setStyle(ButtonStyle.Primary)
+      )
+    );
   }
-  addSafeSection(container, sectionBuilder1, `📍 **募集チャンネル**\n${recruitChannelValue}`);
 
   const notificationRoles = (() => {
     const roles = [];
@@ -83,47 +83,47 @@ async function showSettingsUI(interaction, settings = {}, isAdmin = false) {
     ? notificationRoleLines.join('\n')
     : '未設定';
 
-  const sectionBuilder2 = new SectionBuilder()
-    .addTextDisplayComponents(new TextDisplayBuilder().setContent(`🔔 **通知ロール**\n${notificationRoleValue}`));
+  container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`🔔 **通知ロール**\n${notificationRoleValue}`));
   if (isAdmin) {
-    const btn = new ButtonBuilder().setCustomId('set_notification_role').setLabel('設定変更').setStyle(ButtonStyle.Primary);
-    console.log('[guildSettings:showSettingsUI] set button accessory for notification role');
-    sectionBuilder2.setButtonAccessory(btn);
+    container.addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('set_notification_role').setLabel('設定変更').setStyle(ButtonStyle.Primary)
+      )
+    );
   }
-  addSafeSection(container, sectionBuilder2, `🔔 **通知ロール**\n${notificationRoleValue}`);
 
   const defaultTitleValue = settings.defaultTitle || settings.defaultRecruitTitle || '未設定';
-  const sectionBuilder3 = new SectionBuilder()
-    .addTextDisplayComponents(new TextDisplayBuilder().setContent(`📝 **既定タイトル**\n${defaultTitleValue}`));
+  container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`📝 **既定タイトル**\n${defaultTitleValue}`));
   if (isAdmin) {
-    const btn = new ButtonBuilder().setCustomId('set_default_title').setLabel('設定変更').setStyle(ButtonStyle.Primary);
-    console.log('[guildSettings:showSettingsUI] set button accessory for default title');
-    sectionBuilder3.setButtonAccessory(btn);
+    container.addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('set_default_title').setLabel('設定変更').setStyle(ButtonStyle.Primary)
+      )
+    );
   }
-  addSafeSection(container, sectionBuilder3, `📝 **既定タイトル**\n${defaultTitleValue}`);
 
   const defaultColorValue = settings.defaultColor || settings.defaultRecruitColor || '未設定';
-  const sectionBuilder4 = new SectionBuilder()
-    .addTextDisplayComponents(new TextDisplayBuilder().setContent(`🎨 **既定カラー**\n${defaultColorValue}`));
+  container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`🎨 **既定カラー**\n${defaultColorValue}`));
   if (isAdmin) {
-    const btn = new ButtonBuilder().setCustomId('set_default_color').setLabel('設定変更').setStyle(ButtonStyle.Primary);
-    console.log('[guildSettings:showSettingsUI] set button accessory for default color');
-    sectionBuilder4.setButtonAccessory(btn);
+    container.addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('set_default_color').setLabel('設定変更').setStyle(ButtonStyle.Primary)
+      )
+    );
   }
-  addSafeSection(container, sectionBuilder4, `🎨 **既定カラー**\n${defaultColorValue}`);
 
   const updateChannelValue = settings.update_channel || settings.updateNotificationChannelId 
     ? `<#${settings.update_channel || settings.updateNotificationChannelId}>` 
     : '未設定';
 
-  const sectionBuilder5 = new SectionBuilder()
-    .addTextDisplayComponents(new TextDisplayBuilder().setContent(`📢 **アップデート通知チャンネル**\n${updateChannelValue}`));
+  container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`📢 **アップデート通知チャンネル**\n${updateChannelValue}`));
   if (isAdmin) {
-    const btn = new ButtonBuilder().setCustomId('set_update_channel').setLabel('設定変更').setStyle(ButtonStyle.Primary);
-    console.log('[guildSettings:showSettingsUI] set button accessory for update channel');
-    sectionBuilder5.setButtonAccessory(btn);
+    container.addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('set_update_channel').setLabel('設定変更').setStyle(ButtonStyle.Primary)
+      )
+    );
   }
-  addSafeSection(container, sectionBuilder5, `📢 **アップデート通知チャンネル**\n${updateChannelValue}`);
 
   container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Large).setDivider(true));
 
