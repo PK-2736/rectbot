@@ -33,13 +33,13 @@ module.exports = {
       }
 
       const embed = new EmbedBuilder()
-        .setTitle('RectBot 招待リンク')
+          .setTitle('Recrubo 招待リンク')
         .setDescription('以下のリンクから公式サーバーに参加したり、サーバーにボットを招待できます（ワンタイムリンク）。')
         .addFields(
           { name: '🔗 公式サーバー', value: OFFICIAL_INVITE },
           { name: '🤖 ワンタイム招待リンク', value: resp.url }
         )
-        .setColor(0x5865F2);
+          .setColor(0xF97316);
 
       const buttonRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setLabel('公式サーバーに参加').setStyle(ButtonStyle.Link).setURL(OFFICIAL_INVITE),

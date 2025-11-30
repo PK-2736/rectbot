@@ -4,7 +4,7 @@ const { safeReply, safeUpdate } = require('../utils/safeReply');
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('help')
-    .setDescription('RectBotの使い方とコマンド一覧を表示します')
+  .setDescription('Recruboの使い方とコマンド一覧を表示します')
     .addStringOption(option =>
       option
         .setName('command')
@@ -48,9 +48,9 @@ module.exports = {
 // 全体のヘルプを表示
 async function showGeneralHelp(interaction) {
   const helpEmbed = new EmbedBuilder()
-    .setColor(0x00AE86)
-    .setTitle('🤖 RectBot ヘルプ')
-    .setDescription('RectBotの機能一覧です。下のメニューからコマンドを選択すると詳細が表示されます。')
+    .setColor(0xF97316)
+    .setTitle('🤖 Recrubo ヘルプ')
+    .setDescription('Recruboの機能一覧です。下のメニューからコマンドを選択すると詳細が表示されます。')
     .addFields(
       { name: '🎮 募集作成', value: '`/rect` - ゲーム募集を作成', inline: true },
       { name: '⚙️ 募集設定', value: '`/setting` - ギルドの募集設定（管理者のみ）', inline: true },
@@ -58,7 +58,7 @@ async function showGeneralHelp(interaction) {
       { name: '🔗 招待', value: '`/invite` - 公式サーバーとボット招待リンクを発行/表示', inline: true }
     )
     .setFooter({ 
-      text: 'RectBot v1.0 | 作成者: RectBot Team',
+  text: 'Recrubo v1.0 | 作成者: Recrubo Team',
       iconURL: interaction.client.user.displayAvatarURL()
     })
     .setTimestamp();
@@ -142,7 +142,7 @@ async function showCommandDetails(interaction, commandName) {
     },
     help: {
       title: '❓ help コマンド',
-      description: 'RectBotの使い方とコマンド一覧を表示するコマンドです。',
+      description: 'Recruboの使い方とコマンド一覧を表示するコマンドです。',
       usage: '`/help [command]`',
       examples: '`/help` → 全体ヘルプ\n`/help rect` → rectコマンドの詳細',
       fields: [
@@ -172,7 +172,7 @@ async function showCommandDetails(interaction, commandName) {
   }
 
   const detailEmbed = new EmbedBuilder()
-    .setColor(0x00AE86)
+    .setColor(0xF97316)
     .setTitle(command.title)
     .setDescription(command.description)
     .addFields(
@@ -182,7 +182,7 @@ async function showCommandDetails(interaction, commandName) {
       ...command.fields
     )
     .setFooter({ 
-      text: 'RectBot ヘルプ | /help で戻る',
+      text: 'Recrubo ヘルプ | /help で戻る',
       iconURL: interaction.client.user.displayAvatarURL()
     })
     .setTimestamp();

@@ -17,8 +17,8 @@ module.exports = {
     const { EmbedBuilder } = require('discord.js');
     const embed = new EmbedBuilder()
       .setTitle('アップデート通知ロール')
-      .setDescription('このロールはrectbotのアップデートや重要なお知らせを受け取るためのものです。\n\n下のボタンを押すと「アップデート通知用ロール」が付与されます。')
-      .setColor(0x3b82f6)
+      .setDescription('このロールはRecruboのアップデートや重要なお知らせを受け取るためのものです。\n\n下のボタンを押すと「アップデート通知用ロール」が付与されます。')
+      .setColor(0xF97316)
       .setFooter({ text: '通知が不要になった場合はロールを外してください。' });
 
     try {

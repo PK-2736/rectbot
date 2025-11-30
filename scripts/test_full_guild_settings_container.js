@@ -64,7 +64,7 @@ function buildSettingsContainer(isAdmin) {
 
   container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Large).setDivider(true));
   container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
-  container.addTextDisplayComponents(new TextDisplayBuilder().setContent('powered by rectbot'));
+  container.addTextDisplayComponents(new TextDisplayBuilder().setContent('powered by Recrubo'));
 
   return container;
 }

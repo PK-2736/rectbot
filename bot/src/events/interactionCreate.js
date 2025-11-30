@@ -210,14 +210,14 @@ module.exports = {
                 if (member.roles.cache.has(role.id)) {
                   await safeRespond(interaction, { content: 'ℹ️ そのロールは既に付与されています。', flags: require('discord.js').MessageFlags.Ephemeral });
                 } else {
-                  await member.roles.add(role.id, 'RectBot: update notification self-assign');
+                  await member.roles.add(role.id, 'Recrubo: update notification self-assign');
                   await safeRespond(interaction, { content: '✅ ロールを付与しました。', flags: require('discord.js').MessageFlags.Ephemeral });
                 }
               } else {
                 if (!member.roles.cache.has(role.id)) {
                   await safeRespond(interaction, { content: 'ℹ️ そのロールは付与されていません。', flags: require('discord.js').MessageFlags.Ephemeral });
                 } else {
-                  await member.roles.remove(role.id, 'RectBot: update notification self-remove');
+                  await member.roles.remove(role.id, 'Recrubo: update notification self-remove');
                   await safeRespond(interaction, { content: '✅ ロールを外しました。', flags: require('discord.js').MessageFlags.Ephemeral });
                 }
               }

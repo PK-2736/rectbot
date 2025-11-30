@@ -32,7 +32,7 @@ export async function routeBotInvite(request, env, ctx, url, corsHeaders) {
     <meta charset="utf-8" />
     <meta name="robots" content="noindex,nofollow" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Rectbot | ボット招待の確認</title>
+  <title>Recrubo | ボット招待の確認</title>
     <style>
       :root {
         --bg1: #ffe4e6; /* rose-100 */
@@ -96,7 +96,7 @@ export async function routeBotInvite(request, env, ctx, url, corsHeaders) {
   <body>
     <main class="wrap">
       <section class="card" aria-label="ボット招待の確認">
-        <div class="brand">rectbot</div>
+          <div class="brand">Recrubo</div>
         <h1>ボット招待へ進む前に</h1>
         <p>このリンクは <strong>一回限り</strong> の招待リンクです。<br />
         「続行」を押すとリンクが確定し、Discord のボット招待ページへ移動します。</p>

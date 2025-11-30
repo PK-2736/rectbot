@@ -1,4 +1,4 @@
-// rectbot アップデート通知一斉送信スクリプト
+// Recrubo アップデート通知一斉送信スクリプト
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '../.env') });
 const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
@@ -10,9 +10,9 @@ if (!TOKEN) throw new Error('DISCORD_BOT_TOKEN is not set');
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
 // 通知内容をここで編集
-const NOTIFY_TITLE = 'rectbot アップデートのお知らせ';
+const NOTIFY_TITLE = 'Recrubo アップデートのお知らせ';
 const NOTIFY_DESC = '新機能や修正内容など、最新のアップデート情報をお届けします。';
-const NOTIFY_COLOR = 0x3b82f6;
+const NOTIFY_COLOR = 0xF97316;
 
 async function sendUpdateToAllGuilds() {
   let sent = 0, failed = 0;

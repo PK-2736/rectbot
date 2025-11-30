@@ -531,7 +531,7 @@ async function processClose(interaction, messageId, savedRecruitData) {
     disabledContainer.addSeparatorComponents(
       new (require('discord.js').SeparatorBuilder)().setSpacing(require('discord.js').SeparatorSpacingSize.Small).setDivider(true)
     ).addTextDisplayComponents(
-      new (require('discord.js').TextDisplayBuilder)().setContent(`募集ID：\`${footerMessageId.slice(-8)}\` | powered by **rectbot**`)
+  new (require('discord.js').TextDisplayBuilder)().setContent(`募集ID：\`${footerMessageId.slice(-8)}\` | powered by **Recrubo**`)
     );
     await interaction.message.edit({ components: [disabledContainer], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } });
 

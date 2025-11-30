@@ -64,7 +64,7 @@ function buildContainer({ headerTitle = '募集', participantText = '', recruitI
   );
   const footerParts = [`募集ID：\`${recruitIdText}\``];
   if (footerExtra) footerParts.push(footerExtra);
-  footerParts.push('powered by recrubo');
+  footerParts.push('powered by Recrubo');
   const footerText = footerParts.join(' | ');
   container.addTextDisplayComponents(
     new TextDisplayBuilder().setContent(footerText)

@@ -96,7 +96,7 @@ class ErrorHandler {
           }
         ],
         footer: {
-          text: 'Rectbot Error Monitor'
+          text: 'Recrubo Error Monitor'
         }
       };
       

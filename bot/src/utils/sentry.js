@@ -31,7 +31,7 @@ function initSentry() {
     initialScope: {
       tags: {
         service: "discord-bot",
-        bot_name: "rectbot",
+  bot_name: "Recrubo",
       },
     },
   });

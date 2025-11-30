@@ -188,7 +188,7 @@ async function showSettingsUI(interaction, settings = {}, isAdmin = false) {
   }
 
   container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
-  container.addTextDisplayComponents(new TextDisplayBuilder().setContent('powered by **RectBot**'))
+  container.addTextDisplayComponents(new TextDisplayBuilder().setContent('powered by **Recrubo**'))
 
   const replyOptions = {
     content: '　',

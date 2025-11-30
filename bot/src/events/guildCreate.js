@@ -42,7 +42,7 @@ module.exports = {
 
       // ウェルカムメッセージを作成
       const embed = new EmbedBuilder()
-        .setColor(0x5865F2)
+        .setColor(0xF97316)
         .setTitle('🎉 Recrubo を導入いただきありがとうございます！')
         .setDescription('ゲーム募集を簡単に作成・管理できるDiscordボットです。')
         .addFields({ name: '使い方', value: '下のボタンからヘルプやサポートを参照できます', inline: false })

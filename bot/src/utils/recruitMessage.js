@@ -186,7 +186,7 @@ async function autoCloseRecruitment(client, guildId, channelId, messageId) {
       disabledContainer.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
       disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent('🔒 この募集は自動的に締め切られました。'));
       disabledContainer.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
-      disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent(`募集ID：\`${recruitId}\` | powered by **rectbot**`));
+  disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent(`募集ID：\`${recruitId}\` | powered by **Recrubo**`));
       await message.edit({ components: [disabledContainer], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } });
     } catch (e) { console.warn('[autoClose] Failed to edit message during auto close:', e?.message || e); }
 

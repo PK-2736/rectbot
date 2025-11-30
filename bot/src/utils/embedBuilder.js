@@ -9,7 +9,7 @@ module.exports = {
     const embed = new EmbedBuilder()
       .setTitle(options.title || 'ゲーム募集')
       .setDescription(`参加者: ${options.members?.length || 0}\n時間: ${options.time || '未定'}\n状態: ${options.status || 'OPEN'}`)
-      .setColor(0x00bfff);
+      .setColor(0xF97316);
     return embed.toJSON();
   },
   // 募集用の“ボタン風”画像を生成（Embedに埋め込むための視覚表現）
