@@ -15,6 +15,7 @@ const siteUrl = 'https://recrubo.net';
 const currentUrl = new URL(Astro.url.pathname, siteUrl).toString();
 const logoUrl = `${siteUrl}/logo.png`;
 const faviconUrl = `${siteUrl}/favicon.ico`;
+const faviconSvgUrl = `${siteUrl}/favicon.svg`;
 const ogImageUrl = `${siteUrl}/logo.png`; // OGP画像（検索スニペットに表示）
 ---
 <!DOCTYPE html>
@@ -23,10 +24,13 @@ const ogImageUrl = `${siteUrl}/logo.png`; // OGP画像（検索スニペット�
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     
-    <!-- Favicon - 検索結果とブラウザタブ用 -->
-    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+  <!-- Favicon - SVG is preferred by modern browsers and search engines -->
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="icon" type="image/svg+xml" href={faviconSvgUrl} />
+  <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+  <link rel="icon" type="image/x-icon" href={faviconUrl} />
     <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico" />
-    <link rel="icon" type="image/png" sizes="16x16" href="/favicon.ico" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon.ico" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon.ico" />
     <link rel="icon" type="image/png" sizes="192x192" href="/logo.png" />
     <link rel="icon" type="image/png" sizes="512x512" href="/logo.png" />
@@ -165,7 +169,10 @@ const ogImageUrl = `${siteUrl}/logo.png`; // OGP画像（検索スニペット�
     <meta itemprop="image" content={ogImageUrl} />
     
   <!-- Favicon & Icons -->
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="icon" type="image/svg+xml" href={faviconSvgUrl} />
   <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+  <link rel="icon" type="image/x-icon" href={faviconUrl} />
   <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico" />
   <link rel="icon" type="image/png" sizes="16x16" href="/favicon.ico" />
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon.ico" />
@@ -173,6 +180,7 @@ const ogImageUrl = `${siteUrl}/logo.png`; // OGP画像（検索スニペット�
   <link rel="icon" type="image/png" sizes="512x512" href="/logo.png" />
   <link rel="icon" type="image/png" sizes="1024x1024" href="/logo.png" />
   <link rel="apple-touch-icon" sizes="180x180" href="/logo.png" />
+  <link rel="mask-icon" href="/favicon.svg" color="#F97316" />
   <meta name="msapplication-TileImage" content="/logo.png" />
   <meta name="msapplication-TileColor" content="#ff7e42" />
     <meta name="apple-mobile-web-app-title" content="Recrubo" />
