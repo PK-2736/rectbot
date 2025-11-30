@@ -12,7 +12,8 @@ module.exports = {
         .addChoices(
           { name: 'rect', value: 'rect' },
           { name: 'setting', value: 'setting' },
-          { name: 'help', value: 'help' }
+          { name: 'help', value: 'help' },
+          { name: 'invite', value: 'invite' }
         )
     ),
   async execute(interaction) {
@@ -53,7 +54,8 @@ async function showGeneralHelp(interaction) {
     .addFields(
       { name: '🎮 募集作成', value: '`/rect` - ゲーム募集を作成', inline: true },
       { name: '⚙️ 募集設定', value: '`/setting` - ギルドの募集設定（管理者のみ）', inline: true },
-      { name: '❓ ヘルプ', value: '`/help` - このヘルプを表示', inline: true }
+      { name: '❓ ヘルプ', value: '`/help` - このヘルプを表示', inline: true },
+      { name: '🔗 招待', value: '`/invite` - 公式サーバーとボット招待リンクを発行/表示', inline: true }
     )
     .setFooter({ 
       text: 'RectBot v1.0 | 作成者: RectBot Team',
@@ -81,6 +83,12 @@ async function showGeneralHelp(interaction) {
         .setDescription('このヘルプを表示する')
         .setValue('help')
         .setEmoji('❓')
+      ,
+      new StringSelectMenuOptionBuilder()
+        .setLabel('🔗 invite')
+        .setDescription('公式サーバーとボット招待リンクを表示')
+        .setValue('invite')
+        .setEmoji('🔗')
     ]);
 
   // ホームページへのボタン
@@ -140,6 +148,16 @@ async function showCommandDetails(interaction, commandName) {
       fields: [
         { name: '📖 オプション', value: '• **command**: 特定のコマンドの詳細を表示（省略可）', inline: false },
         { name: '💡 使い方', value: '• `/help` で全体のヘルプ表示\n• `/help [コマンド名]` で個別詳細表示\n• セレクトメニューからも選択可能', inline: false }
+      ]
+    }
+    ,
+    invite: {
+      title: '🔗 invite コマンド',
+      description: '公式サーバーへの参加リンクと、ボットのワンタイム招待リンクを発行して表示します。',
+      usage: '`/invite`',
+      examples: '`/invite` → 招待リンクを表示（ワンタイム生成）',
+      fields: [
+        { name: '🔒 ワンタイム招待', value: 'ワンタイムで発行されるボット招待リンクです。一度のみ有効になります。', inline: false }
       ]
     }
   };
