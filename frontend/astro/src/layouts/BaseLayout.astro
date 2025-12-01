@@ -7,6 +7,8 @@ export interface Props {
 }
 
 const { title = "Recrubo - Discordのゲーム募集bot", description = "Recrubo（りくるぼ）は、Discordのゲーム募集を手助けするボット。埋め込み画像で視覚的に分りやすい募集を投稿、フレンドコードの一元管理、高速レスポンスでサーバー運営を効率化。" } = Astro.props;
+// ホームページかどうかを判定（SoftwareApplicationスキーマはホームページのみ表示）
+const isHomePage = Astro.url.pathname === '/' || Astro.url.pathname === '';
 // ビルド時刻（検索結果に更新日を表示させるためのメタ・構造化データに使用）
 const updatedISO = new Date().toISOString();
 const updatedDisplay = new Date(updatedISO).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
@@ -81,19 +83,14 @@ const ogImageUrl = `${siteUrl}/image.png`; // OGP画像（募集スクリーン�
       }
     })} />
     
-    <!-- Schema.org structured data for WebSite + SearchAction + WebPage -->
+    <!-- Schema.org structured data for WebSite + WebPage -->
     <script type="application/ld+json" set:html={JSON.stringify([
       {
         "@context": "https://schema.org",
         "@type": "WebSite",
         "url": siteUrl,
         "name": "Recrubo",
-        "inLanguage": "ja",
-        "potentialAction": {
-          "@type": "SearchAction",
-          "target": `${siteUrl}/?q={search_term_string}`,
-          "query-input": "required name=search_term_string"
-        }
+        "inLanguage": "ja"
       },
       {
         "@context": "https://schema.org",
@@ -104,7 +101,6 @@ const ogImageUrl = `${siteUrl}/image.png`; // OGP画像（募集スクリーン�
         "dateModified": updatedISO,
         "inLanguage": "ja",
         "image": ogImageUrl,
-        "screenshot": ogImageUrl,
         "publisher": {
           "@type": "Organization",
           "name": "Recrubo",
@@ -127,29 +123,31 @@ const ogImageUrl = `${siteUrl}/image.png`; // OGP画像（募集スクリーン�
       }
     ])} />
     
-    <!-- Schema.org structured data for SoftwareApplication (Bot) -->
-    <script type="application/ld+json" set:html={JSON.stringify({
-      "@context": "https://schema.org",
-      "@type": "SoftwareApplication",
-      "name": "Recrubo",
-      "alternateName": "りくるぼ",
-      "applicationCategory": "CommunicationApplication",
-      "operatingSystem": "Discord",
-      "description": "Discordのゲーム募集をスムーズにするボット。埋め込み画像で視覚的に分りやすい募集を投稿、フレンドコードの一元管理、高速レスポンスでサーバー運営を効率化。",
-      "offers": {
-        "@type": "Offer",
-        "price": "0",
-        "priceCurrency": "JPY"
-      },
-      "image": "https://recrubo.net/logo.png",
-      "screenshot": "https://recrubo.net/logo.png",
-      "author": {
-        "@type": "Organization",
-        "name": "Recrubo"
-      },
-      "datePublished": "2024-01-01",
-      "softwareVersion": "2.0"
-    })} />
+    <!-- Schema.org structured data for SoftwareApplication (Bot) - ホームページのみ表示 -->
+    {isHomePage && (
+      <script type="application/ld+json" set:html={JSON.stringify({
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "Recrubo",
+        "alternateName": "りくるぼ",
+        "applicationCategory": "CommunicationApplication",
+        "operatingSystem": "Discord",
+        "description": "Discordのゲーム募集をスムーズにするボット。埋め込み画像で視覚的に分りやすい募集を投稿、フレンドコードの一元管理、高速レスポンスでサーバー運営を効率化。",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "JPY"
+        },
+        "image": "https://recrubo.net/logo.png",
+        "screenshot": "https://recrubo.net/logo.png",
+        "author": {
+          "@type": "Organization",
+          "name": "Recrubo"
+        },
+        "datePublished": "2024-01-01",
+        "softwareVersion": "2.0"
+      })} />
+    )}
     
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
