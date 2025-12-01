@@ -75,7 +75,10 @@ async function execute(interaction) {
 
     const titleArg = optStr('タイトル') ?? optStr('title');
     const membersArg = optInt('人数') ?? optInt('members');
-    const startArg = optStr('開始時間') ?? optStr('start');
+  // 開始時間: 自由入力とプリセットの両対応
+  const startPreset = optStr('開始プリセット') ?? optStr('start_preset');
+  const startArgRaw = optStr('開始時間') ?? optStr('start');
+  const startArg = startPreset ? (startPreset === 'now' ? 'now' : startArgRaw) : startArgRaw;
     const voiceArg = optBool('通話有無') ?? optBool('voice'); // true/false/undefined
     const voiceChannel = optChan('通話場所');
     const legacyVoicePlace = optStr('voice_place');
