@@ -79,7 +79,7 @@ const faqSchema = {
       </svg>
     </div>
     <div class="container relative z-10">
-      <div class="text-center max-w-4xl mx-auto animate-fade-in-up">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center animate-fade-in-up">
         <div class="mb-12">
           <h1 class="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 bg-gradient-to-r from-brand-500 to-accent-500 text-transparent bg-clip-text">
              Recruboで募集をスムーズに
@@ -88,12 +88,11 @@ const faqSchema = {
             Recrubo は、 Discord 内の募集を円滑に行うためのボットです<br>
             募集機能・フレンドコード管理でサーバー運営をサポートします。
           </p>
-        </div>
-        <div class="mt-6 text-center">
+          <div class="mt-6">
           <a href={supportUrl} class="text-brand-600 hover:text-brand-700 underline text-base md:text-lg transition-colors" target="_blank" rel="noopener">サポートポータル</a>で質問・お問い合わせ受付中！
-        </div>
-        
-        <div class="flex flex-col sm:flex-row gap-4 justify-center mt-8">
+          </div>
+          
+          <div class="flex flex-col sm:flex-row gap-4 mt-8">
           <a
             href="javascript:void(0)"
             class="btn-primary text-lg px-8 py-4 js-bot-invite transform hover:scale-105"
@@ -110,6 +109,30 @@ const faqSchema = {
           <a href="#features" class="btn-secondary text-lg px-8 py-4">
             機能を詳しく見る
           </a>
+          </div>
+
+          <!-- Quick Commands chips -->
+          <div class="mt-6 flex flex-wrap gap-2">
+            <a href="/commands/gameRecruit" class="px-3 py-2 rounded-full bg-white border border-brand-200 text-brand-700 text-sm hover:bg-brand-50">/recruit 募集</a>
+            <a href="/commands/friendCode" class="px-3 py-2 rounded-full bg-white border border-brand-200 text-brand-700 text-sm hover:bg-brand-50">/friend フレンドコード</a>
+            <a href="/commands/fastResponse" class="px-3 py-2 rounded-full bg-white border border-brand-200 text-brand-700 text-sm hover:bg-brand-50">/help ヘルプ</a>
+            <a href="#invite" class="px-3 py-2 rounded-full bg-white border border-brand-200 text-brand-700 text-sm hover:bg-brand-50">/invite 招待</a>
+        </div>
+        </div>
+        <!-- Hero Image on right -->
+        <div class="hidden lg:block">
+          <div class="relative">
+            <img src="/logo.png" alt="Recrubo プレビュー" class="w-full max-w-lg ml-auto rounded-2xl shadow-xl border border-brand-100" loading="eager" />
+            <div class="absolute -bottom-4 -left-4 bg-white/80 backdrop-blur-sm rounded-xl shadow p-3 border border-brand-100">
+              <div class="flex items-center gap-3">
+                <span class="inline-block w-10 h-10 rounded-lg bg-brand-500"></span>
+                <div>
+                  <p class="text-sm font-semibold text-slate-900">参加者募集</p>
+                  <p class="text-xs text-slate-600">powered by Recrubo</p>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
