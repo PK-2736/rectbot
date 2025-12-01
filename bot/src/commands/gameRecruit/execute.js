@@ -75,10 +75,8 @@ async function execute(interaction) {
 
     const titleArg = optStr('タイトル') ?? optStr('title');
     const membersArg = optInt('人数') ?? optInt('members');
-  // 開始時間: 自由入力とプリセットの両対応
-  const startPreset = optStr('開始プリセット') ?? optStr('start_preset');
-  const startArgRaw = optStr('開始時間') ?? optStr('start');
-  const startArg = startPreset ? (startPreset === 'now' ? 'now' : startArgRaw) : startArgRaw;
+  // 開始時間: 自由入力（オートコンプリートで「今から」を提示）
+  const startArg = optStr('開始時間') ?? optStr('start');
     const voiceArg = optBool('通話有無') ?? optBool('voice'); // true/false/undefined
     const voiceChannel = optChan('通話場所');
     const legacyVoicePlace = optStr('voice_place');
@@ -106,7 +104,7 @@ async function execute(interaction) {
 
     // 入力バリデーション: 開始時間
     const hhmm = /^\s*(\d{1,2}):(\d{2})\s*$/;
-    const isNow = /^\s*(今から|now)\s*$/i.test(String(startArg));
+  const isNow = /^\s*(今から|now)\s*$/i.test(String(startArg));
     if (!isNow && !hhmm.test(String(startArg))) {
       await safeReply(interaction, { content: '❌ 開始時間は HH:mm の形式、または「今から」で指定してください（例: 21:00 ／ 今から）。', flags: MessageFlags.Ephemeral });
       return;
@@ -143,12 +141,13 @@ async function execute(interaction) {
     try {
       if (interaction.user && interaction.user.id) {
         const prev = pendingModalOptions.get(interaction.user.id) || {};
+        const displayStart = isNow ? '今から' : String(startArg);
         pendingModalOptions.set(interaction.user.id, {
           ...prev,
           panelColor: selectedColor,
           title: titleArg,
           participants: membersArg,
-          startTime: startArg, // 表示用
+          startTime: displayStart, // 表示用（今からの場合は日本語表記）
           startAt: startAtISO, // 予約実行用
           voice: typeof voiceArg === 'boolean' ? voiceArg : null,
           voicePlace: voicePlaceArg,

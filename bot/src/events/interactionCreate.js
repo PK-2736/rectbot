@@ -59,6 +59,16 @@ module.exports = {
             }
           } catch (_) {}
         }
+        // 開始時間のオートコンプリート: 「今から」を候補に
+        if (name === '開始時間') {
+          const label = '今から';
+          // 入力が空、または「いま」「ima」「now」などに近い時に提示
+          const v = (value || '').toLowerCase();
+          const shouldSuggest = !v || ['いま','今','ima','now'].some(k => v.includes(k));
+          if (shouldSuggest) {
+            choices.push({ name: label, value: label });
+          }
+        }
         await interaction.respond(choices.slice(0, 10));
       } catch (e) {
         console.warn('[interactionCreate] autocomplete error:', e?.message || e);

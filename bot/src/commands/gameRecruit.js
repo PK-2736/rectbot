@@ -71,17 +71,9 @@ module.exports = {
     // 必須: 開始時間（HH:mm 24時間表記 or 「今から」）
     .addStringOption(option =>
       option.setName('開始時間')
-        .setDescription('開始時間（必須）例: 21:00（24時間表記）／ 今から')
+        .setDescription('開始時間（必須）例: 21:00（24時間表記）／ 今から（候補から選択可）')
         .setRequired(true)
-    )
-    // 任意: 開始プリセット（選択式）
-    .addStringOption(option =>
-      option.setName('開始プリセット')
-        .setDescription('開始時間のプリセット（任意）: 今から など')
-        .setRequired(false)
-        .addChoices(
-          { name: '今から', value: 'now' }
-        )
+        .setAutocomplete(true)
     )
     // 任意: 色
     .addStringOption(option =>
