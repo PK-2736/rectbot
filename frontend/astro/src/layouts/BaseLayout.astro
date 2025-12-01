@@ -6,7 +6,7 @@ export interface Props {
   description?: string;
 }
 
-const { title = "Recrubo - Discordボットでゲーム募集をスムーズに", description = "Recrubo（りくるぼ）は、Discordのゲーム募集をスムーズにするボット。埋め込み画像で視覚的に分りやすい募集を投稿、フレンドコードの一元管理、高速レスポンスでサーバー運営を効率化。" } = Astro.props;
+const { title = "Recrubo - Discordのゲーム募集bot", description = "Recrubo（りくるぼ）は、Discordのゲーム募集を手助けするボット。埋め込み画像で視覚的に分りやすい募集を投稿、フレンドコードの一元管理、高速レスポンスでサーバー運営を効率化。" } = Astro.props;
 // ビルド時刻（検索結果に更新日を表示させるためのメタ・構造化データに使用）
 const updatedISO = new Date().toISOString();
 const updatedDisplay = new Date(updatedISO).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
@@ -44,6 +44,8 @@ const ogImageUrl = `${siteUrl}/image.png`; // OGP画像（募集スクリーン�
     <meta name="author" content="Recrubo" />
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
     <meta name="googlebot" content="index, follow" />
+  <meta name="subject" content="Discordゲーム募集ボット Recrubo" />
+  <meta name="classification" content="Discord Bot, Game Recruitment, Communication Tool" />
     <link rel="canonical" href={currentUrl} />
     <link rel="sitemap" type="application/xml" href="/sitemap.xml" />
     <!-- Updated time for SEO snippets -->
@@ -167,6 +169,10 @@ const ogImageUrl = `${siteUrl}/image.png`; // OGP画像（募集スクリーン�
     <meta property="og:image:width" content="1024" />
     <meta property="og:image:height" content="1024" />
     <meta property="og:image:alt" content="Recruboロゴ" />
+    <meta property="og:see_also" content="https://recrubo.net/commands/gameRecruit" />
+    <meta property="og:see_also" content="https://recrubo.net/commands/friendCode" />
+    <meta property="og:see_also" content="https://recrubo.net/commands/fastResponse" />
+    <meta property="og:see_also" content="https://recrubo.net/botinvite" />
     <meta property="og:locale" content="ja_JP" />
     
     <!-- Twitter -->
