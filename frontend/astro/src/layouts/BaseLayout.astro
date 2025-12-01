@@ -16,7 +16,7 @@ const currentUrl = new URL(Astro.url.pathname, siteUrl).toString();
 const logoUrl = `${siteUrl}/logo.png`;
 const faviconUrl = `${siteUrl}/favicon.ico`;
 const faviconSvgUrl = `${siteUrl}/favicon.svg`;
-const ogImageUrl = `${siteUrl}/logo.png`; // OGP画像（検索スニペットに表示）
+const ogImageUrl = `${siteUrl}/image.png`; // OGP画像（募集スクリーンショットを優先）
 ---
 <!DOCTYPE html>
 <html lang="ja">
@@ -79,35 +79,51 @@ const ogImageUrl = `${siteUrl}/logo.png`; // OGP画像（検索スニペット�
       }
     })} />
     
-    <!-- Schema.org structured data for WebPage -->
-    <script type="application/ld+json" set:html={JSON.stringify({
-      "@context": "https://schema.org",
-      "@type": "WebPage",
-      "name": title,
-      "description": description,
-      "url": currentUrl,
-      "dateModified": updatedISO,
-      "inLanguage": "ja",
-      "publisher": {
-        "@type": "Organization",
+    <!-- Schema.org structured data for WebSite + SearchAction + WebPage -->
+    <script type="application/ld+json" set:html={JSON.stringify([
+      {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "url": siteUrl,
         "name": "Recrubo",
-        "logo": {
-          "@type": "ImageObject",
-          "url": "https://recrubo.net/logo.png"
+        "inLanguage": "ja",
+        "potentialAction": {
+          "@type": "SearchAction",
+          "target": `${siteUrl}/?q={search_term_string}`,
+          "query-input": "required name=search_term_string"
         }
       },
-      "breadcrumb": {
-        "@type": "BreadcrumbList",
-        "itemListElement": [
-          {
-            "@type": "ListItem",
-            "position": 1,
-            "name": "ホーム",
-            "item": "https://recrubo.net"
+      {
+        "@context": "https://schema.org",
+        "@type": "WebPage",
+        "name": title,
+        "description": description,
+        "url": currentUrl,
+        "dateModified": updatedISO,
+        "inLanguage": "ja",
+        "image": ogImageUrl,
+        "screenshot": ogImageUrl,
+        "publisher": {
+          "@type": "Organization",
+          "name": "Recrubo",
+          "logo": {
+            "@type": "ImageObject",
+            "url": `${siteUrl}/logo.png`
           }
-        ]
+        },
+        "breadcrumb": {
+          "@type": "BreadcrumbList",
+          "itemListElement": [
+            {
+              "@type": "ListItem",
+              "position": 1,
+              "name": "ホーム",
+              "item": siteUrl
+            }
+          ]
+        }
       }
-    })} />
+    ])} />
     
     <!-- Schema.org structured data for SoftwareApplication (Bot) -->
     <script type="application/ld+json" set:html={JSON.stringify({

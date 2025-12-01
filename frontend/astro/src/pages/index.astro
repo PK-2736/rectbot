@@ -119,20 +119,22 @@ const faqSchema = {
             <a href="#invite" class="px-3 py-2 rounded-full bg-white border border-brand-200 text-brand-700 text-sm hover:bg-brand-50">/invite 招待</a>
         </div>
         </div>
-        <!-- Hero Image on right -->
-        <div class="hidden lg:block">
-          <div class="relative">
-            <img src="/logo.png" alt="Recrubo プレビュー" class="w-full max-w-lg ml-auto rounded-2xl shadow-xl border border-brand-100" loading="eager" />
-            <div class="absolute -bottom-4 -left-4 bg-white/80 backdrop-blur-sm rounded-xl shadow p-3 border border-brand-100">
-              <div class="flex items-center gap-3">
-                <span class="inline-block w-10 h-10 rounded-lg bg-brand-500"></span>
-                <div>
-                  <p class="text-sm font-semibold text-slate-900">参加者募集</p>
-                  <p class="text-xs text-slate-600">powered by Recrubo</p>
-                </div>
+        <!-- Hero Screenshot (responsive) -->
+        <div class="order-first lg:order-none mb-8 lg:mb-0">
+          <figure class="relative mx-auto max-w-md lg:max-w-lg">
+            <picture>
+              <source srcset="/image.png" type="image/png" />
+              <img src="/image.png" alt="募集メッセージのスクリーンショット" class="w-full rounded-2xl shadow-xl border border-brand-100" loading="eager" decoding="async" fetchpriority="high" />
+            </picture>
+            <figcaption class="sr-only">Discord上で表示される Recrubo の募集UI例</figcaption>
+            <div class="absolute -bottom-4 -left-4 bg-white/85 backdrop-blur-md rounded-xl shadow p-3 border border-brand-100 flex items-center gap-3">
+              <span class="inline-block w-10 h-10 rounded-lg bg-gradient-to-br from-brand-500 to-accent-500"></span>
+              <div>
+                <p class="text-sm font-semibold text-slate-900">参加者募集プレビュー</p>
+                <p class="text-xs text-slate-600">powered by Recrubo</p>
               </div>
             </div>
-          </div>
+          </figure>
         </div>
       </div>
     </div>
