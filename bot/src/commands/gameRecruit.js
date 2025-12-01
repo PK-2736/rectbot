@@ -68,10 +68,10 @@ module.exports = {
         .setMinValue(1)
         .setMaxValue(16)
     )
-    // 必須: 開始時間（HH:mm 24時間表記）
+    // 必須: 開始時間（HH:mm 24時間表記 or 「今から」）
     .addStringOption(option =>
       option.setName('開始時間')
-        .setDescription('開始時間（必須）例: 21:00（24時間表記）')
+        .setDescription('開始時間（必須）例: 21:00（24時間表記）／ 今から')
         .setRequired(true)
     )
     // 任意: 色

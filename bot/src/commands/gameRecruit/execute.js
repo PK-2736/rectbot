@@ -94,7 +94,7 @@ async function execute(interaction) {
       return;
     }
     if (!startArg) {
-      await safeReply(interaction, { content: '❌ 開始時間（HH:mm）を指定してください。', flags: MessageFlags.Ephemeral });
+      await safeReply(interaction, { content: '❌ 開始時間（HH:mm）または「今から」を指定してください。', flags: MessageFlags.Ephemeral });
       return;
     }
 
@@ -103,27 +103,34 @@ async function execute(interaction) {
 
     // 入力バリデーション: 開始時間
     const hhmm = /^\s*(\d{1,2}):(\d{2})\s*$/;
-    if (!hhmm.test(String(startArg))) {
-      await safeReply(interaction, { content: '❌ 開始時間は HH:mm の形式で入力してください（例: 21:00）。', flags: MessageFlags.Ephemeral });
+    const isNow = /^\s*(今から|now)\s*$/i.test(String(startArg));
+    if (!isNow && !hhmm.test(String(startArg))) {
+      await safeReply(interaction, { content: '❌ 開始時間は HH:mm の形式、または「今から」で指定してください（例: 21:00 ／ 今から）。', flags: MessageFlags.Ephemeral });
       return;
     }
 
     // 開始時刻のパース（HH:mm）→ 直近の将来日時に補正
     let startAtISO = null;
     try {
-      const m = String(startArg).match(hhmm);
-      if (m) {
-        const hh = Math.min(23, Math.max(0, parseInt(m[1], 10)));
-        const mm = Math.min(59, Math.max(0, parseInt(m[2], 10)));
+      if (isNow) {
         const now = new Date();
-        const startAt = new Date(now);
-        startAt.setSeconds(0, 0);
-        startAt.setHours(hh, mm, 0, 0);
-        if (startAt.getTime() <= now.getTime()) {
-          // すでに過ぎている場合は翌日に
-          startAt.setDate(startAt.getDate() + 1);
+        now.setSeconds(0, 0);
+        startAtISO = now.toISOString();
+      } else {
+        const m = String(startArg).match(hhmm);
+        if (m) {
+          const hh = Math.min(23, Math.max(0, parseInt(m[1], 10)));
+          const mm = Math.min(59, Math.max(0, parseInt(m[2], 10)));
+          const now = new Date();
+          const startAt = new Date(now);
+          startAt.setSeconds(0, 0);
+          startAt.setHours(hh, mm, 0, 0);
+          if (startAt.getTime() <= now.getTime()) {
+            // すでに過ぎている場合は翌日に
+            startAt.setDate(startAt.getDate() + 1);
+          }
+          startAtISO = startAt.toISOString();
         }
-        startAtISO = startAt.toISOString();
       }
     } catch (_) {}
 
