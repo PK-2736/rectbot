@@ -125,8 +125,9 @@ const faqSchema = {
               <p class="text-xs text-slate-500">Recruboで投稿される募集カードの例。タイトル・人数・開始時間などをわかりやすく表示し、参加ボタンで管理できます。</p>
             </div>
             <picture>
+              <source srcset="/image.webp" type="image/webp" />
               <source srcset="/image.png" type="image/png" />
-              <img src="/image.png" alt="募集メッセージのスクリーンショット" class="w-full rounded-2xl shadow-lg md:shadow-xl border border-white ring-1 ring-brand-100 bg-white opacity-75 md:opacity-90 saturate-75" loading="eager" decoding="async" fetchpriority="high" />
+              <img src="/image.png" alt="募集メッセージのスクリーンショット" loading="lazy" class="w-full rounded-2xl shadow-lg md:shadow-xl border border-white ring-1 ring-brand-100 bg-white object-contain" />
             </picture>
             <figcaption class="sr-only">Discord上で表示される Recrubo の募集UI例</figcaption>
             <!-- 補助パネルは削除。画像自体に白枠と薄いリングで馴染ませる -->
