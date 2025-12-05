@@ -109,16 +109,21 @@ async function updateParticipantList(interactionOrMessage, participants, savedRe
       console.warn('updateParticipantList: failed to build notification role text:', e?.message || e);
     }
 
-    let headerTitle = savedRecruitData?.title || '募集';
-    try {
-      if (savedRecruitData && savedRecruitData.recruiterId && client) {
-        const user = await client.users.fetch(savedRecruitData.recruiterId).catch(() => null);
-        if (user && (user.username || user.displayName || user.tag)) {
-          const name = user.username || user.displayName || user.tag;
-          headerTitle = `${name}さんの募集`;
+    let headerTitle;
+    if (style === 'simple' && savedRecruitData?.title) {
+      headerTitle = savedRecruitData.title;
+    } else {
+      headerTitle = savedRecruitData?.title || '募集';
+      try {
+        if (savedRecruitData && savedRecruitData.recruiterId && client) {
+          const user = await client.users.fetch(savedRecruitData.recruiterId).catch(() => null);
+          if (user && (user.username || user.displayName || user.tag)) {
+            const name = user.username || user.displayName || user.tag;
+            headerTitle = `${name}さんの募集`;
+          }
         }
-      }
-    } catch (e) { console.warn('updateParticipantList: failed to fetch recruiter user:', e?.message || e); }
+      } catch (e) { console.warn('updateParticipantList: failed to fetch recruiter user:', e?.message || e); }
+    }
 
     const accentColor = parseInt(useColor, 16);
     const recruiterId = savedRecruitData?.recruiterId || null;
@@ -146,7 +151,8 @@ async function updateParticipantList(interactionOrMessage, participants, savedRe
         headerTitle,
         detailsText: details,
         contentText,
-        titleText: (savedRecruitData?.title ? `📌 タイトル\n${String(savedRecruitData.title).slice(0,200)}` : ''),
+        // simpleスタイルではタイトルを最上部に表示するため重複表示しない
+        titleText: '',
         participantText,
         recruitIdText,
         accentColor,
