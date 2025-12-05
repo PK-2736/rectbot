@@ -46,9 +46,6 @@ async function handleButtonInteraction(interaction) {
       case 'set_default_color':
         await showColorModal(interaction);
         break;
-      case 'set_update_channel':
-        await showChannelSelect(interaction, 'update_channel', '📢 アップデート通知チャンネルを選択してください');
-        break;
       case 'toggle_everyone':
         await toggleSpecialMention(interaction, 'everyone');
         break;
@@ -155,7 +152,6 @@ async function updateGuildSetting(interaction, settingKey, value) {
       notification_role: '通知ロール',
       defaultTitle: '既定タイトル',
       defaultColor: '既定カラー',
-      update_channel: 'アップデート通知チャンネル',
     };
 
     const settingName = settingNames[settingKey] || settingKey;
@@ -232,7 +228,6 @@ async function resetAllSettings(interaction) {
       notification_roles: [],
       defaultTitle: null,
       defaultColor: null,
-      update_channel: null,
       recruit_style: 'image',
     });
     await safeReply(interaction, { content: '✅ すべての設定をリセットしました！', flags: MessageFlags.Ephemeral });

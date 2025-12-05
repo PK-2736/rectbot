@@ -195,19 +195,16 @@ async function sendAnnouncements(interaction, selectedNotificationRole, configur
   }
 
   // 画像とUIの投稿 (Components V2使用、通知ロール情報はcontainer内に含まれる)
-  const followUpMessage = await interaction.channel.send({ 
-    files: [image], 
-    components: [container], 
-    flags: MessageFlags.IsComponentsV2, 
-    allowedMentions: { roles: [], users: [] }
-  });
+  const baseOptions = { components: [container], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } };
+  if (image) baseOptions.files = [image];
+  const followUpMessage = await interaction.channel.send(baseOptions);
 
   // 別チャンネルにも投稿
   if (guildSettings.recruit_channel && guildSettings.recruit_channel !== interaction.channelId) {
     try {
       const recruitChannel = await interaction.guild.channels.fetch(guildSettings.recruit_channel);
       if (recruitChannel && recruitChannel.isTextBased()) {
-        if (selectedNotificationRole) {
+  if (selectedNotificationRole) {
           if (selectedNotificationRole === 'everyone') {
             (async () => { try { await recruitChannel.send({ content: '新しい募集が作成されました。@everyone', allowedMentions: { parse: ['everyone'] } }); } catch (e) { console.warn('通知送信失敗 (指定ch, @everyone):', e?.message || e); } })();
           } else if (selectedNotificationRole === 'here') {
@@ -668,10 +665,14 @@ async function handleModalSubmit(interaction) {
     // 既存参加者を含める（募集主 + 既存参加者、重複排除）
     const currentParticipants = [interaction.user.id, ...existingMembers.filter(id => id !== interaction.user.id)];
     let useColor = normalizeHex(panelColor ? panelColor : (guildSettings.defaultColor ? guildSettings.defaultColor : '000000'), '000000');
-    const buffer = await generateRecruitCard(recruitDataObj, currentParticipants, interaction.client, useColor);
     const user = interaction.targetUser || interaction.user;
-
-    const image = new AttachmentBuilder(buffer, { name: 'recruit-card.png' });
+    // スタイルに応じて画像生成を切り替え
+    const style = (guildSettings?.recruit_style === 'simple') ? 'simple' : 'image';
+    let image = null;
+    if (style === 'image') {
+      const buffer = await generateRecruitCard(recruitDataObj, currentParticipants, interaction.client, useColor);
+      image = new AttachmentBuilder(buffer, { name: 'recruit-card.png' });
+    }
     
     // 参加リストテキストの構築（既存参加者を含む、改行なし、残り人数表示）
     const remainingSlots = participantsNum - currentParticipants.length;
@@ -694,17 +695,37 @@ async function handleModalSubmit(interaction) {
     const accentColor = /^[0-9A-Fa-f]{6}$/.test(panelColorForAccent) ? parseInt(panelColorForAccent, 16) : 0x000000;
     
     const configuredNotificationRoleIds = buildConfiguredNotificationRoleIds(guildSettings);
-    const container = buildContainer({ 
-      headerTitle: `${user.username}さんの募集`, 
-      subHeaderText, 
-      participantText, 
-      recruitIdText: '(送信後決定)', 
-      accentColor, 
-      imageAttachmentName: 'attachment://recruit-card.png', 
-      recruiterId: interaction.user.id, 
-      requesterId: interaction.user.id 
-    });
-    const followUpMessage = await sendAnnouncements(interaction, selectedNotificationRole, configuredNotificationRoleIds, image, container, guildSettings, user);
+    let container;
+    if (style === 'simple') {
+      const { buildContainerSimple } = require('../../utils/recruitHelpers');
+      const startLabel = recruitDataObj?.startTime ? `🕒 開始: ${recruitDataObj.startTime}` : null;
+      const membersLabel = typeof recruitDataObj?.participants === 'number' ? `👥 人数: ${recruitDataObj.participants}人` : null;
+      const voiceLabel = (recruitDataObj?.vc === 'あり')
+        ? (recruitDataObj?.voicePlace ? `🎙 通話: あり（${recruitDataObj.voicePlace}）` : '🎙 通話: あり')
+        : (recruitDataObj?.vc === 'なし' ? '🎙 通話: なし' : null);
+      const detailsText = [startLabel, membersLabel, voiceLabel].filter(Boolean).join('\n');
+      container = buildContainerSimple({
+        headerTitle: `${user.username}さんの募集`,
+        detailsText,
+        participantText,
+        recruitIdText: '(送信後決定)',
+        accentColor,
+        subHeaderText
+      });
+    } else {
+      const { buildContainer } = require('../../utils/recruitHelpers');
+      container = buildContainer({ 
+        headerTitle: `${user.username}さんの募集`, 
+        subHeaderText, 
+        participantText, 
+        recruitIdText: '(送信後決定)', 
+        accentColor, 
+        imageAttachmentName: 'attachment://recruit-card.png', 
+        recruiterId: interaction.user.id, 
+        requesterId: interaction.user.id 
+      });
+    }
+  const followUpMessage = await sendAnnouncements(interaction, selectedNotificationRole, configuredNotificationRoleIds, image, container, guildSettings, user);
     try { await safeReply(interaction, { content: '募集を作成しました。', flags: MessageFlags.Ephemeral }); } catch (e) { console.warn('safeReply failed (non-fatal):', e?.message || e); }
     // 送信後の保存とUI更新
     try {
