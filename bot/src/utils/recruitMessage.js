@@ -146,6 +146,7 @@ async function updateParticipantList(interactionOrMessage, participants, savedRe
         headerTitle,
         detailsText: details,
         contentText,
+        titleText: (savedRecruitData?.title ? `📌 タイトル\n${String(savedRecruitData.title).slice(0,200)}` : ''),
         participantText,
         recruitIdText,
         accentColor,
@@ -157,6 +158,7 @@ async function updateParticipantList(interactionOrMessage, participants, savedRe
       updatedContainer = buildContainer({ 
         headerTitle, 
         contentText,
+        titleText: (savedRecruitData?.title ? `📌 タイトル\n${String(savedRecruitData.title).slice(0,200)}` : ''),
         participantText, 
         recruitIdText, 
         accentColor, 

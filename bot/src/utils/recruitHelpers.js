@@ -6,27 +6,27 @@ const {
 } = require('discord.js');
 
 // Build a consistent ContainerBuilder for recruit messages
-function buildContainer({ headerTitle = '募集', participantText = '', recruitIdText = '(unknown)', accentColor = 0x000000, imageAttachmentName = 'attachment://recruit-card.png', recruiterId = null, requesterId = null, footerExtra = null, subHeaderText = null, contentText = '' }) {
+function buildContainer({ headerTitle = '募集', participantText = '', recruitIdText = '(unknown)', accentColor = 0x000000, imageAttachmentName = 'attachment://recruit-card.png', recruiterId = null, requesterId = null, footerExtra = null, subHeaderText = null, contentText = '', titleText = '' }) {
   const container = new ContainerBuilder();
   container.setAccentColor(typeof accentColor === 'number' ? accentColor : parseInt(String(accentColor), 16) || 0x000000);
   container.addTextDisplayComponents(
     new TextDisplayBuilder().setContent(`🎮 **${headerTitle}**`)
   );
   if (subHeaderText && String(subHeaderText).trim().length > 0) {
-    // ヘッダー直下に通知ロールを表示（区切り線は入れない）
+    // ヘッダー直下に通知ロールを表示
     container.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(String(subHeaderText))
     );
-    // 通知ロールの後に区切り線を配置し、画像セクションへ
-    container.addSeparatorComponents(
-      new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
-    );
-  } else {
-    // 通知ロールがない場合のみ、ヘッダーの直後に区切り線
-    container.addSeparatorComponents(
-      new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+  }
+  if (titleText && String(titleText).trim().length > 0) {
+    container.addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(String(titleText))
     );
   }
+  // 上記の（サブヘッダー/タイトル）ブロックの後に区切り線を入れて、画像セクションへ
+  container.addSeparatorComponents(
+    new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+  );
   container.addMediaGalleryComponents(
     new MediaGalleryBuilder().addItems(
       new MediaGalleryItemBuilder().setURL(imageAttachmentName)
@@ -77,12 +77,15 @@ function buildContainer({ headerTitle = '募集', participantText = '', recruitI
 }
 
 // Simple text-first container (no image gallery)
-function buildContainerSimple({ headerTitle = '募集', detailsText = '', participantText = '', recruitIdText = '(unknown)', accentColor = 0x000000, footerExtra = null, subHeaderText = null, contentText = '' }) {
+function buildContainerSimple({ headerTitle = '募集', detailsText = '', participantText = '', recruitIdText = '(unknown)', accentColor = 0x000000, footerExtra = null, subHeaderText = null, contentText = '', titleText = '' }) {
   const container = new ContainerBuilder();
   container.setAccentColor(typeof accentColor === 'number' ? accentColor : parseInt(String(accentColor), 16) || 0x000000);
   container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`🎮 **${headerTitle}**`));
   if (subHeaderText && String(subHeaderText).trim().length > 0) {
     container.addTextDisplayComponents(new TextDisplayBuilder().setContent(String(subHeaderText)));
+  }
+  if (titleText && String(titleText).trim().length > 0) {
+    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(String(titleText)));
   }
   container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
   if (detailsText) {

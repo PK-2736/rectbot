@@ -539,30 +539,68 @@ async function processClose(interaction, messageId, savedRecruitData) {
       }
     } catch (err) { console.error('募集データの削除に失敗:', err); }
 
-    // Disable UI (Components v2) — for simple style, avoid adding a media gallery to prevent errors
-    const disabledContainer = new (require('discord.js').ContainerBuilder)();
+    // Disable UI (Components v2) — preserve info in closed view
+    const { ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, SeparatorSpacingSize, MediaGalleryBuilder, MediaGalleryItemBuilder } = require('discord.js');
+    const disabledContainer = new ContainerBuilder();
     disabledContainer.setAccentColor(0x808080);
     const originalMessage = interaction.message;
     const hasAttachment = !!originalMessage?.attachments && originalMessage.attachments.size > 0;
+    // Closed header
     disabledContainer.addTextDisplayComponents(
-      new (require('discord.js').TextDisplayBuilder)().setContent('🎮✨ **募集締め切り済み** ✨🎮')
+      new TextDisplayBuilder().setContent('🎮✨ **募集締め切り済み** ✨🎮')
     );
+    // Title inside component
+    if (data?.title) {
+      disabledContainer.addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(`📌 タイトル\n${String(data.title).slice(0,200)}`)
+      );
+    }
     disabledContainer.addSeparatorComponents(
-      new (require('discord.js').SeparatorBuilder)().setSpacing(require('discord.js').SeparatorSpacingSize.Small).setDivider(true)
+      new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
     );
+    // Image section if original had attachment (image style)
     if (hasAttachment) {
       disabledContainer.addMediaGalleryComponents(
-        new (require('discord.js').MediaGalleryBuilder)().addItems(
-          new (require('discord.js').MediaGalleryItemBuilder)().setURL(originalMessage.attachments.first().url)
+        new MediaGalleryBuilder().addItems(
+          new MediaGalleryItemBuilder().setURL(originalMessage.attachments.first().url)
         )
       );
       disabledContainer.addSeparatorComponents(
-        new (require('discord.js').SeparatorBuilder)().setSpacing(require('discord.js').SeparatorSpacingSize.Small).setDivider(true)
+        new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
       );
     }
-    disabledContainer.addTextDisplayComponents(
-      new (require('discord.js').TextDisplayBuilder)().setContent('🔒 **この募集は締め切られました** 🔒')
-    );
+    // Details
+    const startLabel = data?.startTime ? `🕒 開始: ${data.startTime}` : null;
+    const totalMembers = (typeof data?.participants === 'number') ? data.participants : (typeof data?.participant_count === 'number' ? data.participant_count : null);
+    const membersLabel = (typeof totalMembers === 'number') ? `👥 人数: ${totalMembers}人` : null;
+    let voiceLabel = null;
+    if (typeof data?.vc === 'string') {
+      if (data.vc === 'あり') voiceLabel = data?.voicePlace ? `🎙 通話: あり（${data.voicePlace}）` : '🎙 通話: あり';
+      else if (data.vc === 'なし') voiceLabel = '🎙 通話: なし';
+    } else if (data?.voice === true) {
+      voiceLabel = data?.voicePlace ? `🎙 通話: あり（${data.voicePlace}）` : '🎙 通話: あり';
+    } else if (data?.voice === false) {
+      voiceLabel = '🎙 通話: なし';
+    }
+    const detailsText = [startLabel, membersLabel, voiceLabel].filter(Boolean).join('\n');
+    if (detailsText) {
+      disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent(detailsText));
+    }
+    // Content (no divider between details and content)
+    const contentText = data?.content ? `📝 募集内容\n${String(data.content).slice(0,1500)}` : '';
+    if (contentText) {
+      disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent(contentText));
+    }
+    // Separator before participants
+    disabledContainer.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
+    // Final participants list
+    const finalParticipants = recruitParticipants.get(messageId) || [];
+    const totalSlots = totalMembers || finalParticipants.length;
+    const finalParticipantText = `📋 参加リスト (最終 ${finalParticipants.length}/${totalSlots}人)\n${finalParticipants.map(id => `<@${id}>`).join(' • ')}`;
+    disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent(finalParticipantText));
+    // Closed note
+    disabledContainer.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
+    disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent('🔒 **この募集は締め切られました** 🔒'));
     const footerMessageId = interaction.message.interaction?.id || interaction.message.id;
     disabledContainer.addSeparatorComponents(
       new (require('discord.js').SeparatorBuilder)().setSpacing(require('discord.js').SeparatorSpacingSize.Small).setDivider(true)
@@ -744,10 +782,12 @@ async function handleModalSubmit(interaction) {
         : (recruitDataObj?.vc === 'なし' ? '🎙 通話: なし' : null);
       const detailsText = [startLabel, membersLabel, voiceLabel].filter(Boolean).join('\n');
       const contentText = recruitDataObj?.content ? `📝 募集内容\n${String(recruitDataObj.content).slice(0,1500)}` : '';
+      const titleText = recruitDataObj?.title ? `📌 タイトル\n${String(recruitDataObj.title).slice(0,200)}` : '';
       container = buildContainerSimple({
         headerTitle: `${user.username}さんの募集`,
         detailsText,
         contentText,
+        titleText,
         participantText,
         recruitIdText: '(送信後決定)',
         accentColor,
@@ -756,10 +796,12 @@ async function handleModalSubmit(interaction) {
     } else {
       const { buildContainer } = require('../../utils/recruitHelpers');
       const contentText = recruitDataObj?.content ? `📝 募集内容\n${String(recruitDataObj.content).slice(0,1500)}` : '';
+      const titleText = recruitDataObj?.title ? `📌 タイトル\n${String(recruitDataObj.title).slice(0,200)}` : '';
       container = buildContainer({ 
         headerTitle: `${user.username}さんの募集`, 
         subHeaderText, 
         contentText,
+        titleText,
         participantText, 
         recruitIdText: '(送信後決定)', 
         accentColor, 
