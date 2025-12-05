@@ -277,14 +277,14 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
   let updatedContainer;
   if (styleForEdit === 'simple') {
     const { buildContainerSimple } = require('../../utils/recruitHelpers');
-    const startLabel = finalRecruitData?.startTime ? `🕒 開始: ${finalRecruitData.startTime}` : null;
-    const membersLabel = typeof finalRecruitData?.participants === 'number' ? `👥 人数: ${finalRecruitData.participants}人` : null;
+    const startLabel = finalRecruitData?.startTime ? `🕒 ${finalRecruitData.startTime}` : null;
+    const membersLabel = typeof finalRecruitData?.participants === 'number' ? `👥 ${finalRecruitData.participants}人` : null;
     let voiceLabel = null;
     if (typeof finalRecruitData?.vc === 'string') {
-      if (finalRecruitData.vc === 'あり') voiceLabel = finalRecruitData?.voicePlace ? `🎙 通話: あり（${finalRecruitData.voicePlace}）` : '🎙 通話: あり';
-      else if (finalRecruitData.vc === 'なし') voiceLabel = '🎙 通話: なし';
+      if (finalRecruitData.vc === 'あり') voiceLabel = finalRecruitData?.voicePlace ? `🎙 あり(${finalRecruitData.voicePlace})` : '🎙 あり';
+      else if (finalRecruitData.vc === 'なし') voiceLabel = '🎙 なし';
     }
-    const detailsText = [startLabel, membersLabel, voiceLabel].filter(Boolean).join('\n');
+    const detailsText = [startLabel, membersLabel, voiceLabel].filter(Boolean).join(' | ');
     const contentText = finalRecruitData?.content ? `📝 募集内容\n${String(finalRecruitData.content).slice(0,1500)}` : '';
       updatedContainer = buildContainerSimple({
         headerTitle: `${user.username}さんの募集`,
@@ -777,12 +777,12 @@ async function handleModalSubmit(interaction) {
     let container;
     if (style === 'simple') {
       const { buildContainerSimple } = require('../../utils/recruitHelpers');
-      const startLabel = recruitDataObj?.startTime ? `🕒 開始: ${recruitDataObj.startTime}` : null;
-      const membersLabel = typeof recruitDataObj?.participants === 'number' ? `👥 人数: ${recruitDataObj.participants}人` : null;
+      const startLabel = recruitDataObj?.startTime ? `🕒 ${recruitDataObj.startTime}` : null;
+      const membersLabel = typeof recruitDataObj?.participants === 'number' ? `👥 ${recruitDataObj.participants}人` : null;
       const voiceLabel = (recruitDataObj?.vc === 'あり')
-        ? (recruitDataObj?.voicePlace ? `🎙 通話: あり（${recruitDataObj.voicePlace}）` : '🎙 通話: あり')
-        : (recruitDataObj?.vc === 'なし' ? '🎙 通話: なし' : null);
-      const detailsText = [startLabel, membersLabel, voiceLabel].filter(Boolean).join('\n');
+        ? (recruitDataObj?.voicePlace ? `🎙 あり(${recruitDataObj.voicePlace})` : '🎙 あり')
+        : (recruitDataObj?.vc === 'なし' ? '🎙 なし' : null);
+      const detailsText = [startLabel, membersLabel, voiceLabel].filter(Boolean).join(' | ');
       const contentText = recruitDataObj?.content ? `📝 募集内容\n${String(recruitDataObj.content).slice(0,1500)}` : '';
       const titleText = recruitDataObj?.title ? `📌 __**${String(recruitDataObj.title).slice(0,200)}**__` : '';
       container = buildContainerSimple({
