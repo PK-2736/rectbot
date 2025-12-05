@@ -61,6 +61,9 @@ async function handleButtonInteraction(interaction) {
       case 'finalize_settings':
         await finalizeSettingsHandler(interaction);
         break;
+      case 'toggle_recruit_style':
+        await toggleRecruitStyle(interaction);
+        break;
     }
   } catch (error) {
     console.error('Button interaction error:', error);
@@ -230,6 +233,7 @@ async function resetAllSettings(interaction) {
       defaultTitle: null,
       defaultColor: null,
       update_channel: null,
+      recruit_style: 'image',
     });
     await safeReply(interaction, { content: '✅ すべての設定をリセットしました！', flags: MessageFlags.Ephemeral });
 
@@ -245,6 +249,33 @@ async function resetAllSettings(interaction) {
   } catch (error) {
     console.error('Reset settings error:', error);
     await safeReply(interaction, { content: '❌ 設定のリセットに失敗しました。', flags: MessageFlags.Ephemeral });
+  }
+}
+
+async function toggleRecruitStyle(interaction) {
+  try {
+    if (!interaction.guild || !interaction.member || !interaction.member.permissions?.has(PermissionFlagsBits.Administrator)) {
+      return await safeReply(interaction, { content: '❌ この操作を実行するには「管理者」権限が必要です。', flags: MessageFlags.Ephemeral });
+    }
+    const guildId = interaction.guildId;
+    const currentSettings = await getGuildSettingsFromRedis(guildId);
+    const next = (currentSettings?.recruit_style === 'simple') ? 'image' : 'simple';
+    await saveGuildSettingsToRedis(guildId, { recruit_style: next });
+    await safeReply(interaction, { content: `✅ 募集スタイルを「${next === 'simple' ? 'シンプル' : '画像パネル'}」に切り替えました！`, flags: MessageFlags.Ephemeral });
+    setTimeout(async () => {
+      try {
+        const latest = await getGuildSettingsFromRedis(guildId);
+        const isAdmin = interaction.guild && interaction.member && interaction.member.permissions?.has(PermissionFlagsBits.Administrator);
+        await showSettingsUI(interaction, latest, isAdmin);
+      } catch (e) {
+        console.error('Settings UI update error:', e);
+      }
+    }, 500);
+  } catch (error) {
+    console.error('Toggle recruit style error:', error);
+    if (!interaction.replied && !interaction.deferred) {
+      await safeReply(interaction, { content: '❌ 募集スタイルの切り替えに失敗しました。', flags: MessageFlags.Ephemeral });
+    }
   }
 }
 
@@ -298,4 +329,5 @@ module.exports = {
   finalizeSettingsHandler,
   resetAllSettings,
   toggleSpecialMention,
+  toggleRecruitStyle,
 };

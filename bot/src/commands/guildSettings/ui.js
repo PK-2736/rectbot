@@ -172,6 +172,22 @@ async function showSettingsUI(interaction, settings = {}, isAdmin = false) {
     container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`📢 **アップデート通知チャンネル**\n${updateChannelValue}`));
   }
 
+  // 募集スタイル（画像/シンプル）
+  const styleValue = (settings?.recruit_style === 'simple') ? 'シンプル' : '画像パネル';
+  if (isAdmin) {
+    const sectionStyle = new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(`🖼️ **募集スタイル**\n${styleValue}`));
+    const toggleBtn = new ButtonBuilder().setCustomId('toggle_recruit_style').setLabel('スタイル切替').setStyle(ButtonStyle.Primary);
+    try {
+      sectionStyle.setButtonAccessory(toggleBtn);
+    } catch (e) {
+      console.warn('[guildSettings] Section accessory set failed, falling back to action row for recruit style:', e?.message || e);
+      container.addActionRowComponents(new ActionRowBuilder().addComponents(toggleBtn));
+    }
+    addSafeSection(container, sectionStyle, '募集スタイル: ' + styleValue);
+  } else {
+    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`🖼️ **募集スタイル**\n${styleValue}`));
+  }
+
   container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Large).setDivider(true));
 
   if (isAdmin) {
