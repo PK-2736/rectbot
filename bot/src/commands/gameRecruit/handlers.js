@@ -571,20 +571,20 @@ async function processClose(interaction, messageId, savedRecruitData) {
         new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
       );
     }
-    // Details
-    const startLabel = data?.startTime ? `🕒 開始: ${data.startTime}` : null;
+    // Details（募集中と同じく横一列・コンパクト表記）
+    const startLabel = data?.startTime ? `🕒 ${data.startTime}` : null;
     const totalMembers = (typeof data?.participants === 'number') ? data.participants : (typeof data?.participant_count === 'number' ? data.participant_count : null);
-    const membersLabel = (typeof totalMembers === 'number') ? `👥 人数: ${totalMembers}人` : null;
+    const membersLabel = (typeof totalMembers === 'number') ? `👥 ${totalMembers}人` : null;
     let voiceLabel = null;
     if (typeof data?.vc === 'string') {
-      if (data.vc === 'あり') voiceLabel = data?.voicePlace ? `🎙 通話: あり（${data.voicePlace}）` : '🎙 通話: あり';
-      else if (data.vc === 'なし') voiceLabel = '🎙 通話: なし';
+      if (data.vc === 'あり') voiceLabel = data?.voicePlace ? `🎙 あり(${data.voicePlace})` : '🎙 あり';
+      else if (data.vc === 'なし') voiceLabel = '🎙 なし';
     } else if (data?.voice === true) {
-      voiceLabel = data?.voicePlace ? `🎙 通話: あり（${data.voicePlace}）` : '🎙 通話: あり';
+      voiceLabel = data?.voicePlace ? `🎙 あり(${data.voicePlace})` : '🎙 あり';
     } else if (data?.voice === false) {
-      voiceLabel = '🎙 通話: なし';
+      voiceLabel = '🎙 なし';
     }
-    const detailsText = [startLabel, membersLabel, voiceLabel].filter(Boolean).join('\n');
+    const detailsText = [startLabel, membersLabel, voiceLabel].filter(Boolean).join(' | ');
     if (detailsText) {
       disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent(detailsText));
     }
