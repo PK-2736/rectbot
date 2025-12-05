@@ -72,6 +72,38 @@ function buildContainer({ headerTitle = '募集', participantText = '', recruitI
   return container;
 }
 
+// Simple text-first container (no image gallery)
+function buildContainerSimple({ headerTitle = '募集', detailsText = '', participantText = '', recruitIdText = '(unknown)', accentColor = 0x000000, footerExtra = null, subHeaderText = null }) {
+  const container = new ContainerBuilder();
+  container.setAccentColor(typeof accentColor === 'number' ? accentColor : parseInt(String(accentColor), 16) || 0x000000);
+  container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`🎮 **${headerTitle}**`));
+  if (subHeaderText && String(subHeaderText).trim().length > 0) {
+    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(String(subHeaderText)));
+  }
+  container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
+  if (detailsText) {
+    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(detailsText));
+    container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
+  }
+  if (participantText) {
+    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(participantText));
+  }
+  const isRequesterRecruiter = true;
+  container.addActionRowComponents(
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId('join').setLabel('参加').setEmoji('✅').setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId('cancel').setLabel('取り消し').setEmoji('✖️').setStyle(ButtonStyle.Danger),
+      new ButtonBuilder().setCustomId('close').setLabel('締め').setStyle(ButtonStyle.Secondary).setDisabled(false)
+    )
+  );
+  container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
+  const footerParts = [`募集ID：\`${recruitIdText}\``];
+  if (footerExtra) footerParts.push(footerExtra);
+  footerParts.push('powered by Recrubo');
+  container.addTextDisplayComponents(new TextDisplayBuilder().setContent(footerParts.join(' | ')));
+  return container;
+}
+
 // Fire-and-forget notification sender
 async function sendChannelNotification(channel, content, allowedMentions = { roles: [], users: [] }) {
   if (!channel || typeof channel.send !== 'function') return null;
@@ -86,4 +118,4 @@ async function sendChannelNotification(channel, content, allowedMentions = { rol
   return true;
 }
 
-module.exports = { buildContainer, sendChannelNotification };
+module.exports = { buildContainer, buildContainerSimple, sendChannelNotification };

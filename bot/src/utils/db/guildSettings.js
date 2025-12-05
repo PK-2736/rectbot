@@ -4,6 +4,13 @@ const { ensureRedisConnection } = require('./redis');
 
 function normalizeGuildSettingsObject(input) {
   const normalized = { ...(input || {}) };
+  // Recruit style: 'image' (default) or 'simple'
+  if (Object.prototype.hasOwnProperty.call(normalized, 'recruit_style')) {
+    const v = normalized.recruit_style;
+    normalized.recruit_style = v === 'simple' ? 'simple' : 'image';
+  } else {
+    normalized.recruit_style = 'image';
+  }
   const hasRolesArray = Object.prototype.hasOwnProperty.call(normalized, 'notification_roles');
   const hasRoleString = Object.prototype.hasOwnProperty.call(normalized, 'notification_role');
 

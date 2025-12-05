@@ -77,9 +77,9 @@ async function updateParticipantList(interactionOrMessage, participants, savedRe
     if (typeof useColor === 'string' && useColor.startsWith('#')) useColor = useColor.slice(1);
     if (!/^[0-9A-Fa-f]{6}$/.test(useColor)) useColor = '000000';
 
-    const { generateRecruitCard } = require('./canvasRecruit');
-    const buffer = await generateRecruitCard(savedRecruitData, participants, client, useColor);
-    const updatedImage = new AttachmentBuilder(buffer, { name: 'recruit-card.png' });
+  const { generateRecruitCard } = require('./canvasRecruit');
+  const buffer = await generateRecruitCard(savedRecruitData, participants, client, useColor);
+  const updatedImage = new AttachmentBuilder(buffer, { name: 'recruit-card.png' });
 
     // 参加リストテキスト（改行なし、残り人数表示）
     const totalSlots = savedRecruitData?.participants || savedRecruitData?.participant_count || 1;
@@ -119,19 +119,47 @@ async function updateParticipantList(interactionOrMessage, participants, savedRe
     const accentColor = parseInt(useColor, 16);
     const recruiterId = savedRecruitData?.recruiterId || null;
     const requesterId = interaction ? interaction.user?.id : null;
-    const updatedContainer = buildContainer({ 
-      headerTitle, 
-      participantText, 
-      recruitIdText: savedRecruitData?.recruitId || (savedRecruitData?.message_id ? savedRecruitData.message_id.slice(-8) : '(unknown)'), 
-      accentColor, 
-      imageAttachmentName: 'attachment://recruit-card.png', 
-      recruiterId, 
-      requesterId,
-      subHeaderText 
-    });
+    const recruitIdText = savedRecruitData?.recruitId || (savedRecruitData?.message_id ? savedRecruitData.message_id.slice(-8) : '(unknown)');
+    let updatedContainer;
+    const style = (guildSettings?.recruit_style === 'simple') ? 'simple' : 'image';
+    if (style === 'simple') {
+      const startLabel = savedRecruitData?.startTime ? `🕒 開始: ${savedRecruitData.startTime}` : null;
+      const membersLabel = typeof (savedRecruitData?.participants || savedRecruitData?.participant_count) === 'number'
+        ? `👥 人数: ${(savedRecruitData.participants || savedRecruitData.participant_count)}人`
+        : null;
+      const voiceLabel = (savedRecruitData?.voice === true)
+        ? (savedRecruitData?.voicePlace ? `🎙 通話: あり（${savedRecruitData.voicePlace}）` : '🎙 通話: あり')
+        : ((savedRecruitData?.voice === false) ? '🎙 通話: なし' : null);
+      const details = [startLabel, membersLabel, voiceLabel].filter(Boolean).join('\n');
+      const { buildContainerSimple } = require('./recruitHelpers');
+      updatedContainer = buildContainerSimple({
+        headerTitle,
+        detailsText: details,
+        participantText,
+        recruitIdText,
+        accentColor,
+        subHeaderText
+      });
+    } else {
+      const { buildContainer } = require('./recruitHelpers');
+      updatedContainer = buildContainer({ 
+        headerTitle, 
+        participantText, 
+        recruitIdText, 
+        accentColor, 
+        imageAttachmentName: 'attachment://recruit-card.png', 
+        recruiterId, 
+        requesterId,
+        subHeaderText 
+      });
+    }
 
     if (message && message.edit) {
-      await message.edit({ files: [updatedImage], components: [updatedContainer], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } });
+      const editPayload = { components: [updatedContainer], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } };
+      if (style === 'image') {
+        editPayload.files = [updatedImage];
+      }
+      await message.edit(editPayload);
     }
 
     if (message && message.id) {
