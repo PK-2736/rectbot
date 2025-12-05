@@ -287,10 +287,10 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
     const detailsText = [startLabel, membersLabel, voiceLabel].filter(Boolean).join('\n');
     const contentText = finalRecruitData?.content ? `📝 募集内容\n${String(finalRecruitData.content).slice(0,1500)}` : '';
     updatedContainer = buildContainerSimple({
-      headerTitle: finalRecruitData?.title || `${user.username}さんの募集`,
+      headerTitle: `${user.username}さんの募集`,
       detailsText,
       contentText,
-      titleText: '',
+      titleText: finalRecruitData?.title ? `📌 __**${String(finalRecruitData.title).slice(0,200)}**__` : '',
       participantText,
       recruitIdText: actualRecruitId,
       accentColor: finalAccentColor,
@@ -783,9 +783,9 @@ async function handleModalSubmit(interaction) {
         : (recruitDataObj?.vc === 'なし' ? '🎙 通話: なし' : null);
       const detailsText = [startLabel, membersLabel, voiceLabel].filter(Boolean).join('\n');
       const contentText = recruitDataObj?.content ? `📝 募集内容\n${String(recruitDataObj.content).slice(0,1500)}` : '';
-      const titleText = '';
+      const titleText = recruitDataObj?.title ? `📌 __**${String(recruitDataObj.title).slice(0,200)}**__` : '';
       container = buildContainerSimple({
-        headerTitle: recruitDataObj?.title || `${user.username}さんの募集`,
+        headerTitle: `${user.username}さんの募集`,
         detailsText,
         contentText,
         titleText,

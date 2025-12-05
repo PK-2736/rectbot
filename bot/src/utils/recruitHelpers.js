@@ -80,12 +80,15 @@ function buildContainer({ headerTitle = '募集', participantText = '', recruitI
 function buildContainerSimple({ headerTitle = '募集', detailsText = '', participantText = '', recruitIdText = '(unknown)', accentColor = 0x000000, footerExtra = null, subHeaderText = null, contentText = '', titleText = '' }) {
   const container = new ContainerBuilder();
   container.setAccentColor(typeof accentColor === 'number' ? accentColor : parseInt(String(accentColor), 16) || 0x000000);
-  container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`🎮 **${headerTitle}**`));
-  if (subHeaderText && String(subHeaderText).trim().length > 0) {
-    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(String(subHeaderText)));
-  }
+  // タイトルを最上段に配置（強調表示は呼び出し側で整形）
   if (titleText && String(titleText).trim().length > 0) {
     container.addTextDisplayComponents(new TextDisplayBuilder().setContent(String(titleText)));
+  }
+  // 次に「〜さんの募集」を表示
+  container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`🎮 **${headerTitle}**`));
+  // 通知ロールなどのサブヘッダー
+  if (subHeaderText && String(subHeaderText).trim().length > 0) {
+    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(String(subHeaderText)));
   }
   container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
   if (detailsText) {
