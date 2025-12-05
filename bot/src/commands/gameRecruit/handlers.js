@@ -286,11 +286,11 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
     }
     const detailsText = [startLabel, membersLabel, voiceLabel].filter(Boolean).join('\n');
     const contentText = finalRecruitData?.content ? `📝 募集内容\n${String(finalRecruitData.content).slice(0,1500)}` : '';
-    updatedContainer = buildContainerSimple({
-      headerTitle: `${user.username}さんの募集`,
-      detailsText,
-      contentText,
-      titleText: finalRecruitData?.title ? `📌 __**${String(finalRecruitData.title).slice(0,200)}**__` : '',
+      updatedContainer = buildContainerSimple({
+        headerTitle: `${user.username}さんの募集`,
+        detailsText,
+        contentText,
+        titleText: finalRecruitData?.title ? `## ${String(finalRecruitData.title).slice(0,200)}` : '',
       participantText,
       recruitIdText: actualRecruitId,
       accentColor: finalAccentColor,
@@ -299,17 +299,18 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
   } else {
     const { buildContainer } = require('../../utils/recruitHelpers');
     const contentText = finalRecruitData?.content ? `📝 募集内容\n${String(finalRecruitData.content).slice(0,1500)}` : '';
-    updatedContainer = buildContainer({ 
-      headerTitle: `${user.username}さんの募集`, 
-      subHeaderText, 
-      contentText,
-      participantText, 
-      recruitIdText: actualRecruitId, 
-      accentColor: finalAccentColor, 
-      imageAttachmentName: 'attachment://recruit-card.png', 
-      recruiterId: interaction.user.id, 
-      requesterId: interaction.user.id 
-    });
+      updatedContainer = buildContainer({
+        headerTitle: `${user.username}さんの募集`,
+        subHeaderText,
+        contentText,
+        titleText: finalRecruitData?.title ? `## ${String(finalRecruitData.title).slice(0,200)}` : '',
+        participantText,
+        recruitIdText: actualRecruitId,
+        accentColor: finalAccentColor,
+        imageAttachmentName: 'attachment://recruit-card.png',
+        recruiterId: interaction.user.id,
+        requesterId: interaction.user.id
+      });
   }
     try {
       const editPayload = { components: [updatedContainer], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } };

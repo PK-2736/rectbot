@@ -147,8 +147,8 @@ async function updateParticipantList(interactionOrMessage, participants, savedRe
         headerTitle,
         detailsText: details,
         contentText,
-        // simpleでは最上部にタイトルを太字強調で表示
-        titleText: (savedRecruitData?.title ? `📌 __**${String(savedRecruitData.title).slice(0,200)}**__` : ''),
+        // simpleでは最上部にMarkdown見出し(##)で表示
+        titleText: (savedRecruitData?.title ? `## ${String(savedRecruitData.title).slice(0,200)}` : ''),
         participantText,
         recruitIdText,
         accentColor,
