@@ -294,6 +294,7 @@ module.exports = {
           'toggle_recruit_style',
           'set_default_title',
           'set_default_color',
+          'set_update_channel',
           'reset_all_settings',
           'finalize_settings'
         ]);

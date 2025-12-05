@@ -84,7 +84,11 @@ async function getGuildSettingsSmart(guildId) {
       const fromApi = await backendFetch(path, { method: 'GET' });
       console.log(`[getGuildSettingsSmart] API response for guild ${guildId}:`, fromApi);
       if (fromApi && typeof fromApi === 'object') {
-        const merged = normalizeGuildSettingsObject(fromApi);
+        // 既存のrecruit_styleがある場合はAPIが欠落していても上書きしない
+        const merged = normalizeGuildSettingsObject({ ...fromApi });
+        if (normalized && typeof normalized.recruit_style === 'string' && !Object.prototype.hasOwnProperty.call(fromApi, 'recruit_style')) {
+          merged.recruit_style = normalized.recruit_style;
+        }
         await redis.set(key, JSON.stringify(merged));
         console.log(`[getGuildSettingsSmart] Cached API result for guild ${guildId}`);
         return merged;

@@ -153,7 +153,24 @@ async function showSettingsUI(interaction, settings = {}, isAdmin = false) {
     container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`🎨 **既定カラー**\n${defaultColorValue}`));
   }
 
-  // アップデート通知チャンネルの設定欄は非表示にします
+  // 📢 アップデート通知チャンネル（復元）
+  const updateChannelValue = settings.update_channel || settings.updateNotificationChannelId 
+    ? `<#${settings.update_channel || settings.updateNotificationChannelId}>` 
+    : '未設定';
+
+  if (isAdmin) {
+    const section5 = new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(`📢 **アップデート通知チャンネル**\n${updateChannelValue}`));
+    const btn = new ButtonBuilder().setCustomId('set_update_channel').setLabel('設定変更').setStyle(ButtonStyle.Primary);
+    try {
+      section5.setButtonAccessory(btn);
+    } catch (e) {
+      console.warn('[guildSettings] Section accessory set failed, falling back to action row for update channel:', e?.message || e);
+      container.addActionRowComponents(new ActionRowBuilder().addComponents(btn));
+    }
+    addSafeSection(container, section5, 'アップデート通知チャンネル: ' + updateChannelValue);
+  } else {
+    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`📢 **アップデート通知チャンネル**\n${updateChannelValue}`));
+  }
 
   // 募集スタイル（画像/シンプル）
   const styleValue = (settings?.recruit_style === 'simple') ? 'シンプル' : '画像パネル';
