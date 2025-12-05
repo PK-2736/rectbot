@@ -266,8 +266,13 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
   // 画像とUIの更新（確定ID入り）
   let finalUseColor = finalRecruitData.panelColor ? finalRecruitData.panelColor : (guildSettings.defaultColor ? guildSettings.defaultColor : '000000');
   finalUseColor = normalizeHex(finalUseColor, '000000');
-  const updatedImageBuffer = await generateRecruitCard(finalRecruitData, currentParticipants, interaction.client, finalUseColor);
-  const updatedImage = new AttachmentBuilder(updatedImageBuffer, { name: 'recruit-card.png' });
+    // スタイルに応じて画像生成を切り替え
+    const styleForEdit = (guildSettings?.recruit_style === 'simple') ? 'simple' : 'image';
+    let updatedImage = null;
+    if (styleForEdit === 'image') {
+      const updatedImageBuffer = await generateRecruitCard(finalRecruitData, currentParticipants, interaction.client, finalUseColor);
+      updatedImage = new AttachmentBuilder(updatedImageBuffer, { name: 'recruit-card.png' });
+    }
   const finalAccentColor = /^[0-9A-Fa-f]{6}$/.test(finalUseColor) ? parseInt(finalUseColor, 16) : 0x000000;
   const updatedContainer = buildContainer({ 
     headerTitle: `${user.username}さんの募集`, 
@@ -279,7 +284,11 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
     recruiterId: interaction.user.id, 
     requesterId: interaction.user.id 
   });
-  try { await actualMessage.edit({ files: [updatedImage], components: [updatedContainer], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } }); } catch (editError) { console.error('メッセージ更新エラー:', editError); }
+    try {
+      const editPayload = { components: [updatedContainer], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } };
+      if (updatedImage) editPayload.files = [updatedImage];
+      await actualMessage.edit(editPayload);
+    } catch (editError) { console.error('メッセージ更新エラー:', editError); }
 
   // 自動締切タイマー（8h）
   setTimeout(async () => {
