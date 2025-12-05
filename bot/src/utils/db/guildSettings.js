@@ -130,6 +130,20 @@ async function finalizeGuildSettings(guildId) {
       const key = `guildsettings:${guildId}`;
       await redis.del(key);
       console.log(`[finalizeGuildSettings] Redis cache cleared for guild ${guildId}`);
+      // 成功後にAPIから最新設定を再取得し、recruit_style を欠落させないようにローカル設定で補完して再キャッシュ
+      try {
+        const apiBase = (config && config.BACKEND_API_URL) ? config.BACKEND_API_URL.replace(/\/$/, '') : '';
+        const path = `${apiBase}/api/guild-settings/${guildId}`;
+        const fromApi = await backendFetch(path, { method: 'GET' });
+        let merged = normalizeGuildSettingsObject(fromApi || {});
+        if (!Object.prototype.hasOwnProperty.call(fromApi || {}, 'recruit_style') && typeof settings.recruit_style === 'string') {
+          merged.recruit_style = settings.recruit_style;
+        }
+        await redis.set(key, JSON.stringify(merged));
+        console.log(`[finalizeGuildSettings] Re-cached settings for guild ${guildId} after finalize`);
+      } catch (refetchErr) {
+        console.warn('[finalizeGuildSettings] Refetch after finalize failed; settings will be re-fetched lazily', refetchErr?.message || refetchErr);
+      }
     }
     return body;
   } catch (err) {
