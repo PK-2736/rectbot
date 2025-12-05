@@ -106,7 +106,8 @@ async function finalizeGuildSettings(guildId) {
   const settings = normalizeGuildSettingsObject(await getGuildSettingsFromRedis(guildId));
   const url = `${config.BACKEND_API_URL.replace(/\/$/, '')}/api/guild-settings/finalize`;
   const payload = { guildId };
-  const allowedKeys = ['update_channel', 'recruit_channel', 'defaultColor', 'defaultTitle'];
+  // Supabaseへ保存するキーに recruit_style を追加
+  const allowedKeys = ['update_channel', 'recruit_channel', 'defaultColor', 'defaultTitle', 'recruit_style'];
   for (const k of allowedKeys) {
     if (settings && Object.prototype.hasOwnProperty.call(settings, k)) {
       const v = settings[k];
@@ -123,7 +124,7 @@ async function finalizeGuildSettings(guildId) {
   try {
     // backendFetch returns parsed JSON on success, or throws an Error with status/body on non-OK
     const body = await backendFetch(url, { method: 'POST', headers, body: JSON.stringify(payload) });
-    // Supabase保存成功したらRedisキャッシュを削除
+    // Supabase保存成功したらRedisキャッシュを削除（最新をAPIから再取得する前提）
     if (body && body.ok) {
       const redis = await ensureRedisConnection();
       const key = `guildsettings:${guildId}`;
@@ -144,6 +145,7 @@ async function finalizeGuildSettings(guildId) {
           update_channel: payload.update_channel || null,
           defaultColor: payload.defaultColor || null,
           defaultTitle: payload.defaultTitle || null,
+          recruit_style: payload.recruit_style || null,
         },
         errorStatus: err && err.status,
         errorBody: err && err.body
