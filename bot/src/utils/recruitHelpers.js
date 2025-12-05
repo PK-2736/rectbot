@@ -6,7 +6,7 @@ const {
 } = require('discord.js');
 
 // Build a consistent ContainerBuilder for recruit messages
-function buildContainer({ headerTitle = '募集', participantText = '', recruitIdText = '(unknown)', accentColor = 0x000000, imageAttachmentName = 'attachment://recruit-card.png', recruiterId = null, requesterId = null, footerExtra = null, subHeaderText = null }) {
+function buildContainer({ headerTitle = '募集', participantText = '', recruitIdText = '(unknown)', accentColor = 0x000000, imageAttachmentName = 'attachment://recruit-card.png', recruiterId = null, requesterId = null, footerExtra = null, subHeaderText = null, contentText = '' }) {
   const container = new ContainerBuilder();
   container.setAccentColor(typeof accentColor === 'number' ? accentColor : parseInt(String(accentColor), 16) || 0x000000);
   container.addTextDisplayComponents(
@@ -35,6 +35,10 @@ function buildContainer({ headerTitle = '募集', participantText = '', recruitI
   container.addSeparatorComponents(
     new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
   );
+  if (contentText && String(contentText).trim().length > 0) {
+    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(String(contentText)));
+    container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
+  }
   container.addTextDisplayComponents(
     new TextDisplayBuilder().setContent(participantText)
   );
@@ -73,7 +77,7 @@ function buildContainer({ headerTitle = '募集', participantText = '', recruitI
 }
 
 // Simple text-first container (no image gallery)
-function buildContainerSimple({ headerTitle = '募集', detailsText = '', participantText = '', recruitIdText = '(unknown)', accentColor = 0x000000, footerExtra = null, subHeaderText = null }) {
+function buildContainerSimple({ headerTitle = '募集', detailsText = '', participantText = '', recruitIdText = '(unknown)', accentColor = 0x000000, footerExtra = null, subHeaderText = null, contentText = '' }) {
   const container = new ContainerBuilder();
   container.setAccentColor(typeof accentColor === 'number' ? accentColor : parseInt(String(accentColor), 16) || 0x000000);
   container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`🎮 **${headerTitle}**`));
@@ -83,6 +87,10 @@ function buildContainerSimple({ headerTitle = '募集', detailsText = '', partic
   container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
   if (detailsText) {
     container.addTextDisplayComponents(new TextDisplayBuilder().setContent(detailsText));
+    container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
+  }
+  if (contentText && String(contentText).trim().length > 0) {
+    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(String(contentText)));
     container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
   }
   if (participantText) {
