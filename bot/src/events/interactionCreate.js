@@ -291,6 +291,7 @@ module.exports = {
           'set_notification_roles',
           'toggle_everyone',
           'toggle_here',
+          'toggle_recruit_style',
           'set_default_title',
           'set_default_color',
           'set_update_channel',
