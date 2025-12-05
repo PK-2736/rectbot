@@ -87,7 +87,11 @@ function buildContainerSimple({ headerTitle = '募集', detailsText = '', partic
   container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
   if (detailsText) {
     container.addTextDisplayComponents(new TextDisplayBuilder().setContent(detailsText));
-    container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
+    // ユーザー要望: 「通話情報」と「募集内容」の間に区切り線は入れない
+    // contentText が存在しない場合にのみ、ここで区切り線を入れる
+    if (!contentText || String(contentText).trim().length === 0) {
+      container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
+    }
   }
   if (contentText && String(contentText).trim().length > 0) {
     container.addTextDisplayComponents(new TextDisplayBuilder().setContent(String(contentText)));

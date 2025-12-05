@@ -539,24 +539,28 @@ async function processClose(interaction, messageId, savedRecruitData) {
       }
     } catch (err) { console.error('募集データの削除に失敗:', err); }
 
-    // Disable UI (Components v2)
+    // Disable UI (Components v2) — for simple style, avoid adding a media gallery to prevent errors
     const disabledContainer = new (require('discord.js').ContainerBuilder)();
     disabledContainer.setAccentColor(0x808080);
     const originalMessage = interaction.message;
+    const hasAttachment = !!originalMessage?.attachments && originalMessage.attachments.size > 0;
     disabledContainer.addTextDisplayComponents(
       new (require('discord.js').TextDisplayBuilder)().setContent('🎮✨ **募集締め切り済み** ✨🎮')
     );
     disabledContainer.addSeparatorComponents(
       new (require('discord.js').SeparatorBuilder)().setSpacing(require('discord.js').SeparatorSpacingSize.Small).setDivider(true)
     );
-    disabledContainer.addMediaGalleryComponents(
-      new (require('discord.js').MediaGalleryBuilder)().addItems(
-        new (require('discord.js').MediaGalleryItemBuilder)().setURL(originalMessage.attachments.first()?.url || 'attachment://recruit-card.png')
-      )
-    );
-    disabledContainer.addSeparatorComponents(
-      new (require('discord.js').SeparatorBuilder)().setSpacing(require('discord.js').SeparatorSpacingSize.Small).setDivider(true)
-    ).addTextDisplayComponents(
+    if (hasAttachment) {
+      disabledContainer.addMediaGalleryComponents(
+        new (require('discord.js').MediaGalleryBuilder)().addItems(
+          new (require('discord.js').MediaGalleryItemBuilder)().setURL(originalMessage.attachments.first().url)
+        )
+      );
+      disabledContainer.addSeparatorComponents(
+        new (require('discord.js').SeparatorBuilder)().setSpacing(require('discord.js').SeparatorSpacingSize.Small).setDivider(true)
+      );
+    }
+    disabledContainer.addTextDisplayComponents(
       new (require('discord.js').TextDisplayBuilder)().setContent('🔒 **この募集は締め切られました** 🔒')
     );
     const footerMessageId = interaction.message.interaction?.id || interaction.message.id;
