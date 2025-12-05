@@ -277,12 +277,12 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
   let updatedContainer;
   if (styleForEdit === 'simple') {
     const { buildContainerSimple } = require('../../utils/recruitHelpers');
-    const startLabel = finalRecruitData?.startTime ? `🕒 ${finalRecruitData.startTime}` : null;
-    const membersLabel = typeof finalRecruitData?.participants === 'number' ? `👥 ${finalRecruitData.participants}人` : null;
+      const startLabel = finalRecruitData?.startTime ? `🕒 開始: ${finalRecruitData.startTime}` : null;
+      const membersLabel = typeof finalRecruitData?.participants === 'number' ? `👥 人数: ${finalRecruitData.participants}人` : null;
     let voiceLabel = null;
     if (typeof finalRecruitData?.vc === 'string') {
-      if (finalRecruitData.vc === 'あり') voiceLabel = finalRecruitData?.voicePlace ? `🎙 あり(${finalRecruitData.voicePlace})` : '🎙 あり';
-      else if (finalRecruitData.vc === 'なし') voiceLabel = '🎙 なし';
+        if (finalRecruitData.vc === 'あり') voiceLabel = finalRecruitData?.voicePlace ? `🎙 通話: あり(${finalRecruitData.voicePlace})` : '🎙 通話: あり';
+        else if (finalRecruitData.vc === 'なし') voiceLabel = '🎙 通話: なし';
     }
     const detailsText = [startLabel, membersLabel, voiceLabel].filter(Boolean).join(' | ');
     const contentText = finalRecruitData?.content ? `📝 募集内容\n${String(finalRecruitData.content).slice(0,1500)}` : '';
