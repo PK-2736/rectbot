@@ -58,8 +58,8 @@ async function ensureNoActiveRecruit(interaction) {
         const status = String(r?.status ?? '').toLowerCase();
         return gid === guildIdStr && (status === 'recruiting' || status === 'active');
       });
-      if (matched.length >= 1) {
-        await safeReply(interaction, { content: '❌ このサーバーでは同時に実行できる募集は1件までです。既存の募集を締め切ってから新しい募集を作成してください。', flags: MessageFlags.Ephemeral, allowedMentions: { roles: [], users: [] } });
+      if (matched.length >= 3) {
+        await safeReply(interaction, { content: '❌ このサーバーでは同時に実行できる募集は3件までです。既存の募集をいくつか締め切ってから新しい募集を作成してください。', flags: MessageFlags.Ephemeral, allowedMentions: { roles: [], users: [] } });
         return false;
       }
     }
@@ -285,7 +285,7 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
   let updatedContainer;
   if (styleForEdit === 'simple') {
     const { buildContainerSimple } = require('../../utils/recruitHelpers');
-      const labelsLine = '🕒 時間 | 👥 人数 | 🎙 通話';
+      const labelsLine = '🕒 開始時間 | 👥 募集人数 | 🎙 通話有無';
       const startVal = finalRecruitData?.startTime ? String(finalRecruitData.startTime) : null;
       const membersVal = typeof finalRecruitData?.participants === 'number' ? `${finalRecruitData.participants}人` : null;
       let voiceVal = null;
@@ -653,7 +653,8 @@ async function handleModalSubmit(interaction) {
   }
 
   try {
-    // 前処理: クールダウンのみ（同時募集制限は一時的に無効化）
+      // 前処理: クールダウン + 同時募集制限(最大3件)
+      // enforce guild concurrent limit to 3 via ensureNoActiveRecruit
     if (!(await enforceCooldown(interaction))) return;
     // if (!(await ensureNoActiveRecruit(interaction))) return; // temporarily disabled
 
@@ -795,7 +796,7 @@ async function handleModalSubmit(interaction) {
         ? (recruitDataObj?.voicePlace ? `🎙 あり(${recruitDataObj.voicePlace})` : '🎙 あり')
         : (recruitDataObj?.vc === 'なし' ? '🎙 なし' : null);
       const valuesLine = [startLabel, membersLabel, voiceLabel].filter(Boolean).join(' | ');
-      const labelsLine = '🕒 時間 | 👥 人数 | 🎙 通話';
+      const labelsLine = '🕒 開始時間 | 👥 募集人数 | 🎙 通話有無';
       const detailsText = [labelsLine, valuesLine].filter(Boolean).join('\n');
       const contentText = recruitDataObj?.content ? `📝 募集内容\n${String(recruitDataObj.content).slice(0,1500)}` : '';
       const titleText = recruitDataObj?.title ? `## ${String(recruitDataObj.title).slice(0,200)}` : '';

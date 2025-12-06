@@ -137,20 +137,22 @@ async function updateParticipantList(interactionOrMessage, participants, savedRe
     const recruitIdText = savedRecruitData?.recruitId || (savedRecruitData?.message_id ? savedRecruitData.message_id.slice(-8) : '(unknown)');
     let updatedContainer;
     if (style === 'simple') {
-      const startLabel = savedRecruitData?.startTime ? `🕒 開始: ${savedRecruitData.startTime}` : null;
-      const membersLabel = typeof (savedRecruitData?.participants || savedRecruitData?.participant_count) === 'number'
-        ? `👥 人数: ${(savedRecruitData.participants || savedRecruitData.participant_count)}人`
+      const labelsLine = '🕒 開始時間 | 👥 募集人数 | 🎙 通話有無';
+      const startVal = savedRecruitData?.startTime ? String(savedRecruitData.startTime) : null;
+      const membersVal = typeof (savedRecruitData?.participants || savedRecruitData?.participant_count) === 'number'
+        ? `${(savedRecruitData.participants || savedRecruitData.participant_count)}人`
         : null;
-      let voiceLabel = null;
+      let voiceVal = null;
       if (typeof savedRecruitData?.vc === 'string') {
-        if (savedRecruitData.vc === 'あり') voiceLabel = savedRecruitData?.voicePlace ? `🎙 通話: あり(${savedRecruitData.voicePlace})` : '🎙 通話: あり';
-        else if (savedRecruitData.vc === 'なし') voiceLabel = '🎙 通話: なし';
+        if (savedRecruitData.vc === 'あり') voiceVal = savedRecruitData?.voicePlace ? `あり(${savedRecruitData.voicePlace})` : 'あり';
+        else if (savedRecruitData.vc === 'なし') voiceVal = 'なし';
       } else if (savedRecruitData?.voice === true) {
-        voiceLabel = savedRecruitData?.voicePlace ? `🎙 通話: あり(${savedRecruitData.voicePlace})` : '🎙 通話: あり';
+        voiceVal = savedRecruitData?.voicePlace ? `あり(${savedRecruitData.voicePlace})` : 'あり';
       } else if (savedRecruitData?.voice === false) {
-        voiceLabel = '🎙 通話: なし';
+        voiceVal = 'なし';
       }
-      const details = [startLabel, membersLabel, voiceLabel].filter(Boolean).join(' | ');
+      const valuesLine = [startVal, membersVal, voiceVal].filter(Boolean).join(' | ');
+      const details = [labelsLine, valuesLine].filter(Boolean).join('\n');
       const contentText = savedRecruitData?.content ? `📝 募集内容\n${String(savedRecruitData.content).slice(0,1500)}` : '';
       const { buildContainerSimple } = require('./recruitHelpers');
       updatedContainer = buildContainerSimple({

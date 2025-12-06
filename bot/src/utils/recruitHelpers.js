@@ -2,7 +2,8 @@ const {
   ContainerBuilder, TextDisplayBuilder,
   SeparatorBuilder, SeparatorSpacingSize,
   ActionRowBuilder, ButtonBuilder, ButtonStyle,
-  MediaGalleryBuilder, MediaGalleryItemBuilder
+  MediaGalleryBuilder, MediaGalleryItemBuilder,
+  ThumbnailBuilder
 } = require('discord.js');
 
 // Build a consistent ContainerBuilder for recruit messages
@@ -11,7 +12,10 @@ function buildContainer({ headerTitle = '募集', participantText = '', recruitI
   container.setAccentColor(typeof accentColor === 'number' ? accentColor : parseInt(String(accentColor), 16) || 0x000000);
   // 右上サムネイルアクセサリ
   if (avatarUrl && typeof avatarUrl === 'string') {
-    try { container.setThumbnailAccesory(avatarUrl); } catch (_) {}
+    try {
+      const thumb = new ThumbnailBuilder({ media: { url: avatarUrl } });
+      container.setThumbnailAccessory(thumb);
+    } catch (_) {}
   }
   container.addTextDisplayComponents(
     new TextDisplayBuilder().setContent(`🎮 **${headerTitle}**`)
@@ -86,7 +90,10 @@ function buildContainerSimple({ headerTitle = '募集', detailsText = '', partic
   container.setAccentColor(typeof accentColor === 'number' ? accentColor : parseInt(String(accentColor), 16) || 0x000000);
   // 右上サムネイルアクセサリ（横並び用の指定）
   if (avatarUrl && typeof avatarUrl === 'string') {
-    try { container.setThumbnailAccesory(avatarUrl); } catch (_) {}
+    try {
+      const thumb = new ThumbnailBuilder({ media: { url: avatarUrl } });
+      container.setThumbnailAccessory(thumb);
+    } catch (_) {}
   }
   // タイトルを最上段に配置（強調表示は呼び出し側で整形）
   if (titleText && String(titleText).trim().length > 0) {
