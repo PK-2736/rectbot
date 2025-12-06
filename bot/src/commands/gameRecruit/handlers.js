@@ -310,19 +310,18 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
     });
   } else {
     const { buildContainer } = require('../../utils/recruitHelpers');
-    const contentText = finalRecruitData?.content ? `📝 募集内容\n${String(finalRecruitData.content).slice(0,1500)}` : '';
+    const contentText = '';
       updatedContainer = buildContainer({
         headerTitle: `${user.username}さんの募集`,
         subHeaderText,
         contentText,
-        titleText: finalRecruitData?.title ? `## ${String(finalRecruitData.title).slice(0,200)}` : '',
+        titleText: '',
         participantText,
         recruitIdText: actualRecruitId,
         accentColor: finalAccentColor,
         imageAttachmentName: 'attachment://recruit-card.png',
         recruiterId: interaction.user.id,
-        requesterId: interaction.user.id,
-        avatarUrl
+        requesterId: interaction.user.id
       });
   }
     try {
@@ -822,16 +821,10 @@ async function handleModalSubmit(interaction) {
       });
     } else {
       const { buildContainer } = require('../../utils/recruitHelpers');
-      const contentText = recruitDataObj?.content ? `📝 募集内容\n${String(recruitDataObj.content).slice(0,1500)}` : '';
-      const titleText = recruitDataObj?.title ? `📌 タイトル\n${String(recruitDataObj.title).slice(0,200)}` : '';
+      const contentText = '';
+      const titleText = '';
       // 画像スタイルでもヘッダー右上にアバター表示
-      let avatarUrl2 = null;
-      try {
-        const fetchedUser2 = await interaction.client.users.fetch(interaction.user.id).catch(() => null);
-        if (fetchedUser2 && typeof fetchedUser2.displayAvatarURL === 'function') {
-          avatarUrl2 = fetchedUser2.displayAvatarURL({ size: 128, extension: 'png' });
-        }
-      } catch (_) {}
+      // 画像スタイルでは右上サムネイルのアバターは非表示
       container = buildContainer({ 
         headerTitle: `${user.username}さんの募集`, 
         subHeaderText, 
@@ -842,8 +835,7 @@ async function handleModalSubmit(interaction) {
         accentColor, 
         imageAttachmentName: 'attachment://recruit-card.png', 
         recruiterId: interaction.user.id, 
-        requesterId: interaction.user.id,
-        avatarUrl: avatarUrl2
+        requesterId: interaction.user.id
       });
     }
   const followUpMessage = await sendAnnouncements(interaction, selectedNotificationRole, configuredNotificationRoleIds, image, container, guildSettings, user);

@@ -12,7 +12,9 @@ function buildContainer({ headerTitle = '募集', participantText = '', recruitI
   container.setAccentColor(typeof accentColor === 'number' ? accentColor : parseInt(String(accentColor), 16) || 0x000000);
   // ヘッダーセクション（サムネ付き）
   const headerSection = new SectionBuilder();
-  if (avatarUrl && typeof avatarUrl === 'string') {
+  // 画像スタイルでは右上アバターを表示しない
+  const isImageStyle = !!imageAttachmentName;
+  if (!isImageStyle && avatarUrl && typeof avatarUrl === 'string') {
     try {
       const thumb = new ThumbnailBuilder({ media: { url: avatarUrl } });
       headerSection.setThumbnailAccessory(thumb);
@@ -26,7 +28,8 @@ function buildContainer({ headerTitle = '募集', participantText = '', recruitI
       new TextDisplayBuilder().setContent(String(subHeaderText))
     );
   }
-  if (titleText && String(titleText).trim().length > 0) {
+  // 画像スタイルではタイトルは画像に埋め込み済みのため表示しない
+  if (!isImageStyle && titleText && String(titleText).trim().length > 0) {
     headerSection.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(String(titleText))
     );
@@ -44,7 +47,8 @@ function buildContainer({ headerTitle = '募集', participantText = '', recruitI
   container.addSeparatorComponents(
     new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
   );
-  if (contentText && String(contentText).trim().length > 0) {
+  // 画像スタイルでは募集内容テキストは画像に埋め込み済みのため表示しない
+  if (!isImageStyle && contentText && String(contentText).trim().length > 0) {
     container.addTextDisplayComponents(new TextDisplayBuilder().setContent(String(contentText)));
     container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
   }

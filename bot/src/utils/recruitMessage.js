@@ -153,7 +153,7 @@ async function updateParticipantList(interactionOrMessage, participants, savedRe
       }
       const valuesLine = [startVal, membersVal, voiceVal].filter(Boolean).join(' | ');
       const details = [labelsLine, valuesLine].filter(Boolean).join('\n');
-      const contentText = savedRecruitData?.content ? `📝 募集内容\n${String(savedRecruitData.content).slice(0,1500)}` : '';
+        const contentText = '';
       const { buildContainerSimple } = require('./recruitHelpers');
       updatedContainer = buildContainerSimple({
         headerTitle,
@@ -169,7 +169,7 @@ async function updateParticipantList(interactionOrMessage, participants, savedRe
       });
     } else {
       const { buildContainer } = require('./recruitHelpers');
-      const contentText = savedRecruitData?.content ? `📝 募集内容\n${String(savedRecruitData.content).slice(0,1500)}` : '';
+        const contentText = '';
       updatedContainer = buildContainer({ 
         headerTitle, 
         contentText,
