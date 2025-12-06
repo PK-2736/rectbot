@@ -120,6 +120,16 @@ async function updateParticipantList(interactionOrMessage, participants, savedRe
         }
       }
     } catch (e) { console.warn('updateParticipantList: failed to fetch recruiter user:', e?.message || e); }
+    // アバターURLの取得
+    let avatarUrl = null;
+    try {
+      if (savedRecruitData && savedRecruitData.recruiterId && client) {
+        const user = await client.users.fetch(savedRecruitData.recruiterId).catch(() => null);
+        if (user && typeof user.displayAvatarURL === 'function') {
+          avatarUrl = user.displayAvatarURL({ size: 64, extension: 'png' });
+        }
+      }
+    } catch (e) { console.warn('updateParticipantList: failed to resolve avatar url:', e?.message || e); }
 
     const accentColor = parseInt(useColor, 16);
     const recruiterId = savedRecruitData?.recruiterId || null;
@@ -152,7 +162,8 @@ async function updateParticipantList(interactionOrMessage, participants, savedRe
         participantText,
         recruitIdText,
         accentColor,
-        subHeaderText
+        subHeaderText,
+        avatarUrl
       });
     } else {
       const { buildContainer } = require('./recruitHelpers');

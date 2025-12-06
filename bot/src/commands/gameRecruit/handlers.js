@@ -294,7 +294,8 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
       participantText,
       recruitIdText: actualRecruitId,
       accentColor: finalAccentColor,
-      subHeaderText
+        subHeaderText,
+        avatarUrl
     });
   } else {
     const { buildContainer } = require('../../utils/recruitHelpers');
