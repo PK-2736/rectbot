@@ -11,10 +11,10 @@ const { getSupabase } = require('./supabase');
 const { saveRecruitStatus, deleteRecruitStatus, getActiveRecruits, saveRecruitmentData, deleteRecruitmentData, updateRecruitmentStatus, updateRecruitmentData } = require('./statusApi');
 const { checkAndNotifyStartTime } = require('./startTimeNotifier');
 
-// schedule periodic cleanup (same behavior as before)
-const CLEANUP_INTERVAL_MS = Number(process.env.CLEANUP_INTERVAL_MS || 1000 * 60 * 60);
-cleanupExpiredRecruits().catch(() => {});
-setInterval(() => { cleanupExpiredRecruits().catch(e => console.warn('periodic cleanup failed:', e?.message || e)); }, CLEANUP_INTERVAL_MS);
+// schedule periodic cleanup — 一時的に無効化（期限廃止）
+// const CLEANUP_INTERVAL_MS = Number(process.env.CLEANUP_INTERVAL_MS || 1000 * 60 * 60);
+// cleanupExpiredRecruits().catch(() => {});
+// setInterval(() => { cleanupExpiredRecruits().catch(e => console.warn('periodic cleanup failed:', e?.message || e)); }, CLEANUP_INTERVAL_MS);
 
 // schedule start time notifications check (every minute)
 const START_TIME_CHECK_INTERVAL_MS = Number(process.env.START_TIME_CHECK_INTERVAL_MS || 60 * 1000);

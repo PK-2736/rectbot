@@ -249,6 +249,14 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
     startTimeNotified: false // 開始時間通知フラグを初期化
   };
 
+  // 右上サムネイル用アバターURL（未定義エラー回避のためここで算出）
+  let avatarUrl = null;
+  try {
+    if (user && typeof user.displayAvatarURL === 'function') {
+      avatarUrl = user.displayAvatarURL({ size: 64, extension: 'png' });
+    }
+  } catch (_) {}
+
   try {
     await saveRecruitToRedis(actualRecruitId, finalRecruitData);
     const pushRes = await pushRecruitToWebAPI(finalRecruitData);
@@ -277,14 +285,16 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
   let updatedContainer;
   if (styleForEdit === 'simple') {
     const { buildContainerSimple } = require('../../utils/recruitHelpers');
-      const startLabel = finalRecruitData?.startTime ? `🕒 開始: ${finalRecruitData.startTime}` : null;
-      const membersLabel = typeof finalRecruitData?.participants === 'number' ? `👥 人数: ${finalRecruitData.participants}人` : null;
-    let voiceLabel = null;
-    if (typeof finalRecruitData?.vc === 'string') {
-        if (finalRecruitData.vc === 'あり') voiceLabel = finalRecruitData?.voicePlace ? `🎙 通話: あり(${finalRecruitData.voicePlace})` : '🎙 通話: あり';
-        else if (finalRecruitData.vc === 'なし') voiceLabel = '🎙 通話: なし';
-    }
-    const detailsText = [startLabel, membersLabel, voiceLabel].filter(Boolean).join(' | ');
+      const labelsLine = '🕒 時間 | 👥 人数 | 🎙 通話';
+      const startVal = finalRecruitData?.startTime ? String(finalRecruitData.startTime) : null;
+      const membersVal = typeof finalRecruitData?.participants === 'number' ? `${finalRecruitData.participants}人` : null;
+      let voiceVal = null;
+      if (typeof finalRecruitData?.vc === 'string') {
+        if (finalRecruitData.vc === 'あり') voiceVal = finalRecruitData?.voicePlace ? `あり(${finalRecruitData.voicePlace})` : 'あり';
+        else if (finalRecruitData.vc === 'なし') voiceVal = 'なし';
+      }
+      const valuesLine = [startVal, membersVal, voiceVal].filter(Boolean).join(' | ');
+      const detailsText = `${labelsLine}\n${valuesLine}`;
     const contentText = finalRecruitData?.content ? `📝 募集内容\n${String(finalRecruitData.content).slice(0,1500)}` : '';
       updatedContainer = buildContainerSimple({
         headerTitle: `${user.username}さんの募集`,
@@ -310,7 +320,8 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
         accentColor: finalAccentColor,
         imageAttachmentName: 'attachment://recruit-card.png',
         recruiterId: interaction.user.id,
-        requesterId: interaction.user.id
+        requesterId: interaction.user.id,
+        avatarUrl
       });
   }
     try {
@@ -319,15 +330,15 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
       await actualMessage.edit(editPayload);
     } catch (editError) { console.error('メッセージ更新エラー:', editError); }
 
-  // 自動締切タイマー（8h）
-  setTimeout(async () => {
-    try {
-      if (recruitParticipants.has(actualMessageId)) {
-        console.log('8時間経過による自動締切実行:', actualMessageId);
-        try { await autoCloseRecruitment(interaction.client, interaction.guildId, interaction.channelId, actualMessageId); } catch (e) { console.error('autoCloseRecruitment failed:', e); }
-      }
-    } catch (error) { console.error('自動締切処理でエラー:', error); }
-  }, eightHoursMs);
+  // 自動締切タイマー（8h）— 一時的に無効化
+  // setTimeout(async () => {
+  //   try {
+  //     if (recruitParticipants.has(actualMessageId)) {
+  //       console.log('8時間経過による自動締切実行:', actualMessageId);
+  //       try { await autoCloseRecruitment(interaction.client, interaction.guildId, interaction.channelId, actualMessageId); } catch (e) { console.error('autoCloseRecruitment failed:', e); }
+  //     }
+  //   } catch (error) { console.error('自動締切処理でエラー:', error); }
+  // }, eightHoursMs);
 
   // 開始時刻メンション（任意）- 重複防止のため1回のみ実行
   const startDelay = computeDelayMs(finalRecruitData.startAt, null);
@@ -642,9 +653,9 @@ async function handleModalSubmit(interaction) {
   }
 
   try {
-    // 前処理: クールダウンと同時募集制限
+    // 前処理: クールダウンのみ（同時募集制限は一時的に無効化）
     if (!(await enforceCooldown(interaction))) return;
-    if (!(await ensureNoActiveRecruit(interaction))) return;
+    // if (!(await ensureNoActiveRecruit(interaction))) return; // temporarily disabled
 
     const guildSettings = await getGuildSettings(interaction.guildId);
 
@@ -783,9 +794,11 @@ async function handleModalSubmit(interaction) {
       const voiceLabel = (recruitDataObj?.vc === 'あり')
         ? (recruitDataObj?.voicePlace ? `🎙 あり(${recruitDataObj.voicePlace})` : '🎙 あり')
         : (recruitDataObj?.vc === 'なし' ? '🎙 なし' : null);
-      const detailsText = [startLabel, membersLabel, voiceLabel].filter(Boolean).join(' | ');
+      const valuesLine = [startLabel, membersLabel, voiceLabel].filter(Boolean).join(' | ');
+      const labelsLine = '🕒 時間 | 👥 人数 | 🎙 通話';
+      const detailsText = [labelsLine, valuesLine].filter(Boolean).join('\n');
       const contentText = recruitDataObj?.content ? `📝 募集内容\n${String(recruitDataObj.content).slice(0,1500)}` : '';
-      const titleText = recruitDataObj?.title ? `📌 __**${String(recruitDataObj.title).slice(0,200)}**__` : '';
+      const titleText = recruitDataObj?.title ? `## ${String(recruitDataObj.title).slice(0,200)}` : '';
       // 募集主のアバターURL（右上サムネイル用）
       let avatarUrl = null;
       try { if (typeof user.displayAvatarURL === 'function') avatarUrl = user.displayAvatarURL({ size: 64, extension: 'png' }); } catch (_) {}

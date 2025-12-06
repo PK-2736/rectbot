@@ -6,7 +6,8 @@ const { normalizeRecruitId } = require('./utils');
 
 async function saveRecruitToRedis(recruitId, data) {
   const redis = await ensureRedisConnection();
-  await redis.set(`recruit:${recruitId}`, JSON.stringify(data), 'EX', RECRUIT_TTL_SECONDS);
+  // TTLを一時的に無効化（期限廃止）
+  await redis.set(`recruit:${recruitId}`, JSON.stringify(data));
 }
 
 async function getRecruitFromRedis(recruitId) {

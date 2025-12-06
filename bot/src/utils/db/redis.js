@@ -29,7 +29,8 @@ try {
   redis = null;
 }
 
-const RECRUIT_TTL_SECONDS = Number(process.env.REDIS_RECRUIT_TTL_SECONDS || 8 * 60 * 60);
+// TTLは一時的に無効化するため、環境変数未設定時は0（無期限扱い）
+const RECRUIT_TTL_SECONDS = Number(process.env.REDIS_RECRUIT_TTL_SECONDS || 0);
 
 async function ensureRedisConnection() {
   if (!redis) {
