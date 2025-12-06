@@ -10,31 +10,22 @@ const {
 function buildContainer({ headerTitle = '募集', participantText = '', recruitIdText = '(unknown)', accentColor = 0x000000, imageAttachmentName = 'attachment://recruit-card.png', recruiterId = null, requesterId = null, footerExtra = null, subHeaderText = null, contentText = '', titleText = '', avatarUrl = null }) {
   const container = new ContainerBuilder();
   container.setAccentColor(typeof accentColor === 'number' ? accentColor : parseInt(String(accentColor), 16) || 0x000000);
-  // ヘッダーセクション（サムネ付き）
-  const headerSection = new SectionBuilder();
-  // 画像スタイルでは右上アバターを表示しない
+  // 画像スタイル用: コンテナ直下にテキストを追加（サムネイルは非表示）
   const isImageStyle = !!imageAttachmentName;
-  if (!isImageStyle && avatarUrl && typeof avatarUrl === 'string') {
-    try {
-      const thumb = new ThumbnailBuilder({ media: { url: avatarUrl } });
-      headerSection.setThumbnailAccessory(thumb);
-    } catch (_) {}
-  }
-  headerSection.addTextDisplayComponents(
+  container.addTextDisplayComponents(
     new TextDisplayBuilder().setContent(`🎮 **${headerTitle}**`)
   );
   if (subHeaderText && String(subHeaderText).trim().length > 0) {
-    headerSection.addTextDisplayComponents(
+    container.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(String(subHeaderText))
     );
   }
   // 画像スタイルではタイトルは画像に埋め込み済みのため表示しない
   if (!isImageStyle && titleText && String(titleText).trim().length > 0) {
-    headerSection.addTextDisplayComponents(
+    container.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(String(titleText))
     );
   }
-  container.addSectionComponents(headerSection);
   // 上記の（サブヘッダー/タイトル）ブロックの後に区切り線を入れて、画像セクションへ
   container.addSeparatorComponents(
     new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
