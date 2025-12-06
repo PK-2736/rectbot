@@ -178,7 +178,8 @@ async function updateParticipantList(interactionOrMessage, participants, savedRe
         imageAttachmentName: 'attachment://recruit-card.png', 
         recruiterId, 
         requesterId,
-        subHeaderText 
+        subHeaderText,
+        avatarUrl
       });
     }
 

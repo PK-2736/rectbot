@@ -786,6 +786,9 @@ async function handleModalSubmit(interaction) {
       const detailsText = [startLabel, membersLabel, voiceLabel].filter(Boolean).join(' | ');
       const contentText = recruitDataObj?.content ? `📝 募集内容\n${String(recruitDataObj.content).slice(0,1500)}` : '';
       const titleText = recruitDataObj?.title ? `📌 __**${String(recruitDataObj.title).slice(0,200)}**__` : '';
+      // 募集主のアバターURL（右上サムネイル用）
+      let avatarUrl = null;
+      try { if (typeof user.displayAvatarURL === 'function') avatarUrl = user.displayAvatarURL({ size: 64, extension: 'png' }); } catch (_) {}
       container = buildContainerSimple({
         headerTitle: `${user.username}さんの募集`,
         detailsText,
@@ -794,12 +797,16 @@ async function handleModalSubmit(interaction) {
         participantText,
         recruitIdText: '(送信後決定)',
         accentColor,
-        subHeaderText
+        subHeaderText,
+        avatarUrl
       });
     } else {
       const { buildContainer } = require('../../utils/recruitHelpers');
       const contentText = recruitDataObj?.content ? `📝 募集内容\n${String(recruitDataObj.content).slice(0,1500)}` : '';
       const titleText = recruitDataObj?.title ? `📌 タイトル\n${String(recruitDataObj.title).slice(0,200)}` : '';
+      // 画像スタイルでもヘッダー右上にアバター表示
+      let avatarUrl2 = null;
+      try { if (typeof user.displayAvatarURL === 'function') avatarUrl2 = user.displayAvatarURL({ size: 64, extension: 'png' }); } catch (_) {}
       container = buildContainer({ 
         headerTitle: `${user.username}さんの募集`, 
         subHeaderText, 
@@ -810,7 +817,8 @@ async function handleModalSubmit(interaction) {
         accentColor, 
         imageAttachmentName: 'attachment://recruit-card.png', 
         recruiterId: interaction.user.id, 
-        requesterId: interaction.user.id 
+        requesterId: interaction.user.id,
+        avatarUrl: avatarUrl2
       });
     }
   const followUpMessage = await sendAnnouncements(interaction, selectedNotificationRole, configuredNotificationRoleIds, image, container, guildSettings, user);

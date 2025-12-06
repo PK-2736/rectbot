@@ -6,9 +6,13 @@ const {
 } = require('discord.js');
 
 // Build a consistent ContainerBuilder for recruit messages
-function buildContainer({ headerTitle = '募集', participantText = '', recruitIdText = '(unknown)', accentColor = 0x000000, imageAttachmentName = 'attachment://recruit-card.png', recruiterId = null, requesterId = null, footerExtra = null, subHeaderText = null, contentText = '', titleText = '' }) {
+function buildContainer({ headerTitle = '募集', participantText = '', recruitIdText = '(unknown)', accentColor = 0x000000, imageAttachmentName = 'attachment://recruit-card.png', recruiterId = null, requesterId = null, footerExtra = null, subHeaderText = null, contentText = '', titleText = '', avatarUrl = null }) {
   const container = new ContainerBuilder();
   container.setAccentColor(typeof accentColor === 'number' ? accentColor : parseInt(String(accentColor), 16) || 0x000000);
+  // 右上サムネイルアクセサリ
+  if (avatarUrl && typeof avatarUrl === 'string') {
+    try { container.setThumbnailAccesory(avatarUrl); } catch (_) {}
+  }
   container.addTextDisplayComponents(
     new TextDisplayBuilder().setContent(`🎮 **${headerTitle}**`)
   );
@@ -80,15 +84,9 @@ function buildContainer({ headerTitle = '募集', participantText = '', recruitI
 function buildContainerSimple({ headerTitle = '募集', detailsText = '', participantText = '', recruitIdText = '(unknown)', accentColor = 0x000000, footerExtra = null, subHeaderText = null, contentText = '', titleText = '', avatarUrl = null }) {
   const container = new ContainerBuilder();
   container.setAccentColor(typeof accentColor === 'number' ? accentColor : parseInt(String(accentColor), 16) || 0x000000);
-  // 可能ならアバターを最上段に小さく表示（横並びは不可のため直上に配置）
+  // 右上サムネイルアクセサリ（横並び用の指定）
   if (avatarUrl && typeof avatarUrl === 'string') {
-    try {
-      container.addMediaGalleryComponents(
-        new MediaGalleryBuilder().addItems(
-          new MediaGalleryItemBuilder().setURL(avatarUrl)
-        )
-      );
-    } catch (_) {}
+    try { container.setThumbnailAccesory(avatarUrl); } catch (_) {}
   }
   // タイトルを最上段に配置（強調表示は呼び出し側で整形）
   if (titleText && String(titleText).trim().length > 0) {
