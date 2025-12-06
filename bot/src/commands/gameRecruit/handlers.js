@@ -257,6 +257,7 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
       avatarUrl = fetched.displayAvatarURL({ size: 128, extension: 'png' });
     }
   } catch (_) {}
+  console.log('[avatar][finalize]', avatarUrl);
 
   try {
     await saveRecruitToRedis(actualRecruitId, finalRecruitData);
@@ -809,6 +810,7 @@ async function handleModalSubmit(interaction) {
           avatarUrl = fetchedUser.displayAvatarURL({ size: 128, extension: 'png' });
         }
       } catch (_) {}
+      console.log('[avatar][initial simple]', avatarUrl);
       container = buildContainerSimple({
         headerTitle: `${user.username}さんの募集`,
         detailsText,
@@ -832,6 +834,7 @@ async function handleModalSubmit(interaction) {
           avatarUrl2 = fetchedUser2.displayAvatarURL({ size: 128, extension: 'png' });
         }
       } catch (_) {}
+      console.log('[avatar][initial image]', avatarUrl2);
       container = buildContainer({ 
         headerTitle: `${user.username}さんの募集`, 
         subHeaderText, 

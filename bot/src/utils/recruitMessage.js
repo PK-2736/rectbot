@@ -130,6 +130,7 @@ async function updateParticipantList(interactionOrMessage, participants, savedRe
         }
       }
     } catch (e) { console.warn('updateParticipantList: failed to resolve avatar url:', e?.message || e); }
+    console.log('[avatar][updateParticipantList]', avatarUrl);
 
     const accentColor = parseInt(useColor, 16);
     const recruiterId = savedRecruitData?.recruiterId || null;
