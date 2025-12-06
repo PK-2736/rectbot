@@ -219,9 +219,12 @@ async function sendAnnouncements(interaction, selectedNotificationRole, configur
         // 募集メッセージ投稿 (通知ロール情報はcontainer内に含まれる)
         (async () => { 
           try {
-            const options = { components: [container], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } };
-            if (image) options.files = [image];
-            await recruitChannel.send(options); 
+            await recruitChannel.send({ 
+              files: [image], 
+              components: [container], 
+              flags: MessageFlags.IsComponentsV2, 
+              allowedMentions: { roles: [], users: [] }
+            }); 
           } catch (e) { console.warn('募集メッセージ送信失敗(指定ch):', e?.message || e); } 
         })();
       }
@@ -254,7 +257,6 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
       avatarUrl = fetched.displayAvatarURL({ size: 128, extension: 'png' });
     }
   } catch (_) {}
-  console.log('[avatar][finalize]', avatarUrl);
 
   try {
     await saveRecruitToRedis(actualRecruitId, finalRecruitData);
@@ -284,21 +286,6 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
   let updatedContainer;
   if (styleForEdit === 'simple') {
     const { buildContainerSimple } = require('../../utils/recruitHelpers');
-      const https = require('https');
-      async function downloadImageBuffer(url) {
-        return await new Promise((resolve, reject) => {
-          https.get(url, (res) => {
-            if (res.statusCode !== 200) {
-              reject(new Error(`HTTP ${res.statusCode}`));
-              res.resume();
-              return;
-            }
-            const chunks = [];
-            res.on('data', (d) => chunks.push(d));
-            res.on('end', () => resolve(Buffer.concat(chunks)));
-          }).on('error', reject);
-        });
-      }
       const labelsLine = '🕒 開始時間 | 👥 募集人数 | 🎙 通話有無';
       const startVal = finalRecruitData?.startTime ? String(finalRecruitData.startTime) : null;
       const membersVal = typeof finalRecruitData?.participants === 'number' ? `${finalRecruitData.participants}人` : null;
@@ -310,21 +297,6 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
       const valuesLine = [startVal, membersVal, voiceVal].filter(Boolean).join(' | ');
       const detailsText = `${labelsLine}\n${valuesLine}`;
     const contentText = finalRecruitData?.content ? `📝 募集内容\n${String(finalRecruitData.content).slice(0,1500)}` : '';
-      // アバター画像添付（フォールバック表示用）
-      let avatarFile = null;
-      let avatarAttachmentName = null;
-      if (avatarUrl) {
-        try {
-          const buf = await downloadImageBuffer(avatarUrl);
-          avatarFile = new AttachmentBuilder(buf, { name: 'avatar.png' });
-          avatarAttachmentName = 'attachment://avatar.png';
-        } catch (e) {
-          console.warn('[avatar] finalize download failed:', e?.message || e);
-          avatarFile = null;
-          avatarAttachmentName = null;
-        }
-      }
-
       updatedContainer = buildContainerSimple({
         headerTitle: `${user.username}さんの募集`,
         detailsText,
@@ -334,8 +306,7 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
       recruitIdText: actualRecruitId,
       accentColor: finalAccentColor,
         subHeaderText,
-        avatarUrl,
-        avatarAttachmentName
+        avatarUrl
     });
   } else {
     const { buildContainer } = require('../../utils/recruitHelpers');
@@ -357,9 +328,6 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
     try {
       const editPayload = { components: [updatedContainer], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } };
       if (updatedImage) editPayload.files = [updatedImage];
-      if (avatarFile) {
-        editPayload.files = Array.isArray(editPayload.files) ? [...editPayload.files, avatarFile] : [avatarFile];
-      }
       await actualMessage.edit(editPayload);
     } catch (editError) { console.error('メッセージ更新エラー:', editError); }
 
@@ -821,26 +789,8 @@ async function handleModalSubmit(interaction) {
     
     const configuredNotificationRoleIds = buildConfiguredNotificationRoleIds(guildSettings);
     let container;
-    // 添付ファイル（simple向けフォールバック）を事前宣言してスコープを広げる
-    let avatarFile = null;
-    let avatarAttachmentName = null;
     if (style === 'simple') {
       const { buildContainerSimple } = require('../../utils/recruitHelpers');
-      const https = require('https');
-      async function downloadImageBuffer(url) {
-        return await new Promise((resolve, reject) => {
-          https.get(url, (res) => {
-            if (res.statusCode !== 200) {
-              reject(new Error(`HTTP ${res.statusCode}`));
-              res.resume();
-              return;
-            }
-            const chunks = [];
-            res.on('data', (d) => chunks.push(d));
-            res.on('end', () => resolve(Buffer.concat(chunks)));
-          }).on('error', reject);
-        });
-      }
       const startLabel = recruitDataObj?.startTime ? `🕒 ${recruitDataObj.startTime}` : null;
       const membersLabel = typeof recruitDataObj?.participants === 'number' ? `👥 ${recruitDataObj.participants}人` : null;
       const voiceLabel = (recruitDataObj?.vc === 'あり')
@@ -859,21 +809,6 @@ async function handleModalSubmit(interaction) {
           avatarUrl = fetchedUser.displayAvatarURL({ size: 128, extension: 'png' });
         }
       } catch (_) {}
-      console.log('[avatar][initial simple]', avatarUrl);
-      // アバター画像を添付（フォールバック表示用）
-      // ここでは上のスコープ変数に代入
-      if (avatarUrl) {
-        try {
-          const buf = await downloadImageBuffer(avatarUrl);
-          avatarFile = new AttachmentBuilder(buf, { name: 'avatar.png' });
-          avatarAttachmentName = 'attachment://avatar.png';
-        } catch (e) {
-          console.warn('[avatar] download failed:', e?.message || e);
-          avatarFile = null;
-          avatarAttachmentName = null;
-        }
-      }
-
       container = buildContainerSimple({
         headerTitle: `${user.username}さんの募集`,
         detailsText,
@@ -883,8 +818,7 @@ async function handleModalSubmit(interaction) {
         recruitIdText: '(送信後決定)',
         accentColor,
         subHeaderText,
-        avatarUrl,
-        avatarAttachmentName
+        avatarUrl
       });
     } else {
       const { buildContainer } = require('../../utils/recruitHelpers');
@@ -898,7 +832,6 @@ async function handleModalSubmit(interaction) {
           avatarUrl2 = fetchedUser2.displayAvatarURL({ size: 128, extension: 'png' });
         }
       } catch (_) {}
-      console.log('[avatar][initial image]', avatarUrl2);
       container = buildContainer({ 
         headerTitle: `${user.username}さんの募集`, 
         subHeaderText, 
@@ -913,20 +846,7 @@ async function handleModalSubmit(interaction) {
         avatarUrl: avatarUrl2
       });
     }
-  // 送信オプションにアバター添付を追加（simpleのみ）
-  const baseOptions = { components: [container], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } };
-  if (image) baseOptions.files = [image];
-  if (avatarFile) {
-    baseOptions.files = Array.isArray(baseOptions.files) ? [...baseOptions.files, avatarFile] : [avatarFile];
-  } else {
-    // 参照不整合防止: 添付が無ければギャラリー参照も無効化
-    try {
-      if (typeof container?.components === 'object') {
-        // no-op: container builder API does not expose easy mutation; ensured above by not setting avatarAttachmentName
-      }
-    } catch (_) {}
-  }
-  const followUpMessage = await interaction.channel.send(baseOptions);
+  const followUpMessage = await sendAnnouncements(interaction, selectedNotificationRole, configuredNotificationRoleIds, image, container, guildSettings, user);
     try { await safeReply(interaction, { content: '募集を作成しました。', flags: MessageFlags.Ephemeral }); } catch (e) { console.warn('safeReply failed (non-fatal):', e?.message || e); }
     // 送信後の保存とUI更新
     try {

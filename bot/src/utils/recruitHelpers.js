@@ -1,5 +1,5 @@
 const {
-  ContainerBuilder, TextDisplayBuilder,
+  ContainerBuilder, SectionBuilder, TextDisplayBuilder,
   SeparatorBuilder, SeparatorSpacingSize,
   ActionRowBuilder, ButtonBuilder, ButtonStyle,
   MediaGalleryBuilder, MediaGalleryItemBuilder,
@@ -10,46 +10,28 @@ const {
 function buildContainer({ headerTitle = '募集', participantText = '', recruitIdText = '(unknown)', accentColor = 0x000000, imageAttachmentName = 'attachment://recruit-card.png', recruiterId = null, requesterId = null, footerExtra = null, subHeaderText = null, contentText = '', titleText = '', avatarUrl = null }) {
   const container = new ContainerBuilder();
   container.setAccentColor(typeof accentColor === 'number' ? accentColor : parseInt(String(accentColor), 16) || 0x000000);
-  // 右上サムネイルアクセサリ
+  // ヘッダーセクション（サムネ付き）
+  const headerSection = new SectionBuilder();
   if (avatarUrl && typeof avatarUrl === 'string') {
-    // Primary path: ThumbnailBuilder
     try {
       const thumb = new ThumbnailBuilder({ media: { url: avatarUrl } });
-      container.setThumbnailAccessory(thumb);
-      console.log('[components-v2] thumbnail accessory applied via builder');
-    } catch (e1) {
-      console.warn('[components-v2] builder path failed, trying URL string:', e1?.message || e1);
-      // Fallback A: setThumbnailAccessory(URL string)
-      try {
-        if (typeof container.setThumbnailAccessory === 'function') {
-          container.setThumbnailAccessory(avatarUrl);
-          console.log('[components-v2] thumbnail accessory applied via URL string (setThumbnailAccessory)');
-        } else if (typeof container.setThumbnailAccesory === 'function') {
-          // Fallback B: legacy misspelled API
-          container.setThumbnailAccesory(avatarUrl);
-          console.log('[components-v2] thumbnail accessory applied via URL string (setThumbnailAccesory)');
-        } else {
-          console.warn('[components-v2] no thumbnail accessory method available on container');
-        }
-      } catch (e2) {
-        console.warn('[components-v2] URL string path failed:', e2?.message || e2);
-      }
-    }
+      headerSection.setThumbnailAccessory(thumb);
+    } catch (_) {}
   }
-  container.addTextDisplayComponents(
+  headerSection.addTextDisplayComponents(
     new TextDisplayBuilder().setContent(`🎮 **${headerTitle}**`)
   );
   if (subHeaderText && String(subHeaderText).trim().length > 0) {
-    // ヘッダー直下に通知ロールを表示
-    container.addTextDisplayComponents(
+    headerSection.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(String(subHeaderText))
     );
   }
   if (titleText && String(titleText).trim().length > 0) {
-    container.addTextDisplayComponents(
+    headerSection.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(String(titleText))
     );
   }
+  container.addSectionComponents(headerSection);
   // 上記の（サブヘッダー/タイトル）ブロックの後に区切り線を入れて、画像セクションへ
   container.addSeparatorComponents(
     new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
@@ -104,56 +86,29 @@ function buildContainer({ headerTitle = '募集', participantText = '', recruitI
 }
 
 // Simple text-first container (no image gallery)
-function buildContainerSimple({ headerTitle = '募集', detailsText = '', participantText = '', recruitIdText = '(unknown)', accentColor = 0x000000, footerExtra = null, subHeaderText = null, contentText = '', titleText = '', avatarUrl = null, avatarAttachmentName = null }) {
+function buildContainerSimple({ headerTitle = '募集', detailsText = '', participantText = '', recruitIdText = '(unknown)', accentColor = 0x000000, footerExtra = null, subHeaderText = null, contentText = '', titleText = '', avatarUrl = null }) {
   const container = new ContainerBuilder();
   container.setAccentColor(typeof accentColor === 'number' ? accentColor : parseInt(String(accentColor), 16) || 0x000000);
-  // 右上サムネイルアクセサリ（横並び用の指定）
+  // ヘッダーセクション（サムネ付き）
+  const headerSection = new SectionBuilder();
   if (avatarUrl && typeof avatarUrl === 'string') {
     try {
       const thumb = new ThumbnailBuilder({ media: { url: avatarUrl } });
-      container.setThumbnailAccessory(thumb);
-      console.log('[components-v2] (simple) thumbnail accessory applied via builder');
-    } catch (e1) {
-      console.warn('[components-v2] (simple) builder path failed, trying URL string:', e1?.message || e1);
-      try {
-        if (typeof container.setThumbnailAccessory === 'function') {
-          container.setThumbnailAccessory(avatarUrl);
-          console.log('[components-v2] (simple) thumbnail accessory applied via URL string (setThumbnailAccessory)');
-        } else if (typeof container.setThumbnailAccesory === 'function') {
-          container.setThumbnailAccesory(avatarUrl);
-          console.log('[components-v2] (simple) thumbnail accessory applied via URL string (setThumbnailAccesory)');
-        } else {
-          console.warn('[components-v2] (simple) no thumbnail accessory method available on container');
-        }
-      } catch (e2) {
-        console.warn('[components-v2] (simple) URL string path failed:', e2?.message || e2);
-      }
-    }
+      headerSection.setThumbnailAccessory(thumb);
+    } catch (_) {}
   }
   // タイトルを最上段に配置（強調表示は呼び出し側で整形）
   if (titleText && String(titleText).trim().length > 0) {
-    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(String(titleText)));
+    headerSection.addTextDisplayComponents(new TextDisplayBuilder().setContent(String(titleText)));
   }
   // 次に「〜さんの募集」を表示
-  container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`🎮 **${headerTitle}**`));
+  headerSection.addTextDisplayComponents(new TextDisplayBuilder().setContent(`🎮 **${headerTitle}**`));
   // 通知ロールなどのサブヘッダー
   if (subHeaderText && String(subHeaderText).trim().length > 0) {
-    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(String(subHeaderText)));
+    headerSection.addTextDisplayComponents(new TextDisplayBuilder().setContent(String(subHeaderText)));
   }
+  container.addSectionComponents(headerSection);
   container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
-  // アクセサリが使えない環境向けフォールバック: メディアギャラリーでアバター表示
-  if (avatarAttachmentName && typeof avatarAttachmentName === 'string') {
-    try {
-      container.addMediaGalleryComponents(
-        new MediaGalleryBuilder().addItems(
-          new MediaGalleryItemBuilder().setURL(avatarAttachmentName)
-        )
-      );
-      container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
-    } catch (e) {
-      console.warn('[components-v2] simple avatar media gallery failed:', e?.message || e);
-    }
-  }
   if (detailsText) {
     container.addTextDisplayComponents(new TextDisplayBuilder().setContent(detailsText));
     // ユーザー要望: 「通話情報」と「募集内容」の間に区切り線は入れない
