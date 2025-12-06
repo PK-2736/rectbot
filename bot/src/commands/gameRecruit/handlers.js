@@ -249,11 +249,12 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
     startTimeNotified: false // 開始時間通知フラグを初期化
   };
 
-  // 右上サムネイル用アバターURL（未定義エラー回避のためここで算出）
+  // 右上サムネイル用アバターURL（client経由で確実に取得）
   let avatarUrl = null;
   try {
-    if (user && typeof user.displayAvatarURL === 'function') {
-      avatarUrl = user.displayAvatarURL({ size: 64, extension: 'png' });
+    const fetched = await interaction.client.users.fetch(interaction.user.id).catch(() => null);
+    if (fetched && typeof fetched.displayAvatarURL === 'function') {
+      avatarUrl = fetched.displayAvatarURL({ size: 128, extension: 'png' });
     }
   } catch (_) {}
 
@@ -800,9 +801,14 @@ async function handleModalSubmit(interaction) {
       const detailsText = [labelsLine, valuesLine].filter(Boolean).join('\n');
       const contentText = recruitDataObj?.content ? `📝 募集内容\n${String(recruitDataObj.content).slice(0,1500)}` : '';
       const titleText = recruitDataObj?.title ? `## ${String(recruitDataObj.title).slice(0,200)}` : '';
-      // 募集主のアバターURL（右上サムネイル用）
+      // 募集主のアバターURL（右上サムネイル用）: client経由でfetch
       let avatarUrl = null;
-      try { if (typeof user.displayAvatarURL === 'function') avatarUrl = user.displayAvatarURL({ size: 64, extension: 'png' }); } catch (_) {}
+      try {
+        const fetchedUser = await interaction.client.users.fetch(interaction.user.id).catch(() => null);
+        if (fetchedUser && typeof fetchedUser.displayAvatarURL === 'function') {
+          avatarUrl = fetchedUser.displayAvatarURL({ size: 128, extension: 'png' });
+        }
+      } catch (_) {}
       container = buildContainerSimple({
         headerTitle: `${user.username}さんの募集`,
         detailsText,
@@ -820,7 +826,12 @@ async function handleModalSubmit(interaction) {
       const titleText = recruitDataObj?.title ? `📌 タイトル\n${String(recruitDataObj.title).slice(0,200)}` : '';
       // 画像スタイルでもヘッダー右上にアバター表示
       let avatarUrl2 = null;
-      try { if (typeof user.displayAvatarURL === 'function') avatarUrl2 = user.displayAvatarURL({ size: 64, extension: 'png' }); } catch (_) {}
+      try {
+        const fetchedUser2 = await interaction.client.users.fetch(interaction.user.id).catch(() => null);
+        if (fetchedUser2 && typeof fetchedUser2.displayAvatarURL === 'function') {
+          avatarUrl2 = fetchedUser2.displayAvatarURL({ size: 128, extension: 'png' });
+        }
+      } catch (_) {}
       container = buildContainer({ 
         headerTitle: `${user.username}さんの募集`, 
         subHeaderText, 
