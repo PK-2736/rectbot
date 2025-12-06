@@ -821,6 +821,9 @@ async function handleModalSubmit(interaction) {
     
     const configuredNotificationRoleIds = buildConfiguredNotificationRoleIds(guildSettings);
     let container;
+    // 添付ファイル（simple向けフォールバック）を事前宣言してスコープを広げる
+    let avatarFile = null;
+    let avatarAttachmentName = null;
     if (style === 'simple') {
       const { buildContainerSimple } = require('../../utils/recruitHelpers');
       const https = require('https');
@@ -858,8 +861,7 @@ async function handleModalSubmit(interaction) {
       } catch (_) {}
       console.log('[avatar][initial simple]', avatarUrl);
       // アバター画像を添付（フォールバック表示用）
-      let avatarFile = null;
-      let avatarAttachmentName = null;
+      // ここでは上のスコープ変数に代入
       if (avatarUrl) {
         try {
           const buf = await downloadImageBuffer(avatarUrl);
