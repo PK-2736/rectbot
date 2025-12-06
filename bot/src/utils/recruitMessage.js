@@ -180,7 +180,11 @@ async function updateParticipantList(interactionOrMessage, participants, savedRe
           const { AttachmentBuilder } = require('discord.js');
           avatarFile = new AttachmentBuilder(buf, { name: 'avatar.png' });
           avatarAttachmentName = 'attachment://avatar.png';
-        } catch (e) { console.warn('[avatar] update download failed:', e?.message || e); }
+        } catch (e) {
+          console.warn('[avatar] update download failed:', e?.message || e);
+          avatarFile = null;
+          avatarAttachmentName = null;
+        }
       }
       updatedContainer = buildContainerSimple({
         headerTitle,

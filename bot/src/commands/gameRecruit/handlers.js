@@ -318,7 +318,11 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
           const buf = await downloadImageBuffer(avatarUrl);
           avatarFile = new AttachmentBuilder(buf, { name: 'avatar.png' });
           avatarAttachmentName = 'attachment://avatar.png';
-        } catch (e) { console.warn('[avatar] finalize download failed:', e?.message || e); }
+        } catch (e) {
+          console.warn('[avatar] finalize download failed:', e?.message || e);
+          avatarFile = null;
+          avatarAttachmentName = null;
+        }
       }
 
       updatedContainer = buildContainerSimple({
@@ -861,7 +865,11 @@ async function handleModalSubmit(interaction) {
           const buf = await downloadImageBuffer(avatarUrl);
           avatarFile = new AttachmentBuilder(buf, { name: 'avatar.png' });
           avatarAttachmentName = 'attachment://avatar.png';
-        } catch (e) { console.warn('[avatar] download failed:', e?.message || e); }
+        } catch (e) {
+          console.warn('[avatar] download failed:', e?.message || e);
+          avatarFile = null;
+          avatarAttachmentName = null;
+        }
       }
 
       container = buildContainerSimple({
@@ -906,8 +914,15 @@ async function handleModalSubmit(interaction) {
   // 送信オプションにアバター添付を追加（simpleのみ）
   const baseOptions = { components: [container], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } };
   if (image) baseOptions.files = [image];
-  if (typeof avatarFile !== 'undefined' && avatarFile) {
+  if (avatarFile) {
     baseOptions.files = Array.isArray(baseOptions.files) ? [...baseOptions.files, avatarFile] : [avatarFile];
+  } else {
+    // 参照不整合防止: 添付が無ければギャラリー参照も無効化
+    try {
+      if (typeof container?.components === 'object') {
+        // no-op: container builder API does not expose easy mutation; ensured above by not setting avatarAttachmentName
+      }
+    } catch (_) {}
   }
   const followUpMessage = await interaction.channel.send(baseOptions);
     try { await safeReply(interaction, { content: '募集を作成しました。', flags: MessageFlags.Ephemeral }); } catch (e) { console.warn('safeReply failed (non-fatal):', e?.message || e); }
