@@ -104,7 +104,7 @@ function buildContainer({ headerTitle = '募集', participantText = '', recruitI
 }
 
 // Simple text-first container (no image gallery)
-function buildContainerSimple({ headerTitle = '募集', detailsText = '', participantText = '', recruitIdText = '(unknown)', accentColor = 0x000000, footerExtra = null, subHeaderText = null, contentText = '', titleText = '', avatarUrl = null }) {
+function buildContainerSimple({ headerTitle = '募集', detailsText = '', participantText = '', recruitIdText = '(unknown)', accentColor = 0x000000, footerExtra = null, subHeaderText = null, contentText = '', titleText = '', avatarUrl = null, avatarAttachmentName = null }) {
   const container = new ContainerBuilder();
   container.setAccentColor(typeof accentColor === 'number' ? accentColor : parseInt(String(accentColor), 16) || 0x000000);
   // 右上サムネイルアクセサリ（横並び用の指定）
@@ -141,6 +141,19 @@ function buildContainerSimple({ headerTitle = '募集', detailsText = '', partic
     container.addTextDisplayComponents(new TextDisplayBuilder().setContent(String(subHeaderText)));
   }
   container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
+  // アクセサリが使えない環境向けフォールバック: メディアギャラリーでアバター表示
+  if (avatarAttachmentName && typeof avatarAttachmentName === 'string') {
+    try {
+      container.addMediaGalleryComponents(
+        new MediaGalleryBuilder().addItems(
+          new MediaGalleryItemBuilder().setURL(avatarAttachmentName)
+        )
+      );
+      container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
+    } catch (e) {
+      console.warn('[components-v2] simple avatar media gallery failed:', e?.message || e);
+    }
+  }
   if (detailsText) {
     container.addTextDisplayComponents(new TextDisplayBuilder().setContent(detailsText));
     // ユーザー要望: 「通話情報」と「募集内容」の間に区切り線は入れない

@@ -138,6 +138,21 @@ async function updateParticipantList(interactionOrMessage, participants, savedRe
     const recruitIdText = savedRecruitData?.recruitId || (savedRecruitData?.message_id ? savedRecruitData.message_id.slice(-8) : '(unknown)');
     let updatedContainer;
     if (style === 'simple') {
+      const https = require('https');
+      async function downloadImageBuffer(url) {
+        return await new Promise((resolve, reject) => {
+          https.get(url, (res) => {
+            if (res.statusCode !== 200) {
+              reject(new Error(`HTTP ${res.statusCode}`));
+              res.resume();
+              return;
+            }
+            const chunks = [];
+            res.on('data', (d) => chunks.push(d));
+            res.on('end', () => resolve(Buffer.concat(chunks)));
+          }).on('error', reject);
+        });
+      }
       const labelsLine = '🕒 開始時間 | 👥 募集人数 | 🎙 通話有無';
       const startVal = savedRecruitData?.startTime ? String(savedRecruitData.startTime) : null;
       const membersVal = typeof (savedRecruitData?.participants || savedRecruitData?.participant_count) === 'number'
@@ -156,6 +171,17 @@ async function updateParticipantList(interactionOrMessage, participants, savedRe
       const details = [labelsLine, valuesLine].filter(Boolean).join('\n');
       const contentText = savedRecruitData?.content ? `📝 募集内容\n${String(savedRecruitData.content).slice(0,1500)}` : '';
       const { buildContainerSimple } = require('./recruitHelpers');
+      // アバター画像添付（フォールバック表示用）
+      let avatarFile = null;
+      let avatarAttachmentName = null;
+      if (avatarUrl) {
+        try {
+          const buf = await downloadImageBuffer(avatarUrl);
+          const { AttachmentBuilder } = require('discord.js');
+          avatarFile = new AttachmentBuilder(buf, { name: 'avatar.png' });
+          avatarAttachmentName = 'attachment://avatar.png';
+        } catch (e) { console.warn('[avatar] update download failed:', e?.message || e); }
+      }
       updatedContainer = buildContainerSimple({
         headerTitle,
         detailsText: details,
@@ -166,7 +192,8 @@ async function updateParticipantList(interactionOrMessage, participants, savedRe
         recruitIdText,
         accentColor,
         subHeaderText,
-        avatarUrl
+        avatarUrl,
+        avatarAttachmentName
       });
     } else {
       const { buildContainer } = require('./recruitHelpers');
@@ -190,6 +217,9 @@ async function updateParticipantList(interactionOrMessage, participants, savedRe
       const editPayload = { components: [updatedContainer], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } };
       if (style === 'image' && updatedImage) {
         editPayload.files = [updatedImage];
+      }
+      if (avatarFile) {
+        editPayload.files = Array.isArray(editPayload.files) ? [...editPayload.files, avatarFile] : [avatarFile];
       }
       await message.edit(editPayload);
     }
