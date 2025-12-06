@@ -188,6 +188,14 @@ async function updateParticipantList(interactionOrMessage, participants, savedRe
 
     if (message && message.edit) {
       const editPayload = { components: [updatedContainer], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } };
+      // Fallback: author embed with avatar icon
+      try {
+        if (avatarUrl && headerTitle) {
+          const { EmbedBuilder } = require('discord.js');
+          const headerEmbed = new EmbedBuilder().setAuthor({ name: headerTitle, iconURL: avatarUrl });
+          editPayload.embeds = [headerEmbed];
+        }
+      } catch (_) {}
       if (style === 'image' && updatedImage) {
         editPayload.files = [updatedImage];
       }

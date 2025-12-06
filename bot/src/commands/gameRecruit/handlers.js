@@ -196,6 +196,21 @@ async function sendAnnouncements(interaction, selectedNotificationRole, configur
 
   // 画像とUIの投稿 (Components V2使用、通知ロール情報はcontainer内に含まれる)
   const baseOptions = { components: [container], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } };
+  // Fallback embed with author icon (for environments without thumbnail accessory)
+  try {
+    // Attempt to build an author embed with avatar
+    const fetchedUser = await interaction.client.users.fetch(user.id).catch(() => null);
+    const iconURL = fetchedUser && typeof fetchedUser.displayAvatarURL === 'function'
+      ? fetchedUser.displayAvatarURL({ size: 64, extension: 'png' })
+      : null;
+    if (iconURL) {
+      const headerEmbed = new EmbedBuilder()
+        .setAuthor({ name: `${user.username}さんの募集`, iconURL });
+      baseOptions.embeds = [headerEmbed];
+    }
+  } catch (e) {
+    console.warn('[components-v2] failed to attach author embed:', e?.message || e);
+  }
   if (image) baseOptions.files = [image];
   const followUpMessage = await interaction.channel.send(baseOptions);
 
@@ -219,12 +234,19 @@ async function sendAnnouncements(interaction, selectedNotificationRole, configur
         // 募集メッセージ投稿 (通知ロール情報はcontainer内に含まれる)
         (async () => { 
           try {
-            await recruitChannel.send({ 
-              files: [image], 
-              components: [container], 
-              flags: MessageFlags.IsComponentsV2, 
-              allowedMentions: { roles: [], users: [] }
-            }); 
+            const options = { components: [container], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } };
+            if (image) options.files = [image];
+            try {
+              const fetchedUser2 = await interaction.client.users.fetch(user.id).catch(() => null);
+              const iconURL2 = fetchedUser2 && typeof fetchedUser2.displayAvatarURL === 'function'
+                ? fetchedUser2.displayAvatarURL({ size: 64, extension: 'png' })
+                : null;
+              if (iconURL2) {
+                const headerEmbed2 = new EmbedBuilder().setAuthor({ name: `${user.username}さんの募集`, iconURL: iconURL2 });
+                options.embeds = [headerEmbed2];
+              }
+            } catch (_) {}
+            await recruitChannel.send(options); 
           } catch (e) { console.warn('募集メッセージ送信失敗(指定ch):', e?.message || e); } 
         })();
       }
@@ -328,6 +350,13 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
   }
     try {
       const editPayload = { components: [updatedContainer], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } };
+      // Fallback: include author embed with avatar icon
+      try {
+        if (avatarUrl) {
+          const headerEmbed = new EmbedBuilder().setAuthor({ name: `${user.username}さんの募集`, iconURL: avatarUrl });
+          editPayload.embeds = [headerEmbed];
+        }
+      } catch (_) {}
       if (updatedImage) editPayload.files = [updatedImage];
       await actualMessage.edit(editPayload);
     } catch (editError) { console.error('メッセージ更新エラー:', editError); }
