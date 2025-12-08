@@ -204,7 +204,7 @@ async function sendAnnouncements(interaction, selectedNotificationRole, configur
     try {
       const recruitChannel = await interaction.guild.channels.fetch(guildSettings.recruit_channel);
       if (recruitChannel && recruitChannel.isTextBased()) {
-  if (selectedNotificationRole) {
+        if (selectedNotificationRole) {
           if (selectedNotificationRole === 'everyone') {
             (async () => { try { await recruitChannel.send({ content: '新しい募集が作成されました。@everyone', allowedMentions: { parse: ['everyone'] } }); } catch (e) { console.warn('通知送信失敗 (指定ch, @everyone):', e?.message || e); } })();
           } else if (selectedNotificationRole === 'here') {
@@ -215,17 +215,14 @@ async function sendAnnouncements(interaction, selectedNotificationRole, configur
         } else if (shouldUseDefaultNotification) {
           (async () => { try { await recruitChannel.send({ content: '新しい募集が作成されました。<@&1416797165769986161>', allowedMentions: { roles: ['1416797165769986161'] } }); } catch (e) { console.warn('通知送信失敗 (指定ch, default):', e?.message || e); } })();
         }
-        
+
         // 募集メッセージ投稿 (通知ロール情報はcontainer内に含まれる)
-        (async () => { 
+        (async () => {
           try {
-            await recruitChannel.send({ 
-              files: [image], 
-              components: [container], 
-              flags: MessageFlags.IsComponentsV2, 
-              allowedMentions: { roles: [], users: [] }
-            }); 
-          } catch (e) { console.warn('募集メッセージ送信失敗(指定ch):', e?.message || e); } 
+            const sendOptions = { components: [container], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } };
+            if (image) sendOptions.files = [image];
+            await recruitChannel.send(sendOptions);
+          } catch (e) { console.warn('募集メッセージ送信失敗(指定ch):', e?.message || e); }
         })();
       }
     } catch (channelError) { console.error('指定チャンネルへの送信でエラー:', channelError); }
@@ -296,7 +293,7 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
       }
       const valuesLine = [startVal, membersVal, voiceVal].filter(Boolean).join(' | ');
       const detailsText = `${labelsLine}\n${valuesLine}`;
-    const contentText = finalRecruitData?.content ? `📝 募集内容\n${String(finalRecruitData.content).slice(0,1500)}` : '';
+    const contentText = finalRecruitData?.content ? `**📝 募集内容**\n${String(finalRecruitData.content).slice(0,1500)}` : '';
       updatedContainer = buildContainerSimple({
         headerTitle: `${user.username}さんの募集`,
         detailsText,
@@ -613,7 +610,7 @@ async function processClose(interaction, messageId, savedRecruitData) {
       disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent(detailsText));
     }
     // Content (no divider between details and content)
-    const contentText = data?.content ? `📝 募集内容\n${String(data.content).slice(0,1500)}` : '';
+    const contentText = data?.content ? `**📝 募集内容**\n${String(data.content).slice(0,1500)}` : '';
     if (contentText) {
       disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent(contentText));
     }
@@ -622,7 +619,7 @@ async function processClose(interaction, messageId, savedRecruitData) {
     // Final participants list
     const finalParticipants = recruitParticipants.get(messageId) || [];
     const totalSlots = totalMembers || finalParticipants.length;
-    const finalParticipantText = `📋 参加リスト (最終 ${finalParticipants.length}/${totalSlots}人)\n${finalParticipants.map(id => `<@${id}>`).join(' • ')}`;
+    const finalParticipantText = `**📋 参加リスト** (最終 ${finalParticipants.length}/${totalSlots}人)\n${finalParticipants.map(id => `<@${id}>`).join(' • ')}`;
     disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent(finalParticipantText));
     // Closed note
     disabledContainer.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
@@ -780,7 +777,7 @@ async function handleModalSubmit(interaction) {
     
     // 参加リストテキストの構築（既存参加者を含む、改行なし、残り人数表示）
     const remainingSlots = participantsNum - currentParticipants.length;
-    let participantText = `📋 参加リスト (**あと${remainingSlots}人**)\n`;
+    let participantText = `**📋 参加リスト** (**あと${remainingSlots}人**)\n`;
     participantText += currentParticipants.map(id => `<@${id}>`).join(' • ');
     
     // 通知ロールをヘッダーの下（subHeaderText）に表示
@@ -810,7 +807,7 @@ async function handleModalSubmit(interaction) {
       const valuesLine = [startLabel, membersLabel, voiceLabel].filter(Boolean).join(' | ');
       const labelsLine = '**🕒 開始時間** | **👥 募集人数** | **🎙 通話有無**';
       const detailsText = [labelsLine, valuesLine].filter(Boolean).join('\n');
-      const contentText = recruitDataObj?.content ? `📝 募集内容\n${String(recruitDataObj.content).slice(0,1500)}` : '';
+      const contentText = recruitDataObj?.content ? `**📝 募集内容**\n${String(recruitDataObj.content).slice(0,1500)}` : '';
       const titleText = recruitDataObj?.title ? `## ${String(recruitDataObj.title).slice(0,200)}` : '';
       // 募集主のアバターURL（右上サムネイル用）: client経由でfetch
       let avatarUrl = null;
