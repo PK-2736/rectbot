@@ -573,7 +573,6 @@ async function processClose(interaction, messageId, savedRecruitData) {
       new TextDisplayBuilder().setContent('🎮✨ **募集締め切り済み** ✨🎮')
     );
     if (data?.title) {
-      let participantText = `**📋 参加リスト** (\`あと${remainingSlots}人\`)
       disabledContainer.addTextDisplayComponents(
         new TextDisplayBuilder().setContent(`📌 タイトル\n${String(data.title).slice(0,200)}`)
       );
