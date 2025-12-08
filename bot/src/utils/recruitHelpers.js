@@ -160,6 +160,15 @@ function buildContainerSimple({ headerTitle = '募集', detailsText = '', partic
     container.addTextDisplayComponents(new TextDisplayBuilder().setContent(String(contentText)));
   }
   if (participantText) {
+    // 参加リストの前に区切り線を追加（内容との間に一本）
+    {
+      const sep = new SeparatorBuilder();
+      if (SeparatorSpacingSize && typeof SeparatorSpacingSize.Small !== 'undefined' && typeof sep.setSpacing === 'function') {
+        sep.setSpacing(SeparatorSpacingSize.Small);
+      }
+      sep.setDivider(true);
+      container.addSeparatorComponents(sep);
+    }
     container.addTextDisplayComponents(new TextDisplayBuilder().setContent(participantText));
   }
   const isRequesterRecruiter = true;

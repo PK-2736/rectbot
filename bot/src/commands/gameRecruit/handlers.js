@@ -286,7 +286,7 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
   let updatedContainer;
   if (styleForEdit === 'simple') {
     const { buildContainerSimple } = require('../../utils/recruitHelpers');
-      const labelsLine = '🕒 開始時間 | 👥 募集人数 | 🎙 通話有無';
+      const labelsLine = '**🕒 開始時間** | **👥 募集人数** | **🎙 通話有無**';
       const startVal = finalRecruitData?.startTime ? String(finalRecruitData.startTime) : null;
       const membersVal = typeof finalRecruitData?.participants === 'number' ? `${finalRecruitData.participants}人` : null;
       let voiceVal = null;
