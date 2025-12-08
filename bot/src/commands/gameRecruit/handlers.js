@@ -254,7 +254,7 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
   try {
     const fetched = await interaction.client.users.fetch(interaction.user.id).catch(() => null);
     if (fetched && typeof fetched.displayAvatarURL === 'function') {
-        avatarUrl = fetched.displayAvatarURL({ size: 32, extension: 'png' });
+      avatarUrl = fetched.displayAvatarURL({ size: 128, extension: 'png' });
     }
   } catch (_) {}
 

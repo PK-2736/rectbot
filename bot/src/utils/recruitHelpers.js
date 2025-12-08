@@ -109,6 +109,7 @@ function buildContainerSimple({ headerTitle = '募集', detailsText = '', partic
     headerSection.addTextDisplayComponents(new TextDisplayBuilder().setContent(String(subHeaderText)));
   }
   container.addSectionComponents(headerSection);
+  // ヘッダー直後の区切り線（小）
   container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
   if (detailsText) {
     container.addTextDisplayComponents(new TextDisplayBuilder().setContent(detailsText));
@@ -119,6 +120,8 @@ function buildContainerSimple({ headerTitle = '募集', detailsText = '', partic
     }
   }
   if (contentText && String(contentText).trim().length > 0) {
+    // 本文前の区切り線を追加して余白を増やし、サムネイルを相対的に小さく感じさせる
+    container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Medium).setDivider(true));
     container.addTextDisplayComponents(new TextDisplayBuilder().setContent(String(contentText)));
     container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
   }
