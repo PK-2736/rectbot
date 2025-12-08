@@ -27,21 +27,38 @@ function buildContainer({ headerTitle = '募集', participantText = '', recruitI
     );
   }
   // 上記の（サブヘッダー/タイトル）ブロックの後に区切り線を入れて、画像セクションへ
-  container.addSeparatorComponents(
-    new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
-  );
+  {
+    const sep = new SeparatorBuilder();
+    if (SeparatorSpacingSize && typeof SeparatorSpacingSize.Small !== 'undefined' && typeof sep.setSpacing === 'function') {
+      sep.setSpacing(SeparatorSpacingSize.Small);
+    }
+    sep.setDivider(true);
+    container.addSeparatorComponents(sep);
+  }
   container.addMediaGalleryComponents(
     new MediaGalleryBuilder().addItems(
       new MediaGalleryItemBuilder().setURL(imageAttachmentName)
     )
   );
-  container.addSeparatorComponents(
-    new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
-  );
+  {
+    const sep = new SeparatorBuilder();
+    if (SeparatorSpacingSize && typeof SeparatorSpacingSize.Small !== 'undefined' && typeof sep.setSpacing === 'function') {
+      sep.setSpacing(SeparatorSpacingSize.Small);
+    }
+    sep.setDivider(true);
+    container.addSeparatorComponents(sep);
+  }
   // 画像スタイルでは募集内容テキストは画像に埋め込み済みのため表示しない
   if (!isImageStyle && contentText && String(contentText).trim().length > 0) {
     container.addTextDisplayComponents(new TextDisplayBuilder().setContent(String(contentText)));
-    container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
+    {
+      const sep = new SeparatorBuilder();
+      if (SeparatorSpacingSize && typeof SeparatorSpacingSize.Small !== 'undefined' && typeof sep.setSpacing === 'function') {
+        sep.setSpacing(SeparatorSpacingSize.Small);
+      }
+      sep.setDivider(true);
+      container.addSeparatorComponents(sep);
+    }
   }
   container.addTextDisplayComponents(
     new TextDisplayBuilder().setContent(participantText)
@@ -67,9 +84,14 @@ function buildContainer({ headerTitle = '募集', participantText = '', recruitI
         .setDisabled(false)
     )
   );
-  container.addSeparatorComponents(
-    new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
-  );
+  {
+    const sep = new SeparatorBuilder();
+    if (SeparatorSpacingSize && typeof SeparatorSpacingSize.Small !== 'undefined' && typeof sep.setSpacing === 'function') {
+      sep.setSpacing(SeparatorSpacingSize.Small);
+    }
+    sep.setDivider(true);
+    container.addSeparatorComponents(sep);
+  }
   const footerParts = [`募集ID：\`${recruitIdText}\``];
   if (footerExtra) footerParts.push(footerExtra);
   footerParts.push('powered by Recrubo');
@@ -110,20 +132,48 @@ function buildContainerSimple({ headerTitle = '募集', detailsText = '', partic
   }
   container.addSectionComponents(headerSection);
   // ヘッダー直後の区切り線（小）
-  container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
+  {
+    const sep = new SeparatorBuilder();
+    if (SeparatorSpacingSize && typeof SeparatorSpacingSize.Small !== 'undefined' && typeof sep.setSpacing === 'function') {
+      sep.setSpacing(SeparatorSpacingSize.Small);
+    }
+    sep.setDivider(true);
+    container.addSeparatorComponents(sep);
+  }
   if (detailsText) {
     container.addTextDisplayComponents(new TextDisplayBuilder().setContent(detailsText));
     // ユーザー要望: 「通話情報」と「募集内容」の間に区切り線は入れない
     // contentText が存在しない場合にのみ、ここで区切り線を入れる
     if (!contentText || String(contentText).trim().length === 0) {
-      container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
+      {
+        const sep = new SeparatorBuilder();
+        if (SeparatorSpacingSize && typeof SeparatorSpacingSize.Small !== 'undefined' && typeof sep.setSpacing === 'function') {
+          sep.setSpacing(SeparatorSpacingSize.Small);
+        }
+        sep.setDivider(true);
+        container.addSeparatorComponents(sep);
+      }
     }
   }
   if (contentText && String(contentText).trim().length > 0) {
     // 本文前の区切り線を追加して余白を増やし、サムネイルを相対的に小さく感じさせる
-    container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Medium).setDivider(true));
+    {
+      const sep = new SeparatorBuilder();
+      if (SeparatorSpacingSize && typeof SeparatorSpacingSize.Medium !== 'undefined' && typeof sep.setSpacing === 'function') {
+        sep.setSpacing(SeparatorSpacingSize.Medium);
+      }
+      sep.setDivider(true);
+      container.addSeparatorComponents(sep);
+    }
     container.addTextDisplayComponents(new TextDisplayBuilder().setContent(String(contentText)));
-    container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
+    {
+      const sep = new SeparatorBuilder();
+      if (SeparatorSpacingSize && typeof SeparatorSpacingSize.Small !== 'undefined' && typeof sep.setSpacing === 'function') {
+        sep.setSpacing(SeparatorSpacingSize.Small);
+      }
+      sep.setDivider(true);
+      container.addSeparatorComponents(sep);
+    }
   }
   if (participantText) {
     container.addTextDisplayComponents(new TextDisplayBuilder().setContent(participantText));
