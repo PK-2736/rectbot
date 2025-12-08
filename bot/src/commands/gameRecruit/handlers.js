@@ -535,8 +535,20 @@ async function processClose(interaction, messageId, savedRecruitData) {
       await safeReply(interaction, { content: '❌ 募集データが見つからないため締め切れません。', flags: MessageFlags.Ephemeral });
       return;
     }
-    if (data.recruiterId !== interaction.user.id) {
-      await safeReply(interaction, { content: '❌ 締め切りを実行できるのは募集主のみです。', flags: MessageFlags.Ephemeral });
+    // 募集主または参加者なら〆可能
+    let isAllowed = (data.recruiterId === interaction.user.id);
+    if (!isAllowed) {
+      try {
+        let participants = recruitParticipants.get(messageId) || [];
+        if (!Array.isArray(participants) || participants.length === 0) {
+          const persisted = await getParticipantsFromRedis(messageId).catch(() => []);
+          if (Array.isArray(persisted)) participants = persisted;
+        }
+        isAllowed = Array.isArray(participants) && participants.includes(interaction.user.id);
+      } catch (_) { isAllowed = false; }
+    }
+    if (!isAllowed) {
+      await safeReply(interaction, { content: '❌ この募集の参加者のみが〆できます。', flags: MessageFlags.Ephemeral });
       return;
     }
 
