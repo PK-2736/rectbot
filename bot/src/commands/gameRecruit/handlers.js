@@ -254,7 +254,7 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
   try {
     const fetched = await interaction.client.users.fetch(interaction.user.id).catch(() => null);
     if (fetched && typeof fetched.displayAvatarURL === 'function') {
-      avatarUrl = fetched.displayAvatarURL({ size: 128, extension: 'png' });
+        avatarUrl = fetched.displayAvatarURL({ size: 64, extension: 'png' });
     }
   } catch (_) {}
 
@@ -817,7 +817,7 @@ async function handleModalSubmit(interaction) {
       try {
         const fetchedUser = await interaction.client.users.fetch(interaction.user.id).catch(() => null);
         if (fetchedUser && typeof fetchedUser.displayAvatarURL === 'function') {
-          avatarUrl = fetchedUser.displayAvatarURL({ size: 128, extension: 'png' });
+          avatarUrl = fetchedUser.displayAvatarURL({ size: 64, extension: 'png' });
         }
       } catch (_) {}
       container = buildContainerSimple({
