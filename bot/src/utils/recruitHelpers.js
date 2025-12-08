@@ -156,24 +156,8 @@ function buildContainerSimple({ headerTitle = '募集', detailsText = '', partic
     }
   }
   if (contentText && String(contentText).trim().length > 0) {
-    // 本文前の区切り線を追加して余白を増やし、サムネイルを相対的に小さく感じさせる
-    {
-      const sep = new SeparatorBuilder();
-      if (SeparatorSpacingSize && typeof SeparatorSpacingSize.Medium !== 'undefined' && typeof sep.setSpacing === 'function') {
-        sep.setSpacing(SeparatorSpacingSize.Medium);
-      }
-      sep.setDivider(true);
-      container.addSeparatorComponents(sep);
-    }
+    // ユーザー要望: details と content の間に区切り線は入れない
     container.addTextDisplayComponents(new TextDisplayBuilder().setContent(String(contentText)));
-    {
-      const sep = new SeparatorBuilder();
-      if (SeparatorSpacingSize && typeof SeparatorSpacingSize.Small !== 'undefined' && typeof sep.setSpacing === 'function') {
-        sep.setSpacing(SeparatorSpacingSize.Small);
-      }
-      sep.setDivider(true);
-      container.addSeparatorComponents(sep);
-    }
   }
   if (participantText) {
     container.addTextDisplayComponents(new TextDisplayBuilder().setContent(participantText));

@@ -808,7 +808,7 @@ async function handleModalSubmit(interaction) {
         ? (recruitDataObj?.voicePlace ? `🎙 あり(${recruitDataObj.voicePlace})` : '🎙 あり')
         : (recruitDataObj?.vc === 'なし' ? '🎙 なし' : null);
       const valuesLine = [startLabel, membersLabel, voiceLabel].filter(Boolean).join(' | ');
-      const labelsLine = '🕒 開始時間 | 👥 募集人数 | 🎙 通話有無';
+      const labelsLine = '**🕒 開始時間** | **👥 募集人数** | **🎙 通話有無**';
       const detailsText = [labelsLine, valuesLine].filter(Boolean).join('\n');
       const contentText = recruitDataObj?.content ? `📝 募集内容\n${String(recruitDataObj.content).slice(0,1500)}` : '';
       const titleText = recruitDataObj?.title ? `## ${String(recruitDataObj.title).slice(0,200)}` : '';
