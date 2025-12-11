@@ -26,17 +26,21 @@ module.exports = {
         return code.original_game_name || code.game_name;
       }))];
 
+      // 「すべて削除」オプションを追加
+      const options = [{ name: '🗑️ すべて削除', value: '__DELETE_ALL__' }];
+
       // 入力値でフィルタリング
       const filtered = gameNames.filter(name => 
         name.toLowerCase().includes(focusedValue)
       );
 
-      await interaction.respond(
-        filtered.slice(0, 25).map(name => ({
-          name: name,
-          value: name
-        }))
-      );
+      // ゲーム名を追加
+      options.push(...filtered.slice(0, 24).map(name => ({
+        name: name,
+        value: name
+      })));
+
+      await interaction.respond(options);
     } catch (error) {
       console.error('[link-delete] Autocomplete error:', error);
       await interaction.respond([]);
@@ -49,6 +53,33 @@ module.exports = {
     const guildId = interaction.guild.id;
 
     try {
+      // 「すべて削除」が選択された場合
+      if (gameNameInput === '__DELETE_ALL__') {
+        // 確認のために登録数を取得
+        const allCodes = await getFriendCodesFromWorker(userId, guildId);
+        
+        if (!allCodes || allCodes.length === 0) {
+          return interaction.editReply({
+            content: '❌ 登録されているフレンドコードがありません。'
+          });
+        }
+
+        const count = allCodes.length;
+        const gameList = [...new Set(allCodes.map(code => code.original_game_name || code.game_name))].join(', ');
+
+        // すべて削除を実行
+        let deletedCount = 0;
+        for (const code of allCodes) {
+          const success = await deleteFriendCodeFromWorker(userId, guildId, code.game_name);
+          if (success) deletedCount++;
+        }
+
+        return interaction.editReply({
+          content: `✅ すべてのフレンドコードを削除しました。\n\n削除したゲーム (${deletedCount}/${count}):\n${gameList}`
+        });
+      }
+
+      // 個別のゲームを削除
 
       // Worker AI でゲーム名を正規化
       const result = await normalizeGameNameWithWorker(gameNameInput, userId, guildId);
