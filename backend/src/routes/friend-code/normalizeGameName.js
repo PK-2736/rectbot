@@ -5,24 +5,34 @@
  * 3. D1 キャッシュから取得
  */
 
-import { generateGameNameWithLLM } from '../ai/llm';
-import { searchSimilarGames } from '../ai/vectorize';
-import { getCachedGameName, setCachedGameName } from '../db/cache';
-import { jsonResponse, errorResponse, corsHeaders } from '../utils/response';
+import { generateGameNameWithLLM } from '../../ai/llm';
+import { searchSimilarGames } from '../../ai/vectorize';
+import { getCachedGameName, setCachedGameName } from '../../db/cache';
 
-export async function handleNormalizeGameName(request, env) {
+function jsonResponse(data, status = 200, headers = {}) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { 'content-type': 'application/json; charset=utf-8', ...headers }
+  });
+}
+
+function errorResponse(message, status = 500, headers = {}) {
+  return jsonResponse({ success: false, error: message }, status, headers);
+}
+
+export async function handleNormalizeGameName(request, env, corsHeaders = {}) {
   try {
     const body = await request.json();
     const { input, userId, guildId } = body;
 
     if (!input || typeof input !== 'string') {
-      return errorResponse('Invalid input', 400);
+      return errorResponse('Invalid input', 400, corsHeaders);
     }
 
     const inputTrimmed = input.trim();
 
     // 1. キャッシュチェック
-    const cached = await getCachedGameName(env.DB, inputTrimmed);
+    const cached = await getCachedGameName(env.FRIEND_CODE_DB, inputTrimmed);
     if (cached) {
       return jsonResponse({
         normalized: cached.normalized_name,
@@ -42,7 +52,7 @@ export async function handleNormalizeGameName(request, env) {
     // 3. Vectorize で類似ゲーム検索
     const similarGames = await searchSimilarGames(
       env.AI,
-      env.VECTORIZE,
+      env.GAME_VECTORIZE,
       llmResult.gameName
     );
 
@@ -52,7 +62,7 @@ export async function handleNormalizeGameName(request, env) {
     const confidence = bestMatch ? bestMatch.score : llmResult.confidence;
 
     // 4. キャッシュに保存
-    await setCachedGameName(env.DB, inputTrimmed, normalized, confidence);
+    await setCachedGameName(env.FRIEND_CODE_DB, inputTrimmed, normalized, confidence);
 
     return jsonResponse({
       normalized,
@@ -61,10 +71,10 @@ export async function handleNormalizeGameName(request, env) {
       llmSuggestion: llmResult.gameName,
       vectorizeMatches: similarGames.slice(0, 3),
       source: 'Workers AI + Vectorize'
-    });
+    }, 200, corsHeaders);
 
   } catch (error) {
     console.error('[normalizeGameName]', error);
-    return errorResponse(error.message, 500);
+    return errorResponse(error.message, 500, corsHeaders);
   }
 }

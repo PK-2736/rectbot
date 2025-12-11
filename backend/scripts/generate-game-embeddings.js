@@ -24,7 +24,7 @@ export async function generateGameDatabase(env) {
     try {
       const embedding = await generateEmbedding(env.AI, game.name);
       
-      await env.VECTORIZE.upsert([
+      await env.GAME_VECTORIZE.upsert([
         {
           id: game.name.toLowerCase().replace(/\s+/g, '-'),
           values: embedding,

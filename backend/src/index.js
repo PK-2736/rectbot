@@ -3,6 +3,13 @@
 // - CORS origins via CORS_ORIGINS env (comma separated)
 // - Write ops require Authorization: Bearer <SERVICE_TOKEN>
 
+// Friend Code Worker routes
+import { handleNormalizeGameName } from './routes/friend-code/normalizeGameName';
+import { handleAddFriendCode } from './routes/friend-code/addFriendCode';
+import { handleGetFriendCodes } from './routes/friend-code/getFriendCodes';
+import { handleDeleteFriendCode } from './routes/friend-code/deleteFriendCode';
+import { handleSearchGameNames } from './routes/friend-code/searchGameNames';
+
 function parseOrigins(env) {
   const raw = env.CORS_ORIGINS || 'https://recrubo.net,https://www.recrubo.net,https://dash.recrubo.net,https://grafana.recrubo.net';
   return raw.split(',').map(s => s.trim()).filter(Boolean);
@@ -115,8 +122,29 @@ export default {
     const safeHeaders = cors || {};
 
     // health
-    if (url.pathname === '/ping') {
-      return jsonResponse({ ok: true, name: 'recrubo-api' }, 200, safeHeaders);
+    if (url.pathname === '/ping' || url.pathname === '/health') {
+      return jsonResponse({ ok: true, name: 'recrubo-api', status: 'ok' }, 200, safeHeaders);
+    }
+
+    // Friend Code API Routes
+    if (url.pathname === '/api/game/normalize' && request.method === 'POST') {
+      return await handleNormalizeGameName(request, env, safeHeaders);
+    }
+
+    if (url.pathname === '/api/friend-code/add' && request.method === 'POST') {
+      return await handleAddFriendCode(request, env, safeHeaders);
+    }
+
+    if (url.pathname === '/api/friend-code/get' && request.method === 'GET') {
+      return await handleGetFriendCodes(request, env, safeHeaders);
+    }
+
+    if (url.pathname === '/api/friend-code/delete' && request.method === 'DELETE') {
+      return await handleDeleteFriendCode(request, env, safeHeaders);
+    }
+
+    if (url.pathname === '/api/game/search' && request.method === 'GET') {
+      return await handleSearchGameNames(request, env, safeHeaders);
     }
 
     // storage selection (moved up before metrics endpoints)

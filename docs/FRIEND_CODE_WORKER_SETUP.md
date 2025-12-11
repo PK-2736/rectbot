@@ -9,7 +9,7 @@ Discord User
      ↓
 Discord Bot (Node.js)
      ↓
-Cloudflare Worker API
+Cloudflare Worker API (統合)
      ↓
 ┌─────────────────┬──────────────────┬─────────────┐
 │  Workers AI     │   Vectorize      │     D1      │
@@ -28,105 +28,109 @@ Cloudflare Worker API
 ## 📁 ディレクトリ構成
 
 ```
-backend/friend-code-worker/        # Cloudflare Worker
+backend/
 ├── src/
-│   ├── index.js                  # メインエントリーポイント
-│   ├── routes/                   # APIルート
-│   │   ├── normalizeGameName.js  # ゲーム名正規化
-│   │   ├── addFriendCode.js      # フレンドコード追加
-│   │   ├── getFriendCodes.js     # フレンドコード取得
-│   │   ├── deleteFriendCode.js   # フレンドコード削除
-│   │   └── searchGameNames.js    # ゲーム名検索
-│   ├── ai/                       # AI関連
-│   │   ├── llm.js                # Workers AI (LLM)
-│   │   └── vectorize.js          # Vectorize操作
-│   ├── db/                       # D1操作
-│   │   ├── cache.js              # キャッシュ管理
-│   │   └── friendCodes.js        # CRUD操作
-│   └── utils/
-│       └── response.js           # レスポンスユーティリティ
+│   ├── index.js                      # メインWorkerエントリーポイント（統合）
+│   ├── routes/
+│   │   ├── friend-code/              # Friend Code API ルート
+│   │   │   ├── normalizeGameName.js  # ゲーム名正規化
+│   │   │   ├── addFriendCode.js      # フレンドコード追加
+│   │   │   ├── getFriendCodes.js     # フレンドコード取得
+│   │   │   ├── deleteFriendCode.js   # フレンドコード削除
+│   │   │   └── searchGameNames.js    # ゲーム名検索
+│   │   └── ... (他のAPIルート)
+│   ├── ai/                           # AI関連
+│   │   ├── llm.js                    # Workers AI (LLM)
+│   │   └── vectorize.js              # Vectorize操作
+│   ├── db/                           # D1操作
+│   │   ├── cache.js                  # キャッシュ管理
+│   │   └── friendCodes.js            # CRUD操作
+│   └── ... (他のモジュール)
 ├── scripts/
-│   └── generate-game-embeddings.js  # ゲーム辞書自動生成
-├── schema.sql                    # D1スキーマ
-├── wrangler.toml                 # Cloudflare設定
+│   └── generate-game-embeddings.js   # ゲーム辞書自動生成
+├── schema-friend-code.sql            # Friend Code用D1スキーマ
+├── wrangler.toml                     # Cloudflare設定（統合）
 └── package.json
 
-bot/src/                          # Discord Bot
+bot/src/                              # Discord Bot
 ├── commands/
-│   ├── linkAdd.js                # /link-add
-│   ├── linkShow.js               # /link-show
-│   └── linkDelete.js             # /link-delete
+│   ├── linkAdd.js                    # /link-add
+│   ├── linkShow.js                   # /link-show
+│   └── linkDelete.js                 # /link-delete
 ├── events/
-│   └── messageCreate.js          # @Bot mention検出
+│   └── messageCreate.js              # @Bot mention検出
 └── utils/
-    └── workerApiClient.js        # Worker API クライアント
+    └── workerApiClient.js            # Worker API クライアント
 ```
 
 ## 🚀 セットアップ手順
 
-### 1. Cloudflare Worker のセットアップ
+### 1. D1 データベース作成
 
 ```bash
-cd backend/friend-code-worker
-
-# 依存関係インストール
-npm install
+cd backend
 
 # D1 データベース作成
 wrangler d1 create friendcodes
 
-# 出力された database_id を wrangler.toml に設定
+# 出力された database_id を wrangler.toml の FRIEND_CODE_DB に設定
+# [[d1_databases]]
+# binding = "FRIEND_CODE_DB"
+# database_name = "friendcodes"
+# database_id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"  # ここに設定
 
 # D1 スキーマ初期化
-wrangler d1 execute friendcodes --file=./schema.sql
+wrangler d1 execute friendcodes --file=./schema-friend-code.sql
+```
 
+### 2. Vectorize インデックス作成
+
+```bash
 # Vectorize インデックス作成
 wrangler vectorize create game-names --dimensions=768 --metric=cosine
 
-# KV 作成（オプション）
-wrangler kv:namespace create "GAMES"
+# wrangler.toml の GAME_VECTORIZE で参照されます
 ```
 
-### 2. ゲーム辞書の生成
+### 3. ゲーム辞書の生成
 
 ```bash
 # ゲーム名を Vectorize にインデックス
-node scripts/generate-game-embeddings.js
+# スクリプトを Wrangler 経由で実行
+wrangler dev scripts/generate-game-embeddings.js
+
+# または手動でデプロイ後に cron で実行
 ```
 
-### 3. Worker デプロイ
+### 4. Worker デプロイ
 
 ```bash
 wrangler deploy
 ```
 
-デプロイ後、Worker URL をメモ:
+デプロイ後、Worker URL は既存の API と統合されます:
 ```
-https://friend-code-worker.your-subdomain.workers.dev
+https://api.recrubo.net/*
 ```
 
-### 4. Discord Bot 環境変数設定
+### 5. Discord Bot 環境変数確認
 
-`.env` に Worker URL を追加:
+`.env` の Worker URL は既存の API URL を使用:
 
 ```env
-FRIEND_CODE_WORKER_URL=https://friend-code-worker.your-subdomain.workers.dev
+FRIEND_CODE_WORKER_URL=https://api.recrubo.net
 ```
 
-### 5. Discord コマンド登録
+### 6. Discord コマンド登録（既に登録済みの場合は不要）
 
 ```bash
-cd bot
+cd ../bot
 node src/deploy-commands.js
 ```
 
-### 6. Bot 再起動
-
-```bash
-pm2 restart bot
-```
-
 ## 📡 API エンドポイント
+
+すべてのエンドポイントは統合 Worker の `/api/` パスで提供されます。
 
 ### POST /api/game/normalize
 
@@ -235,7 +239,7 @@ wrangler tail --format pretty
 
 ```bash
 # ゲーム辞書を再生成
-cd backend/friend-code-worker
+cd backend
 node scripts/generate-game-embeddings.js
 ```
 
@@ -290,7 +294,7 @@ wrangler d1 execute friendcodes --command "SELECT * FROM game_name_cache LIMIT 1
 
 ## 🔐 セキュリティ
 
-- CORS ヘッダー設定済み
+- CORS ヘッダー設定済み（既存API統合）
 - レート制限は Cloudflare Dashboard で設定
 - 機密情報は環境変数で管理
 
@@ -301,7 +305,13 @@ Cloudflare 無料プランで利用可能:
 - **Workers AI**: 10,000 リクエスト/日
 - **Vectorize**: 3000万 クエリ/月
 - **D1**: 5GB ストレージ、500万 行読み取り/日
-- **KV**: 100,000 読み取り/日
+
+## 🔄 統合された Worker の利点
+
+- **単一エンドポイント**: すべてのAPIが `https://api.recrubo.net` で統一
+- **共通CORS設定**: 既存のCORS設定を継承
+- **統一認証**: サービストークンを共有
+- **簡単な管理**: 1つのWorkerで全機能を管理
 
 ## 📝 ライセンス
 
