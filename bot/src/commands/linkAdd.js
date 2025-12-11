@@ -1,41 +1,40 @@
 const { SlashCommandBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
 const { normalizeGameNameWithWorker, addFriendCodeToWorker } = require('../utils/workerApiClient');
-const { handleComponentSafely } = require('../utils/interactionHandler');
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('link-add')
     .setDescription('フレンドコードを登録します'),
 
+  noDefer: true, // モーダル表示のためdeferReplyを行わない
+
   async execute(interaction) {
-    return handleComponentSafely(interaction, async () => {
-      const modal = new ModalBuilder()
-        .setCustomId('friend_code_add_modal')
-        .setTitle('フレンドコード登録');
+    const modal = new ModalBuilder()
+      .setCustomId('friend_code_add_modal')
+      .setTitle('フレンドコード登録');
 
-      const gameNameInput = new TextInputBuilder()
-        .setCustomId('game_name')
-        .setLabel('ゲーム名')
-        .setStyle(TextInputStyle.Short)
-        .setPlaceholder('例: Valorant, Apex, マイクラ, valo, えぺ')
-        .setRequired(true)
-        .setMaxLength(50);
+    const gameNameInput = new TextInputBuilder()
+      .setCustomId('game_name')
+      .setLabel('ゲーム名')
+      .setStyle(TextInputStyle.Short)
+      .setPlaceholder('例: Valorant, Apex, マイクラ, valo, えぺ')
+      .setRequired(true)
+      .setMaxLength(50);
 
-      const friendCodeInput = new TextInputBuilder()
-        .setCustomId('friend_code')
-        .setLabel('フレンドコード / ID')
-        .setStyle(TextInputStyle.Short)
-        .setPlaceholder('例: Player#1234, SW-0000-0000-0000')
-        .setRequired(true)
-        .setMaxLength(100);
+    const friendCodeInput = new TextInputBuilder()
+      .setCustomId('friend_code')
+      .setLabel('フレンドコード / ID')
+      .setStyle(TextInputStyle.Short)
+      .setPlaceholder('例: Player#1234, SW-0000-0000-0000')
+      .setRequired(true)
+      .setMaxLength(100);
 
-      modal.addComponents(
-        new ActionRowBuilder().addComponents(gameNameInput),
-        new ActionRowBuilder().addComponents(friendCodeInput)
-      );
+    modal.addComponents(
+      new ActionRowBuilder().addComponents(gameNameInput),
+      new ActionRowBuilder().addComponents(friendCodeInput)
+    );
 
-      await interaction.showModal(modal);
-    });
+    await interaction.showModal(modal);
   },
 
   async handleModalSubmit(interaction) {

@@ -1,6 +1,5 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const { getFriendCodesFromWorker } = require('../utils/workerApiClient');
-const { handleComponentSafely } = require('../utils/interactionHandler');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -12,8 +11,9 @@ module.exports = {
         .setRequired(false)),
 
   async execute(interaction) {
-    return handleComponentSafely(interaction, async () => {
-      await interaction.deferReply({ ephemeral: false });
+    await interaction.deferReply({ ephemeral: false });
+
+    try {
 
       const targetUser = interaction.options.getUser('user') || interaction.user;
       const userId = targetUser.id;

@@ -1,6 +1,5 @@
 const { SlashCommandBuilder } = require('discord.js');
 const { searchGameNamesFromWorker, deleteFriendCodeFromWorker, normalizeGameNameWithWorker } = require('../utils/workerApiClient');
-const { handleComponentSafely } = require('../utils/interactionHandler');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -32,42 +31,40 @@ module.exports = {
   },
 
   async execute(interaction) {
-    return handleComponentSafely(interaction, async () => {
-      await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ ephemeral: true });
 
+    try {
       const gameNameInput = interaction.options.getString('game');
       const userId = interaction.user.id;
       const guildId = interaction.guild.id;
 
-      try {
-        // Worker AI でゲーム名を正規化
-        const result = await normalizeGameNameWithWorker(gameNameInput, userId, guildId);
-        const normalized = result.normalized;
+      // Worker AI でゲーム名を正規化
+      const result = await normalizeGameNameWithWorker(gameNameInput, userId, guildId);
+      const normalized = result.normalized;
 
-        if (!normalized) {
-          return interaction.editReply({
-            content: '❌ ゲーム名を認識できませんでした。'
-          });
-        }
-
-        // Worker API 経由で削除
-        const success = await deleteFriendCodeFromWorker(userId, guildId, normalized);
-
-        if (!success) {
-          return interaction.editReply({
-            content: `❌ **${normalized}** のフレンドコードは登録されていません。`
-          });
-        }
-
-        await interaction.editReply({
-          content: `✅ **${normalized}** のフレンドコードを削除しました。`
-        });
-      } catch (error) {
-        console.error('[link-delete] Error:', error);
-        await interaction.editReply({
-          content: '❌ フレンドコードの削除中にエラーが発生しました。'
+      if (!normalized) {
+        return interaction.editReply({
+          content: '❌ ゲーム名を認識できませんでした。'
         });
       }
-    });
+
+      // Worker API 経由で削除
+      const success = await deleteFriendCodeFromWorker(userId, guildId, normalized);
+
+      if (!success) {
+        return interaction.editReply({
+          content: `❌ **${normalized}** のフレンドコードは登録されていません。`
+        });
+      }
+
+      await interaction.editReply({
+        content: `✅ **${normalized}** のフレンドコードを削除しました。`
+      });
+    } catch (error) {
+      console.error('[link-delete] Error:', error);
+      await interaction.editReply({
+        content: '❌ フレンドコードの削除中にエラーが発生しました。'
+      });
+    }
   }
 };
