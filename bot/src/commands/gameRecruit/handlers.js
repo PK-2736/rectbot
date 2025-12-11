@@ -58,8 +58,8 @@ async function ensureNoActiveRecruit(interaction) {
         const status = String(r?.status ?? '').toLowerCase();
         return gid === guildIdStr && (status === 'recruiting' || status === 'active');
       });
-      if (matched.length >= 1) {
-        await safeReply(interaction, { content: '❌ このサーバーでは同時に実行できる募集は1件までです。既存の募集を締め切ってから新しい募集を作成してください。', flags: MessageFlags.Ephemeral, allowedMentions: { roles: [], users: [] } });
+      if (matched.length >= 3) {
+        await safeReply(interaction, { content: '❌ このサーバーでは同時に実行できる募集は3件までです。既存の募集をいくつか締め切ってから新しい募集を作成してください。', flags: MessageFlags.Ephemeral, allowedMentions: { roles: [], users: [] } });
         return false;
       }
     }
@@ -204,7 +204,7 @@ async function sendAnnouncements(interaction, selectedNotificationRole, configur
     try {
       const recruitChannel = await interaction.guild.channels.fetch(guildSettings.recruit_channel);
       if (recruitChannel && recruitChannel.isTextBased()) {
-  if (selectedNotificationRole) {
+        if (selectedNotificationRole) {
           if (selectedNotificationRole === 'everyone') {
             (async () => { try { await recruitChannel.send({ content: '新しい募集が作成されました。@everyone', allowedMentions: { parse: ['everyone'] } }); } catch (e) { console.warn('通知送信失敗 (指定ch, @everyone):', e?.message || e); } })();
           } else if (selectedNotificationRole === 'here') {
@@ -215,17 +215,14 @@ async function sendAnnouncements(interaction, selectedNotificationRole, configur
         } else if (shouldUseDefaultNotification) {
           (async () => { try { await recruitChannel.send({ content: '新しい募集が作成されました。<@&1416797165769986161>', allowedMentions: { roles: ['1416797165769986161'] } }); } catch (e) { console.warn('通知送信失敗 (指定ch, default):', e?.message || e); } })();
         }
-        
+
         // 募集メッセージ投稿 (通知ロール情報はcontainer内に含まれる)
-        (async () => { 
+        (async () => {
           try {
-            await recruitChannel.send({ 
-              files: [image], 
-              components: [container], 
-              flags: MessageFlags.IsComponentsV2, 
-              allowedMentions: { roles: [], users: [] }
-            }); 
-          } catch (e) { console.warn('募集メッセージ送信失敗(指定ch):', e?.message || e); } 
+            const sendOptions = { components: [container], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } };
+            if (image) sendOptions.files = [image];
+            await recruitChannel.send(sendOptions);
+          } catch (e) { console.warn('募集メッセージ送信失敗(指定ch):', e?.message || e); }
         })();
       }
     } catch (channelError) { console.error('指定チャンネルへの送信でエラー:', channelError); }
@@ -248,6 +245,15 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
     start_time: new Date().toISOString(),
     startTimeNotified: false // 開始時間通知フラグを初期化
   };
+
+  // 右上サムネイル用アバターURL（client経由で確実に取得）
+  let avatarUrl = null;
+  try {
+    const fetched = await interaction.client.users.fetch(interaction.user.id).catch(() => null);
+    if (fetched && typeof fetched.displayAvatarURL === 'function') {
+      avatarUrl = fetched.displayAvatarURL({ size: 128, extension: 'png' });
+    }
+  } catch (_) {}
 
   try {
     await saveRecruitToRedis(actualRecruitId, finalRecruitData);
@@ -277,38 +283,43 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
   let updatedContainer;
   if (styleForEdit === 'simple') {
     const { buildContainerSimple } = require('../../utils/recruitHelpers');
-    const startLabel = finalRecruitData?.startTime ? `🕒 開始: ${finalRecruitData.startTime}` : null;
-    const membersLabel = typeof finalRecruitData?.participants === 'number' ? `👥 人数: ${finalRecruitData.participants}人` : null;
-    let voiceLabel = null;
-    if (typeof finalRecruitData?.vc === 'string') {
-      if (finalRecruitData.vc === 'あり') voiceLabel = finalRecruitData?.voicePlace ? `🎙 通話: あり（${finalRecruitData.voicePlace}）` : '🎙 通話: あり';
-      else if (finalRecruitData.vc === 'なし') voiceLabel = '🎙 通話: なし';
-    }
-    const detailsText = [startLabel, membersLabel, voiceLabel].filter(Boolean).join('\n');
-    const contentText = finalRecruitData?.content ? `📝 募集内容\n${String(finalRecruitData.content).slice(0,1500)}` : '';
-    updatedContainer = buildContainerSimple({
-      headerTitle: `${user.username}さんの募集`,
-      detailsText,
-      contentText,
+      const labelsLine = '**🕒 開始時間** | **👥 募集人数** | **🎙 通話有無**';
+      const startVal = finalRecruitData?.startTime ? String(finalRecruitData.startTime) : null;
+      const membersVal = typeof finalRecruitData?.participants === 'number' ? `${finalRecruitData.participants}人` : null;
+      let voiceVal = null;
+      if (typeof finalRecruitData?.vc === 'string') {
+        if (finalRecruitData.vc === 'あり') voiceVal = finalRecruitData?.voicePlace ? `あり(${finalRecruitData.voicePlace})` : 'あり';
+        else if (finalRecruitData.vc === 'なし') voiceVal = 'なし';
+      }
+      const valuesLine = [startVal, membersVal, voiceVal].filter(Boolean).join(' | ');
+      const detailsText = `${labelsLine}\n${valuesLine}`;
+    const contentText = finalRecruitData?.content ? `**📝 募集内容**\n${String(finalRecruitData.content).slice(0,1500)}` : '';
+      updatedContainer = buildContainerSimple({
+        headerTitle: `${user.username}さんの募集`,
+        detailsText,
+        contentText,
+        titleText: finalRecruitData?.title ? `## ${String(finalRecruitData.title).slice(0,200)}` : '',
       participantText,
       recruitIdText: actualRecruitId,
       accentColor: finalAccentColor,
-      subHeaderText
+        subHeaderText,
+        avatarUrl
     });
   } else {
     const { buildContainer } = require('../../utils/recruitHelpers');
-    const contentText = finalRecruitData?.content ? `📝 募集内容\n${String(finalRecruitData.content).slice(0,1500)}` : '';
-    updatedContainer = buildContainer({ 
-      headerTitle: `${user.username}さんの募集`, 
-      subHeaderText, 
-      contentText,
-      participantText, 
-      recruitIdText: actualRecruitId, 
-      accentColor: finalAccentColor, 
-      imageAttachmentName: 'attachment://recruit-card.png', 
-      recruiterId: interaction.user.id, 
-      requesterId: interaction.user.id 
-    });
+    const contentText = '';
+      updatedContainer = buildContainer({
+        headerTitle: `${user.username}さんの募集`,
+        subHeaderText,
+        contentText,
+        titleText: '',
+        participantText,
+        recruitIdText: actualRecruitId,
+        accentColor: finalAccentColor,
+        imageAttachmentName: 'attachment://recruit-card.png',
+        recruiterId: interaction.user.id,
+        requesterId: interaction.user.id
+      });
   }
     try {
       const editPayload = { components: [updatedContainer], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } };
@@ -316,15 +327,15 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
       await actualMessage.edit(editPayload);
     } catch (editError) { console.error('メッセージ更新エラー:', editError); }
 
-  // 自動締切タイマー（8h）
-  setTimeout(async () => {
-    try {
-      if (recruitParticipants.has(actualMessageId)) {
-        console.log('8時間経過による自動締切実行:', actualMessageId);
-        try { await autoCloseRecruitment(interaction.client, interaction.guildId, interaction.channelId, actualMessageId); } catch (e) { console.error('autoCloseRecruitment failed:', e); }
-      }
-    } catch (error) { console.error('自動締切処理でエラー:', error); }
-  }, eightHoursMs);
+  // 自動締切タイマー（8h）— 一時的に無効化
+  // setTimeout(async () => {
+  //   try {
+  //     if (recruitParticipants.has(actualMessageId)) {
+  //       console.log('8時間経過による自動締切実行:', actualMessageId);
+  //       try { await autoCloseRecruitment(interaction.client, interaction.guildId, interaction.channelId, actualMessageId); } catch (e) { console.error('autoCloseRecruitment failed:', e); }
+  //     }
+  //   } catch (error) { console.error('自動締切処理でエラー:', error); }
+  // }, eightHoursMs);
 
   // 開始時刻メンション（任意）- 重複防止のため1回のみ実行
   const startDelay = computeDelayMs(finalRecruitData.startAt, null);
@@ -521,8 +532,20 @@ async function processClose(interaction, messageId, savedRecruitData) {
       await safeReply(interaction, { content: '❌ 募集データが見つからないため締め切れません。', flags: MessageFlags.Ephemeral });
       return;
     }
-    if (data.recruiterId !== interaction.user.id) {
-      await safeReply(interaction, { content: '❌ 締め切りを実行できるのは募集主のみです。', flags: MessageFlags.Ephemeral });
+    // 募集主または参加者なら〆可能
+    let isAllowed = (data.recruiterId === interaction.user.id);
+    if (!isAllowed) {
+      try {
+        let participants = recruitParticipants.get(messageId) || [];
+        if (!Array.isArray(participants) || participants.length === 0) {
+          const persisted = await getParticipantsFromRedis(messageId).catch(() => []);
+          if (Array.isArray(persisted)) participants = persisted;
+        }
+        isAllowed = Array.isArray(participants) && participants.includes(interaction.user.id);
+      } catch (_) { isAllowed = false; }
+    }
+    if (!isAllowed) {
+      await safeReply(interaction, { content: '❌ この募集の参加者のみが〆できます。', flags: MessageFlags.Ephemeral });
       return;
     }
 
@@ -549,7 +572,6 @@ async function processClose(interaction, messageId, savedRecruitData) {
     disabledContainer.addTextDisplayComponents(
       new TextDisplayBuilder().setContent('🎮✨ **募集締め切り済み** ✨🎮')
     );
-    // Title inside component
     if (data?.title) {
       disabledContainer.addTextDisplayComponents(
         new TextDisplayBuilder().setContent(`📌 タイトル\n${String(data.title).slice(0,200)}`)
@@ -569,25 +591,25 @@ async function processClose(interaction, messageId, savedRecruitData) {
         new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
       );
     }
-    // Details
-    const startLabel = data?.startTime ? `🕒 開始: ${data.startTime}` : null;
+    // Details（募集中と同じく横一列・コンパクト表記）
+    const startLabel = data?.startTime ? `🕒 ${data.startTime}` : null;
     const totalMembers = (typeof data?.participants === 'number') ? data.participants : (typeof data?.participant_count === 'number' ? data.participant_count : null);
-    const membersLabel = (typeof totalMembers === 'number') ? `👥 人数: ${totalMembers}人` : null;
+    const membersLabel = (typeof totalMembers === 'number') ? `👥 ${totalMembers}人` : null;
     let voiceLabel = null;
     if (typeof data?.vc === 'string') {
-      if (data.vc === 'あり') voiceLabel = data?.voicePlace ? `🎙 通話: あり（${data.voicePlace}）` : '🎙 通話: あり';
-      else if (data.vc === 'なし') voiceLabel = '🎙 通話: なし';
+      if (data.vc === 'あり') voiceLabel = data?.voicePlace ? `🎙 あり(${data.voicePlace})` : '🎙 あり';
+      else if (data.vc === 'なし') voiceLabel = '🎙 なし';
     } else if (data?.voice === true) {
-      voiceLabel = data?.voicePlace ? `🎙 通話: あり（${data.voicePlace}）` : '🎙 通話: あり';
+      voiceLabel = data?.voicePlace ? `🎙 あり(${data.voicePlace})` : '🎙 あり';
     } else if (data?.voice === false) {
-      voiceLabel = '🎙 通話: なし';
+      voiceLabel = '🎙 なし';
     }
-    const detailsText = [startLabel, membersLabel, voiceLabel].filter(Boolean).join('\n');
+    const detailsText = [startLabel, membersLabel, voiceLabel].filter(Boolean).join(' | ');
     if (detailsText) {
       disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent(detailsText));
     }
     // Content (no divider between details and content)
-    const contentText = data?.content ? `📝 募集内容\n${String(data.content).slice(0,1500)}` : '';
+    const contentText = data?.content ? `**📝 募集内容**\n${String(data.content).slice(0,1500)}` : '';
     if (contentText) {
       disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent(contentText));
     }
@@ -596,7 +618,7 @@ async function processClose(interaction, messageId, savedRecruitData) {
     // Final participants list
     const finalParticipants = recruitParticipants.get(messageId) || [];
     const totalSlots = totalMembers || finalParticipants.length;
-    const finalParticipantText = `📋 参加リスト (最終 ${finalParticipants.length}/${totalSlots}人)\n${finalParticipants.map(id => `<@${id}>`).join(' • ')}`;
+    const finalParticipantText = `**📋 参加リスト** (最終 ${finalParticipants.length}/${totalSlots}人)\n${finalParticipants.map(id => `<@${id}>`).join(' • ')}`;
     disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent(finalParticipantText));
     // Closed note
     disabledContainer.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
@@ -639,9 +661,10 @@ async function handleModalSubmit(interaction) {
   }
 
   try {
-    // 前処理: クールダウンと同時募集制限
+      // 前処理: クールダウン + 同時募集制限(最大3件)
+      // enforce guild concurrent limit to 3 via ensureNoActiveRecruit
     if (!(await enforceCooldown(interaction))) return;
-    if (!(await ensureNoActiveRecruit(interaction))) return;
+    // if (!(await ensureNoActiveRecruit(interaction))) return; // temporarily disabled
 
     const guildSettings = await getGuildSettings(interaction.guildId);
 
@@ -753,7 +776,7 @@ async function handleModalSubmit(interaction) {
     
     // 参加リストテキストの構築（既存参加者を含む、改行なし、残り人数表示）
     const remainingSlots = participantsNum - currentParticipants.length;
-    let participantText = `📋 参加リスト (**あと${remainingSlots}人**)\n`;
+    let participantText = `**📋 参加リスト** (\`あと${remainingSlots}人\`)\n`;
     participantText += currentParticipants.map(id => `<@${id}>`).join(' • ');
     
     // 通知ロールをヘッダーの下（subHeaderText）に表示
@@ -775,14 +798,24 @@ async function handleModalSubmit(interaction) {
     let container;
     if (style === 'simple') {
       const { buildContainerSimple } = require('../../utils/recruitHelpers');
-      const startLabel = recruitDataObj?.startTime ? `🕒 開始: ${recruitDataObj.startTime}` : null;
-      const membersLabel = typeof recruitDataObj?.participants === 'number' ? `👥 人数: ${recruitDataObj.participants}人` : null;
+      const startLabel = recruitDataObj?.startTime ? `🕒 ${recruitDataObj.startTime}` : null;
+      const membersLabel = typeof recruitDataObj?.participants === 'number' ? `👥 ${recruitDataObj.participants}人` : null;
       const voiceLabel = (recruitDataObj?.vc === 'あり')
-        ? (recruitDataObj?.voicePlace ? `🎙 通話: あり（${recruitDataObj.voicePlace}）` : '🎙 通話: あり')
-        : (recruitDataObj?.vc === 'なし' ? '🎙 通話: なし' : null);
-      const detailsText = [startLabel, membersLabel, voiceLabel].filter(Boolean).join('\n');
-      const contentText = recruitDataObj?.content ? `📝 募集内容\n${String(recruitDataObj.content).slice(0,1500)}` : '';
-      const titleText = recruitDataObj?.title ? `📌 タイトル\n${String(recruitDataObj.title).slice(0,200)}` : '';
+        ? (recruitDataObj?.voicePlace ? `🎙 あり(${recruitDataObj.voicePlace})` : '🎙 あり')
+        : (recruitDataObj?.vc === 'なし' ? '🎙 なし' : null);
+      const valuesLine = [startLabel, membersLabel, voiceLabel].filter(Boolean).join(' | ');
+      const labelsLine = '**🕒 開始時間** | **👥 募集人数** | **🎙 通話有無**';
+      const detailsText = [labelsLine, valuesLine].filter(Boolean).join('\n');
+      const contentText = recruitDataObj?.content ? `**📝 募集内容**\n${String(recruitDataObj.content).slice(0,1500)}` : '';
+      const titleText = recruitDataObj?.title ? `## ${String(recruitDataObj.title).slice(0,200)}` : '';
+      // 募集主のアバターURL（右上サムネイル用）: client経由でfetch
+      let avatarUrl = null;
+      try {
+        const fetchedUser = await interaction.client.users.fetch(interaction.user.id).catch(() => null);
+        if (fetchedUser && typeof fetchedUser.displayAvatarURL === 'function') {
+          avatarUrl = fetchedUser.displayAvatarURL({ size: 32, extension: 'png' });
+        }
+      } catch (_) {}
       container = buildContainerSimple({
         headerTitle: `${user.username}さんの募集`,
         detailsText,
@@ -791,12 +824,15 @@ async function handleModalSubmit(interaction) {
         participantText,
         recruitIdText: '(送信後決定)',
         accentColor,
-        subHeaderText
+        subHeaderText,
+        avatarUrl
       });
     } else {
       const { buildContainer } = require('../../utils/recruitHelpers');
-      const contentText = recruitDataObj?.content ? `📝 募集内容\n${String(recruitDataObj.content).slice(0,1500)}` : '';
-      const titleText = recruitDataObj?.title ? `📌 タイトル\n${String(recruitDataObj.title).slice(0,200)}` : '';
+      const contentText = '';
+      const titleText = '';
+      // 画像スタイルでもヘッダー右上にアバター表示
+      // 画像スタイルでは右上サムネイルのアバターは非表示
       container = buildContainer({ 
         headerTitle: `${user.username}さんの募集`, 
         subHeaderText, 
@@ -807,7 +843,7 @@ async function handleModalSubmit(interaction) {
         accentColor, 
         imageAttachmentName: 'attachment://recruit-card.png', 
         recruiterId: interaction.user.id, 
-        requesterId: interaction.user.id 
+        requesterId: interaction.user.id
       });
     }
   const followUpMessage = await sendAnnouncements(interaction, selectedNotificationRole, configuredNotificationRoleIds, image, container, guildSettings, user);

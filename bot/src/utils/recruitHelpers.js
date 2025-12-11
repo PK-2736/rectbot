@@ -1,24 +1,27 @@
 const {
-  ContainerBuilder, TextDisplayBuilder,
+  ContainerBuilder, SectionBuilder, TextDisplayBuilder,
   SeparatorBuilder, SeparatorSpacingSize,
   ActionRowBuilder, ButtonBuilder, ButtonStyle,
-  MediaGalleryBuilder, MediaGalleryItemBuilder
+  MediaGalleryBuilder, MediaGalleryItemBuilder,
+  ThumbnailBuilder
 } = require('discord.js');
 
 // Build a consistent ContainerBuilder for recruit messages
-function buildContainer({ headerTitle = '募集', participantText = '', recruitIdText = '(unknown)', accentColor = 0x000000, imageAttachmentName = 'attachment://recruit-card.png', recruiterId = null, requesterId = null, footerExtra = null, subHeaderText = null, contentText = '', titleText = '' }) {
+function buildContainer({ headerTitle = '募集', participantText = '', recruitIdText = '(unknown)', accentColor = 0x000000, imageAttachmentName = 'attachment://recruit-card.png', recruiterId = null, requesterId = null, footerExtra = null, subHeaderText = null, contentText = '', titleText = '', avatarUrl = null }) {
   const container = new ContainerBuilder();
   container.setAccentColor(typeof accentColor === 'number' ? accentColor : parseInt(String(accentColor), 16) || 0x000000);
+  // 画像スタイル用: コンテナ直下にテキストを追加（サムネイルは非表示）
+  const isImageStyle = !!imageAttachmentName;
   container.addTextDisplayComponents(
     new TextDisplayBuilder().setContent(`🎮 **${headerTitle}**`)
   );
   if (subHeaderText && String(subHeaderText).trim().length > 0) {
-    // ヘッダー直下に通知ロールを表示
     container.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(String(subHeaderText))
     );
   }
-  if (titleText && String(titleText).trim().length > 0) {
+  // 画像スタイルではタイトルは画像に埋め込み済みのため表示しない
+  if (!isImageStyle && titleText && String(titleText).trim().length > 0) {
     container.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(String(titleText))
     );
@@ -35,7 +38,8 @@ function buildContainer({ headerTitle = '募集', participantText = '', recruitI
   container.addSeparatorComponents(
     new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
   );
-  if (contentText && String(contentText).trim().length > 0) {
+  // 画像スタイルでは募集内容テキストは画像に埋め込み済みのため表示しない
+  if (!isImageStyle && contentText && String(contentText).trim().length > 0) {
     container.addTextDisplayComponents(new TextDisplayBuilder().setContent(String(contentText)));
     container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
   }
@@ -77,16 +81,34 @@ function buildContainer({ headerTitle = '募集', participantText = '', recruitI
 }
 
 // Simple text-first container (no image gallery)
-function buildContainerSimple({ headerTitle = '募集', detailsText = '', participantText = '', recruitIdText = '(unknown)', accentColor = 0x000000, footerExtra = null, subHeaderText = null, contentText = '', titleText = '' }) {
+function buildContainerSimple({ headerTitle = '募集', detailsText = '', participantText = '', recruitIdText = '(unknown)', accentColor = 0x000000, footerExtra = null, subHeaderText = null, contentText = '', titleText = '', avatarUrl = null }) {
   const container = new ContainerBuilder();
   container.setAccentColor(typeof accentColor === 'number' ? accentColor : parseInt(String(accentColor), 16) || 0x000000);
-  container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`🎮 **${headerTitle}**`));
-  if (subHeaderText && String(subHeaderText).trim().length > 0) {
-    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(String(subHeaderText)));
+  // ヘッダーセクション（サムネ付き）
+  const headerSection = new SectionBuilder();
+  if (avatarUrl && typeof avatarUrl === 'string') {
+    try {
+      const thumb = new ThumbnailBuilder({ media: { url: avatarUrl } });
+      // 希望サイズで表示（APIが対応している場合のみ）
+      try {
+        if (typeof thumb.setWidth === 'function') thumb.setWidth(32);
+        if (typeof thumb.setHeight === 'function') thumb.setHeight(32);
+        if (typeof thumb.setSize === 'function') thumb.setSize(32);
+      } catch (_) {}
+      headerSection.setThumbnailAccessory(thumb);
+    } catch (_) {}
   }
+  // タイトルを最上段に配置（強調表示は呼び出し側で整形）
   if (titleText && String(titleText).trim().length > 0) {
-    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(String(titleText)));
+    headerSection.addTextDisplayComponents(new TextDisplayBuilder().setContent(String(titleText)));
   }
+  // 次に「〜さんの募集」を表示
+  headerSection.addTextDisplayComponents(new TextDisplayBuilder().setContent(`🎮 **${headerTitle}**`));
+  // 通知ロールなどのサブヘッダー
+  if (subHeaderText && String(subHeaderText).trim().length > 0) {
+    headerSection.addTextDisplayComponents(new TextDisplayBuilder().setContent(String(subHeaderText)));
+  }
+  container.addSectionComponents(headerSection);
   container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
   if (detailsText) {
     container.addTextDisplayComponents(new TextDisplayBuilder().setContent(detailsText));

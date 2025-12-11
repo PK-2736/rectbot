@@ -6,7 +6,13 @@ const { normalizeRecruitId } = require('./utils');
 
 async function saveRecruitToRedis(recruitId, data) {
   const redis = await ensureRedisConnection();
-  await redis.set(`recruit:${recruitId}`, JSON.stringify(data), 'EX', RECRUIT_TTL_SECONDS);
+  // TTLを3日(259200秒)に設定
+  const ttlSeconds = Number(RECRUIT_TTL_SECONDS || 259200);
+  if (ttlSeconds && ttlSeconds > 0) {
+    await redis.set(`recruit:${recruitId}`, JSON.stringify(data), 'EX', ttlSeconds);
+  } else {
+    await redis.set(`recruit:${recruitId}`, JSON.stringify(data));
+  }
 }
 
 async function getRecruitFromRedis(recruitId) {
