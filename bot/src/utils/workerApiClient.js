@@ -18,6 +18,8 @@ async function normalizeGameNameWithWorker(input, userId, guildId) {
     });
 
     if (!response.ok) {
+      const errorText = await response.text().catch(() => 'No error body');
+      console.error(`[Worker API] normalizeGameName failed: ${response.status} - ${errorText}`);
       throw new Error(`Worker API error: ${response.status}`);
     }
 

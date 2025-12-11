@@ -114,8 +114,11 @@ export default {
       return new Response(null, { status: 204, headers: cors });
     }
     
-    // セキュリティ: 不正なOriginからの通常リクエストも拒否（GETは除く）
-    if (!cors && request.method !== 'GET') {
+    // Friend Code API: Discord Botからのリクエストを許可（Originヘッダーなし）
+    const isFriendCodeAPI = url.pathname.startsWith('/api/game/') || url.pathname.startsWith('/api/friend-code/');
+    
+    // セキュリティ: 不正なOriginからの通常リクエストも拒否（GETとFriend Code APIは除く）
+    if (!cors && request.method !== 'GET' && !isFriendCodeAPI) {
       return new Response('Forbidden', { status: 403 });
     }
     
