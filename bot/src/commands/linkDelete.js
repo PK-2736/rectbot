@@ -31,12 +31,11 @@ module.exports = {
   },
 
   async execute(interaction) {
-    await interaction.deferReply({ ephemeral: true });
+    const gameNameInput = interaction.options.getString('game');
+    const userId = interaction.user.id;
+    const guildId = interaction.guild.id;
 
     try {
-      const gameNameInput = interaction.options.getString('game');
-      const userId = interaction.user.id;
-      const guildId = interaction.guild.id;
 
       // Worker AI でゲーム名を正規化
       const result = await normalizeGameNameWithWorker(gameNameInput, userId, guildId);

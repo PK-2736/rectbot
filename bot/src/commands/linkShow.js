@@ -10,9 +10,9 @@ module.exports = {
         .setDescription('表示するユーザー（省略時は自分）')
         .setRequired(false)),
 
-  async execute(interaction) {
-    await interaction.deferReply({ ephemeral: false });
+  deferOptions: { ephemeral: false }, // 公開で表示
 
+  async execute(interaction) {
     const targetUser = interaction.options.getUser('user') || interaction.user;
     const userId = targetUser.id;
     const guildId = interaction.guild.id;
