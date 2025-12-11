@@ -50,6 +50,37 @@ async function normalizeGameNameWithWorker(input, userId, guildId) {
 }
 
 /**
+ * フレンドコードを検証
+ */
+async function validateFriendCodeWithWorker(gameName, friendCode) {
+  try {
+    const response = await fetch(`${WORKER_URL}/api/friend-code/validate`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ gameName, friendCode })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => 'No error body');
+      console.error(`[Worker API] validateFriendCode failed: ${response.status} - ${errorText}`);
+      throw new Error(`Worker API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return {
+      isValid: data.isValid,
+      confidence: data.confidence,
+      message: data.message,
+      suggestions: data.suggestions || []
+    };
+
+  } catch (error) {
+    console.error('[Worker API] validateFriendCode error:', error);
+    throw error;
+  }
+}
+
+/**
  * フレンドコードを追加
  */
 async function addFriendCodeToWorker(userId, guildId, gameName, friendCode, originalGameName = null) {
@@ -149,6 +180,7 @@ async function searchGameNamesFromWorker(query) {
 
 module.exports = {
   normalizeGameNameWithWorker,
+  validateFriendCodeWithWorker,
   addFriendCodeToWorker,
   getFriendCodesFromWorker,
   deleteFriendCodeFromWorker,

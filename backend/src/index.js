@@ -9,6 +9,7 @@ import { handleAddFriendCode } from './routes/friend-code/addFriendCode';
 import { handleGetFriendCodes } from './routes/friend-code/getFriendCodes';
 import { handleDeleteFriendCode } from './routes/friend-code/deleteFriendCode';
 import { handleSearchGameNames } from './routes/friend-code/searchGameNames';
+import { validateFriendCode } from './routes/friend-code/validateFriendCode';
 import { generateGameEmbeddings } from './utils/gameEmbeddings';
 
 function parseOrigins(env) {
@@ -149,6 +150,10 @@ export default {
 
     if (url.pathname === '/api/game/search' && request.method === 'GET') {
       return await handleSearchGameNames(request, env, safeHeaders);
+    }
+
+    if (url.pathname === '/api/friend-code/validate' && request.method === 'POST') {
+      return await validateFriendCode(request, env, safeHeaders);
     }
 
     // Admin endpoint: Generate game embeddings (requires auth)

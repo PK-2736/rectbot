@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
-const { normalizeGameNameWithWorker, addFriendCodeToWorker } = require('../utils/workerApiClient');
+const { normalizeGameNameWithWorker, validateFriendCodeWithWorker, addFriendCodeToWorker } = require('../utils/workerApiClient');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -57,6 +57,26 @@ module.exports = {
         return interaction.editReply({
           content: '❌ ゲーム名を認識できませんでした。もう一度お試しください。'
         });
+      }
+
+      // フレンドコード/IDを検証
+      await interaction.editReply({ content: '🔍 AIがフレンドコード/IDを検証中...' });
+
+      const validation = await validateFriendCodeWithWorker(normalized, friendCode);
+
+      if (!validation.isValid) {
+        let errorMessage = `❌ **${normalized}** のフレンドコード/IDの形式が正しくない可能性があります。\n\n`;
+        errorMessage += `**入力値:** \`${friendCode}\`\n`;
+        errorMessage += `**理由:** ${validation.message}\n`;
+        
+        if (validation.suggestions && validation.suggestions.length > 0) {
+          errorMessage += `\n**ヒント:**\n${validation.suggestions.map(s => `• ${s}`).join('\n')}`;
+        }
+        
+        errorMessage += `\n\n信頼度: ${(validation.confidence * 100).toFixed(0)}%`;
+        errorMessage += `\n\n本当に登録する場合は、もう一度コマンドを実行してください。`;
+
+        return interaction.editReply({ content: errorMessage });
       }
 
       // Worker API 経由で D1 に保存

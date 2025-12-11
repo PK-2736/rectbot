@@ -33,7 +33,7 @@ database_id = "9812daf1-55a9-4cdd-b924-f4b9adcd65b1"
 
 # Friend Code Management - Vectorize for game name similarity
 [[vectorize]]
-binding = "GAME_VECTORIZE"
+binding = "VECTORIZE"
 index_name = "game-names"
 
 # Workers AI binding for LLM and embeddings
