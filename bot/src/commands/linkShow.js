@@ -35,8 +35,12 @@ module.exports = {
         .setTimestamp();
 
       for (const fc of friendCodes) {
+        const displayName = fc.original_game_name && fc.original_game_name !== fc.game_name
+          ? `${fc.game_name} (登録名: ${fc.original_game_name})`
+          : fc.game_name;
+        
         embed.addFields({
-          name: `📌 ${fc.game_name}`,
+          name: `📌 ${displayName}`,
           value: `\`\`\`${fc.friend_code}\`\`\``,
           inline: false
         });

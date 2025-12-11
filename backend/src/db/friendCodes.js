@@ -2,15 +2,16 @@
  * D1 Friend Code CRUD
  */
 
-export async function addFriendCode(db, userId, guildId, gameName, friendCode) {
+export async function addFriendCode(db, userId, guildId, gameName, friendCode, originalGameName = null) {
   try {
     await db.prepare(
-      `INSERT INTO friend_codes (user_id, guild_id, game_name, friend_code)
-       VALUES (?, ?, ?, ?)
+      `INSERT INTO friend_codes (user_id, guild_id, game_name, friend_code, original_game_name)
+       VALUES (?, ?, ?, ?, ?)
        ON CONFLICT(user_id, guild_id, game_name) DO UPDATE SET
        friend_code = excluded.friend_code,
+       original_game_name = excluded.original_game_name,
        updated_at = CURRENT_TIMESTAMP`
-    ).bind(userId, guildId, gameName, friendCode).run();
+    ).bind(userId, guildId, gameName, friendCode, originalGameName || gameName).run();
 
     // 統計更新
     await db.prepare(
@@ -33,12 +34,12 @@ export async function getFriendCodes(db, userId, guildId, gameName = null) {
     let query, bindings;
 
     if (gameName) {
-      query = `SELECT game_name, friend_code, created_at, updated_at
+      query = `SELECT game_name, friend_code, original_game_name, created_at, updated_at
                FROM friend_codes
-               WHERE user_id = ? AND guild_id = ? AND game_name = ?`;
-      bindings = [userId, guildId, gameName];
+               WHERE user_id = ? AND guild_id = ? AND (game_name = ? OR original_game_name = ?)`;
+      bindings = [userId, guildId, gameName, gameName];
     } else {
-      query = `SELECT game_name, friend_code, created_at, updated_at
+      query = `SELECT game_name, friend_code, original_game_name, created_at, updated_at
                FROM friend_codes
                WHERE user_id = ? AND guild_id = ?
                ORDER BY game_name ASC`;

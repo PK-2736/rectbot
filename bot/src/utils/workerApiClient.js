@@ -52,12 +52,12 @@ async function normalizeGameNameWithWorker(input, userId, guildId) {
 /**
  * フレンドコードを追加
  */
-async function addFriendCodeToWorker(userId, guildId, gameName, friendCode) {
+async function addFriendCodeToWorker(userId, guildId, gameName, friendCode, originalGameName = null) {
   try {
     const response = await fetch(`${WORKER_URL}/api/friend-code/add`, {
       method: 'POST',
       headers: getHeaders(),
-      body: JSON.stringify({ userId, guildId, gameName, friendCode })
+      body: JSON.stringify({ userId, guildId, gameName, friendCode, originalGameName })
     });
 
     if (!response.ok) {

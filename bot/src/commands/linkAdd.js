@@ -60,7 +60,7 @@ module.exports = {
       }
 
       // Worker API 経由で D1 に保存
-      await addFriendCodeToWorker(userId, guildId, normalized, friendCode);
+      await addFriendCodeToWorker(userId, guildId, normalized, friendCode, gameNameInput);
 
       // 結果メッセージ
       let message = `✅ **${normalized}** のフレンドコードを登録しました！\n\`\`\`${friendCode}\`\`\``;

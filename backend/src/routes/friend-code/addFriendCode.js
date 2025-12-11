@@ -18,13 +18,13 @@ function errorResponse(message, status = 500, headers = {}) {
 export async function handleAddFriendCode(request, env, corsHeaders = {}) {
   try {
     const body = await request.json();
-    const { userId, guildId, gameName, friendCode } = body;
+    const { userId, guildId, gameName, friendCode, originalGameName } = body;
 
     if (!userId || !guildId || !gameName || !friendCode) {
       return errorResponse('Missing required fields', 400, corsHeaders);
     }
 
-    await addFriendCode(env.FRIEND_CODE_DB, userId, guildId, gameName, friendCode);
+    await addFriendCode(env.FRIEND_CODE_DB, userId, guildId, gameName, friendCode, originalGameName);
 
     return jsonResponse({
       success: true,
