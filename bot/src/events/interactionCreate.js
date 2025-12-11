@@ -44,6 +44,13 @@ module.exports = {
     // オートコンプリート（タイトル候補など）
     if (interaction.isAutocomplete && interaction.isAutocomplete()) {
       try {
+        // コマンド別のオートコンプリート処理
+        const command = client.commands.get(interaction.commandName);
+        if (command && typeof command.autocomplete === 'function') {
+          await command.autocomplete(interaction);
+          return;
+        }
+
         const focused = interaction.options.getFocused(true);
         const name = focused?.name;
         const value = (focused?.value || '').toString();
@@ -182,6 +189,20 @@ module.exports = {
           } catch (error) {
             console.error('編集モーダル送信処理中にエラー:', error);
             await safeRespond(interaction, { content: `編集モーダル送信処理でエラー: ${error.message || error}`, flags: require('discord.js').MessageFlags.Ephemeral }).catch(() => {});
+          }
+        }
+        return;
+      }
+
+      // フレンドコード登録のモーダル処理
+      if (interaction.customId === 'friend_code_add_modal') {
+        const linkAdd = client.commands.get('link-add');
+        if (linkAdd && typeof linkAdd.handleModalSubmit === 'function') {
+          try {
+            await linkAdd.handleModalSubmit(interaction);
+          } catch (error) {
+            console.error('フレンドコード登録モーダル処理中にエラー:', error);
+            await safeRespond(interaction, { content: `フレンドコード登録処理でエラー: ${error.message || error}`, flags: require('discord.js').MessageFlags.Ephemeral }).catch(() => {});
           }
         }
         return;

@@ -27,38 +27,21 @@ function buildContainer({ headerTitle = '募集', participantText = '', recruitI
     );
   }
   // 上記の（サブヘッダー/タイトル）ブロックの後に区切り線を入れて、画像セクションへ
-  {
-    const sep = new SeparatorBuilder();
-    if (SeparatorSpacingSize && typeof SeparatorSpacingSize.Small !== 'undefined' && typeof sep.setSpacing === 'function') {
-      sep.setSpacing(SeparatorSpacingSize.Small);
-    }
-    sep.setDivider(true);
-    container.addSeparatorComponents(sep);
-  }
+  container.addSeparatorComponents(
+    new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+  );
   container.addMediaGalleryComponents(
     new MediaGalleryBuilder().addItems(
       new MediaGalleryItemBuilder().setURL(imageAttachmentName)
     )
   );
-  {
-    const sep = new SeparatorBuilder();
-    if (SeparatorSpacingSize && typeof SeparatorSpacingSize.Small !== 'undefined' && typeof sep.setSpacing === 'function') {
-      sep.setSpacing(SeparatorSpacingSize.Small);
-    }
-    sep.setDivider(true);
-    container.addSeparatorComponents(sep);
-  }
+  container.addSeparatorComponents(
+    new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+  );
   // 画像スタイルでは募集内容テキストは画像に埋め込み済みのため表示しない
   if (!isImageStyle && contentText && String(contentText).trim().length > 0) {
     container.addTextDisplayComponents(new TextDisplayBuilder().setContent(String(contentText)));
-    {
-      const sep = new SeparatorBuilder();
-      if (SeparatorSpacingSize && typeof SeparatorSpacingSize.Small !== 'undefined' && typeof sep.setSpacing === 'function') {
-        sep.setSpacing(SeparatorSpacingSize.Small);
-      }
-      sep.setDivider(true);
-      container.addSeparatorComponents(sep);
-    }
+    container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
   }
   container.addTextDisplayComponents(
     new TextDisplayBuilder().setContent(participantText)
@@ -84,14 +67,9 @@ function buildContainer({ headerTitle = '募集', participantText = '', recruitI
         .setDisabled(false)
     )
   );
-  {
-    const sep = new SeparatorBuilder();
-    if (SeparatorSpacingSize && typeof SeparatorSpacingSize.Small !== 'undefined' && typeof sep.setSpacing === 'function') {
-      sep.setSpacing(SeparatorSpacingSize.Small);
-    }
-    sep.setDivider(true);
-    container.addSeparatorComponents(sep);
-  }
+  container.addSeparatorComponents(
+    new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+  );
   const footerParts = [`募集ID：\`${recruitIdText}\``];
   if (footerExtra) footerParts.push(footerExtra);
   footerParts.push('powered by Recrubo');
@@ -131,44 +109,20 @@ function buildContainerSimple({ headerTitle = '募集', detailsText = '', partic
     headerSection.addTextDisplayComponents(new TextDisplayBuilder().setContent(String(subHeaderText)));
   }
   container.addSectionComponents(headerSection);
-  // ヘッダー直後の区切り線（小）
-  {
-    const sep = new SeparatorBuilder();
-    if (SeparatorSpacingSize && typeof SeparatorSpacingSize.Small !== 'undefined' && typeof sep.setSpacing === 'function') {
-      sep.setSpacing(SeparatorSpacingSize.Small);
-    }
-    sep.setDivider(true);
-    container.addSeparatorComponents(sep);
-  }
+  container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
   if (detailsText) {
     container.addTextDisplayComponents(new TextDisplayBuilder().setContent(detailsText));
     // ユーザー要望: 「通話情報」と「募集内容」の間に区切り線は入れない
     // contentText が存在しない場合にのみ、ここで区切り線を入れる
     if (!contentText || String(contentText).trim().length === 0) {
-      {
-        const sep = new SeparatorBuilder();
-        if (SeparatorSpacingSize && typeof SeparatorSpacingSize.Small !== 'undefined' && typeof sep.setSpacing === 'function') {
-          sep.setSpacing(SeparatorSpacingSize.Small);
-        }
-        sep.setDivider(true);
-        container.addSeparatorComponents(sep);
-      }
+      container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
     }
   }
   if (contentText && String(contentText).trim().length > 0) {
-    // ユーザー要望: details と content の間に区切り線は入れない
     container.addTextDisplayComponents(new TextDisplayBuilder().setContent(String(contentText)));
+    container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
   }
   if (participantText) {
-    // 参加リストの前に区切り線を追加（内容との間に一本）
-    {
-      const sep = new SeparatorBuilder();
-      if (SeparatorSpacingSize && typeof SeparatorSpacingSize.Small !== 'undefined' && typeof sep.setSpacing === 'function') {
-        sep.setSpacing(SeparatorSpacingSize.Small);
-      }
-      sep.setDivider(true);
-      container.addSeparatorComponents(sep);
-    }
     container.addTextDisplayComponents(new TextDisplayBuilder().setContent(participantText));
   }
   const isRequesterRecruiter = true;
