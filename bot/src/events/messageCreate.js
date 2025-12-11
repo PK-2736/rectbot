@@ -69,13 +69,16 @@ module.exports = {
       const friendCode = friendCodes[0];
       const user = message.author;
 
-      // 表示するゲーム名を決定（登録時の名前があればそれを優先）
-      const displayGameName = friendCode.original_game_name || normalized;
+      // タイトルを作成: 正規化後の名前 (登録時の名前)
+      let titleGameName = `🎮 ${normalized}`;
+      if (friendCode.original_game_name && friendCode.original_game_name !== normalized) {
+        titleGameName += ` (${friendCode.original_game_name})`;
+      }
 
       // Embed を作成
       const embed = new EmbedBuilder()
         .setColor(0x5865F2)
-        .setTitle(displayGameName)
+        .setTitle(titleGameName)
         .setDescription(`${user.username} のフレンドコード`)
         .addFields({
           name: 'フレンドコード / ID',
@@ -85,15 +88,6 @@ module.exports = {
         .setThumbnail(user.displayAvatarURL({ dynamic: true }))
         .setTimestamp()
         .setFooter({ text: `登録日: ${new Date(friendCode.created_at * 1000).toLocaleDateString('ja-JP')}` });
-
-      // 登録時の名前と正規化後の名前が異なる場合は正規化後の名前も表示
-      if (friendCode.original_game_name && friendCode.original_game_name !== normalized) {
-        embed.addFields({
-          name: '正規化後のゲーム名',
-          value: normalized,
-          inline: true
-        });
-      }
 
       // AI判定の場合は追加情報
       if (result && result.method === 'ai' && result.confidence < 0.9) {
