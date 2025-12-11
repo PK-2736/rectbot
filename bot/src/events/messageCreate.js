@@ -1,3 +1,4 @@
+const { EmbedBuilder } = require('discord.js');
 const { normalizeGameNameWithWorker, getFriendCodesFromWorker } = require('../utils/workerApiClient');
 
 module.exports = {
@@ -9,24 +10,18 @@ module.exports = {
     // DMは無視
     if (!message.guild) return;
 
-    // メッセージ全体からメンションを検出
+    // メッセージ全体からメンションを検出 (自分自身への言及のみ)
     const mentionRegex = /<@!?(\d+)>/g;
     const allMentions = [...message.content.matchAll(mentionRegex)];
     
     console.log(`[messageCreate] Message content: "${message.content}"`);
     console.log(`[messageCreate] All mentions: ${allMentions.map(m => m[1]).join(', ')}`);
 
-    if (allMentions.length === 0) {
-      // メンションがない場合は終了
-      return;
-    }
+    // メッセージ送信者が自分自身にメンションしているかチェック
+    const hasSelfMention = allMentions.some(match => match[1] === message.author.id);
 
-    // ユーザーメンション（Bot以外）を抽出
-    const userMentions = allMentions.filter(match => match[1] !== client.user.id);
-    console.log(`[messageCreate] User mentions found: ${userMentions.length}`);
-
-    if (userMentions.length === 0) {
-      // ユーザーメンションがない場合は終了
+    if (!hasSelfMention) {
+      // 自分自身へのメンションがない場合は終了
       return;
     }
 
@@ -35,26 +30,20 @@ module.exports = {
     console.log(`[messageCreate] Game name: "${gameName}"`);
 
     if (!gameName) {
-      await message.reply('❌ ゲーム名を指定してください。\n例: `valorant @ユーザー` または `@Bot valorant @ユーザー`');
+      await message.reply('❌ ゲーム名を指定してください。\n例: `valorant @自分` または `ばろ @自分`');
       return;
     }
 
     try {
       // まず正規化前のゲーム名で検索を試みる
+      const userId = message.author.id;
       let normalized = gameName;
       let shouldNormalize = false;
 
-      // 各ユーザーで元の名前で登録されているか確認
-      for (const match of userMentions) {
-        const userId = match[1];
-        const codes = await getFriendCodesFromWorker(userId, message.guild.id, gameName).catch(() => []);
-        if (codes && codes.length > 0) {
-          // 元の名前で見つかった場合は正規化不要
-          shouldNormalize = false;
-          break;
-        } else {
-          shouldNormalize = true;
-        }
+      // 元の名前で登録されているか確認
+      const codes = await getFriendCodesFromWorker(userId, message.guild.id, gameName).catch(() => []);
+      if (!codes || codes.length === 0) {
+        shouldNormalize = true;
       }
 
       let result = null;
@@ -69,43 +58,50 @@ module.exports = {
         }
       }
 
-    // 各ユーザーのフレンドコードを取得
-    const results = [];
+      // 自分のフレンドコードを取得
+      const friendCodes = await getFriendCodesFromWorker(userId, message.guild.id, normalized);
 
-    for (const match of userMentions) {
-      const userId = match[1];
-
-      try {
-        const user = await client.users.fetch(userId).catch(() => null);
-        if (!user) {
-          results.push(`❌ <@${userId}>: ユーザーが見つかりません`);
-          continue;
-        }
-
-        const codes = await getFriendCodesFromWorker(userId, message.guild.id, normalized);
-
-        if (!codes || codes.length === 0) {
-          results.push(`❌ ${user.username}: **${normalized}** は未登録`);
-          continue;
-        }
-
-        const friendCode = codes[0];
-        results.push(`✅ ${user.username} (${normalized}): \`${friendCode.friend_code}\``);
-
-      } catch (error) {
-        console.error(`[messageCreate] Error fetching friend code for user ${userId}:`, error);
-        results.push(`❌ <@${userId}>: エラーが発生しました`);
+      if (!friendCodes || friendCodes.length === 0) {
+        await message.reply(`❌ **${normalized}** のフレンドコードが登録されていません。\n\`/link-add\` コマンドで登録してください。`);
+        return;
       }
-    }
 
-    // 結果を送信
-    let replyMessage = `🎮 **${normalized}** のフレンドコード:\n\n${results.join('\n')}`;
+      const friendCode = friendCodes[0];
+      const user = message.author;
 
-    if (result && result.method === 'ai' && result.confidence < 0.9) {
-      replyMessage += `\n\n🤖 AI判定: 「${gameName}」→「${normalized}」(信頼度: ${(result.confidence * 100).toFixed(0)}%)`;
-    }
+      // Embed を作成
+      const embed = new EmbedBuilder()
+        .setColor(0x5865F2)
+        .setTitle(`🎮 ${normalized}`)
+        .setDescription(`${user.username} のフレンドコード`)
+        .addFields({
+          name: 'フレンドコード',
+          value: `\`${friendCode.friend_code}\``,
+          inline: false
+        })
+        .setThumbnail(user.displayAvatarURL({ dynamic: true }))
+        .setTimestamp()
+        .setFooter({ text: `登録日: ${new Date(friendCode.created_at * 1000).toLocaleDateString('ja-JP')}` });
 
-    await message.reply(replyMessage);
+      // 登録時の名前が異なる場合は表示
+      if (friendCode.original_game_name && friendCode.original_game_name !== normalized) {
+        embed.addFields({
+          name: '登録時のゲーム名',
+          value: friendCode.original_game_name,
+          inline: true
+        });
+      }
+
+      // AI判定の場合は追加情報
+      if (result && result.method === 'ai' && result.confidence < 0.9) {
+        embed.addFields({
+          name: '🤖 AI判定',
+          value: `「${gameName}」→「${normalized}」\n信頼度: ${(result.confidence * 100).toFixed(0)}%`,
+          inline: false
+        });
+      }
+
+      await message.reply({ embeds: [embed] });
 
     } catch (error) {
       console.error('[messageCreate] Error:', error);
