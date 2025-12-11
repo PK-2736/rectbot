@@ -5,6 +5,18 @@
 
 // 統合されたbackend Workerを使用（Friend Code APIも含む）
 const WORKER_URL = process.env.BACKEND_API_URL || process.env.BACKEND_URL || 'https://api.recrubo.net';
+const SERVICE_TOKEN = process.env.SERVICE_TOKEN || '';
+
+/**
+ * 共通ヘッダーを生成
+ */
+function getHeaders() {
+  const headers = { 'Content-Type': 'application/json' };
+  if (SERVICE_TOKEN) {
+    headers['X-Service-Token'] = SERVICE_TOKEN;
+  }
+  return headers;
+}
 
 /**
  * ゲーム名を正規化
@@ -13,7 +25,7 @@ async function normalizeGameNameWithWorker(input, userId, guildId) {
   try {
     const response = await fetch(`${WORKER_URL}/api/game/normalize`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getHeaders(),
       body: JSON.stringify({ input, userId, guildId })
     });
 
@@ -44,7 +56,7 @@ async function addFriendCodeToWorker(userId, guildId, gameName, friendCode) {
   try {
     const response = await fetch(`${WORKER_URL}/api/friend-code/add`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getHeaders(),
       body: JSON.stringify({ userId, guildId, gameName, friendCode })
     });
 
@@ -69,7 +81,9 @@ async function getFriendCodesFromWorker(userId, guildId, gameName = null) {
     const params = new URLSearchParams({ userId, guildId });
     if (gameName) params.append('gameName', gameName);
 
-    const response = await fetch(`${WORKER_URL}/api/friend-code/get?${params}`);
+    const response = await fetch(`${WORKER_URL}/api/friend-code/get?${params}`, {
+      headers: getHeaders()
+    });
 
     if (!response.ok) {
       throw new Error(`Worker API error: ${response.status}`);
@@ -91,7 +105,7 @@ async function deleteFriendCodeFromWorker(userId, guildId, gameName) {
   try {
     const response = await fetch(`${WORKER_URL}/api/friend-code/delete`, {
       method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getHeaders(),
       body: JSON.stringify({ userId, guildId, gameName })
     });
 
@@ -116,7 +130,9 @@ async function searchGameNamesFromWorker(query) {
     const params = new URLSearchParams();
     if (query) params.append('q', query);
 
-    const response = await fetch(`${WORKER_URL}/api/game/search?${params}`);
+    const response = await fetch(`${WORKER_URL}/api/game/search?${params}`, {
+      headers: getHeaders()
+    });
 
     if (!response.ok) {
       throw new Error(`Worker API error: ${response.status}`);
