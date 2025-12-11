@@ -1,8 +1,6 @@
 const { SlashCommandBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
-const { normalizeGameName } = require('../utils/gameNameNormalizer');
-const { saveFriendCode } = require('../utils/db/friendCode');
+const { normalizeGameNameWithWorker, addFriendCodeToWorker } = require('../utils/workerApiClient');
 const { handleComponentSafely } = require('../utils/componentHelpers');
-const { safeRespond } = require('../utils/interactionHandler');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -19,7 +17,7 @@ module.exports = {
         .setCustomId('game_name')
         .setLabel('ゲーム名')
         .setStyle(TextInputStyle.Short)
-        .setPlaceholder('例: Valorant, Apex, マイクラ')
+        .setPlaceholder('例: Valorant, Apex, マイクラ, valo, えぺ')
         .setRequired(true)
         .setMaxLength(50);
 
@@ -49,8 +47,12 @@ module.exports = {
       const userId = interaction.user.id;
       const guildId = interaction.guild.id;
 
-      // ゲーム名を正規化
-      const { normalized, confidence } = normalizeGameName(gameNameInput);
+      // Workers AI でゲーム名を正規化
+      await interaction.editReply({ content: '🤖 AIがゲーム名を判定中...' });
+
+      const result = await normalizeGameNameWithWorker(gameNameInput, userId, guildId);
+      const normalized = result.normalized;
+      const confidence = result.confidence;
 
       if (!normalized) {
         return interaction.editReply({
@@ -58,21 +60,33 @@ module.exports = {
         });
       }
 
-      // フレンドコードを保存
-      await saveFriendCode(userId, guildId, normalized, friendCode, gameNameInput);
+      // Worker API 経由で D1 に保存
+      await addFriendCodeToWorker(userId, guildId, normalized, friendCode);
 
+      // 結果メッセージ
       let message = `✅ **${normalized}** のフレンドコードを登録しました！\n\`\`\`${friendCode}\`\`\``;
-      
-      // 信頼度が低い場合は確認メッセージ
-      if (confidence < 0.8) {
-        message += `\n\n⚠️ 入力された「${gameNameInput}」を「${normalized}」として登録しました。`;
+
+      if (result.method === 'ai') {
+        message += `\n\n🤖 AI判定: 「${gameNameInput}」→「${normalized}」`;
+        
+        if (confidence < 0.9) {
+          message += `\n信頼度: ${(confidence * 100).toFixed(0)}%`;
+        }
+
+        if (result.matches && result.matches.length > 1) {
+          const alternatives = result.matches.slice(1, 3).map(m => m.gameName).join(', ');
+          message += `\n\n類似ゲーム: ${alternatives}`;
+        }
+      } else if (result.method === 'cache') {
+        message += `\n\n💾 キャッシュから取得`;
       }
 
       await interaction.editReply({ content: message });
+
     } catch (error) {
       console.error('[link-add] Error:', error);
       await interaction.editReply({
-        content: '❌ フレンドコードの登録中にエラーが発生しました。'
+        content: '❌ フレンドコードの登録中にエラーが発生しました。\nWorker APIに接続できない可能性があります。'
       });
     }
   }

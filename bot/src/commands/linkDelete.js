@@ -1,6 +1,5 @@
 const { SlashCommandBuilder } = require('discord.js');
-const { normalizeGameName, suggestGameNames } = require('../utils/gameNameNormalizer');
-const { deleteFriendCode, getFriendCode, searchFriendCodeByPattern } = require('../utils/db/friendCode');
+const { searchGameNamesFromWorker, deleteFriendCodeFromWorker, normalizeGameNameWithWorker } = require('../utils/workerApiClient');
 const { handleComponentSafely } = require('../utils/componentHelpers');
 
 module.exports = {
@@ -16,10 +15,12 @@ module.exports = {
   async autocomplete(interaction) {
     try {
       const focusedValue = interaction.options.getFocused();
-      const suggestions = suggestGameNames(focusedValue, 25);
-      
+
+      // Worker API でゲーム名を検索
+      const games = await searchGameNamesFromWorker(focusedValue);
+
       await interaction.respond(
-        suggestions.map(name => ({
+        games.slice(0, 25).map(name => ({
           name: name,
           value: name
         }))
@@ -39,8 +40,9 @@ module.exports = {
       const guildId = interaction.guild.id;
 
       try {
-        // ゲーム名を正規化
-        const { normalized } = normalizeGameName(gameNameInput);
+        // Worker AI でゲーム名を正規化
+        const result = await normalizeGameNameWithWorker(gameNameInput, userId, guildId);
+        const normalized = result.normalized;
 
         if (!normalized) {
           return interaction.editReply({
@@ -48,27 +50,14 @@ module.exports = {
           });
         }
 
-        // フレンドコードが存在するか確認
-        const existingCode = await getFriendCode(userId, guildId, normalized);
+        // Worker API 経由で削除
+        const success = await deleteFriendCodeFromWorker(userId, guildId, normalized);
 
-        if (!existingCode) {
-          // パターン検索で類似のものを探す
-          const similar = await searchFriendCodeByPattern(userId, guildId, gameNameInput);
-          
-          if (similar.length > 0) {
-            const suggestions = similar.map(s => `• ${s.gameName}`).join('\n');
-            return interaction.editReply({
-              content: `❌ **${normalized}** のフレンドコードは登録されていません。\n\n似たゲーム名:\n${suggestions}`
-            });
-          }
-
+        if (!success) {
           return interaction.editReply({
             content: `❌ **${normalized}** のフレンドコードは登録されていません。`
           });
         }
-
-        // 削除実行
-        await deleteFriendCode(userId, guildId, normalized);
 
         await interaction.editReply({
           content: `✅ **${normalized}** のフレンドコードを削除しました。`

@@ -1,0 +1,24 @@
+{
+  "name": "friend-code-worker",
+  "version": "1.0.0",
+  "description": "Cloudflare Worker for Discord Friend Code Management",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "tail": "wrangler tail",
+    "init-db": "wrangler d1 execute friendcodes --file=./schema.sql",
+    "generate-games": "node scripts/generate-game-embeddings.js"
+  },
+  "keywords": [
+    "cloudflare",
+    "workers",
+    "discord",
+    "friend-code"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "wrangler": "^3.80.0"
+  }
+}

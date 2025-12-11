@@ -1,5 +1,4 @@
-const { normalizeGameName } = require('../utils/gameNameNormalizer');
-const { getFriendCode, searchFriendCodeByPattern } = require('../utils/db/friendCode');
+const { normalizeGameNameWithWorker, getFriendCodesFromWorker } = require('../utils/workerApiClient');
 
 module.exports = {
   name: 'messageCreate',
@@ -34,20 +33,22 @@ module.exports = {
       return;
     }
 
-    // ゲーム名を正規化
-    const { normalized, confidence } = normalizeGameName(gameName);
+    try {
+      // Worker AI でゲーム名を正規化
+      const result = await normalizeGameNameWithWorker(gameName, message.author.id, message.guild.id);
+      const normalized = result.normalized;
 
-    if (!normalized) {
-      await message.reply(`❌ ゲーム名「${gameName}」を認識できませんでした。`);
-      return;
-    }
+      if (!normalized) {
+        await message.reply(`❌ ゲーム名「${gameName}」を認識できませんでした。`);
+        return;
+      }
 
     // 各ユーザーのフレンドコードを取得
     const results = [];
 
     for (const match of userMentions) {
       const userId = match[1];
-      
+
       try {
         const user = await client.users.fetch(userId).catch(() => null);
         if (!user) {
@@ -55,22 +56,16 @@ module.exports = {
           continue;
         }
 
-        const friendCode = await getFriendCode(userId, message.guild.id, normalized);
+        const codes = await getFriendCodesFromWorker(userId, message.guild.id, normalized);
 
-        if (!friendCode) {
-          // パターン検索で類似を探す
-          const similar = await searchFriendCodeByPattern(userId, message.guild.id, gameName);
-          
-          if (similar.length > 0) {
-            const suggestions = similar.map(s => `\`${s.gameName}\``).join(', ');
-            results.push(`❌ ${user.username}: **${normalized}** は未登録 (似たゲーム: ${suggestions})`);
-          } else {
-            results.push(`❌ ${user.username}: **${normalized}** は未登録`);
-          }
+        if (!codes || codes.length === 0) {
+          results.push(`❌ ${user.username}: **${normalized}** は未登録`);
           continue;
         }
 
-        results.push(`✅ ${user.username} (${normalized}): \`${friendCode.code}\``);
+        const friendCode = codes[0];
+        results.push(`✅ ${user.username} (${normalized}): \`${friendCode.friend_code}\``);
+
       } catch (error) {
         console.error(`[messageCreate] Error fetching friend code for user ${userId}:`, error);
         results.push(`❌ <@${userId}>: エラーが発生しました`);
@@ -80,10 +75,15 @@ module.exports = {
     // 結果を送信
     let replyMessage = `🎮 **${normalized}** のフレンドコード:\n\n${results.join('\n')}`;
 
-    if (confidence < 0.8) {
-      replyMessage += `\n\n⚠️ 入力された「${gameName}」を「${normalized}」として検索しました。`;
+    if (result.method === 'ai' && result.confidence < 0.9) {
+      replyMessage += `\n\n🤖 AI判定: 「${gameName}」→「${normalized}」(信頼度: ${(result.confidence * 100).toFixed(0)}%)`;
     }
 
     await message.reply(replyMessage);
+
+    } catch (error) {
+      console.error('[messageCreate] Error:', error);
+      await message.reply('❌ Worker APIとの通信中にエラーが発生しました。');
+    }
   }
 };

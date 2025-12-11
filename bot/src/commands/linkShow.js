@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
-const { getAllFriendCodes } = require('../utils/db/friendCode');
+const { getFriendCodesFromWorker } = require('../utils/workerApiClient');
 const { handleComponentSafely } = require('../utils/componentHelpers');
 
 module.exports = {
@@ -20,11 +20,11 @@ module.exports = {
       const guildId = interaction.guild.id;
 
       try {
-        const friendCodes = await getAllFriendCodes(userId, guildId);
+        const friendCodes = await getFriendCodesFromWorker(userId, guildId);
 
         if (!friendCodes || friendCodes.length === 0) {
           return interaction.editReply({
-            content: targetUser.id === interaction.user.id 
+            content: targetUser.id === interaction.user.id
               ? '❌ 登録されているフレンドコードがありません。\n`/link-add` で登録してください。'
               : `❌ ${targetUser.username} さんは登録されているフレンドコードがありません。`
           });
@@ -38,13 +38,13 @@ module.exports = {
 
         for (const fc of friendCodes) {
           embed.addFields({
-            name: `📌 ${fc.gameName}`,
-            value: `\`\`\`${fc.code}\`\`\``,
+            name: `📌 ${fc.game_name}`,
+            value: `\`\`\`${fc.friend_code}\`\`\``,
             inline: false
           });
         }
 
-        embed.setFooter({ text: `登録数: ${friendCodes.length}` });
+        embed.setFooter({ text: `登録数: ${friendCodes.length} | データソース: Cloudflare D1` });
 
         await interaction.editReply({ embeds: [embed] });
       } catch (error) {
