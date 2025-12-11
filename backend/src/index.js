@@ -9,6 +9,7 @@ import { handleAddFriendCode } from './routes/friend-code/addFriendCode';
 import { handleGetFriendCodes } from './routes/friend-code/getFriendCodes';
 import { handleDeleteFriendCode } from './routes/friend-code/deleteFriendCode';
 import { handleSearchGameNames } from './routes/friend-code/searchGameNames';
+import { generateGameEmbeddings } from './utils/gameEmbeddings';
 
 function parseOrigins(env) {
   const raw = env.CORS_ORIGINS || 'https://recrubo.net,https://www.recrubo.net,https://dash.recrubo.net,https://grafana.recrubo.net';
@@ -145,6 +146,21 @@ export default {
 
     if (url.pathname === '/api/game/search' && request.method === 'GET') {
       return await handleSearchGameNames(request, env, safeHeaders);
+    }
+
+    // Admin endpoint: Generate game embeddings (requires auth)
+    if (url.pathname === '/api/admin/generate-games' && request.method === 'POST') {
+      if (!await verifyServiceToken(request, env)) {
+        return jsonResponse({ ok: false, error: 'unauthorized' }, 401, safeHeaders);
+      }
+      
+      try {
+        const result = await generateGameEmbeddings(env);
+        return jsonResponse({ ok: true, ...result }, 200, safeHeaders);
+      } catch (error) {
+        console.error('[Generate Games Error]', error);
+        return jsonResponse({ ok: false, error: error.message }, 500, safeHeaders);
+      }
     }
 
     // storage selection (moved up before metrics endpoints)
