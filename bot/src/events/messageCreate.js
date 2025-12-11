@@ -9,21 +9,20 @@ module.exports = {
     // DMは無視
     if (!message.guild) return;
 
-    // Botがメンションされているかチェック
-    const botMention = `<@${client.user.id}>`;
-    console.log(`[messageCreate] Message content: "${message.content}"`);
-    console.log(`[messageCreate] Bot mention: ${botMention}`);
-    console.log(`[messageCreate] Contains bot mention: ${message.content.includes(botMention)}`);
+    // メッセージ全体からメンションを検出
+    const mentionRegex = /<@!?(\d+)>/g;
+    const allMentions = [...message.content.matchAll(mentionRegex)];
     
-    if (!message.content.includes(botMention)) return;
+    console.log(`[messageCreate] Message content: "${message.content}"`);
+    console.log(`[messageCreate] All mentions: ${allMentions.map(m => m[1]).join(', ')}`);
 
-    // メンションを除去してコンテンツを取得
-    let content = message.content.replace(botMention, '').trim();
-    console.log(`[messageCreate] Content after removing bot mention: "${content}"`);
+    if (allMentions.length === 0) {
+      // メンションがない場合は終了
+      return;
+    }
 
-    // ユーザーメンションを検出
-    const userMentionRegex = /<@!?(\d+)>/g;
-    const userMentions = [...content.matchAll(userMentionRegex)];
+    // ユーザーメンション（Bot以外）を抽出
+    const userMentions = allMentions.filter(match => match[1] !== client.user.id);
     console.log(`[messageCreate] User mentions found: ${userMentions.length}`);
 
     if (userMentions.length === 0) {
@@ -31,12 +30,12 @@ module.exports = {
       return;
     }
 
-    // ユーザーメンションを除去してゲーム名を取得
-    const gameName = content.replace(userMentionRegex, '').trim();
+    // すべてのメンションを除去してゲーム名を取得
+    const gameName = message.content.replace(mentionRegex, '').trim();
     console.log(`[messageCreate] Game name: "${gameName}"`);
 
     if (!gameName) {
-      await message.reply('❌ ゲーム名を指定してください。\n例: `@Bot valorant @ユーザー`');
+      await message.reply('❌ ゲーム名を指定してください。\n例: `valorant @ユーザー` または `@Bot valorant @ユーザー`');
       return;
     }
 
