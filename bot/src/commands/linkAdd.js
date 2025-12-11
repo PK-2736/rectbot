@@ -1,6 +1,6 @@
 const { SlashCommandBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
 const { normalizeGameNameWithWorker, addFriendCodeToWorker } = require('../utils/workerApiClient');
-const { handleComponentSafely } = require('../utils/componentHelpers');
+const { handleComponentSafely } = require('../utils/interactionHandler');
 
 module.exports = {
   data: new SlashCommandBuilder()
