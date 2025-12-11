@@ -10,7 +10,7 @@ const { setCooldown, getCooldownRemaining } = require('./cooldown');
 const { getSupabase } = require('./supabase');
 const { saveRecruitStatus, deleteRecruitStatus, getActiveRecruits, saveRecruitmentData, deleteRecruitmentData, updateRecruitmentStatus, updateRecruitmentData } = require('./statusApi');
 const { checkAndNotifyStartTime } = require('./startTimeNotifier');
-const { saveFriendCode, getFriendCode, getAllFriendCodes, deleteFriendCode, searchFriendCodeByPattern } = require('./friendCode');
+// const { saveFriendCode, getFriendCode, getAllFriendCodes, deleteFriendCode, searchFriendCodeByPattern } = require('./friendCode'); // 使用しない（Worker API経由に移行）
 
 // schedule periodic cleanup — 一時的に無効化（期限廃止）
 // const CLEANUP_INTERVAL_MS = Number(process.env.CLEANUP_INTERVAL_MS || 1000 * 60 * 60);
@@ -64,12 +64,12 @@ module.exports = {
   // Cooldowns
   setCooldown,
   getCooldownRemaining,
-  // Friend codes
-  saveFriendCode,
-  getFriendCode,
-  getAllFriendCodes,
-  deleteFriendCode,
-  searchFriendCodeByPattern,
+  // Friend codes - Worker API経由に移行したためコメントアウト
+  // saveFriendCode,
+  // getFriendCode,
+  // getAllFriendCodes,
+  // deleteFriendCode,
+  // searchFriendCodeByPattern,
   // Consts & maintenance
   RECRUIT_TTL_SECONDS,
   cleanupExpiredRecruits,
