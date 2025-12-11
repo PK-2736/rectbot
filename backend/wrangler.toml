@@ -27,13 +27,13 @@ new_sqlite_classes = ["InviteTokensDO"]
 
 # Friend Code Management - D1 Database
 [[d1_databases]]
-binding = "friendcodes"
+binding = "FRIEND_CODE_DB"
 database_name = "friendcodes"
 database_id = "9812daf1-55a9-4cdd-b924-f4b9adcd65b1"
 
 # Friend Code Management - Vectorize for game name similarity
 [[vectorize]]
-binding = "VECTORIZE"
+binding = "GAME_VECTORIZE"
 index_name = "game-names"
 
 # Workers AI binding for LLM and embeddings

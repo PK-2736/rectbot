@@ -3,7 +3,8 @@
  * Discord Bot から Worker API を呼び出す
  */
 
-const WORKER_URL = process.env.FRIEND_CODE_WORKER_URL || 'https://friend-code-worker.your-subdomain.workers.dev';
+// 統合されたbackend Workerを使用（Friend Code APIも含む）
+const WORKER_URL = process.env.BACKEND_API_URL || process.env.BACKEND_URL || 'https://api.recrubo.net';
 
 /**
  * ゲーム名を正規化
