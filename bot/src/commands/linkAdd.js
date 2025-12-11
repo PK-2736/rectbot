@@ -38,7 +38,7 @@ module.exports = {
   },
 
   async handleModalSubmit(interaction) {
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: 64 }); // 64 = Ephemeral
 
     try {
       const gameNameInput = interaction.fields.getTextInputValue('game_name');
