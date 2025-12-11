@@ -20,7 +20,7 @@ export async function generateGameEmbeddings(env) {
       // メインゲーム名をインデックス
       const embedding = await generateEmbedding(env.AI, game.name);
       
-      await env.GAME_VECTORIZE.upsert([
+      await env.VECTORIZE.upsert([
         {
           id: game.name.toLowerCase().replace(/\s+/g, '-'),
           values: embedding,
@@ -37,7 +37,7 @@ export async function generateGameEmbeddings(env) {
       for (const alias of (game.aliases || [])) {
         try {
           const aliasEmbedding = await generateEmbedding(env.AI, alias);
-          await env.GAME_VECTORIZE.upsert([
+          await env.VECTORIZE.upsert([
             {
               id: `${game.name.toLowerCase().replace(/\s+/g, '-')}-alias-${alias.toLowerCase().replace(/\s+/g, '-')}`,
               values: aliasEmbedding,

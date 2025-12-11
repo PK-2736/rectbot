@@ -31,7 +31,7 @@ export async function handleSearchGameNames(request, env, corsHeaders = {}) {
     }
 
     // Vectorize で類似検索
-    const results = await searchSimilarGames(env.AI, env.GAME_VECTORIZE, query, 10);
+    const results = await searchSimilarGames(env.AI, env.VECTORIZE, query, 10);
 
     return jsonResponse({
       success: true,

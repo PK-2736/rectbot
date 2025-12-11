@@ -52,7 +52,7 @@ export async function handleNormalizeGameName(request, env, corsHeaders = {}) {
     // 3. Vectorize で類似ゲーム検索
     const similarGames = await searchSimilarGames(
       env.AI,
-      env.GAME_VECTORIZE,
+      env.VECTORIZE,
       llmResult.gameName
     );
 
