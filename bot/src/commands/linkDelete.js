@@ -1,5 +1,5 @@
 const { SlashCommandBuilder } = require('discord.js');
-const { searchGameNamesFromWorker, deleteFriendCodeFromWorker, normalizeGameNameWithWorker } = require('../utils/workerApiClient');
+const { getFriendCodesFromWorker, deleteFriendCodeFromWorker, normalizeGameNameWithWorker } = require('../utils/workerApiClient');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -13,13 +13,26 @@ module.exports = {
 
   async autocomplete(interaction) {
     try {
-      const focusedValue = interaction.options.getFocused();
+      const focusedValue = interaction.options.getFocused().toLowerCase();
+      const userId = interaction.user.id;
+      const guildId = interaction.guild.id;
 
-      // Worker API でゲーム名を検索
-      const games = await searchGameNamesFromWorker(focusedValue);
+      // ユーザーが登録している全てのフレンドコードを取得
+      const allCodes = await getFriendCodesFromWorker(userId, guildId);
+
+      // ゲーム名のリストを作成（重複を除去）
+      const gameNames = [...new Set(allCodes.map(code => {
+        // 登録時の名前があればそれを優先、なければ正規化後の名前
+        return code.original_game_name || code.game_name;
+      }))];
+
+      // 入力値でフィルタリング
+      const filtered = gameNames.filter(name => 
+        name.toLowerCase().includes(focusedValue)
+      );
 
       await interaction.respond(
-        games.slice(0, 25).map(name => ({
+        filtered.slice(0, 25).map(name => ({
           name: name,
           value: name
         }))
