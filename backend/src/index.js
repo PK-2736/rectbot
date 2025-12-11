@@ -11,6 +11,9 @@ import { handleDeleteFriendCode } from './routes/friend-code/deleteFriendCode';
 import { handleSearchGameNames } from './routes/friend-code/searchGameNames';
 import { validateFriendCode } from './routes/friend-code/validateFriendCode';
 import { generateGameEmbeddings } from './utils/gameEmbeddings';
+// Reuse richer Worker routers (guild settings, recruitment/active-recruits) to avoid 404s
+import { routeGuildSettings } from './worker/routes/guildSettings.js';
+import { routeRecruitment } from './worker/routes/recruitment.js';
 
 function parseOrigins(env) {
   const raw = env.CORS_ORIGINS || 'https://recrubo.net,https://www.recrubo.net,https://dash.recrubo.net,https://grafana.recrubo.net';
@@ -127,6 +130,18 @@ export default {
     
     // GETリクエストで不正なOriginの場合はCORSヘッダーなしで応答（後方互換性のため）
     const safeHeaders = cors || {};
+
+    // Guild settings routes (uses Worker router to avoid 404)
+    {
+      const routed = await routeGuildSettings(request, env, ctx, url, safeHeaders);
+      if (routed) return routed;
+    }
+
+    // Recruitment-related routes (active recruits, grafana, etc.) from Worker router
+    {
+      const routed = await routeRecruitment(request, env, ctx, url, safeHeaders, undefined);
+      if (routed) return routed;
+    }
 
     // health
     if (url.pathname === '/ping' || url.pathname === '/health') {
