@@ -34,13 +34,33 @@ module.exports = {
     }
 
     try {
-      // Worker AI でゲーム名を正規化
-      const result = await normalizeGameNameWithWorker(gameName, message.author.id, message.guild.id);
-      const normalized = result.normalized;
+      // まず正規化前のゲーム名で検索を試みる
+      let normalized = gameName;
+      let shouldNormalize = false;
 
-      if (!normalized) {
-        await message.reply(`❌ ゲーム名「${gameName}」を認識できませんでした。`);
-        return;
+      // 各ユーザーで元の名前で登録されているか確認
+      for (const match of userMentions) {
+        const userId = match[1];
+        const codes = await getFriendCodesFromWorker(userId, message.guild.id, gameName).catch(() => []);
+        if (codes && codes.length > 0) {
+          // 元の名前で見つかった場合は正規化不要
+          shouldNormalize = false;
+          break;
+        } else {
+          shouldNormalize = true;
+        }
+      }
+
+      let result = null;
+      if (shouldNormalize) {
+        // Worker AI でゲーム名を正規化
+        result = await normalizeGameNameWithWorker(gameName, message.author.id, message.guild.id);
+        normalized = result.normalized;
+
+        if (!normalized) {
+          await message.reply(`❌ ゲーム名「${gameName}」を認識できませんでした。`);
+          return;
+        }
       }
 
     // 各ユーザーのフレンドコードを取得
@@ -75,7 +95,7 @@ module.exports = {
     // 結果を送信
     let replyMessage = `🎮 **${normalized}** のフレンドコード:\n\n${results.join('\n')}`;
 
-    if (result.method === 'ai' && result.confidence < 0.9) {
+    if (result && result.method === 'ai' && result.confidence < 0.9) {
       replyMessage += `\n\n🤖 AI判定: 「${gameName}」→「${normalized}」(信頼度: ${(result.confidence * 100).toFixed(0)}%)`;
     }
 
