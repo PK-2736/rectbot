@@ -94,13 +94,30 @@ wrangler vectorize create game-names --dimensions=768 --metric=cosine
 
 ### 3. ゲーム辞書の生成
 
-```bash
-# ゲーム名を Vectorize にインデックス
-# スクリプトを Wrangler 経由で実行
-wrangler dev scripts/generate-game-embeddings.js
+統合Workerをデプロイ後、管理エンドポイント経由でゲーム辞書を生成します。
 
-# または手動でデプロイ後に cron で実行
+```bash
+# デプロイ後に実行
+curl -X POST https://api.recrubo.net/api/admin/generate-games \
+  -H "Authorization: Bearer YOUR_SERVICE_TOKEN"
+
+# または wrangler で直接実行
+wrangler dev
+# ブラウザで http://localhost:8787/api/admin/generate-games にPOSTリクエスト
 ```
+
+**レスポンス例:**
+```json
+{
+  "ok": true,
+  "indexed": 34,
+  "total": 34,
+  "failed": 0,
+  "failedGames": []
+}
+```
+
+このコマンドで34個以上の人気ゲームとそのエイリアスがVectorizeにインデックスされます。
 
 ### 4. Worker デプロイ
 
@@ -238,9 +255,13 @@ wrangler tail --format pretty
 ### Vectorize が空
 
 ```bash
-# ゲーム辞書を再生成
-cd backend
-node scripts/generate-game-embeddings.js
+# ゲーム辞書を再生成（管理エンドポイント経由）
+curl -X POST https://api.recrubo.net/api/admin/generate-games \
+  -H "Authorization: Bearer YOUR_SERVICE_TOKEN"
+
+# またはローカル開発環境で
+wrangler dev
+# http://localhost:8787/api/admin/generate-games にPOST
 ```
 
 ### D1 データが見つからない

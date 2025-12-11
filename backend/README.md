@@ -32,6 +32,9 @@
 - `DELETE /api/friend-code/delete` - フレンドコード削除
 - `GET /api/game/search` - ゲーム名検索
 
+### 管理機能 (Admin API)
+- `POST /api/admin/generate-games` - ゲーム辞書生成 (要認証)
+
 ### 認証 & 管理
 - `GET /ping` - ヘルスチェック
 - `GET /metrics` - Prometheus メトリクス
@@ -94,6 +97,10 @@ wrangler vectorize create game-names --dimensions=768 --metric=cosine
 ```bash
 # 本番環境へデプロイ
 wrangler deploy
+
+# デプロイ後、ゲーム辞書を生成
+curl -X POST https://api.recrubo.net/api/admin/generate-games \
+  -H "Authorization: Bearer YOUR_SERVICE_TOKEN"
 
 # または GitHub Actions で自動デプロイ
 ```
