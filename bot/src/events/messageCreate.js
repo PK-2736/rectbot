@@ -11,14 +11,20 @@ module.exports = {
 
     // Botがメンションされているかチェック
     const botMention = `<@${client.user.id}>`;
+    console.log(`[messageCreate] Message content: "${message.content}"`);
+    console.log(`[messageCreate] Bot mention: ${botMention}`);
+    console.log(`[messageCreate] Contains bot mention: ${message.content.includes(botMention)}`);
+    
     if (!message.content.includes(botMention)) return;
 
     // メンションを除去してコンテンツを取得
     let content = message.content.replace(botMention, '').trim();
+    console.log(`[messageCreate] Content after removing bot mention: "${content}"`);
 
     // ユーザーメンションを検出
     const userMentionRegex = /<@!?(\d+)>/g;
     const userMentions = [...content.matchAll(userMentionRegex)];
+    console.log(`[messageCreate] User mentions found: ${userMentions.length}`);
 
     if (userMentions.length === 0) {
       // ユーザーメンションがない場合は終了
@@ -27,6 +33,7 @@ module.exports = {
 
     // ユーザーメンションを除去してゲーム名を取得
     const gameName = content.replace(userMentionRegex, '').trim();
+    console.log(`[messageCreate] Game name: "${gameName}"`);
 
     if (!gameName) {
       await message.reply('❌ ゲーム名を指定してください。\n例: `@Bot valorant @ユーザー`');
