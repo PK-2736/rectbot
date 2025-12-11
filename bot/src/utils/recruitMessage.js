@@ -88,7 +88,7 @@ async function updateParticipantList(interactionOrMessage, participants, savedRe
     // 参加リストテキスト（改行なし、残り人数表示）
     const totalSlots = savedRecruitData?.participants || savedRecruitData?.participant_count || 1;
     const remainingSlots = totalSlots - participants.length;
-    let participantText = `**📋 参加リスト** (\`あと${remainingSlots}人\`)\n${participants.map(id => `<@${id}>`).join(' • ')}`;
+    let participantText = `📋 参加リスト (**あと${remainingSlots}人**)\n${participants.map(id => `<@${id}>`).join(' • ')}`;
     
     // 通知ロールを画像の上に表示
     let subHeaderText = null;
@@ -137,7 +137,7 @@ async function updateParticipantList(interactionOrMessage, participants, savedRe
     const recruitIdText = savedRecruitData?.recruitId || (savedRecruitData?.message_id ? savedRecruitData.message_id.slice(-8) : '(unknown)');
     let updatedContainer;
     if (style === 'simple') {
-      const labelsLine = '**🕒 開始時間** | **👥 募集人数** | **🎙 通話有無**';
+      const labelsLine = '🕒 開始時間 | 👥 募集人数 | 🎙 通話有無';
       const startVal = savedRecruitData?.startTime ? String(savedRecruitData.startTime) : null;
       const membersVal = typeof (savedRecruitData?.participants || savedRecruitData?.participant_count) === 'number'
         ? `${(savedRecruitData.participants || savedRecruitData.participant_count)}人`
@@ -153,9 +153,7 @@ async function updateParticipantList(interactionOrMessage, participants, savedRe
       }
       const valuesLine = [startVal, membersVal, voiceVal].filter(Boolean).join(' | ');
       const details = [labelsLine, valuesLine].filter(Boolean).join('\n');
-      const contentText = savedRecruitData?.content
-        ? `**📝 募集内容**\n${String(savedRecruitData.content).slice(0,1500)}`
-        : '';
+        const contentText = '';
       const { buildContainerSimple } = require('./recruitHelpers');
       updatedContainer = buildContainerSimple({
         headerTitle,

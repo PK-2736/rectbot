@@ -89,12 +89,6 @@ function buildContainerSimple({ headerTitle = '募集', detailsText = '', partic
   if (avatarUrl && typeof avatarUrl === 'string') {
     try {
       const thumb = new ThumbnailBuilder({ media: { url: avatarUrl } });
-      // 希望サイズで表示（APIが対応している場合のみ）
-      try {
-        if (typeof thumb.setWidth === 'function') thumb.setWidth(32);
-        if (typeof thumb.setHeight === 'function') thumb.setHeight(32);
-        if (typeof thumb.setSize === 'function') thumb.setSize(32);
-      } catch (_) {}
       headerSection.setThumbnailAccessory(thumb);
     } catch (_) {}
   }

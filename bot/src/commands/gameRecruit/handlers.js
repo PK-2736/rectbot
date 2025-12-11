@@ -204,7 +204,7 @@ async function sendAnnouncements(interaction, selectedNotificationRole, configur
     try {
       const recruitChannel = await interaction.guild.channels.fetch(guildSettings.recruit_channel);
       if (recruitChannel && recruitChannel.isTextBased()) {
-        if (selectedNotificationRole) {
+  if (selectedNotificationRole) {
           if (selectedNotificationRole === 'everyone') {
             (async () => { try { await recruitChannel.send({ content: '新しい募集が作成されました。@everyone', allowedMentions: { parse: ['everyone'] } }); } catch (e) { console.warn('通知送信失敗 (指定ch, @everyone):', e?.message || e); } })();
           } else if (selectedNotificationRole === 'here') {
@@ -215,14 +215,17 @@ async function sendAnnouncements(interaction, selectedNotificationRole, configur
         } else if (shouldUseDefaultNotification) {
           (async () => { try { await recruitChannel.send({ content: '新しい募集が作成されました。<@&1416797165769986161>', allowedMentions: { roles: ['1416797165769986161'] } }); } catch (e) { console.warn('通知送信失敗 (指定ch, default):', e?.message || e); } })();
         }
-
+        
         // 募集メッセージ投稿 (通知ロール情報はcontainer内に含まれる)
-        (async () => {
+        (async () => { 
           try {
-            const sendOptions = { components: [container], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } };
-            if (image) sendOptions.files = [image];
-            await recruitChannel.send(sendOptions);
-          } catch (e) { console.warn('募集メッセージ送信失敗(指定ch):', e?.message || e); }
+            await recruitChannel.send({ 
+              files: [image], 
+              components: [container], 
+              flags: MessageFlags.IsComponentsV2, 
+              allowedMentions: { roles: [], users: [] }
+            }); 
+          } catch (e) { console.warn('募集メッセージ送信失敗(指定ch):', e?.message || e); } 
         })();
       }
     } catch (channelError) { console.error('指定チャンネルへの送信でエラー:', channelError); }
@@ -283,7 +286,7 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
   let updatedContainer;
   if (styleForEdit === 'simple') {
     const { buildContainerSimple } = require('../../utils/recruitHelpers');
-      const labelsLine = '**🕒 開始時間** | **👥 募集人数** | **🎙 通話有無**';
+      const labelsLine = '🕒 開始時間 | 👥 募集人数 | 🎙 通話有無';
       const startVal = finalRecruitData?.startTime ? String(finalRecruitData.startTime) : null;
       const membersVal = typeof finalRecruitData?.participants === 'number' ? `${finalRecruitData.participants}人` : null;
       let voiceVal = null;
@@ -293,7 +296,7 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
       }
       const valuesLine = [startVal, membersVal, voiceVal].filter(Boolean).join(' | ');
       const detailsText = `${labelsLine}\n${valuesLine}`;
-    const contentText = finalRecruitData?.content ? `**📝 募集内容**\n${String(finalRecruitData.content).slice(0,1500)}` : '';
+    const contentText = finalRecruitData?.content ? `📝 募集内容\n${String(finalRecruitData.content).slice(0,1500)}` : '';
       updatedContainer = buildContainerSimple({
         headerTitle: `${user.username}さんの募集`,
         detailsText,
@@ -462,6 +465,36 @@ async function processJoin(interaction, messageId, participants, savedRecruitDat
     } catch (e) {
       console.warn('quick reply failed:', e?.message || e);
     }
+    
+    // 参加通知を募集チャンネルに送信（専用チャンネルリンク付き）
+    if (savedRecruitData && savedRecruitData.recruiterId && savedRecruitData.channelId) {
+      (async () => {
+        try {
+          const { getDedicatedChannel } = require('../../utils/db/dedicatedChannels');
+          const recruitId = savedRecruitData.recruitId || messageId.slice(-8);
+          const dedicatedChannelId = await getDedicatedChannel(recruitId).catch(() => null);
+          
+          const channel = await interaction.client.channels.fetch(savedRecruitData.channelId).catch(() => null);
+          if (channel && channel.isTextBased()) {
+            let notificationContent = `🎉 <@${interaction.user.id}> が参加しました！`;
+            if (dedicatedChannelId) {
+              notificationContent += `\n🔗 専用チャンネル: <#${dedicatedChannelId}>`;
+            }
+            
+            const notificationMsg = await channel.send({
+              content: notificationContent,
+              allowedMentions: { users: [] }
+            });
+            
+            // 5分後に自動削除
+            setTimeout(() => {
+              notificationMsg.delete().catch(() => null);
+            }, 5 * 60 * 1000);
+          }
+        } catch (e) { console.warn('notification message failed:', e?.message || e); }
+      })();
+    }
+    
     if (savedRecruitData && savedRecruitData.recruiterId) {
       (async () => {
         try {
@@ -532,20 +565,8 @@ async function processClose(interaction, messageId, savedRecruitData) {
       await safeReply(interaction, { content: '❌ 募集データが見つからないため締め切れません。', flags: MessageFlags.Ephemeral });
       return;
     }
-    // 募集主または参加者なら〆可能
-    let isAllowed = (data.recruiterId === interaction.user.id);
-    if (!isAllowed) {
-      try {
-        let participants = recruitParticipants.get(messageId) || [];
-        if (!Array.isArray(participants) || participants.length === 0) {
-          const persisted = await getParticipantsFromRedis(messageId).catch(() => []);
-          if (Array.isArray(persisted)) participants = persisted;
-        }
-        isAllowed = Array.isArray(participants) && participants.includes(interaction.user.id);
-      } catch (_) { isAllowed = false; }
-    }
-    if (!isAllowed) {
-      await safeReply(interaction, { content: '❌ この募集の参加者のみが〆できます。', flags: MessageFlags.Ephemeral });
+    if (data.recruiterId !== interaction.user.id) {
+      await safeReply(interaction, { content: '❌ 締め切りを実行できるのは募集主のみです。', flags: MessageFlags.Ephemeral });
       return;
     }
 
@@ -572,6 +593,7 @@ async function processClose(interaction, messageId, savedRecruitData) {
     disabledContainer.addTextDisplayComponents(
       new TextDisplayBuilder().setContent('🎮✨ **募集締め切り済み** ✨🎮')
     );
+    // Title inside component
     if (data?.title) {
       disabledContainer.addTextDisplayComponents(
         new TextDisplayBuilder().setContent(`📌 タイトル\n${String(data.title).slice(0,200)}`)
@@ -609,7 +631,7 @@ async function processClose(interaction, messageId, savedRecruitData) {
       disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent(detailsText));
     }
     // Content (no divider between details and content)
-    const contentText = data?.content ? `**📝 募集内容**\n${String(data.content).slice(0,1500)}` : '';
+    const contentText = data?.content ? `📝 募集内容\n${String(data.content).slice(0,1500)}` : '';
     if (contentText) {
       disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent(contentText));
     }
@@ -618,7 +640,7 @@ async function processClose(interaction, messageId, savedRecruitData) {
     // Final participants list
     const finalParticipants = recruitParticipants.get(messageId) || [];
     const totalSlots = totalMembers || finalParticipants.length;
-    const finalParticipantText = `**📋 参加リスト** (最終 ${finalParticipants.length}/${totalSlots}人)\n${finalParticipants.map(id => `<@${id}>`).join(' • ')}`;
+    const finalParticipantText = `📋 参加リスト (最終 ${finalParticipants.length}/${totalSlots}人)\n${finalParticipants.map(id => `<@${id}>`).join(' • ')}`;
     disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent(finalParticipantText));
     // Closed note
     disabledContainer.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
@@ -643,6 +665,32 @@ async function processClose(interaction, messageId, savedRecruitData) {
       recruitParticipants.delete(messageId);
       try { await deleteParticipantsFromRedis(messageId); } catch (e) { console.warn('Redis参加者削除失敗:', e?.message || e); }
       try { const rid = data?.recruitId || String(messageId).slice(-8); if (rid) { const { deleteRecruitFromRedis } = require('../../utils/db'); await deleteRecruitFromRedis(rid); } } catch (e) { console.warn('Redis recruit削除失敗:', e?.message || e); }
+      
+      // 専用チャンネルを5分後に削除
+      (async () => {
+        try {
+          const { getDedicatedChannel, deleteDedicatedChannel } = require('../../utils/db/dedicatedChannels');
+          const recruitId = data?.recruitId || String(messageId).slice(-8);
+          const dedicatedChannelId = await getDedicatedChannel(recruitId).catch(() => null);
+          
+          if (dedicatedChannelId) {
+            setTimeout(async () => {
+              try {
+                const channel = await interaction.guild.channels.fetch(dedicatedChannelId).catch(() => null);
+                if (channel) {
+                  await channel.delete();
+                  console.log(`[processClose] Deleted dedicated channel ${dedicatedChannelId}`);
+                }
+                await deleteDedicatedChannel(recruitId);
+              } catch (e) {
+                console.warn(`[processClose] Failed to delete channel ${dedicatedChannelId}:`, e?.message || e);
+              }
+            }, 5 * 60 * 1000); // 5分後
+          }
+        } catch (e) {
+          console.warn('[processClose] Error managing dedicated channel:', e?.message || e);
+        }
+      })();
     } else {
       await safeReply(interaction, { content: '🔒 募集を締め切りました。', flags: MessageFlags.Ephemeral, allowedMentions: { roles: [], users: [] } });
     }
@@ -776,7 +824,7 @@ async function handleModalSubmit(interaction) {
     
     // 参加リストテキストの構築（既存参加者を含む、改行なし、残り人数表示）
     const remainingSlots = participantsNum - currentParticipants.length;
-    let participantText = `**📋 参加リスト** (\`あと${remainingSlots}人\`)\n`;
+    let participantText = `📋 参加リスト (**あと${remainingSlots}人**)\n`;
     participantText += currentParticipants.map(id => `<@${id}>`).join(' • ');
     
     // 通知ロールをヘッダーの下（subHeaderText）に表示
@@ -804,16 +852,16 @@ async function handleModalSubmit(interaction) {
         ? (recruitDataObj?.voicePlace ? `🎙 あり(${recruitDataObj.voicePlace})` : '🎙 あり')
         : (recruitDataObj?.vc === 'なし' ? '🎙 なし' : null);
       const valuesLine = [startLabel, membersLabel, voiceLabel].filter(Boolean).join(' | ');
-      const labelsLine = '**🕒 開始時間** | **👥 募集人数** | **🎙 通話有無**';
+      const labelsLine = '🕒 開始時間 | 👥 募集人数 | 🎙 通話有無';
       const detailsText = [labelsLine, valuesLine].filter(Boolean).join('\n');
-      const contentText = recruitDataObj?.content ? `**📝 募集内容**\n${String(recruitDataObj.content).slice(0,1500)}` : '';
+      const contentText = recruitDataObj?.content ? `📝 募集内容\n${String(recruitDataObj.content).slice(0,1500)}` : '';
       const titleText = recruitDataObj?.title ? `## ${String(recruitDataObj.title).slice(0,200)}` : '';
       // 募集主のアバターURL（右上サムネイル用）: client経由でfetch
       let avatarUrl = null;
       try {
         const fetchedUser = await interaction.client.users.fetch(interaction.user.id).catch(() => null);
         if (fetchedUser && typeof fetchedUser.displayAvatarURL === 'function') {
-          avatarUrl = fetchedUser.displayAvatarURL({ size: 32, extension: 'png' });
+          avatarUrl = fetchedUser.displayAvatarURL({ size: 128, extension: 'png' });
         }
       } catch (_) {}
       container = buildContainerSimple({
@@ -848,6 +896,25 @@ async function handleModalSubmit(interaction) {
     }
   const followUpMessage = await sendAnnouncements(interaction, selectedNotificationRole, configuredNotificationRoleIds, image, container, guildSettings, user);
     try { await safeReply(interaction, { content: '募集を作成しました。', flags: MessageFlags.Ephemeral }); } catch (e) { console.warn('safeReply failed (non-fatal):', e?.message || e); }
+    
+    // 「今から開始」の場合、メッセージにボタンを追加
+    if (recruitDataObj?.startTime && recruitDataObj.startTime === '今から') {
+      try {
+        const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+        const createVCButton = new ButtonBuilder()
+          .setCustomId(`create_vc_${followUpMessage.id.slice(-8)}`)
+          .setLabel('専用チャンネル作成')
+          .setEmoji('📢')
+          .setStyle(ButtonStyle.Primary);
+        
+        const actionRow = new ActionRowBuilder().addComponents(createVCButton);
+        
+        await followUpMessage.edit({ components: [container, actionRow] }).catch(() => null);
+      } catch (e) {
+        console.warn('[handleModalSubmit] Failed to add button for immediate start:', e?.message || e);
+      }
+    }
+    
     // 送信後の保存とUI更新
     try {
       await finalizePersistAndEdit({ interaction, recruitDataObj, guildSettings, user, participantText, subHeaderText, followUpMessage, currentParticipants });
@@ -863,9 +930,110 @@ async function handleModalSubmit(interaction) {
   }
 }
 
-async function handleButton(interaction) {
+async function processCreateDedicatedChannel(interaction, recruitId) {
+  try {
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    
+    const { saveDedicatedChannel, getDedicatedChannel } = require('../../utils/db/dedicatedChannels');
+    
+    // 既に専用チャンネルが作成されているか確認
+    const existingChannelId = await getDedicatedChannel(recruitId).catch(() => null);
+    if (existingChannelId) {
+      const existingChannel = await interaction.guild.channels.fetch(existingChannelId).catch(() => null);
+      if (existingChannel) {
+        await safeReply(interaction, { 
+          content: `✨ 専用チャンネルは既に作成されています: <#${existingChannelId}>`,
+          flags: MessageFlags.Ephemeral,
+          allowedMentions: { roles: [], users: [] }
+        });
+        return;
+      }
+    }
+    
+    // 募集データを取得して参加者リストを確認
+    const messageId = interaction.message.id;
+    let participants = [];
+    try {
+      const persisted = await getParticipantsFromRedis(messageId);
+      if (Array.isArray(persisted)) participants = persisted;
+    } catch (e) {
+      console.warn('Failed to get participants:', e?.message || e);
+    }
+    
+    if (participants.length === 0) {
+      await safeReply(interaction, { 
+        content: '❌ 参加者がいないため、チャンネルを作成できません。',
+        flags: MessageFlags.Ephemeral,
+        allowedMentions: { roles: [], users: [] }
+      });
+      return;
+    }
+    
+    // 専用チャンネルを作成（参加者のみが見える）
+    const recruit = await getRecruitFromRedis(recruitId).catch(() => null);
+    const channelName = recruit?.title ? `${recruit.title}`.slice(0, 100) : `recruit-${recruitId}`;
+    
+    const permissionOverwrites = [
+      {
+        id: interaction.guild.id,
+        deny: ['ViewChannel']
+      },
+      ...participants.map(userId => ({
+        id: userId,
+        allow: ['ViewChannel']
+      }))
+    ];
+    
+    const dedicatedChannel = await interaction.guild.channels.create({
+      name: channelName,
+      type: 0, // Text Channel
+      permissionOverwrites,
+      topic: `🎮 ${recruit?.title || '募集'} の専用チャンネル`,
+    });
+    
+    // Redis に保存（86400秒 = 24時間のTTL）
+    await saveDedicatedChannel(recruitId, dedicatedChannel.id, 86400);
+    
+    // ウェルカムメッセージを送信
+    const welcomeEmbed = new EmbedBuilder()
+      .setTitle('🎮 専用チャンネルへようこそ')
+      .setDescription(`**${recruit?.title || '募集'}** の専用チャンネルです。`)
+      .setColor('#5865F2')
+      .addFields(
+        { name: '参加者', value: participants.map(id => `<@${id}>`).join(', ') || 'なし', inline: false }
+      )
+      .setFooter({ text: 'Recrubo' })
+      .setTimestamp();
+    
+    await dedicatedChannel.send({ embeds: [welcomeEmbed] });
+    
+    await safeReply(interaction, { 
+      content: `✨ 専用チャンネルを作成しました: <#${dedicatedChannel.id}>`,
+      flags: MessageFlags.Ephemeral,
+      allowedMentions: { roles: [], users: [] }
+    });
+    
+    console.log(`[dedicatedChannel] Created channel ${dedicatedChannel.id} for recruit ${recruitId}`);
+  } catch (error) {
+    console.error('[processCreateDedicatedChannel] Error:', error);
+    await safeReply(interaction, {
+      content: '❌ チャンネル作成に失敗しました。',
+      flags: MessageFlags.Ephemeral,
+      allowedMentions: { roles: [], users: [] }
+    }).catch(() => null);
+  }
+}
+
+
   const messageId = interaction.message.id;
   console.log('=== ボタンクリック処理開始 ===', messageId, interaction.customId);
+
+  // 専用チャンネル作成ボタン
+  if (interaction.customId.startsWith('create_vc_')) {
+    const recruitId = interaction.customId.replace('create_vc_', '');
+    await processCreateDedicatedChannel(interaction, recruitId);
+    return;
+  }
 
   // hydrate participants if needed
   let participants = await hydrateParticipants(interaction, messageId);

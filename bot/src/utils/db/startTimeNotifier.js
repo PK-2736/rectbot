@@ -1,5 +1,6 @@
 const { getActiveRecruits } = require('./statusApi');
 const { getParticipantsFromRedis } = require('./participants');
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 
 /**
  * 募集開始時間をチェックして通知を送信
@@ -143,32 +144,35 @@ async function sendStartTimeNotification(client, recruit) {
     // 元のメッセージへのリンク
     const messageLink = `https://discord.com/channels/${guildId}/${channelId}/${messageId}`;
 
-    // 通知メッセージを構築
-    const notificationLines = [
-      '⏰ **開始時刻になりました！**',
-      `**${title}** の募集開始時刻です。`,
-      '',
-      '**参加者**',
-      participantMentions,
-      '',
-      '🔊 ボイスチャット',
-      voiceInfo,
-      '',
-      dateStr,
-      '',
-    ];
+    // Embed で通知メッセージを構築（コンパクト）
+    const embed = new EmbedBuilder()
+      .setTitle('⏰ 開始時刻になりました！')
+      .setDescription(`**${title}**`)
+      .setColor('#FF6B6B')
+      .addFields(
+        { name: '🎮 参加者', value: participantIds.length > 0 ? participantIds.slice(0, 5).map(id => `<@${id}>`).join(' ') + (participantIds.length > 5 ? ` +${participantIds.length - 5}名` : '') : 'なし', inline: false },
+        { name: '🔊 ボイス', value: voiceInfo, inline: true },
+        { name: '⏱ 開始時刻', value: startTime, inline: true }
+      )
+      .setFooter({ text: 'Recrubo' })
+      .setTimestamp();
 
-    if (voiceLink) {
-      notificationLines.push(voiceLink);
-      notificationLines.push('');
-    }
+    // ボイスリンクがある場合は追加
+    let content = voiceLink ? voiceLink : null;
 
-    notificationLines.push(`📋 募集の詳細: ${messageLink}`);
-
-    const notificationContent = notificationLines.join('\n');
+    // ボタンを追加：「専用チャンネル作成」
+    const button = new ButtonBuilder()
+      .setCustomId(`create_vc_${recruitId}`)
+      .setLabel('専用チャンネル作成')
+      .setEmoji('📢')
+      .setStyle(ButtonStyle.Primary);
+    
+    const actionRow = new ActionRowBuilder().addComponents(button);
 
     await channel.send({
-      content: notificationContent,
+      content: content,
+      embeds: [embed],
+      components: [actionRow],
       allowedMentions: { users: participantIds }
     });
     
