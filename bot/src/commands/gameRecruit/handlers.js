@@ -1025,6 +1025,7 @@ async function processCreateDedicatedChannel(interaction, recruitId) {
 }
 
 
+async function handleButton(interaction) {
   const messageId = interaction.message.id;
   console.log('=== ボタンクリック処理開始 ===', messageId, interaction.customId);
 
