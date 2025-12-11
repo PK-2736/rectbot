@@ -106,20 +106,22 @@ export default {
     const url = new URL(request.url);
     const origin = request.headers.get('Origin') || '';
     const cors = corsHeadersFor(origin, env);
+    const noOrigin = !origin; // Server-to-server requests (bot/backend) send no Origin
 
     // セキュリティ: 不正なOriginからのOPTIONSリクエストは拒否
     if (request.method === 'OPTIONS') {
-      if (!cors) {
+      // Allow OPTIONS when Origin is absent (non-browser) or explicitly allowed
+      if (!cors && !noOrigin) {
         return new Response('Forbidden', { status: 403 });
       }
-      return new Response(null, { status: 204, headers: cors });
+      return new Response(null, { status: 204, headers: cors || {} });
     }
     
     // Friend Code API: Discord Botからのリクエストを許可（Originヘッダーなし）
     const isFriendCodeAPI = url.pathname.startsWith('/api/game/') || url.pathname.startsWith('/api/friend-code/');
     
     // セキュリティ: 不正なOriginからの通常リクエストも拒否（GETとFriend Code APIは除く）
-    if (!cors && request.method !== 'GET' && !isFriendCodeAPI) {
+    if (!cors && !noOrigin && request.method !== 'GET' && !isFriendCodeAPI) {
       return new Response('Forbidden', { status: 403 });
     }
     
