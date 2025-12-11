@@ -70,8 +70,10 @@ module.exports = {
       const user = message.author;
 
       // タイトルを作成: 正規化後の名前 (登録時の名前)
-      let titleGameName = `🎮 ${normalized}`;
-      if (friendCode.original_game_name && friendCode.original_game_name !== normalized) {
+      // データベースのgame_nameが正規化後の名前
+      const normalizedGameName = friendCode.game_name;
+      let titleGameName = `🎮 ${normalizedGameName}`;
+      if (friendCode.original_game_name && friendCode.original_game_name !== normalizedGameName) {
         titleGameName += ` (${friendCode.original_game_name})`;
       }
 
