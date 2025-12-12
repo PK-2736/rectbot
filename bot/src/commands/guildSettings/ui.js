@@ -253,7 +253,7 @@ async function showSettingsCategoryUI(interaction, category, settings = {}, isAd
   }
 
   container.addSeparatorComponents(
-    new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Medium).setDivider(true)
+    new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
   );
 
   // ボタンを配置
@@ -287,7 +287,7 @@ async function showSettingsCategoryUI(interaction, category, settings = {}, isAd
   }
 
   container.addSeparatorComponents(
-    new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Medium).setDivider(true)
+    new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
   );
 
   container.addTextDisplayComponents(
