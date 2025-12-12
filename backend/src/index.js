@@ -11,6 +11,7 @@ import { handleDeleteFriendCode } from './routes/friend-code/deleteFriendCode';
 import { handleSearchGameNames } from './routes/friend-code/searchGameNames';
 import { validateFriendCode } from './routes/friend-code/validateFriendCode';
 import { generateGameEmbeddings } from './utils/gameEmbeddings';
+import { resolveSupabaseRestUrl, buildSupabaseHeaders } from './worker/supabase.js';
 
 function parseOrigins(env) {
   const raw = env.CORS_ORIGINS || 'https://recrubo.net,https://www.recrubo.net,https://dash.recrubo.net,https://grafana.recrubo.net';
@@ -118,8 +119,13 @@ export default {
     // Friend Code API: Discord Botからのリクエストを許可（Originヘッダーなし）
     const isFriendCodeAPI = url.pathname.startsWith('/api/game/') || url.pathname.startsWith('/api/friend-code/');
     
-    // セキュリティ: 不正なOriginからの通常リクエストも拒否（GETとFriend Code APIは除く）
-    if (!cors && request.method !== 'GET' && !isFriendCodeAPI) {
+    // Bot API: Discord Botからの管理系リクエストを許可（Originヘッダーなし、SERVICE_TOKEN認証必須）
+    const isBotAPI = url.pathname.startsWith('/api/guild-settings/') || 
+                     url.pathname.startsWith('/api/recruitments') || 
+                     url.pathname.startsWith('/api/recruitment');
+    
+    // セキュリティ: 不正なOriginからの通常リクエストも拒否（GETとFriend Code API、Bot APIは除く）
+    if (!cors && request.method !== 'GET' && !isFriendCodeAPI && !isBotAPI) {
       return new Response('Forbidden', { status: 403 });
     }
     
@@ -154,6 +160,102 @@ export default {
 
     if (url.pathname === '/api/friend-code/validate' && request.method === 'POST') {
       return await validateFriendCode(request, env, safeHeaders);
+    }
+
+    // Guild Settings API: Finalize guild settings (requires auth)
+    if (url.pathname === '/api/guild-settings/finalize' && request.method === 'POST') {
+      if (!await verifyServiceToken(request, env)) {
+        return jsonResponse({ ok: false, error: 'unauthorized' }, 401, safeHeaders);
+      }
+      
+      try {
+        const body = await request.json();
+        const { guildId, notification_roles, notification_role, recruit_channel, update_channel, defaultColor, defaultTitle, recruit_style } = body;
+        
+        if (!guildId) {
+          return jsonResponse({ ok: false, error: 'guildId is required' }, 400, safeHeaders);
+        }
+        
+        // Supabaseに保存
+        const supabaseUrl = resolveSupabaseRestUrl(env);
+        if (!supabaseUrl) {
+          return jsonResponse({ ok: false, error: 'Supabase URL is not configured' }, 500, safeHeaders);
+        }
+        
+        const payload = {
+          guild_id: guildId,
+          notification_roles: notification_roles || [],
+          notification_role: notification_role || null,
+          recruit_channel: recruit_channel || null,
+          update_channel: update_channel || null,
+          default_color: defaultColor || null,
+          default_title: defaultTitle || null,
+          recruit_style: recruit_style || 'image',
+          updated_at: new Date().toISOString()
+        };
+        
+        const response = await fetch(`${supabaseUrl}/rest/v1/guild_settings`, {
+          method: 'POST',
+          headers: {
+            ...buildSupabaseHeaders(env),
+            'Prefer': 'resolution=merge-duplicates'
+          },
+          body: JSON.stringify(payload)
+        });
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('[Guild Settings Finalize] Supabase error:', errorText);
+          return jsonResponse({ ok: false, error: 'Failed to save to Supabase' }, 500, safeHeaders);
+        }
+        
+        return jsonResponse({ ok: true }, 200, safeHeaders);
+      } catch (error) {
+        console.error('[Guild Settings Finalize] Error:', error);
+        return jsonResponse({ ok: false, error: error.message }, 500, safeHeaders);
+      }
+    }
+
+    // Guild Settings API: Get guild settings
+    if (url.pathname.match(/^\/api\/guild-settings\/[^/]+$/) && request.method === 'GET') {
+      const guildId = url.pathname.split('/').pop();
+      
+      try {
+        const supabaseUrl = resolveSupabaseRestUrl(env);
+        if (!supabaseUrl) {
+          return jsonResponse({ ok: false, error: 'Supabase URL is not configured' }, 500, safeHeaders);
+        }
+        
+        const response = await fetch(`${supabaseUrl}/rest/v1/guild_settings?guild_id=eq.${guildId}&select=*`, {
+          method: 'GET',
+          headers: buildSupabaseHeaders(env)
+        });
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('[Guild Settings Get] Supabase error:', errorText);
+          return jsonResponse({ ok: false, error: 'Failed to get from Supabase' }, 500, safeHeaders);
+        }
+        
+        const data = await response.json();
+        if (data.length === 0) {
+          return jsonResponse({}, 200, safeHeaders);
+        }
+        
+        const settings = data[0];
+        return jsonResponse({
+          notification_roles: settings.notification_roles || [],
+          notification_role: settings.notification_role || null,
+          recruit_channel: settings.recruit_channel || null,
+          update_channel: settings.update_channel || null,
+          defaultColor: settings.default_color || null,
+          defaultTitle: settings.default_title || null,
+          recruit_style: settings.recruit_style || 'image'
+        }, 200, safeHeaders);
+      } catch (error) {
+        console.error('[Guild Settings Get] Error:', error);
+        return jsonResponse({ ok: false, error: error.message }, 500, safeHeaders);
+      }
     }
 
     // Admin endpoint: Generate game embeddings (requires auth)
