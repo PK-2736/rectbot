@@ -11,6 +11,26 @@ const {
 const { getGuildSettingsFromRedis } = require('../../utils/db');
 const { safeRespond } = require('../../utils/interactionHandler');
 
+function addSafeSection(container, builder, fallbackText) {
+  try {
+    try {
+      if (Object.prototype.hasOwnProperty.call(builder, 'accessory') && builder.accessory === undefined) {
+        delete builder.accessory;
+      }
+      if (Object.prototype.hasOwnProperty.call(builder, 'thumbnail') && builder.thumbnail === undefined) {
+        delete builder.thumbnail;
+      }
+    } catch (sanitizeErr) {
+      // ignore sanitize errors
+    }
+    builder.toJSON();
+    container.addSectionComponents(builder);
+  } catch (sectionErr) {
+    console.warn('[guildSettings] Section validation failed; using fallback text-only section', { fallbackText, err: sectionErr?.message || sectionErr });
+    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(fallbackText));
+  }
+}
+
 async function showSettingsUI(interaction, settings = {}, isAdmin = false) {
   const container = new ContainerBuilder();
   container.setAccentColor(0x5865F2);
