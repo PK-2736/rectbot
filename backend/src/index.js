@@ -437,37 +437,24 @@ export default {
       }
     }
 
+    // Debug logging for recruitment endpoints
+    if (url.pathname.includes('recruitment')) {
+      console.log(`[DEBUG] ${request.method} ${url.pathname} (original: ${new URL(request.url).pathname})`);
+    }
+
     // Backwards compatibility: normalize /api/recruitment -> /api/recruitments
     // 正規化: 単数形を複数形に統一
     if (url.pathname === '/api/recruitment' || url.pathname === '/api/recruitment/') {
+      console.log('[DEBUG] Normalizing singular to plural:', url.pathname, '-> /api/recruitments');
       url.pathname = '/api/recruitments';
     } else if (url.pathname.startsWith('/api/recruitment/')) {
       const pathParts = url.pathname.split('/').filter(Boolean); // ['api', 'recruitment', ...]
       if (pathParts.length >= 3) {
         // /api/recruitment/:id/... -> /api/recruitments/:id/...
+        const oldPath = url.pathname;
         pathParts[1] = 'recruitments'; // 'recruitment' -> 'recruitments'
         url.pathname = '/' + pathParts.join('/');
-      }
-    }
-
-    // Legacy direct handling: accept POST /api/recruitment as create
-    if (url.pathname === '/api/recruitment' && request.method === 'POST') {
-      // Mirror /api/recruitments POST behavior
-      if (!await verifyServiceToken(request, env)) {
-        return jsonResponse({ ok: false, error: 'unauthorized' }, 401, safeHeaders);
-      }
-      try {
-        const body = await request.json();
-        if (store.forwardToDO) {
-          const res = await store.forwardToDO('/create', 'POST', body, { authorization: request.headers.get('authorization') || ''});
-          const text = await res.text();
-          return new Response(text, { status: res.status, headers: { ...cors, 'content-type': 'application/json; charset=utf-8' }});
-        } else {
-          const item = await store.create(body);
-          return jsonResponse({ ok: true, recruit: item }, 201, safeHeaders);
-        }
-      } catch (e) {
-        return jsonResponse({ ok: false, error: e.message || 'server_error' }, 500, safeHeaders);
+        console.log('[DEBUG] Normalizing singular ID path:', oldPath, '->', url.pathname);
       }
     }
 
@@ -516,9 +503,12 @@ export default {
 
     // POST /api/recruitments (create) - requires Service Token
     if (url.pathname === '/api/recruitments' && request.method === 'POST') {
+      console.log('[DEBUG] Matched POST /api/recruitments handler');
       if (!await verifyServiceToken(request, env)) {
+        console.log('[DEBUG] Token verification failed');
         return jsonResponse({ ok: false, error: 'unauthorized' }, 401, safeHeaders);
       }
+      console.log('[DEBUG] Token verified, proceeding with creation');
       try {
         const body = await request.json();
         if (store.forwardToDO) {
