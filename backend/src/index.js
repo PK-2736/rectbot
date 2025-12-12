@@ -231,7 +231,7 @@ export default {
         // Remove undefined keys to avoid accidental column creation attempts
         const supabaseBody = Object.fromEntries(Object.entries(payload).filter(([, v]) => v !== undefined));
 
-        const response = await fetch(`${supabaseUrl}/rest/v1/guild_settings`, {
+        const response = await fetch(`${supabaseUrl}/rest/v1/guild_settings?on_conflict=guild_id`, {
           method: 'POST',
           headers: {
             ...buildSupabaseHeaders(env),
