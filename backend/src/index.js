@@ -527,6 +527,27 @@ export default {
       }
     }
 
+    // PATCH /api/recruitments/:id (update)
+    if (url.pathname.match(/^\/api\/recruitments\/[^/]+$/) && request.method === 'PATCH') {
+      if (!await verifyServiceToken(request, env)) {
+        return jsonResponse({ ok: false, error: 'unauthorized' }, 401, safeHeaders);
+      }
+      const id = url.pathname.split('/')[2];
+      try {
+        const update = await request.json();
+        if (store.forwardToDO) {
+          const res = await store.forwardToDO(`/api/recruits/${id}`, 'PATCH', update, { authorization: request.headers.get('authorization') || '' });
+          const text = await res.text();
+          return new Response(text, { status: res.status, headers: { ...cors, 'content-type': 'application/json; charset=utf-8' }});
+        } else {
+          // No local update implementation; return not_found for now
+          return jsonResponse({ ok: false, error: 'not_found' }, 404, safeHeaders);
+        }
+      } catch (e) {
+        return jsonResponse({ ok: false, error: e.message || 'server_error' }, 500, safeHeaders);
+      }
+    }
+
     // GET /api/recruitments/:id
     if (url.pathname.startsWith('/api/recruitments/') && request.method === 'GET') {
       const id = url.pathname.split('/')[2];
