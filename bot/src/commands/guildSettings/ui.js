@@ -17,78 +17,19 @@ async function showSettingsUI(interaction, settings = {}, isAdmin = false) {
 
   console.log('[guildSettings:showSettingsUI] isAdmin:', !!isAdmin);
   container.addTextDisplayComponents(
-    new TextDisplayBuilder().setContent(`⚙️✨ **ギルド募集設定${isAdmin ? '' : ' (閲覧モード)'}** ✨⚙️`)
-  );
-
-  container.addSeparatorComponents(
-    new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+    new TextDisplayBuilder().setContent(`⚙️ **ギルド募集設定**${isAdmin ? '' : ' (閲覧モード)'}`)
   );
 
   const recruitChannels = Array.isArray(settings.recruit_channels)
     ? settings.recruit_channels.filter(Boolean).map(String)
     : [];
   const recruitChannelValue = (() => {
-    if (recruitChannels.length > 0) return recruitChannels.map(id => `<#${id}>`).join('\n');
+    if (recruitChannels.length > 0) return recruitChannels.slice(0, 2).map(id => `<#${id}>`).join(', ') + (recruitChannels.length > 2 ? ` +${recruitChannels.length - 2}` : '');
     if (settings.recruit_channel || settings.recruitmentChannelId) return `<#${settings.recruit_channel || settings.recruitmentChannelId}>`;
     return '未設定';
   })();
 
-  function addSafeSection(container, builder, fallbackText) {
-    // NOTE: discord.js SectionBuilder's accessory union validator will throw when
-    // the accessory field is present but undefined. To avoid this library validation
-    // error (CombinedError), we only build SectionBuilder sections for admin users
-    // (which set a valid accessory). For non-admins we use simple TextDisplayBuilder
-    // components. addSafeSection is a final safety net to fallback to text-only if
-    // a SectionBuilder unexpectedly fails validation.
-    try {
-      // Sanitize undefined accessory/thumbnail fields that cause validation to throw
-      try {
-        if (Object.prototype.hasOwnProperty.call(builder, 'accessory') && builder.accessory === undefined) {
-          delete builder.accessory;
-        }
-        if (Object.prototype.hasOwnProperty.call(builder, 'thumbnail') && builder.thumbnail === undefined) {
-          delete builder.thumbnail;
-        }
-      } catch (sanitizeErr) {
-        // ignore sanitize errors, continue to validation
-      }
-      // Validate section builder
-      // eslint-disable-next-line no-unused-expressions
-      builder.toJSON();
-      container.addSectionComponents(builder);
-    } catch (sectionErr) {
-      try {
-        console.warn('[guildSettings] Section validation failed; using fallback text-only section', { fallbackText, err: sectionErr?.message || sectionErr, stack: sectionErr?.stack });
-        // Attempt to log detailed toJSON if available
-        try {
-          const partial = JSON.stringify(builder, Object.getOwnPropertyNames(builder));
-          console.warn('[guildSettings] Section builder properties:', partial);
-        } catch (e) { /* ignore stringification errors */ }
-      } catch (logErr) {
-        console.warn('[guildSettings] Section validation and logging failed:', logErr?.message || logErr);
-      }
-  // Fallback to a simple text-only display to avoid SectionBuilder accessory validation issues
-  container.addTextDisplayComponents(new TextDisplayBuilder().setContent(fallbackText));
-    }
-  }
-
-  // Section with optional inline accessory (Button) for horizontal layout (admin only)
-  if (isAdmin) {
-    const section1 = new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(`📍 **募集チャンネル (複数指定可)**\n${recruitChannelValue}`));
-    const btn = new ButtonBuilder().setCustomId('set_recruit_channels').setLabel('設定変更').setStyle(ButtonStyle.Primary);
-    try {
-      section1.setButtonAccessory(btn);
-    } catch (e) {
-      console.warn('[guildSettings] Section accessory set failed, falling back to action row for recruit channel:', e?.message || e);
-      container.addActionRowComponents(new ActionRowBuilder().addComponents(btn));
-    }
-    try { console.log('[guildSettings] section1.toJSON:', section1.toJSON()); } catch (e) { console.error('[guildSettings] section1.toJSON threw:', e); }
-    addSafeSection(container, section1, '募集チャンネル: ' + recruitChannelValue);
-  } else {
-    // Non-admins get a text-only display; avoid SectionBuilder accessory validation
-    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`📍 **募集チャンネル (複数指定可)**\n${recruitChannelValue}`));
-  }
-
+  // 通知ロール集計
   const notificationRoles = (() => {
     const roles = [];
     if (Array.isArray(settings.notification_roles)) roles.push(...settings.notification_roles.filter(Boolean));
@@ -97,143 +38,141 @@ async function showSettingsUI(interaction, settings = {}, isAdmin = false) {
     return [...new Set(roles.map(String))];
   })();
 
-  // everyone/here と実際のロールを分離
   const specialMentions = notificationRoles.filter(r => r === 'everyone' || r === 'here');
   const actualRoles = notificationRoles.filter(r => r !== 'everyone' && r !== 'here');
+  const notificationRoleValue = (() => {
+    const lines = [];
+    if (specialMentions.includes('everyone')) lines.push('@everyone');
+    if (specialMentions.includes('here')) lines.push('@here');
+    lines.push(...actualRoles.slice(0, 2).map(roleId => `<@&${roleId}>`));
+    if (actualRoles.length > 2) lines.push(`+${actualRoles.length - 2}`);
+    return lines.length > 0 ? lines.join(', ') : '未設定';
+  })();
 
-  const notificationRoleLines = [];
-  if (specialMentions.includes('everyone')) notificationRoleLines.push('@everyone');
-  if (specialMentions.includes('here')) notificationRoleLines.push('@here');
-  if (actualRoles.length > 0) {
-    notificationRoleLines.push(...actualRoles.map(roleId => `<@&${roleId}>`));
-  }
-  const notificationRoleValue = notificationRoleLines.length > 0
-    ? notificationRoleLines.join('\n')
-    : '未設定';
-
-  if (isAdmin) {
-    const section2 = new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(`🔔 **通知ロール**\n${notificationRoleValue}`));
-    const btn = new ButtonBuilder().setCustomId('set_notification_role').setLabel('設定変更').setStyle(ButtonStyle.Primary);
-    try {
-      section2.setButtonAccessory(btn);
-    } catch (e) {
-      console.warn('[guildSettings] Section accessory set failed, falling back to action row for notification role:', e?.message || e);
-      container.addActionRowComponents(new ActionRowBuilder().addComponents(btn));
-    }
-    try { console.log('[guildSettings] section2.toJSON:', section2.toJSON()); } catch (e) { console.error('[guildSettings] section2.toJSON threw:', e); }
-    addSafeSection(container, section2, '通知ロール: ' + notificationRoleValue);
-  } else {
-    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`🔔 **通知ロール**\n${notificationRoleValue}`));
-  }
-
-  const defaultTitleValue = settings.defaultTitle || settings.defaultRecruitTitle || '未設定';
-  if (isAdmin) {
-    const section3 = new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(`📝 **既定タイトル**\n${defaultTitleValue}`));
-    const btn = new ButtonBuilder().setCustomId('set_default_title').setLabel('設定変更').setStyle(ButtonStyle.Primary);
-    try {
-      section3.setButtonAccessory(btn);
-    } catch (e) {
-      console.warn('[guildSettings] Section accessory set failed, falling back to action row for default title:', e?.message || e);
-      container.addActionRowComponents(new ActionRowBuilder().addComponents(btn));
-    }
-    try { console.log('[guildSettings] section3.toJSON:', section3.toJSON()); } catch (e) { console.error('[guildSettings] section3.toJSON threw:', e); }
-    addSafeSection(container, section3, '既定タイトル: ' + defaultTitleValue);
-  } else {
-    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`📝 **既定タイトル**\n${defaultTitleValue}`));
-  }
-
-  const defaultColorValue = settings.defaultColor || settings.defaultRecruitColor || '未設定';
-  if (isAdmin) {
-    const section4 = new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(`🎨 **既定カラー**\n${defaultColorValue}`));
-    const btn = new ButtonBuilder().setCustomId('set_default_color').setLabel('設定変更').setStyle(ButtonStyle.Primary);
-    try {
-      section4.setButtonAccessory(btn);
-    } catch (e) {
-      console.warn('[guildSettings] Section accessory set failed, falling back to action row for default color:', e?.message || e);
-      container.addActionRowComponents(new ActionRowBuilder().addComponents(btn));
-    }
-    try { console.log('[guildSettings] section4.toJSON:', section4.toJSON()); } catch (e) { console.error('[guildSettings] section4.toJSON threw:', e); }
-    addSafeSection(container, section4, '既定カラー: ' + defaultColorValue);
-  } else {
-    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`🎨 **既定カラー**\n${defaultColorValue}`));
-  }
-
-  // 📢 アップデート通知チャンネル（復元）
-  const updateChannelValue = settings.update_channel || settings.updateNotificationChannelId 
+  const updateChannelValue = (settings.update_channel || settings.updateNotificationChannelId) 
     ? `<#${settings.update_channel || settings.updateNotificationChannelId}>` 
     : '未設定';
 
+  const defaultTitleValue = settings.defaultTitle || settings.defaultRecruitTitle || '参加者募集';
+  const defaultColorValue = settings.defaultColor || settings.defaultRecruitColor || '未設定';
+  const styleValue = (settings?.recruit_style === 'simple') ? 'シンプル' : '画像パネル';
+  const dedicatedStatus = !!settings.enable_dedicated_channel ? '✅ オン' : '⭕ オフ';
+
+  container.addSeparatorComponents(
+    new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+  );
+
+  // ===== 📍 チャンネル設定 =====
+  container.addTextDisplayComponents(
+    new TextDisplayBuilder().setContent('📍 **チャンネル設定**')
+  );
+  
+  const channelInfo = `募集: ${recruitChannelValue}\n通知: ${updateChannelValue}`;
   if (isAdmin) {
-    const section5 = new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(`📢 **アップデート通知チャンネル**\n${updateChannelValue}`));
-    const btn = new ButtonBuilder().setCustomId('set_update_channel').setLabel('設定変更').setStyle(ButtonStyle.Primary);
+    const channelSection = new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(channelInfo));
+    const btn = new ButtonBuilder().setCustomId('set_recruit_channels').setLabel('募集').setStyle(ButtonStyle.Primary);
     try {
-      section5.setButtonAccessory(btn);
-    } catch (e) {
-      console.warn('[guildSettings] Section accessory set failed, falling back to action row for update channel:', e?.message || e);
+      channelSection.setButtonAccessory(btn);
+    } catch (_) {
       container.addActionRowComponents(new ActionRowBuilder().addComponents(btn));
     }
-    addSafeSection(container, section5, 'アップデート通知チャンネル: ' + updateChannelValue);
+    addSafeSection(container, channelSection, channelInfo);
+    container.addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('set_update_channel').setLabel('通知').setStyle(ButtonStyle.Secondary),
+        dedicatedStatus.includes('オン') ? new ButtonBuilder().setCustomId('set_dedicated_category').setLabel('カテゴリ').setStyle(ButtonStyle.Secondary) : new ButtonBuilder().setLabel('非表示').setStyle(ButtonStyle.Secondary).setDisabled(true)
+      )
+    );
   } else {
-    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`📢 **アップデート通知チャンネル**\n${updateChannelValue}`));
+    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(channelInfo));
   }
 
-  // 募集スタイル（画像/シンプル）
-  const styleValue = (settings?.recruit_style === 'simple') ? 'シンプル' : '画像パネル';
-  if (isAdmin) {
-    const sectionStyle = new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(`🖼️ **募集スタイル**\n${styleValue}`));
-    const toggleBtn = new ButtonBuilder().setCustomId('toggle_recruit_style').setLabel('スタイル切替').setStyle(ButtonStyle.Primary);
-    try {
-      sectionStyle.setButtonAccessory(toggleBtn);
-    } catch (e) {
-      console.warn('[guildSettings] Section accessory set failed, falling back to action row for recruit style:', e?.message || e);
-      container.addActionRowComponents(new ActionRowBuilder().addComponents(toggleBtn));
-    }
-    addSafeSection(container, sectionStyle, '募集スタイル: ' + styleValue);
-  } else {
-    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`🖼️ **募集スタイル**\n${styleValue}`));
-  }
+  container.addSeparatorComponents(
+    new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+  );
 
-  // 専用チャンネル設定
-  const dedicatedEnabled = !!settings.enable_dedicated_channel;
-  const dedicatedStatus = dedicatedEnabled ? 'オン ✅' : 'オフ ⭕';
-  const dedicatedCategory = settings.dedicated_channel_category_id
-    ? `<#${settings.dedicated_channel_category_id}>`
-    : '未設定 (サーバートップレベル)';
+  // ===== 🔔 通知設定 =====
+  container.addTextDisplayComponents(
+    new TextDisplayBuilder().setContent('🔔 **通知設定**')
+  );
 
   if (isAdmin) {
-    const dedicatedSection = new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(`📂 **専用チャンネル作成ボタン**\n${dedicatedStatus}${dedicatedEnabled ? `\n📁 カテゴリ: ${dedicatedCategory}` : ''}`));
-    const toggleBtn = new ButtonBuilder().setCustomId('toggle_dedicated_channel').setLabel('オン/オフ').setStyle(ButtonStyle.Primary);
+    const roleSection = new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(notificationRoleValue));
+    const btn = new ButtonBuilder().setCustomId('set_notification_role').setLabel('設定').setStyle(ButtonStyle.Primary);
     try {
-      dedicatedSection.setButtonAccessory(toggleBtn);
+      roleSection.setButtonAccessory(btn);
     } catch (_) {
-      container.addActionRowComponents(new ActionRowBuilder().addComponents(toggleBtn));
+      container.addActionRowComponents(new ActionRowBuilder().addComponents(btn));
     }
-    // Only show category selector button when dedicated channel is enabled
-    if (dedicatedEnabled) {
-      const categoryBtn = new ButtonBuilder().setCustomId('set_dedicated_category').setLabel('カテゴリ指定').setStyle(ButtonStyle.Secondary);
-      container.addActionRowComponents(new ActionRowBuilder().addComponents(categoryBtn));
-    }
-    addSafeSection(container, dedicatedSection, `専用チャンネル: ${dedicatedStatus}${dedicatedEnabled ? `\nカテゴリ: ${dedicatedCategory}` : ''}`);
+    addSafeSection(container, roleSection, notificationRoleValue);
   } else {
-    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`📂 **専用チャンネル作成ボタン**\n${dedicatedStatus}${dedicatedEnabled ? `\nカテゴリ: ${dedicatedCategory}` : ''}`));
+    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(notificationRoleValue));
   }
 
-  container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Large).setDivider(true));
+  container.addSeparatorComponents(
+    new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+  );
+
+  // ===== 🎨 表示設定 =====
+  container.addTextDisplayComponents(
+    new TextDisplayBuilder().setContent('🎨 **表示設定**')
+  );
+
+  const displayInfo = `タイトル: ${defaultTitleValue}\nカラー: ${defaultColorValue}\nスタイル: ${styleValue}`;
+  if (isAdmin) {
+    const displaySection = new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(displayInfo));
+    const btn = new ButtonBuilder().setCustomId('set_default_title').setLabel('タイトル').setStyle(ButtonStyle.Primary);
+    try {
+      displaySection.setButtonAccessory(btn);
+    } catch (_) {
+      container.addActionRowComponents(new ActionRowBuilder().addComponents(btn));
+    }
+    addSafeSection(container, displaySection, displayInfo);
+    container.addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('set_default_color').setLabel('カラー').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId('toggle_recruit_style').setLabel(styleValue).setStyle(ButtonStyle.Secondary)
+      )
+    );
+  } else {
+    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(displayInfo));
+  }
+
+  container.addSeparatorComponents(
+    new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+  );
+
+  // ===== 📂 機能設定 =====
+  container.addTextDisplayComponents(
+    new TextDisplayBuilder().setContent(`📂 **機能設定**\n専用チャンネルボタン: ${dedicatedStatus}`)
+  );
 
   if (isAdmin) {
     container.addActionRowComponents(
       new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('finalize_settings').setLabel('設定完了').setStyle(ButtonStyle.Success).setEmoji('✅'),
-        new ButtonBuilder().setCustomId('reset_all_settings').setLabel('すべてリセット').setStyle(ButtonStyle.Danger).setEmoji('🔄')
+        new ButtonBuilder().setCustomId('toggle_dedicated_channel').setLabel('オン/オフ').setStyle(ButtonStyle.Primary)
+      )
+    );
+  }
+
+  container.addSeparatorComponents(
+    new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Large).setDivider(true)
+  );
+
+  // ===== 操作ボタン =====
+  if (isAdmin) {
+    container.addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('finalize_settings').setLabel('保存').setStyle(ButtonStyle.Success).setEmoji('✅'),
+        new ButtonBuilder().setCustomId('reset_all_settings').setLabel('リセット').setStyle(ButtonStyle.Danger).setEmoji('🔄')
       )
     );
   } else {
     container.addTextDisplayComponents(
-      new TextDisplayBuilder().setContent('🔒 **管理者権限が必要です**\n設定変更を行うには管理者権限が必要です。')
+      new TextDisplayBuilder().setContent('🔒 管理者権限が必要です')
     );
   }
 
-  container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
   container.addTextDisplayComponents(new TextDisplayBuilder().setContent('powered by **Recrubo**'))
 
   const replyOptions = {
