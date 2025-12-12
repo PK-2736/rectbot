@@ -68,7 +68,7 @@ async function deleteRecruitFromRedis(recruitId) {
 }
 
 async function pushRecruitToWebAPI(recruitData) {
-  const url = `${config.BACKEND_API_URL.replace(/\/$/, '')}/api/recruitment/push`;
+  const url = `${config.BACKEND_API_URL.replace(/\/$/, '')}/api/recruitment`;
   try {
     const payload = JSON.stringify(recruitData);
     const headers = { 'Content-Type': 'application/json' };

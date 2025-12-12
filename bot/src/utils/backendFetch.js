@@ -18,6 +18,8 @@ async function backendFetch(path, opts = {}) {
   if (!Object.keys(init.headers).some(k => k.toLowerCase() === 'content-type')) init.headers['content-type'] = 'application/json; charset=utf-8';
 
   console.log(`[backendFetch] ${method} ${url}`);
+  console.log(`[backendFetch] SERVICE_TOKEN present: ${!!SERVICE_TOKEN}, length: ${SERVICE_TOKEN ? SERVICE_TOKEN.length : 0}`);
+  console.log(`[backendFetch] Headers:`, JSON.stringify(init.headers, null, 2));
   const res = await fetch(url, init);
   console.log(`[backendFetch] Response status: ${res.status}`);
   const text = await res.text();
