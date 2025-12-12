@@ -136,8 +136,15 @@ async function finalizeGuildSettings(guildId) {
         const path = `${apiBase}/api/guild-settings/${guildId}`;
         const fromApi = await backendFetch(path, { method: 'GET' });
         let merged = normalizeGuildSettingsObject(fromApi || {});
-        if (!Object.prototype.hasOwnProperty.call(fromApi || {}, 'recruit_style') && typeof settings.recruit_style === 'string') {
-          merged.recruit_style = settings.recruit_style;
+
+        // If API does not persist recruit_style (or returns the default), keep the user's cached value to avoid regression.
+        if (typeof settings.recruit_style === 'string') {
+          const apiHasStyle = fromApi && Object.prototype.hasOwnProperty.call(fromApi, 'recruit_style');
+          const apiStyle = apiHasStyle ? fromApi.recruit_style : undefined;
+          const isApiDefault = apiStyle === undefined || apiStyle === null || apiStyle === 'image';
+          if (!apiHasStyle || isApiDefault) {
+            merged.recruit_style = settings.recruit_style;
+          }
         }
         await redis.set(key, JSON.stringify(merged));
         console.log(`[finalizeGuildSettings] Re-cached settings for guild ${guildId} after finalize`);
