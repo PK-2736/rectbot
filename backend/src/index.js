@@ -179,7 +179,13 @@ export default {
         // Supabaseに保存
         const supabaseUrl = resolveSupabaseRestUrl(env);
         if (!supabaseUrl) {
+          console.error('[Guild Settings Finalize] Supabase URL is not configured');
           return jsonResponse({ ok: false, error: 'Supabase URL is not configured' }, 500, safeHeaders);
+        }
+        
+        if (!env.SUPABASE_SERVICE_ROLE_KEY) {
+          console.error('[Guild Settings Finalize] Supabase service role key is not configured');
+          return jsonResponse({ ok: false, error: 'Supabase service role key is not configured' }, 500, safeHeaders);
         }
         
         const payload = {
@@ -194,6 +200,8 @@ export default {
           updated_at: new Date().toISOString()
         };
         
+        console.log('[Guild Settings Finalize] Saving to Supabase:', { supabaseUrl, guildId, keys: Object.keys(payload) });
+        
         const response = await fetch(`${supabaseUrl}/rest/v1/guild_settings`, {
           method: 'POST',
           headers: {
@@ -203,10 +211,12 @@ export default {
           body: JSON.stringify(payload)
         });
         
+        const responseText = await response.text();
+        console.log('[Guild Settings Finalize] Supabase response:', { status: response.status, bodyLength: responseText.length });
+        
         if (!response.ok) {
-          const errorText = await response.text();
-          console.error('[Guild Settings Finalize] Supabase error:', errorText);
-          return jsonResponse({ ok: false, error: 'Failed to save to Supabase' }, 500, safeHeaders);
+          console.error('[Guild Settings Finalize] Supabase error:', { status: response.status, body: responseText });
+          return jsonResponse({ ok: false, error: `Supabase error (${response.status}): ${responseText}` }, 500, safeHeaders);
         }
         
         return jsonResponse({ ok: true }, 200, safeHeaders);
@@ -393,6 +403,33 @@ export default {
         } else {
           const items = await store.listAll();
           return jsonResponse({ ok: true, items }, 200, safeHeaders);
+        }
+      } catch (e) {
+        return jsonResponse({ ok: false, error: e.message || 'server_error' }, 500, safeHeaders);
+      }
+    }
+
+    // GET /api/active-recruits (alias for /api/recruitments with active filter)
+    if (url.pathname === '/api/active-recruits' && request.method === 'GET') {
+      try {
+        if (store.forwardToDO) {
+          const res = await store.forwardToDO('/api/recruits', 'GET');
+          const data = await res.json();
+          const items = data.items || [];
+          const now = Date.now();
+          const active = items.filter(r => {
+            const exp = r.expiresAt ? new Date(r.expiresAt).getTime() : Infinity;
+            return exp > now && r.status === 'recruiting';
+          });
+          return jsonResponse({ ok: true, body: active }, 200, safeHeaders);
+        } else {
+          const items = await store.listAll();
+          const now = Date.now();
+          const active = items.filter(r => {
+            const exp = r.expiresAt ? new Date(r.expiresAt).getTime() : Infinity;
+            return exp > now && r.status === 'recruiting';
+          });
+          return jsonResponse({ ok: true, body: active }, 200, safeHeaders);
         }
       } catch (e) {
         return jsonResponse({ ok: false, error: e.message || 'server_error' }, 500, safeHeaders);
