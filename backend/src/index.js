@@ -440,6 +440,7 @@ export default {
     // Debug logging for recruitment endpoints
     if (url.pathname.includes('recruitment')) {
       console.log(`[DEBUG] ${request.method} ${url.pathname} (original: ${new URL(request.url).pathname})`);
+      console.log(`[DEBUG] store available:`, !!store, `store.forwardToDO:`, !!store?.forwardToDO);
     }
 
     // Backwards compatibility: normalize /api/recruitment -> /api/recruitments
@@ -457,6 +458,8 @@ export default {
         console.log('[DEBUG] Normalizing singular ID path:', oldPath, '->', url.pathname);
       }
     }
+
+    console.log(`[DEBUG] After normalization: ${url.pathname}`);
 
     // GET /api/recruitments
     if (url.pathname === '/api/recruitments' && request.method === 'GET') {
