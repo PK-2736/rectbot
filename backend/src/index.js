@@ -170,7 +170,7 @@ export default {
       
       try {
         const body = await request.json();
-        const { guildId, notification_roles, notification_role, recruit_channel, update_channel, defaultColor, defaultTitle, recruit_style } = body;
+        const { guildId, notification_roles, notification_role, recruit_channel, recruit_channels, update_channel, defaultColor, defaultTitle, recruit_style, enable_dedicated_channel, dedicated_channel_category_id } = body;
         
         if (!guildId) {
           return jsonResponse({ ok: false, error: 'guildId is required' }, 400, safeHeaders);
@@ -213,10 +213,13 @@ export default {
         const payload = {
           guild_id: guildId,
           recruit_channel_id: recruit_channel || null,
+          recruit_channel_ids: Array.isArray(recruit_channels) ? recruit_channels.filter(Boolean).map(String) : (Object.prototype.hasOwnProperty.call(body, 'recruit_channels') ? [] : undefined),
           notification_role_id: serializedNotificationRoleId,
           update_channel_id: update_channel || null,
           default_color: Object.prototype.hasOwnProperty.call(body, 'defaultColor') ? (defaultColor || null) : undefined,
           default_title: defaultTitle || '参加者募集',
+          enable_dedicated_channel: Object.prototype.hasOwnProperty.call(body, 'enable_dedicated_channel') ? !!enable_dedicated_channel : undefined,
+          dedicated_channel_category_id: Object.prototype.hasOwnProperty.call(body, 'dedicated_channel_category_id') ? (dedicated_channel_category_id || null) : undefined,
           updated_at: new Date().toISOString()
         };
         
@@ -299,14 +302,22 @@ export default {
 
         notificationRoles = [...new Set(notificationRoles)].slice(0, 25);
 
+        const recruitChannels = Array.isArray(settings.recruit_channel_ids)
+          ? settings.recruit_channel_ids.filter(Boolean).map(String)
+          : [];
+        const primaryRecruitChannel = settings.recruit_channel_id || (recruitChannels.length > 0 ? recruitChannels[0] : null);
+
         return jsonResponse({
           notification_roles: notificationRoles,
           notification_role: notificationRoles.length > 0 ? notificationRoles[0] : null,
-          recruit_channel: settings.recruit_channel_id || null,
+          recruit_channel: primaryRecruitChannel || null,
+          recruit_channels: recruitChannels,
           update_channel: settings.update_channel_id || null,
           defaultColor: settings.default_color || null,
           defaultTitle: settings.default_title || null,
-          recruit_style: settings.recruit_style || 'image'
+          recruit_style: settings.recruit_style || 'image',
+          enable_dedicated_channel: typeof settings.enable_dedicated_channel === 'boolean' ? settings.enable_dedicated_channel : false,
+          dedicated_channel_category_id: settings.dedicated_channel_category_id || null
         }, 200, safeHeaders);
       } catch (error) {
         console.error('[Guild Settings Get] Error:', error);

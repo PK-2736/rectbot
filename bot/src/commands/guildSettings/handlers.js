@@ -2,6 +2,7 @@ const {
   SlashCommandBuilder,
   PermissionFlagsBits,
   MessageFlags,
+  ChannelType,
 } = require('discord.js');
 
 const { saveGuildSettingsToRedis, getGuildSettingsFromRedis, getGuildSettingsSmart, finalizeGuildSettings } = require('../../utils/db');
@@ -38,7 +39,8 @@ async function handleButtonInteraction(interaction) {
         await showChannelSelect(interaction, 'update_channel', '📢 アップデート通知チャンネルを選択してください');
         break;
       case 'set_recruit_channel':
-        await showChannelSelect(interaction, 'recruit_channel', '📍 募集チャンネルを選択してください');
+      case 'set_recruit_channels':
+        await showChannelSelect(interaction, 'recruit_channels', '📍 募集可能チャンネルを選択してください（複数可）', { maxValues: 10, channelTypes: [ChannelType.GuildText, ChannelType.GuildAnnouncement, ChannelType.GuildForum] });
         break;
       case 'set_notification_role':
         await showRoleSelect(interaction, 'notification_roles', '🔔 通知ロールを選択してください');
@@ -64,6 +66,12 @@ async function handleButtonInteraction(interaction) {
       case 'toggle_recruit_style':
         await toggleRecruitStyle(interaction);
         break;
+      case 'toggle_dedicated_channel':
+        await toggleDedicatedChannel(interaction);
+        break;
+      case 'set_dedicated_category':
+        await showChannelSelect(interaction, 'dedicated_channel_category_id', '📂 専用チャンネル用カテゴリを選択してください', { maxValues: 1, channelTypes: [ChannelType.GuildCategory] });
+        break;
     }
   } catch (error) {
     console.error('Button interaction error:', error);
@@ -81,8 +89,16 @@ async function handleSelectMenuInteraction(interaction) {
     }
     if (customId.startsWith('channel_select_')) {
       const settingType = customId.replace('channel_select_', '');
-      const channelId = values[0];
-      await updateGuildSetting(interaction, settingType, channelId);
+      if (settingType === 'recruit_channels') {
+        const channelIds = Array.isArray(values) ? values : [];
+        await updateGuildSetting(interaction, settingType, channelIds);
+      } else if (settingType === 'dedicated_channel_category_id') {
+        const categoryId = Array.isArray(values) && values.length > 0 ? values[0] : null;
+        await updateGuildSetting(interaction, settingType, categoryId);
+      } else {
+        const channelId = values[0];
+        await updateGuildSetting(interaction, settingType, channelId);
+      }
     } else if (customId.startsWith('role_select_')) {
       const settingType = customId.replace('role_select_', '');
       const roleIds = Array.isArray(values) ? values : [];
@@ -145,6 +161,13 @@ async function updateGuildSetting(interaction, settingKey, value) {
     } else if (settingKey === 'notification_role') {
       const roleId = value ? String(value) : null;
       payload = { notification_role: roleId, notification_roles: roleId ? [roleId] : [] };
+    } else if (settingKey === 'recruit_channels') {
+      const uniqueChannels = Array.isArray(value) ? [...new Set(value.filter(Boolean).map(String))].slice(0, 25) : [];
+      payload = { recruit_channels: uniqueChannels, recruit_channel: uniqueChannels.length > 0 ? uniqueChannels[0] : null };
+    } else if (settingKey === 'enable_dedicated_channel') {
+      payload = { enable_dedicated_channel: !!value };
+    } else if (settingKey === 'dedicated_channel_category_id') {
+      payload = { dedicated_channel_category_id: value ? String(value) : null };
     }
 
     const result = await saveGuildSettingsToRedis(guildId, payload);
@@ -156,6 +179,9 @@ async function updateGuildSetting(interaction, settingKey, value) {
       defaultTitle: '既定タイトル',
       defaultColor: '既定カラー',
         update_channel: 'アップデート通知チャンネル',
+      recruit_channels: '募集可能チャンネル',
+      enable_dedicated_channel: '専用チャンネルボタン',
+      dedicated_channel_category_id: '専用チャンネルカテゴリ',
     };
 
     const settingName = settingNames[settingKey] || settingKey;
@@ -234,6 +260,9 @@ async function resetAllSettings(interaction) {
       defaultColor: null,
       update_channel: null,
       recruit_style: 'image',
+      recruit_channels: [],
+      enable_dedicated_channel: false,
+      dedicated_channel_category_id: null,
     });
     await safeReply(interaction, { content: '✅ すべての設定をリセットしました！', flags: MessageFlags.Ephemeral });
 
@@ -275,6 +304,33 @@ async function toggleRecruitStyle(interaction) {
     console.error('Toggle recruit style error:', error);
     if (!interaction.replied && !interaction.deferred) {
       await safeReply(interaction, { content: '❌ 募集スタイルの切り替えに失敗しました。', flags: MessageFlags.Ephemeral });
+    }
+  }
+}
+
+async function toggleDedicatedChannel(interaction) {
+  try {
+    if (!interaction.guild || !interaction.member || !interaction.member.permissions?.has(PermissionFlagsBits.Administrator)) {
+      return await safeReply(interaction, { content: '❌ この操作を実行するには「管理者」権限が必要です。', flags: MessageFlags.Ephemeral });
+    }
+    const guildId = interaction.guildId;
+    const currentSettings = await getGuildSettingsFromRedis(guildId);
+    const next = !currentSettings?.enable_dedicated_channel;
+    await saveGuildSettingsToRedis(guildId, { enable_dedicated_channel: next });
+    await safeReply(interaction, { content: `✅ 専用チャンネル作成ボタンを「${next ? 'オン' : 'オフ'}」にしました。`, flags: MessageFlags.Ephemeral });
+    setTimeout(async () => {
+      try {
+        const latest = await getGuildSettingsFromRedis(guildId);
+        const isAdmin = interaction.guild && interaction.member && interaction.member.permissions?.has(PermissionFlagsBits.Administrator);
+        await showSettingsUI(interaction, latest, isAdmin);
+      } catch (e) {
+        console.error('Settings UI update error:', e);
+      }
+    }, 500);
+  } catch (error) {
+    console.error('Toggle dedicated channel error:', error);
+    if (!interaction.replied && !interaction.deferred) {
+      await safeReply(interaction, { content: '❌ 専用チャンネル設定の切り替えに失敗しました。', flags: MessageFlags.Ephemeral });
     }
   }
 }

@@ -1,4 +1,4 @@
-const { MessageFlags, EmbedBuilder, ComponentType, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, ActionRowBuilder, AttachmentBuilder, UserSelectMenuBuilder } = require('discord.js');
+const { MessageFlags, EmbedBuilder, ComponentType, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, ActionRowBuilder, AttachmentBuilder, UserSelectMenuBuilder, PermissionsBitField } = require('discord.js');
 const { recruitParticipants, pendingModalOptions } = require('./state');
 const { safeReply } = require('../../utils/safeReply');
 const { getGuildSettings, listRecruitsFromRedis, saveRecruitmentData, updateRecruitmentStatus, deleteRecruitmentData, saveRecruitToRedis, getRecruitFromRedis, saveParticipantsToRedis, getParticipantsFromRedis, deleteParticipantsFromRedis, pushRecruitToWebAPI, getCooldownRemaining, setCooldown } = require('../../utils/db');
@@ -199,10 +199,14 @@ async function sendAnnouncements(interaction, selectedNotificationRole, configur
   if (image) baseOptions.files = [image];
   const followUpMessage = await interaction.channel.send(baseOptions);
 
-  // 別チャンネルにも投稿
-  if (guildSettings.recruit_channel && guildSettings.recruit_channel !== interaction.channelId) {
+  // 別チャンネルにも投稿（複数設定時は先頭を優先）
+  const primaryRecruitChannelId = Array.isArray(guildSettings.recruit_channels) && guildSettings.recruit_channels.length > 0
+    ? guildSettings.recruit_channels[0]
+    : guildSettings.recruit_channel;
+
+  if (primaryRecruitChannelId && primaryRecruitChannelId !== interaction.channelId) {
     try {
-      const recruitChannel = await interaction.guild.channels.fetch(guildSettings.recruit_channel);
+      const recruitChannel = await interaction.guild.channels.fetch(primaryRecruitChannelId);
       if (recruitChannel && recruitChannel.isTextBased()) {
   if (selectedNotificationRole) {
           if (selectedNotificationRole === 'everyone') {
@@ -330,7 +334,7 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
       const editPayload = { components: [updatedContainer], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } };
       
       // 「今から」の場合、専用チャンネルボタンを追加
-      if (finalRecruitData?.startTime === '今から') {
+      if (guildSettings?.enable_dedicated_channel && finalRecruitData?.startTime === '今から') {
         const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
         const createVCButton = new ButtonBuilder()
           .setCustomId(`create_vc_${actualRecruitId}`)
@@ -931,7 +935,16 @@ async function handleModalSubmit(interaction) {
 async function processCreateDedicatedChannel(interaction, recruitId) {
   try {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-    
+    const guildSettings = await getGuildSettings(interaction.guildId).catch(() => ({}));
+    if (!guildSettings?.enable_dedicated_channel) {
+      await safeReply(interaction, {
+        content: '⚠️ 専用チャンネル作成は現在オフになっています。設定画面からオンにしてください。',
+        flags: MessageFlags.Ephemeral,
+        allowedMentions: { roles: [], users: [] }
+      });
+      return;
+    }
+
     const { saveDedicatedChannel, getDedicatedChannel } = require('../../utils/db/dedicatedChannels');
     
     // 既に専用チャンネルが作成されているか確認
@@ -973,6 +986,19 @@ async function processCreateDedicatedChannel(interaction, recruitId) {
       });
       return;
     }
+
+    // 必要権限チェック（チャンネル作成/権限上書き）
+    const me = interaction.guild.members.me || await interaction.guild.members.fetch(interaction.client.user.id).catch(() => null);
+    const missingPerms = [];
+    if (!me?.permissions?.has(PermissionsBitField.Flags.ManageChannels)) missingPerms.push('チャンネル管理');
+    if (missingPerms.length > 0) {
+      await safeReply(interaction, {
+        content: `❌ 専用チャンネルを作成できませんでした。BOTに次の権限を付与してください: ${missingPerms.join(', ')}`,
+        flags: MessageFlags.Ephemeral,
+        allowedMentions: { roles: [], users: [] }
+      });
+      return;
+    }
     
     // 専用チャンネルを作成（参加者のみが見える）
     const channelName = recruit?.title ? `${recruit.title}`.slice(0, 100) : `recruit-${recruitId}`;
@@ -993,6 +1019,7 @@ async function processCreateDedicatedChannel(interaction, recruitId) {
       type: 0, // Text Channel
       permissionOverwrites,
       topic: `🎮 ${recruit?.title || '募集'} の専用チャンネル`,
+      parent: guildSettings?.dedicated_channel_category_id || undefined,
     });
     
     // Redis に保存（86400秒 = 24時間のTTL）

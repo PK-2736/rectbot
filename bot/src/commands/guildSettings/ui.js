@@ -24,9 +24,14 @@ async function showSettingsUI(interaction, settings = {}, isAdmin = false) {
     new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
   );
 
-  const recruitChannelValue = settings.recruit_channel || settings.recruitmentChannelId 
-    ? `<#${settings.recruit_channel || settings.recruitmentChannelId}>` 
-    : '未設定';
+  const recruitChannels = Array.isArray(settings.recruit_channels)
+    ? settings.recruit_channels.filter(Boolean).map(String)
+    : [];
+  const recruitChannelValue = (() => {
+    if (recruitChannels.length > 0) return recruitChannels.map(id => `<#${id}>`).join('\n');
+    if (settings.recruit_channel || settings.recruitmentChannelId) return `<#${settings.recruit_channel || settings.recruitmentChannelId}>`;
+    return '未設定';
+  })();
 
   function addSafeSection(container, builder, fallbackText) {
     // NOTE: discord.js SectionBuilder's accessory union validator will throw when
@@ -69,8 +74,8 @@ async function showSettingsUI(interaction, settings = {}, isAdmin = false) {
 
   // Section with optional inline accessory (Button) for horizontal layout (admin only)
   if (isAdmin) {
-    const section1 = new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(`📍 **募集チャンネル**\n${recruitChannelValue}`));
-    const btn = new ButtonBuilder().setCustomId('set_recruit_channel').setLabel('設定変更').setStyle(ButtonStyle.Primary);
+    const section1 = new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(`📍 **募集チャンネル (複数指定可)**\n${recruitChannelValue}`));
+    const btn = new ButtonBuilder().setCustomId('set_recruit_channels').setLabel('設定変更').setStyle(ButtonStyle.Primary);
     try {
       section1.setButtonAccessory(btn);
     } catch (e) {
@@ -81,7 +86,7 @@ async function showSettingsUI(interaction, settings = {}, isAdmin = false) {
     addSafeSection(container, section1, '募集チャンネル: ' + recruitChannelValue);
   } else {
     // Non-admins get a text-only display; avoid SectionBuilder accessory validation
-    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`📍 **募集チャンネル**\n${recruitChannelValue}`));
+    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`📍 **募集チャンネル (複数指定可)**\n${recruitChannelValue}`));
   }
 
   const notificationRoles = (() => {
@@ -188,6 +193,29 @@ async function showSettingsUI(interaction, settings = {}, isAdmin = false) {
     container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`🖼️ **募集スタイル**\n${styleValue}`));
   }
 
+  // 専用チャンネル設定
+  const dedicatedEnabled = !!settings.enable_dedicated_channel;
+  const dedicatedStatus = dedicatedEnabled ? 'オン ✅' : 'オフ ⭕';
+  const dedicatedCategory = settings.dedicated_channel_category_id
+    ? `<#${settings.dedicated_channel_category_id}>`
+    : '未設定 (サーバートップレベル)';
+
+  if (isAdmin) {
+    const dedicatedSection = new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(`📂 **専用チャンネル作成ボタン**\n${dedicatedStatus}\n📁 カテゴリ: ${dedicatedCategory}`));
+    const toggleBtn = new ButtonBuilder().setCustomId('toggle_dedicated_channel').setLabel('オン/オフ').setStyle(ButtonStyle.Primary);
+    const categoryBtn = new ButtonBuilder().setCustomId('set_dedicated_category').setLabel('カテゴリ指定').setStyle(ButtonStyle.Secondary);
+    try {
+      dedicatedSection.setButtonAccessory(toggleBtn);
+    } catch (_) {
+      container.addActionRowComponents(new ActionRowBuilder().addComponents(toggleBtn));
+    }
+    // Add category selector row separately
+    container.addActionRowComponents(new ActionRowBuilder().addComponents(categoryBtn));
+    addSafeSection(container, dedicatedSection, `専用チャンネル: ${dedicatedStatus}\nカテゴリ: ${dedicatedCategory}`);
+  } else {
+    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`📂 **専用チャンネル作成ボタン**\n${dedicatedStatus}\nカテゴリ: ${dedicatedCategory}`));
+  }
+
   container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Large).setDivider(true));
 
   if (isAdmin) {
@@ -232,11 +260,13 @@ async function showSettingsUI(interaction, settings = {}, isAdmin = false) {
   }, 5 * 60 * 1000);
 }
 
-async function showChannelSelect(interaction, settingType, placeholder) {
+async function showChannelSelect(interaction, settingType, placeholder, { maxValues = 1, channelTypes = [ChannelType.GuildText] } = {}) {
   const channelSelect = new ChannelSelectMenuBuilder()
     .setCustomId(`channel_select_${settingType}`)
     .setPlaceholder(placeholder)
-    .addChannelTypes(ChannelType.GuildText);
+    .setMinValues(0)
+    .setMaxValues(Math.min(25, Math.max(1, maxValues)))
+    .addChannelTypes(...channelTypes);
   const actionRow = new ActionRowBuilder().addComponents(channelSelect);
   await safeRespond(interaction, { content: placeholder, components: [actionRow], flags: MessageFlags.Ephemeral });
 }

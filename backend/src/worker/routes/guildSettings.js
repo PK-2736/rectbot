@@ -68,11 +68,16 @@ async function handleFinalize(request, env, corsHeaders) {
     const supabaseData = {
       guild_id: guildId,
       recruit_channel_id: incomingSettings.recruit_channel || null,
+      recruit_channel_ids: Array.isArray(incomingSettings.recruit_channels)
+        ? incomingSettings.recruit_channels.filter(Boolean).map(String)
+        : (Object.prototype.hasOwnProperty.call(incomingSettings, 'recruit_channels') ? [] : undefined),
       notification_role_id: serializedNotificationRoleId,
       default_title: incomingSettings.defaultTitle || '参加者募集',
   // default_color: include only if the caller sent the property (supports clearing with null)
   default_color: Object.prototype.hasOwnProperty.call(incomingSettings, 'defaultColor') ? (incomingSettings.defaultColor || null) : undefined,
       update_channel_id: incomingSettings.update_channel || null,
+      enable_dedicated_channel: Object.prototype.hasOwnProperty.call(incomingSettings, 'enable_dedicated_channel') ? !!incomingSettings.enable_dedicated_channel : undefined,
+      dedicated_channel_category_id: Object.prototype.hasOwnProperty.call(incomingSettings, 'dedicated_channel_category_id') ? (incomingSettings.dedicated_channel_category_id || null) : undefined,
       updated_at: new Date().toISOString(),
     };
 
@@ -139,25 +144,30 @@ async function handleFinalize(request, env, corsHeaders) {
 
     let supaRes;
     if (Array.isArray(existingData) && existingData.length > 0) {
-      const patchBody = { updated_at: new Date().toISOString() };
-      if (supabaseData.recruit_channel_id !== null) patchBody.recruit_channel_id = supabaseData.recruit_channel_id;
-      patchBody.notification_role_id = supabaseData.notification_role_id;
-      if (supabaseData.default_title) patchBody.default_title = supabaseData.default_title;
-  // default_color may be null to represent that the user wants to clear the value.
-  // Use property existence check to allow clearing the value explicitly.
-  if (Object.prototype.hasOwnProperty.call(incomingSettings, 'defaultColor')) patchBody.default_color = supabaseData.default_color;
-      if (supabaseData.update_channel_id !== null) patchBody.update_channel_id = supabaseData.update_channel_id;
+        const patchBody = { updated_at: new Date().toISOString() };
+        if (supabaseData.recruit_channel_id !== null) patchBody.recruit_channel_id = supabaseData.recruit_channel_id;
+        if (Array.isArray(supabaseData.recruit_channel_ids)) patchBody.recruit_channel_ids = supabaseData.recruit_channel_ids;
+        patchBody.notification_role_id = supabaseData.notification_role_id;
+        if (supabaseData.default_title) patchBody.default_title = supabaseData.default_title;
+      // default_color may be null to represent that the user wants to clear the value.
+      // Use property existence check to allow clearing the value explicitly.
+      if (Object.prototype.hasOwnProperty.call(incomingSettings, 'defaultColor')) patchBody.default_color = supabaseData.default_color;
+        if (supabaseData.update_channel_id !== null) patchBody.update_channel_id = supabaseData.update_channel_id;
+        if (typeof supabaseData.enable_dedicated_channel === 'boolean') patchBody.enable_dedicated_channel = supabaseData.enable_dedicated_channel;
+        if (Object.prototype.hasOwnProperty.call(incomingSettings, 'dedicated_channel_category_id')) patchBody.dedicated_channel_category_id = supabaseData.dedicated_channel_category_id;
 
+      const cleanedPatchBody = Object.fromEntries(Object.entries(patchBody).filter(([, v]) => v !== undefined));
       supaRes = await fetchWithRetry(`${supabaseRestUrl}/rest/v1/guild_settings?guild_id=eq.${guildId}`, {
         method: 'PATCH',
         headers: supabaseHeaders,
-        body: JSON.stringify(patchBody),
+        body: JSON.stringify(cleanedPatchBody),
       });
     } else {
+      const supabaseBody = Object.fromEntries(Object.entries(supabaseData).filter(([, v]) => v !== undefined));
       supaRes = await fetchWithRetry(`${supabaseRestUrl}/rest/v1/guild_settings`, {
         method: 'POST',
         headers: supabaseHeaders,
-        body: JSON.stringify(supabaseData),
+        body: JSON.stringify(supabaseBody),
       });
     }
 
@@ -190,11 +200,14 @@ async function handleFinalize(request, env, corsHeaders) {
 async function handleGet(request, env, corsHeaders, url, ctx) {
   const defaultSettings = {
     recruit_channel: null,
+    recruit_channels: [],
     notification_role: null,
     notification_roles: [],
     defaultTitle: '参加者募集',
   defaultColor: null,
     update_channel: null,
+    enable_dedicated_channel: false,
+    dedicated_channel_category_id: null,
   };
   try {
     const guildId = url.pathname.split('/api/guild-settings/')[1];
@@ -246,13 +259,20 @@ async function handleGet(request, env, corsHeaders, url, ctx) {
 
     notificationRoles = [...new Set(notificationRoles)].slice(0, 25);
 
+    const recruitChannels = Array.isArray(data[0].recruit_channel_ids)
+      ? data[0].recruit_channel_ids.filter(Boolean).map(String)
+      : [];
+
     const settings = {
-      recruit_channel: data[0].recruit_channel_id,
+      recruit_channel: data[0].recruit_channel_id || (recruitChannels[0] || null),
+      recruit_channels: recruitChannels,
       notification_role: notificationRoles.length > 0 ? notificationRoles[0] : null,
       notification_roles: notificationRoles,
       defaultTitle: data[0].default_title || '参加者募集',
   defaultColor: data[0].default_color || null,
       update_channel: data[0].update_channel_id,
+      enable_dedicated_channel: typeof data[0].enable_dedicated_channel === 'boolean' ? data[0].enable_dedicated_channel : false,
+      dedicated_channel_category_id: data[0].dedicated_channel_category_id || null,
     };
     console.log('[guild-settings:get] Returning settings for guild', guildId, ':', settings);
     return new Response(JSON.stringify(settings), {

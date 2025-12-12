@@ -41,6 +41,25 @@ function normalizeGuildSettingsObject(input) {
     normalized.recruit_channel = normalized.recruit_channel ? String(normalized.recruit_channel) : null;
   }
 
+  if (Object.prototype.hasOwnProperty.call(normalized, 'recruit_channels')) {
+    const arr = Array.isArray(normalized.recruit_channels) ? normalized.recruit_channels : [];
+    const uniqueChannels = [...new Set(arr.filter(Boolean).map(String))].slice(0, 25);
+    normalized.recruit_channels = uniqueChannels;
+    if (!normalized.recruit_channel && uniqueChannels.length > 0) {
+      normalized.recruit_channel = uniqueChannels[0];
+    }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(normalized, 'enable_dedicated_channel')) {
+    normalized.enable_dedicated_channel = !!normalized.enable_dedicated_channel;
+  } else {
+    normalized.enable_dedicated_channel = false;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(normalized, 'dedicated_channel_category_id')) {
+    normalized.dedicated_channel_category_id = normalized.dedicated_channel_category_id ? String(normalized.dedicated_channel_category_id) : null;
+  }
+
   return normalized;
 }
 
@@ -72,7 +91,7 @@ async function getGuildSettingsSmart(guildId) {
 
   const rolesEmpty = !Array.isArray(normalized.notification_roles) || normalized.notification_roles.length === 0;
   const noSingleRole = !normalized.notification_role;
-  const noChannel = !normalized.recruit_channel;
+  const noChannel = !normalized.recruit_channel && (!Array.isArray(normalized.recruit_channels) || normalized.recruit_channels.length === 0);
 
   console.log(`[getGuildSettingsSmart] Guild ${guildId}: Redis val=${!!val}, rolesEmpty=${rolesEmpty}, noSingleRole=${noSingleRole}, noChannel=${noChannel}`);
 
@@ -88,6 +107,17 @@ async function getGuildSettingsSmart(guildId) {
         const merged = normalizeGuildSettingsObject({ ...fromApi });
         if (normalized && typeof normalized.recruit_style === 'string' && !Object.prototype.hasOwnProperty.call(fromApi, 'recruit_style')) {
           merged.recruit_style = normalized.recruit_style;
+        }
+        // Preserve cached dedicated channel toggle/category if API lacks them
+        if (!Object.prototype.hasOwnProperty.call(fromApi || {}, 'enable_dedicated_channel')) {
+          merged.enable_dedicated_channel = normalized.enable_dedicated_channel;
+        }
+        if (!Object.prototype.hasOwnProperty.call(fromApi || {}, 'dedicated_channel_category_id')) {
+          merged.dedicated_channel_category_id = normalized.dedicated_channel_category_id || null;
+        }
+        if (!Object.prototype.hasOwnProperty.call(fromApi || {}, 'recruit_channels') && Array.isArray(normalized.recruit_channels)) {
+          merged.recruit_channels = normalized.recruit_channels;
+          if (!merged.recruit_channel && normalized.recruit_channels.length > 0) merged.recruit_channel = normalized.recruit_channels[0];
         }
         await redis.set(key, JSON.stringify(merged));
         console.log(`[getGuildSettingsSmart] Cached API result for guild ${guildId}`);
@@ -107,7 +137,7 @@ async function finalizeGuildSettings(guildId) {
   const url = `${config.BACKEND_API_URL.replace(/\/$/, '')}/api/guild-settings/finalize`;
   const payload = { guildId };
   // Supabaseへ保存するキーに recruit_style を追加
-  const allowedKeys = ['update_channel', 'recruit_channel', 'defaultColor', 'defaultTitle', 'recruit_style'];
+  const allowedKeys = ['update_channel', 'recruit_channel', 'recruit_channels', 'defaultColor', 'defaultTitle', 'recruit_style', 'enable_dedicated_channel', 'dedicated_channel_category_id'];
   for (const k of allowedKeys) {
     if (settings && Object.prototype.hasOwnProperty.call(settings, k)) {
       const v = settings[k];

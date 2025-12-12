@@ -1,5 +1,6 @@
 const { getActiveRecruits } = require('./statusApi');
 const { getParticipantsFromRedis } = require('./participants');
+const { getGuildSettingsSmart } = require('./guildSettings');
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 
 /**
@@ -34,6 +35,8 @@ async function checkAndNotifyStartTime(client) {
 
     console.log(`[StartTimeNotifier] Checking ${activeRecruits.length} active recruits at JST ${currentTimeStr}`);
 
+    const settingsCache = new Map();
+
     for (const recruit of activeRecruits) {
       try {
         const recruitId = recruit.recruitId || recruit.message_id?.slice(-8);
@@ -44,6 +47,13 @@ async function checkAndNotifyStartTime(client) {
         }
 
         console.log(`[StartTimeNotifier] Recruit ${recruitId}: startTime=${recruit.startTime}, notified=${recruit.startTimeNotified}`);
+
+        const guildId = recruit.guildId || recruit.guild_id || recruit.guild;
+        let guildSettings = settingsCache.get(guildId);
+        if (!guildSettings) {
+          guildSettings = await getGuildSettingsSmart(guildId).catch(() => ({}));
+          settingsCache.set(guildId, guildSettings);
+        }
 
         // 既に通知済みの場合はスキップ（より厳密なチェック）
         if (recruit.startTimeNotified === true || recruit.startTimeNotified === 'true') {
@@ -160,19 +170,20 @@ async function sendStartTimeNotification(client, recruit) {
     // ボイスリンクがある場合は追加
     let content = voiceLink ? voiceLink : null;
 
-    // ボタンを追加：「専用チャンネル作成」
-    const button = new ButtonBuilder()
-      .setCustomId(`create_vc_${recruitId}`)
-      .setLabel('専用チャンネル作成')
-      .setEmoji('📢')
-      .setStyle(ButtonStyle.Primary);
-    
-    const actionRow = new ActionRowBuilder().addComponents(button);
+    const components = [];
+    if (guildSettings?.enable_dedicated_channel) {
+      const button = new ButtonBuilder()
+        .setCustomId(`create_vc_${recruitId}`)
+        .setLabel('専用チャンネル作成')
+        .setEmoji('📢')
+        .setStyle(ButtonStyle.Primary);
+      components.push(new ActionRowBuilder().addComponents(button));
+    }
 
     await channel.send({
       content: content,
       embeds: [embed],
-      components: [actionRow],
+      components,
       allowedMentions: { users: participantIds }
     });
     

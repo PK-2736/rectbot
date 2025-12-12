@@ -58,11 +58,24 @@ async function execute(interaction) {
     const guildSettings = await getGuildSettings(interaction.guildId);
     console.log('[gameRecruit.execute] guildSettings for', interaction.guildId, ':', guildSettings && { recruit_channel: guildSettings.recruit_channel, defaultTitle: guildSettings.defaultTitle });
 
-    // 募集チャンネル強制
-    if (guildSettings.recruit_channel && guildSettings.recruit_channel !== interaction.channelId) {
-      console.log('[gameRecruit.execute] blocking create due to channel mismatch. required:', guildSettings.recruit_channel, 'current:', interaction.channelId);
+    // 募集チャンネル強制（複数対応）
+    const allowedChannels = Array.isArray(guildSettings.recruit_channels)
+      ? guildSettings.recruit_channels.filter(Boolean).map(String)
+      : [];
+    const primaryRecruitChannel = guildSettings.recruit_channel;
+    const isAllowed = (() => {
+      if (allowedChannels.length > 0) return allowedChannels.includes(interaction.channelId);
+      if (primaryRecruitChannel) return primaryRecruitChannel === interaction.channelId;
+      return true;
+    })();
+
+    if (!isAllowed) {
+      console.log('[gameRecruit.execute] blocking create due to channel mismatch. allowed:', allowedChannels.length > 0 ? allowedChannels : primaryRecruitChannel, 'current:', interaction.channelId);
+      const hint = allowedChannels.length > 0
+        ? allowedChannels.map(id => `<#${id}>`).join(' / ')
+        : `<#${primaryRecruitChannel}>`;
       return await safeReply(interaction, {
-        content: `❌ 募集はこのチャンネルでは実行できません。\n📍 募集専用チャンネル: <#${guildSettings.recruit_channel}>`,
+        content: `❌ 募集はこのチャンネルでは実行できません。\n📍 募集可能チャンネル: ${hint}`,
         flags: MessageFlags.Ephemeral
       });
     }
