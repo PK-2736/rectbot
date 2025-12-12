@@ -242,9 +242,9 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
   const actualMessage = followUpMessage;
   const actualMessageId = actualMessage.id;
   const actualRecruitId = actualMessageId.slice(-8);
-  recruitDataObj.recruitId = actualRecruitId;
   const finalRecruitData = { 
-    ...recruitDataObj, 
+    ...recruitDataObj,
+    recruitId: actualRecruitId,
     ownerId: recruitDataObj.recruiterId || interaction.user.id,
     guildId: interaction.guildId, 
     channelId: interaction.channelId, 
