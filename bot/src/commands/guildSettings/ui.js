@@ -97,10 +97,13 @@ async function showSettingsUI(interaction, settings = {}, isAdmin = false) {
       container.addActionRowComponents(new ActionRowBuilder().addComponents(btn));
     }
     addSafeSection(container, channelSection, channelInfo);
+    const categoryBtn = dedicatedStatus.includes('オン')
+      ? new ButtonBuilder().setCustomId('set_dedicated_category').setLabel('カテゴリ').setStyle(ButtonStyle.Secondary)
+      : new ButtonBuilder().setCustomId('set_dedicated_category_disabled').setLabel('カテゴリ').setStyle(ButtonStyle.Secondary).setDisabled(true);
     container.addActionRowComponents(
       new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId('set_update_channel').setLabel('通知').setStyle(ButtonStyle.Secondary),
-        dedicatedStatus.includes('オン') ? new ButtonBuilder().setCustomId('set_dedicated_category').setLabel('カテゴリ').setStyle(ButtonStyle.Secondary) : new ButtonBuilder().setLabel('非表示').setStyle(ButtonStyle.Secondary).setDisabled(true)
+        categoryBtn
       )
     );
   } else {
