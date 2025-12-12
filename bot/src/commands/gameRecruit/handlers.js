@@ -296,7 +296,8 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
       }
       const valuesLine = [startVal, membersVal, voiceVal].filter(Boolean).join(' | ');
       const detailsText = `${labelsLine}\n${valuesLine}`;
-    const contentText = finalRecruitData?.content ? `📝 募集内容\n${String(finalRecruitData.content).slice(0,1500)}` : '';
+    // 募集内容を取得
+    const contentText = finalRecruitData?.note || finalRecruitData?.content || '';
       updatedContainer = buildContainerSimple({
         headerTitle: `${user.username}さんの募集`,
         detailsText,
@@ -310,7 +311,8 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
     });
   } else {
     const { buildContainer } = require('../../utils/recruitHelpers');
-    const contentText = '';
+    // 募集内容を取得
+    const contentText = finalRecruitData?.note || finalRecruitData?.content || '';
       updatedContainer = buildContainer({
         headerTitle: `${user.username}さんの募集`,
         subHeaderText,
@@ -326,6 +328,20 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
   }
     try {
       const editPayload = { components: [updatedContainer], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } };
+      
+      // 「今から」の場合、専用チャンネルボタンを追加
+      if (finalRecruitData?.startTime === '今から') {
+        const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+        const createVCButton = new ButtonBuilder()
+          .setCustomId(`create_vc_${actualRecruitId}`)
+          .setLabel('専用チャンネル作成')
+          .setEmoji('📢')
+          .setStyle(ButtonStyle.Primary);
+        
+        const actionRow = new ActionRowBuilder().addComponents(createVCButton);
+        editPayload.components.push(actionRow);
+      }
+      
       if (updatedImage) editPayload.files = [updatedImage];
       await actualMessage.edit(editPayload);
     } catch (editError) { console.error('メッセージ更新エラー:', editError); }
@@ -897,25 +913,7 @@ async function handleModalSubmit(interaction) {
   const followUpMessage = await sendAnnouncements(interaction, selectedNotificationRole, configuredNotificationRoleIds, image, container, guildSettings, user);
     try { await safeReply(interaction, { content: '募集を作成しました。', flags: MessageFlags.Ephemeral }); } catch (e) { console.warn('safeReply failed (non-fatal):', e?.message || e); }
     
-    // 「今から開始」の場合、メッセージにボタンを追加
-    if (recruitDataObj?.startTime && recruitDataObj.startTime === '今から') {
-      try {
-        const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-        const createVCButton = new ButtonBuilder()
-          .setCustomId(`create_vc_${followUpMessage.id.slice(-8)}`)
-          .setLabel('専用チャンネル作成')
-          .setEmoji('📢')
-          .setStyle(ButtonStyle.Primary);
-        
-        const actionRow = new ActionRowBuilder().addComponents(createVCButton);
-        
-        await followUpMessage.edit({ components: [container, actionRow] }).catch(() => null);
-      } catch (e) {
-        console.warn('[handleModalSubmit] Failed to add button for immediate start:', e?.message || e);
-      }
-    }
-    
-    // 送信後の保存とUI更新
+    // 送信後の保存とUI更新（「今から」のボタンもここで追加される）
     try {
       await finalizePersistAndEdit({ interaction, recruitDataObj, guildSettings, user, participantText, subHeaderText, followUpMessage, currentParticipants });
     } catch (error) { console.error('メッセージ取得エラー:', error); }
@@ -951,11 +949,18 @@ async function processCreateDedicatedChannel(interaction, recruitId) {
     }
     
     // 募集データを取得して参加者リストを確認
-    const messageId = interaction.message.id;
+    const recruit = await getRecruitFromRedis(recruitId).catch(() => null);
+    const messageId = recruit?.message_id || recruit?.messageId;
     let participants = [];
     try {
-      const persisted = await getParticipantsFromRedis(messageId);
-      if (Array.isArray(persisted)) participants = persisted;
+      if (messageId) {
+        const persisted = await getParticipantsFromRedis(messageId);
+        if (Array.isArray(persisted)) participants = persisted;
+      }
+      // messageIdがない場合やRedisにない場合、募集データから取得を試みる
+      if (participants.length === 0 && recruit?.currentMembers) {
+        participants = Array.isArray(recruit.currentMembers) ? recruit.currentMembers : [];
+      }
     } catch (e) {
       console.warn('Failed to get participants:', e?.message || e);
     }
@@ -970,7 +975,6 @@ async function processCreateDedicatedChannel(interaction, recruitId) {
     }
     
     // 専用チャンネルを作成（参加者のみが見える）
-    const recruit = await getRecruitFromRedis(recruitId).catch(() => null);
     const channelName = recruit?.title ? `${recruit.title}`.slice(0, 100) : `recruit-${recruitId}`;
     
     const permissionOverwrites = [

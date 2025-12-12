@@ -10,21 +10,21 @@ const { setCooldown, getCooldownRemaining } = require('./cooldown');
 const { getSupabase } = require('./supabase');
 const { saveRecruitStatus, deleteRecruitStatus, getActiveRecruits, saveRecruitmentData, deleteRecruitmentData, updateRecruitmentStatus, updateRecruitmentData } = require('./statusApi');
 const { checkAndNotifyStartTime } = require('./startTimeNotifier');
+// const { saveFriendCode, getFriendCode, getAllFriendCodes, deleteFriendCode, searchFriendCodeByPattern } = require('./friendCode'); // 使用しない（Worker API経由に移行）
 
-// schedule periodic cleanup — 1時間ごとに実行（Discord clientを渡す）
-const CLEANUP_INTERVAL_MS = Number(process.env.CLEANUP_INTERVAL_MS || 1000 * 60 * 60);
+// schedule periodic cleanup — 一時的に無効化（期限廃止）
+// const CLEANUP_INTERVAL_MS = Number(process.env.CLEANUP_INTERVAL_MS || 1000 * 60 * 60);
+// cleanupExpiredRecruits().catch(() => {});
+// setInterval(() => { cleanupExpiredRecruits().catch(e => console.warn('periodic cleanup failed:', e?.message || e)); }, CLEANUP_INTERVAL_MS);
+
+// schedule start time notifications check (every minute)
+const START_TIME_CHECK_INTERVAL_MS = Number(process.env.START_TIME_CHECK_INTERVAL_MS || 60 * 1000);
 let discordClient = null;
 
 function setDiscordClient(client) {
   discordClient = client;
   console.log('[StartTimeNotifier] Discord client registered');
-  // クリーンアップもclient渡しで実行開始
-  cleanupExpiredRecruits(discordClient).catch(() => {});
-  setInterval(() => { cleanupExpiredRecruits(discordClient).catch(e => console.warn('periodic cleanup failed:', e?.message || e)); }, CLEANUP_INTERVAL_MS);
 }
-
-// schedule start time notifications check (every minute)
-const START_TIME_CHECK_INTERVAL_MS = Number(process.env.START_TIME_CHECK_INTERVAL_MS || 60 * 1000);
 
 setInterval(() => {
   if (discordClient) {
@@ -64,6 +64,12 @@ module.exports = {
   // Cooldowns
   setCooldown,
   getCooldownRemaining,
+  // Friend codes - Worker API経由に移行したためコメントアウト
+  // saveFriendCode,
+  // getFriendCode,
+  // getAllFriendCodes,
+  // deleteFriendCode,
+  // searchFriendCodeByPattern,
   // Consts & maintenance
   RECRUIT_TTL_SECONDS,
   cleanupExpiredRecruits,

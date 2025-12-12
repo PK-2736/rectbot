@@ -153,7 +153,8 @@ async function updateParticipantList(interactionOrMessage, participants, savedRe
       }
       const valuesLine = [startVal, membersVal, voiceVal].filter(Boolean).join(' | ');
       const details = [labelsLine, valuesLine].filter(Boolean).join('\n');
-        const contentText = '';
+      // 募集内容を取得（noteまたはcontentフィールド）
+      const contentText = savedRecruitData?.note || savedRecruitData?.content || '';
       const { buildContainerSimple } = require('./recruitHelpers');
       updatedContainer = buildContainerSimple({
         headerTitle,
@@ -169,7 +170,8 @@ async function updateParticipantList(interactionOrMessage, participants, savedRe
       });
     } else {
       const { buildContainer } = require('./recruitHelpers');
-        const contentText = '';
+      // 募集内容を取得（noteまたはcontentフィールド）
+      const contentText = savedRecruitData?.note || savedRecruitData?.content || '';
       updatedContainer = buildContainer({ 
         headerTitle, 
         contentText,

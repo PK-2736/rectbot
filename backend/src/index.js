@@ -11,9 +11,6 @@ import { handleDeleteFriendCode } from './routes/friend-code/deleteFriendCode';
 import { handleSearchGameNames } from './routes/friend-code/searchGameNames';
 import { validateFriendCode } from './routes/friend-code/validateFriendCode';
 import { generateGameEmbeddings } from './utils/gameEmbeddings';
-// Reuse richer Worker routers (guild settings, recruitment/active-recruits) to avoid 404s
-import { routeGuildSettings } from './worker/routes/guildSettings.js';
-import { routeRecruitment } from './worker/routes/recruitment.js';
 
 function parseOrigins(env) {
   const raw = env.CORS_ORIGINS || 'https://recrubo.net,https://www.recrubo.net,https://dash.recrubo.net,https://grafana.recrubo.net';
@@ -109,39 +106,25 @@ export default {
     const url = new URL(request.url);
     const origin = request.headers.get('Origin') || '';
     const cors = corsHeadersFor(origin, env);
-    const noOrigin = !origin; // Server-to-server requests (bot/backend) send no Origin
 
     // セキュリティ: 不正なOriginからのOPTIONSリクエストは拒否
     if (request.method === 'OPTIONS') {
-      // Allow OPTIONS when Origin is absent (non-browser) or explicitly allowed
-      if (!cors && !noOrigin) {
+      if (!cors) {
         return new Response('Forbidden', { status: 403 });
       }
-      return new Response(null, { status: 204, headers: cors || {} });
+      return new Response(null, { status: 204, headers: cors });
     }
     
     // Friend Code API: Discord Botからのリクエストを許可（Originヘッダーなし）
     const isFriendCodeAPI = url.pathname.startsWith('/api/game/') || url.pathname.startsWith('/api/friend-code/');
     
     // セキュリティ: 不正なOriginからの通常リクエストも拒否（GETとFriend Code APIは除く）
-    if (!cors && !noOrigin && request.method !== 'GET' && !isFriendCodeAPI) {
+    if (!cors && request.method !== 'GET' && !isFriendCodeAPI) {
       return new Response('Forbidden', { status: 403 });
     }
     
     // GETリクエストで不正なOriginの場合はCORSヘッダーなしで応答（後方互換性のため）
     const safeHeaders = cors || {};
-
-    // Guild settings routes (uses Worker router to avoid 404)
-    {
-      const routed = await routeGuildSettings(request, env, ctx, url, safeHeaders);
-      if (routed) return routed;
-    }
-
-    // Recruitment-related routes (active recruits, grafana, etc.) from Worker router
-    {
-      const routed = await routeRecruitment(request, env, ctx, url, safeHeaders, undefined);
-      if (routed) return routed;
-    }
 
     // health
     if (url.pathname === '/ping' || url.pathname === '/health') {
