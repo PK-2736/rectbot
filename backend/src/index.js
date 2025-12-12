@@ -437,17 +437,17 @@ export default {
       }
     }
 
-    // Backwards compatibility redirects (legacy /api/recruitment -> /api/recruitments)
+    // Backwards compatibility: normalize /api/recruitment -> /api/recruitments
+    // 正規化: 単数形を複数形に統一
     if (url.pathname === '/api/recruitment' || url.pathname === '/api/recruitment/') {
-      if (request.method === 'GET') {
-        url.pathname = '/api/recruitments';
-      } else if (request.method === 'POST') {
-        url.pathname = '/api/recruitments';
+      url.pathname = '/api/recruitments';
+    } else if (url.pathname.startsWith('/api/recruitment/')) {
+      const pathParts = url.pathname.split('/').filter(Boolean); // ['api', 'recruitment', ...]
+      if (pathParts.length >= 3) {
+        // /api/recruitment/:id/... -> /api/recruitments/:id/...
+        pathParts[1] = 'recruitments'; // 'recruitment' -> 'recruitments'
+        url.pathname = '/' + pathParts.join('/');
       }
-    }
-    if (url.pathname.startsWith('/api/recruitment/')) {
-      const id = url.pathname.split('/')[2];
-      url.pathname = `/api/recruitments/${id}`;
     }
 
     // GET /api/recruitments
