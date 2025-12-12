@@ -201,19 +201,21 @@ async function showSettingsUI(interaction, settings = {}, isAdmin = false) {
     : '未設定 (サーバートップレベル)';
 
   if (isAdmin) {
-    const dedicatedSection = new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(`📂 **専用チャンネル作成ボタン**\n${dedicatedStatus}\n📁 カテゴリ: ${dedicatedCategory}`));
+    const dedicatedSection = new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(`📂 **専用チャンネル作成ボタン**\n${dedicatedStatus}${dedicatedEnabled ? `\n📁 カテゴリ: ${dedicatedCategory}` : ''}`));
     const toggleBtn = new ButtonBuilder().setCustomId('toggle_dedicated_channel').setLabel('オン/オフ').setStyle(ButtonStyle.Primary);
-    const categoryBtn = new ButtonBuilder().setCustomId('set_dedicated_category').setLabel('カテゴリ指定').setStyle(ButtonStyle.Secondary);
     try {
       dedicatedSection.setButtonAccessory(toggleBtn);
     } catch (_) {
       container.addActionRowComponents(new ActionRowBuilder().addComponents(toggleBtn));
     }
-    // Add category selector row separately
-    container.addActionRowComponents(new ActionRowBuilder().addComponents(categoryBtn));
-    addSafeSection(container, dedicatedSection, `専用チャンネル: ${dedicatedStatus}\nカテゴリ: ${dedicatedCategory}`);
+    // Only show category selector button when dedicated channel is enabled
+    if (dedicatedEnabled) {
+      const categoryBtn = new ButtonBuilder().setCustomId('set_dedicated_category').setLabel('カテゴリ指定').setStyle(ButtonStyle.Secondary);
+      container.addActionRowComponents(new ActionRowBuilder().addComponents(categoryBtn));
+    }
+    addSafeSection(container, dedicatedSection, `専用チャンネル: ${dedicatedStatus}${dedicatedEnabled ? `\nカテゴリ: ${dedicatedCategory}` : ''}`);
   } else {
-    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`📂 **専用チャンネル作成ボタン**\n${dedicatedStatus}\nカテゴリ: ${dedicatedCategory}`));
+    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`📂 **専用チャンネル作成ボタン**\n${dedicatedStatus}${dedicatedEnabled ? `\nカテゴリ: ${dedicatedCategory}` : ''}`));
   }
 
   container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Large).setDivider(true));
@@ -268,7 +270,14 @@ async function showChannelSelect(interaction, settingType, placeholder, { maxVal
     .setMaxValues(Math.min(25, Math.max(1, maxValues)))
     .addChannelTypes(...channelTypes);
   const actionRow = new ActionRowBuilder().addComponents(channelSelect);
-  await safeRespond(interaction, { content: placeholder, components: [actionRow], flags: MessageFlags.Ephemeral });
+  try {
+    await safeRespond(interaction, { content: placeholder, components: [actionRow], flags: MessageFlags.Ephemeral });
+  } catch (error) {
+    console.error('[guildSettings] showChannelSelect error:', error);
+    if (!interaction.replied && !interaction.deferred) {
+      await safeRespond(interaction, { content: '❌ チャンネル選択メニューの表示に失敗しました。時間を置いて再度お試しください。', flags: MessageFlags.Ephemeral });
+    }
+  }
 }
 
 async function showRoleSelect(interaction, settingType, placeholder) {

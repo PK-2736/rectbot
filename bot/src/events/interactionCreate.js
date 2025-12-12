@@ -317,11 +317,14 @@ module.exports = {
         const id = interaction.customId || '';
         const guildSettingsButtons = new Set([
           'set_recruit_channel',
+          'set_recruit_channels',
           'set_notification_role',
           'set_notification_roles',
           'toggle_everyone',
           'toggle_here',
           'toggle_recruit_style',
+          'toggle_dedicated_channel',
+          'set_dedicated_category',
           'set_default_title',
           'set_default_color',
           'set_update_channel',
