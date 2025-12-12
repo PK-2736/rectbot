@@ -229,6 +229,10 @@ async function execute(interaction) {
     // 設定されたロールがある場合のみロール情報を追加
     if (configuredNotificationRoleIds.length > 0) {
       for (const roleId of configuredNotificationRoleIds.slice(0, 22)) { // @everyone, @here分を考慮して22に
+        // 特殊メンションはロールフェッチしない
+        if (roleId === 'everyone' || roleId === 'here') {
+          continue;
+        }
         try {
           const role = await interaction.guild.roles.fetch(roleId);
           if (role) {

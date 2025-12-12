@@ -78,7 +78,7 @@ async function saveRecruitmentData(guildId, channelId, messageId, guildName, cha
     }
   };
   try {
-    const body = await backendFetch(`${config.BACKEND_API_URL.replace(/\/$/, '')}/api/recruitment`, {
+    const body = await backendFetch(`${config.BACKEND_API_URL.replace(/\/$/, '')}/api/recruitments`, {
       method: 'POST',
       body: JSON.stringify(payload)
     });
@@ -91,7 +91,7 @@ async function saveRecruitmentData(guildId, channelId, messageId, guildName, cha
 async function deleteRecruitmentData(messageId, requesterId = null) {
   try {
     const rid = normalizeRecruitId(messageId);
-    const body = await backendFetch(`${config.BACKEND_API_URL.replace(/\/$/, '')}/api/recruitment/${encodeURIComponent(rid)}`, {
+    const body = await backendFetch(`${config.BACKEND_API_URL.replace(/\/$/, '')}/api/recruitments/${encodeURIComponent(rid)}`, {
       method: 'DELETE',
       body: JSON.stringify({ userId: requesterId })
     });
