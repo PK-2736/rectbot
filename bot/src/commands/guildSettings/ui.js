@@ -3,6 +3,7 @@ const {
   SeparatorBuilder, SeparatorSpacingSize,
   ActionRowBuilder, ButtonBuilder, ButtonStyle,
   RoleSelectMenuBuilder, ChannelSelectMenuBuilder,
+  StringSelectMenuBuilder, StringSelectMenuOptionBuilder,
   ChannelType, MessageFlags,
   ModalBuilder, TextInputBuilder, TextInputStyle,
   SectionBuilder
@@ -40,6 +41,33 @@ async function showSettingsUI(interaction, settings = {}, isAdmin = false) {
     new TextDisplayBuilder().setContent(`⚙️ **ギルド募集設定**${isAdmin ? '' : ' (閲覧モード)'}`)
   );
 
+  // StringSelectMenuで設定項目を選択
+  const settingCategories = [
+    { label: '📍 チャンネル設定', value: 'channels', description: '募集チャンネルと通知チャンネル' },
+    { label: '🔔 通知設定', value: 'notifications', description: '通知対象ロールの選択' },
+    { label: '🎨 表示設定', value: 'display', description: 'タイトル、カラー、スタイル' },
+    { label: '📂 機能設定', value: 'features', description: '専用チャンネルボタン、スタイル' },
+  ];
+
+  const selectMenu = new StringSelectMenuBuilder()
+    .setCustomId('settings_category_menu')
+    .setPlaceholder('設定項目を選択してください...')
+    .addOptions(
+      settingCategories.map(cat => 
+        new StringSelectMenuOptionBuilder()
+          .setLabel(cat.label)
+          .setValue(cat.value)
+          .setDescription(cat.description)
+      )
+    );
+
+  container.addActionRowComponents(new ActionRowBuilder().addComponents(selectMenu));
+
+  container.addSeparatorComponents(
+    new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+  );
+
+  // デフォルト表示: 簡易サマリー
   const recruitChannels = Array.isArray(settings.recruit_channels)
     ? settings.recruit_channels.filter(Boolean).map(String)
     : [];
@@ -49,7 +77,6 @@ async function showSettingsUI(interaction, settings = {}, isAdmin = false) {
     return '未設定';
   })();
 
-  // 通知ロール集計
   const notificationRoles = (() => {
     const roles = [];
     if (Array.isArray(settings.notification_roles)) roles.push(...settings.notification_roles.filter(Boolean));
@@ -58,145 +85,24 @@ async function showSettingsUI(interaction, settings = {}, isAdmin = false) {
     return [...new Set(roles.map(String))];
   })();
 
-  const specialMentions = notificationRoles.filter(r => r === 'everyone' || r === 'here');
-  const actualRoles = notificationRoles.filter(r => r !== 'everyone' && r !== 'here');
-  const notificationRoleValue = (() => {
-    const lines = [];
-    if (specialMentions.includes('everyone')) lines.push('@everyone');
-    if (specialMentions.includes('here')) lines.push('@here');
-    lines.push(...actualRoles.slice(0, 2).map(roleId => `<@&${roleId}>`));
-    if (actualRoles.length > 2) lines.push(`+${actualRoles.length - 2}`);
-    return lines.length > 0 ? lines.join(', ') : '未設定';
-  })();
-
   const updateChannelValue = (settings.update_channel || settings.updateNotificationChannelId) 
     ? `<#${settings.update_channel || settings.updateNotificationChannelId}>` 
     : '未設定';
 
   const defaultTitleValue = settings.defaultTitle || settings.defaultRecruitTitle || '参加者募集';
-  const defaultColorValue = settings.defaultColor || settings.defaultRecruitColor || '未設定';
   const styleValue = (settings?.recruit_style === 'simple') ? 'シンプル' : '画像パネル';
-  const dedicatedStatus = !!settings.enable_dedicated_channel ? '✅ オン' : '⭕ オフ';
+  const dedicatedStatus = !!settings.enable_dedicated_channel ? '✅ 有効' : '⭕ 無効';
 
-  container.addSeparatorComponents(
-    new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
-  );
-
-  // ===== 📍 チャンネル設定 =====
   container.addTextDisplayComponents(
-    new TextDisplayBuilder().setContent('📍 **チャンネル設定**')
+    new TextDisplayBuilder().setContent(
+      `**現在の設定サマリー**\n` +
+      `📍 募集チャンネル: ${recruitChannelValue}\n` +
+      `🔔 通知ロール: ${notificationRoles.length > 0 ? `${notificationRoles.slice(0, 2).length}個設定済み` : '未設定'}\n` +
+      `📝 既定タイトル: ${defaultTitleValue}\n` +
+      `🖼️ 募集スタイル: ${styleValue}\n` +
+      `📂 専用チャンネル: ${dedicatedStatus}`
+    )
   );
-  
-  const channelInfo = `募集: ${recruitChannelValue}\n通知: ${updateChannelValue}`;
-  if (isAdmin) {
-    const channelSection = new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(channelInfo));
-    const btn = new ButtonBuilder().setCustomId('set_recruit_channels').setLabel('募集').setStyle(ButtonStyle.Primary);
-    try {
-      channelSection.setButtonAccessory(btn);
-    } catch (_) {
-      container.addActionRowComponents(new ActionRowBuilder().addComponents(btn));
-    }
-    addSafeSection(container, channelSection, channelInfo);
-    const categoryBtn = dedicatedStatus.includes('オン')
-      ? new ButtonBuilder().setCustomId('set_dedicated_category').setLabel('カテゴリ').setStyle(ButtonStyle.Secondary)
-      : new ButtonBuilder().setCustomId('set_dedicated_category_disabled').setLabel('カテゴリ').setStyle(ButtonStyle.Secondary).setDisabled(true);
-    container.addActionRowComponents(
-      new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('set_update_channel').setLabel('通知').setStyle(ButtonStyle.Secondary),
-        categoryBtn
-      )
-    );
-  } else {
-    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(channelInfo));
-  }
-
-  container.addSeparatorComponents(
-    new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
-  );
-
-  // ===== 🔔 通知設定 =====
-  container.addTextDisplayComponents(
-    new TextDisplayBuilder().setContent('🔔 **通知設定**')
-  );
-
-  if (isAdmin) {
-    const roleSection = new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(notificationRoleValue));
-    const btn = new ButtonBuilder().setCustomId('set_notification_role').setLabel('設定').setStyle(ButtonStyle.Primary);
-    try {
-      roleSection.setButtonAccessory(btn);
-    } catch (_) {
-      container.addActionRowComponents(new ActionRowBuilder().addComponents(btn));
-    }
-    addSafeSection(container, roleSection, notificationRoleValue);
-  } else {
-    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(notificationRoleValue));
-  }
-
-  container.addSeparatorComponents(
-    new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
-  );
-
-  // ===== 🎨 表示設定 =====
-  container.addTextDisplayComponents(
-    new TextDisplayBuilder().setContent('🎨 **表示設定**')
-  );
-
-  const displayInfo = `タイトル: ${defaultTitleValue}\nカラー: ${defaultColorValue}\nスタイル: ${styleValue}`;
-  if (isAdmin) {
-    const displaySection = new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(displayInfo));
-    const btn = new ButtonBuilder().setCustomId('set_default_title').setLabel('タイトル').setStyle(ButtonStyle.Primary);
-    try {
-      displaySection.setButtonAccessory(btn);
-    } catch (_) {
-      container.addActionRowComponents(new ActionRowBuilder().addComponents(btn));
-    }
-    addSafeSection(container, displaySection, displayInfo);
-    container.addActionRowComponents(
-      new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('set_default_color').setLabel('カラー').setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId('toggle_recruit_style').setLabel(styleValue).setStyle(ButtonStyle.Secondary)
-      )
-    );
-  } else {
-    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(displayInfo));
-  }
-
-  container.addSeparatorComponents(
-    new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
-  );
-
-  // ===== 📂 機能設定 =====
-  container.addTextDisplayComponents(
-    new TextDisplayBuilder().setContent(`📂 **機能設定**\n専用チャンネルボタン: ${dedicatedStatus}`)
-  );
-
-  if (isAdmin) {
-    container.addActionRowComponents(
-      new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('toggle_dedicated_channel').setLabel('オン/オフ').setStyle(ButtonStyle.Primary)
-      )
-    );
-  }
-
-  container.addSeparatorComponents(
-    new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Large).setDivider(true)
-  );
-
-  // ===== 操作ボタン =====
-  if (isAdmin) {
-    container.addActionRowComponents(
-      new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('finalize_settings').setLabel('保存').setStyle(ButtonStyle.Success).setEmoji('✅'),
-        new ButtonBuilder().setCustomId('reset_all_settings').setLabel('リセット').setStyle(ButtonStyle.Danger).setEmoji('🔄')
-      )
-    );
-  } else {
-    container.addTextDisplayComponents(
-      new TextDisplayBuilder().setContent('🔒 管理者権限が必要です')
-    );
-  }
-
-  container.addTextDisplayComponents(new TextDisplayBuilder().setContent('powered by **Recrubo**'))
 
   const replyOptions = {
     content: '　',
@@ -204,10 +110,8 @@ async function showSettingsUI(interaction, settings = {}, isAdmin = false) {
     flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
   };
 
-  // Validate the container (to capture builder validation errors early and fall back)
+  // Validate the container
   try {
-    // container.toJSON() will validate internal structure; call it to trigger any builder validation errors
-    // eslint-disable-next-line no-unused-expressions
     container.toJSON();
   } catch (validateErr) {
     console.error('[guildSettings] Container validation failed, falling back to plain text reply', validateErr);
@@ -220,6 +124,195 @@ async function showSettingsUI(interaction, settings = {}, isAdmin = false) {
   setTimeout(async () => {
     try { await interaction.deleteReply(); } catch (error) {
       console.log('[guildSettings] メッセージの自動削除に失敗（既に削除済みの可能性）:', error.message);
+    }
+  }, 5 * 60 * 1000);
+}
+
+async function showSettingsCategoryUI(interaction, category, settings = {}, isAdmin = false) {
+  const container = new ContainerBuilder();
+  container.setAccentColor(0x5865F2);
+
+  const categoryConfigs = {
+    channels: {
+      title: '📍 チャンネル設定',
+      description: '募集チャンネルと通知チャンネルを設定します',
+      buttons: [
+        { customId: 'set_recruit_channels', label: '募集チャンネル', style: ButtonStyle.Primary, emoji: '📍' },
+        { customId: 'set_update_channel', label: '通知チャンネル', style: ButtonStyle.Primary, emoji: '📢' }
+      ]
+    },
+    notifications: {
+      title: '🔔 通知設定',
+      description: 'ゲーム募集時に通知するロールを選択します。複数選択可能',
+      buttons: [
+        { customId: 'set_notification_role', label: 'ロール設定', style: ButtonStyle.Primary, emoji: '🔔' }
+      ]
+    },
+    display: {
+      title: '🎨 表示設定',
+      description: '募集メッセージのタイトル、カラー、表示スタイルを設定します',
+      buttons: [
+        { customId: 'set_default_title', label: 'タイトル設定', style: ButtonStyle.Primary, emoji: '📝' },
+        { customId: 'set_default_color', label: 'カラー設定', style: ButtonStyle.Primary, emoji: '🎨' },
+        { customId: 'toggle_recruit_style', label: 'スタイル切替', style: ButtonStyle.Secondary, emoji: '🖼️' }
+      ]
+    },
+    features: {
+      title: '📂 機能設定',
+      description: '専用チャンネル作成ボタンの有効化と設定',
+      buttons: [
+        { customId: 'toggle_dedicated_channel', label: 'オン/オフ', style: ButtonStyle.Primary, emoji: '⚡' },
+        { customId: 'set_dedicated_category', label: 'カテゴリ指定', style: ButtonStyle.Secondary, emoji: '📁' }
+      ]
+    }
+  };
+
+  const config = categoryConfigs[category];
+  if (!config) {
+    await safeRespond(interaction, { content: '❌ 不明なカテゴリです', flags: MessageFlags.Ephemeral });
+    return;
+  }
+
+  container.addTextDisplayComponents(
+    new TextDisplayBuilder().setContent(`${config.title}`)
+  );
+
+  container.addSeparatorComponents(
+    new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+  );
+
+  container.addTextDisplayComponents(
+    new TextDisplayBuilder().setContent(`**説明**\n${config.description}`)
+  );
+
+  container.addSeparatorComponents(
+    new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+  );
+
+  // カテゴリごとの詳細情報を表示
+  const recruitChannels = Array.isArray(settings.recruit_channels)
+    ? settings.recruit_channels.filter(Boolean).map(String)
+    : [];
+  const recruitChannelValue = (() => {
+    if (recruitChannels.length > 0) return recruitChannels.slice(0, 3).map(id => `<#${id}>`).join(', ') + (recruitChannels.length > 3 ? ` +${recruitChannels.length - 3}` : '');
+    if (settings.recruit_channel || settings.recruitmentChannelId) return `<#${settings.recruit_channel || settings.recruitmentChannelId}>`;
+    return '未設定';
+  })();
+
+  const updateChannelValue = (settings.update_channel || settings.updateNotificationChannelId) 
+    ? `<#${settings.update_channel || settings.updateNotificationChannelId}>` 
+    : '未設定';
+
+  const notificationRoles = (() => {
+    const roles = [];
+    if (Array.isArray(settings.notification_roles)) roles.push(...settings.notification_roles.filter(Boolean));
+    if (roles.length === 0 && settings.notification_role) roles.push(settings.notification_role);
+    return [...new Set(roles.map(String))];
+  })();
+
+  const defaultTitleValue = settings.defaultTitle || settings.defaultRecruitTitle || '参加者募集';
+  const defaultColorValue = settings.defaultColor || settings.defaultRecruitColor || '#00FFFF';
+  const styleValue = (settings?.recruit_style === 'simple') ? 'シンプル' : '画像パネル';
+  const dedicatedStatus = !!settings.enable_dedicated_channel ? '✅ オン' : '⭕ オフ';
+  const dedicatedCategory = settings.dedicated_channel_category_id
+    ? `<#${settings.dedicated_channel_category_id}>`
+    : 'サーバートップレベル';
+
+  if (category === 'channels') {
+    container.addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        `**現在の設定**\n` +
+        `📍 募集チャンネル: ${recruitChannelValue}\n` +
+        `📢 通知チャンネル: ${updateChannelValue}`
+      )
+    );
+  } else if (category === 'notifications') {
+    const rolesDisplay = notificationRoles.length > 0
+      ? notificationRoles.slice(0, 5).map(r => r === 'everyone' ? '@everyone' : r === 'here' ? '@here' : `<@&${r}>`).join(', ') + (notificationRoles.length > 5 ? ` +${notificationRoles.length - 5}` : '')
+      : '未設定';
+    container.addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(`**現在の設定**\n🔔 通知ロール: ${rolesDisplay}`)
+    );
+  } else if (category === 'display') {
+    container.addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        `**現在の設定**\n` +
+        `📝 既定タイトル: ${defaultTitleValue}\n` +
+        `🎨 既定カラー: ${defaultColorValue}\n` +
+        `🖼️ 募集スタイル: ${styleValue}`
+      )
+    );
+  } else if (category === 'features') {
+    container.addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        `**現在の設定**\n` +
+        `📂 専用チャンネル: ${dedicatedStatus}\n` +
+        `📁 作成先カテゴリ: ${dedicatedCategory}`
+      )
+    );
+  }
+
+  container.addSeparatorComponents(
+    new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Medium).setDivider(true)
+  );
+
+  // ボタンを配置
+  if (isAdmin && config.buttons.length > 0) {
+    const buttonRows = [];
+    for (let i = 0; i < config.buttons.length; i += 2) {
+      const row = new ActionRowBuilder();
+      row.addComponents(
+        new ButtonBuilder()
+          .setCustomId(config.buttons[i].customId)
+          .setLabel(config.buttons[i].label)
+          .setStyle(config.buttons[i].style)
+          .setEmoji(config.buttons[i].emoji)
+      );
+      if (config.buttons[i + 1]) {
+        row.addComponents(
+          new ButtonBuilder()
+            .setCustomId(config.buttons[i + 1].customId)
+            .setLabel(config.buttons[i + 1].label)
+            .setStyle(config.buttons[i + 1].style)
+            .setEmoji(config.buttons[i + 1].emoji)
+        );
+      }
+      buttonRows.push(row);
+    }
+    buttonRows.forEach(row => container.addActionRowComponents(row));
+  } else if (!isAdmin) {
+    container.addTextDisplayComponents(
+      new TextDisplayBuilder().setContent('🔒 **変更には管理者権限が必要です**')
+    );
+  }
+
+  container.addSeparatorComponents(
+    new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Medium).setDivider(true)
+  );
+
+  container.addTextDisplayComponents(
+    new TextDisplayBuilder().setContent('powered by **Recrubo**')
+  );
+
+  const replyOptions = {
+    content: '　',
+    components: [container],
+    flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
+  };
+
+  try {
+    container.toJSON();
+  } catch (validateErr) {
+    console.error('[guildSettings] Category UI validation failed', validateErr);
+    await safeRespond(interaction, { content: '⚠️ 設定の表示に失敗しました。', flags: MessageFlags.Ephemeral });
+    return;
+  }
+
+  await safeRespond(interaction, replyOptions);
+
+  setTimeout(async () => {
+    try { await interaction.deleteReply(); } catch (error) {
+      console.log('[guildSettings] メッセージの自動削除に失敗', error.message);
     }
   }, 5 * 60 * 1000);
 }
@@ -333,6 +426,7 @@ async function showColorModal(interaction) {
 
 module.exports = {
   showSettingsUI,
+  showSettingsCategoryUI,
   showChannelSelect,
   showRoleSelect,
   showTitleModal,

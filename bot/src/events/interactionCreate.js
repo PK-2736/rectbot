@@ -107,8 +107,8 @@ module.exports = {
 
     // P0修正: セレクトメニューの処理を統一ハンドラーでラップ
     if (interaction.isStringSelectMenu && interaction.isStringSelectMenu()) {
-      // ギルド設定のセレクトメニュー
-      if (interaction.customId && (interaction.customId.startsWith('channel_select_') || interaction.customId.startsWith('role_select_'))) {
+      // ギルド設定のセレクトメニュー（カテゴリ選択含む）
+      if (interaction.customId && (interaction.customId.startsWith('channel_select_') || interaction.customId.startsWith('role_select_') || interaction.customId === 'settings_category_menu')) {
         const guildSettings = getGuildSettingsCommand();
         console.log(`[interactionCreate] routing to guildSettings (select) - found=${Boolean(guildSettings)}`);
         if (guildSettings && typeof guildSettings.handleSelectMenuInteraction === 'function') {

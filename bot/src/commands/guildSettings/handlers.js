@@ -9,6 +9,7 @@ const { saveGuildSettingsToRedis, getGuildSettingsFromRedis, getGuildSettingsSma
 const { safeReply } = require('../../utils/safeReply');
 const {
   showSettingsUI,
+  showSettingsCategoryUI,
   showChannelSelect,
   showRoleSelect,
   showTitleModal,
@@ -87,6 +88,15 @@ async function handleSelectMenuInteraction(interaction) {
     if (!interaction.guild || !interaction.member || !interaction.member.permissions?.has(PermissionFlagsBits.Administrator)) {
       return await safeReply(interaction, { content: '❌ この操作を実行するには「管理者」権限が必要です。', flags: MessageFlags.Ephemeral });
     }
+
+    // 設定カテゴリメニュー
+    if (customId === 'settings_category_menu') {
+      const category = values[0];
+      const currentSettings = await getGuildSettingsSmart(interaction.guildId);
+      await showSettingsCategoryUI(interaction, category, currentSettings, true);
+      return;
+    }
+
     if (customId.startsWith('channel_select_')) {
       const settingType = customId.replace('channel_select_', '');
       if (settingType === 'recruit_channels') {
