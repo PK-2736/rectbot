@@ -450,6 +450,27 @@ export default {
       }
     }
 
+    // Legacy direct handling: accept POST /api/recruitment as create
+    if (url.pathname === '/api/recruitment' && request.method === 'POST') {
+      // Mirror /api/recruitments POST behavior
+      if (!await verifyServiceToken(request, env)) {
+        return jsonResponse({ ok: false, error: 'unauthorized' }, 401, safeHeaders);
+      }
+      try {
+        const body = await request.json();
+        if (store.forwardToDO) {
+          const res = await store.forwardToDO('/create', 'POST', body, { authorization: request.headers.get('authorization') || ''});
+          const text = await res.text();
+          return new Response(text, { status: res.status, headers: { ...cors, 'content-type': 'application/json; charset=utf-8' }});
+        } else {
+          const item = await store.create(body);
+          return jsonResponse({ ok: true, recruit: item }, 201, safeHeaders);
+        }
+      } catch (e) {
+        return jsonResponse({ ok: false, error: e.message || 'server_error' }, 500, safeHeaders);
+      }
+    }
+
     // GET /api/recruitments
     if (url.pathname === '/api/recruitments' && request.method === 'GET') {
       try {
