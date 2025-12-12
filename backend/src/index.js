@@ -175,6 +175,28 @@ export default {
         if (!guildId) {
           return jsonResponse({ ok: false, error: 'guildId is required' }, 400, safeHeaders);
         }
+
+        // Normalize notification roles (single or multiple) into a single column that accepts either a single id or JSON array string
+        const normalizedNotificationRoles = (() => {
+          const roles = [];
+          if (Array.isArray(notification_roles)) {
+            roles.push(...notification_roles.filter(Boolean).map(String));
+          }
+          if (notification_role) {
+            roles.push(String(notification_role));
+          }
+          return [...new Set(roles)].slice(0, 25);
+        })();
+
+        const serializedNotificationRoleId = (() => {
+          if (normalizedNotificationRoles.length === 0) return null;
+          if (normalizedNotificationRoles.length === 1) return normalizedNotificationRoles[0];
+          try {
+            return JSON.stringify(normalizedNotificationRoles);
+          } catch (_err) {
+            return normalizedNotificationRoles[0];
+          }
+        })();
         
         // Supabaseに保存
         const supabaseUrl = resolveSupabaseRestUrl(env);
@@ -190,25 +212,32 @@ export default {
         
         const payload = {
           guild_id: guildId,
-          notification_roles: notification_roles || [],
-          notification_role: notification_role || null,
-          recruit_channel: recruit_channel || null,
-          update_channel: update_channel || null,
-          default_color: defaultColor || null,
-          default_title: defaultTitle || null,
-          recruit_style: recruit_style || 'image',
+          recruit_channel_id: recruit_channel || null,
+          notification_role_id: serializedNotificationRoleId,
+          update_channel_id: update_channel || null,
+          default_color: Object.prototype.hasOwnProperty.call(body, 'defaultColor') ? (defaultColor || null) : undefined,
+          default_title: defaultTitle || '参加者募集',
           updated_at: new Date().toISOString()
         };
         
-        console.log('[Guild Settings Finalize] Saving to Supabase:', { supabaseUrl, guildId, keys: Object.keys(payload) });
+        console.log('[Guild Settings Finalize] Saving to Supabase:', {
+          supabaseUrl,
+          guildId,
+          keys: Object.keys(payload),
+          notificationRoles: normalizedNotificationRoles,
+          serializedNotificationRoleId
+        });
         
+        // Remove undefined keys to avoid accidental column creation attempts
+        const supabaseBody = Object.fromEntries(Object.entries(payload).filter(([, v]) => v !== undefined));
+
         const response = await fetch(`${supabaseUrl}/rest/v1/guild_settings`, {
           method: 'POST',
           headers: {
             ...buildSupabaseHeaders(env),
             'Prefer': 'resolution=merge-duplicates'
           },
-          body: JSON.stringify(payload)
+          body: JSON.stringify(supabaseBody)
         });
         
         const responseText = await response.text();
@@ -253,11 +282,28 @@ export default {
         }
         
         const settings = data[0];
+
+        const rawNotificationRole = settings.notification_role_id;
+        let notificationRoles = [];
+        if (Array.isArray(rawNotificationRole)) notificationRoles = rawNotificationRole.map(String);
+        else if (typeof rawNotificationRole === 'string') {
+          const trimmed = rawNotificationRole.trim();
+          if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+            try {
+              const parsed = JSON.parse(trimmed);
+              if (Array.isArray(parsed)) notificationRoles = parsed.filter(Boolean).map(String);
+            } catch (_e) {}
+          }
+          if (notificationRoles.length === 0 && trimmed.length > 0) notificationRoles = [trimmed];
+        } else if (rawNotificationRole) notificationRoles = [String(rawNotificationRole)];
+
+        notificationRoles = [...new Set(notificationRoles)].slice(0, 25);
+
         return jsonResponse({
-          notification_roles: settings.notification_roles || [],
-          notification_role: settings.notification_role || null,
-          recruit_channel: settings.recruit_channel || null,
-          update_channel: settings.update_channel || null,
+          notification_roles: notificationRoles,
+          notification_role: notificationRoles.length > 0 ? notificationRoles[0] : null,
+          recruit_channel: settings.recruit_channel_id || null,
+          update_channel: settings.update_channel_id || null,
           defaultColor: settings.default_color || null,
           defaultTitle: settings.default_title || null,
           recruit_style: settings.recruit_style || 'image'
