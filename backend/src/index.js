@@ -532,7 +532,7 @@ export default {
       if (!await verifyServiceToken(request, env)) {
         return jsonResponse({ ok: false, error: 'unauthorized' }, 401, safeHeaders);
       }
-      const id = url.pathname.split('/')[2];
+      const id = url.pathname.split('/')[3];
       try {
         const update = await request.json();
         if (store.forwardToDO) {
@@ -550,7 +550,7 @@ export default {
 
     // GET /api/recruitments/:id
     if (url.pathname.startsWith('/api/recruitments/') && request.method === 'GET') {
-      const id = url.pathname.split('/')[2];
+      const id = url.pathname.split('/')[3];
       try {
         if (store.forwardToDO) {
           const res = await store.forwardToDO(`/api/recruits/${id}`, 'GET');
@@ -571,7 +571,7 @@ export default {
       if (!await verifyServiceToken(request, env)) {
         return jsonResponse({ ok: false, error: 'unauthorized' }, 401, safeHeaders);
       }
-      const id = url.pathname.split('/')[2];
+      const id = url.pathname.split('/')[3];
       try {
         const { userId } = await request.json();
         if (!userId) return jsonResponse({ ok: false, error: 'invalid_user' }, 400, safeHeaders);
@@ -594,7 +594,7 @@ export default {
       if (!await verifyServiceToken(request, env)) {
         return jsonResponse({ ok: false, error: 'unauthorized' }, 401, safeHeaders);
       }
-      const id = url.pathname.split('/')[2];
+      const id = url.pathname.split('/')[3];
       let requesterId = '';
       try {
         const body = await request.json().catch(() => ({}));
