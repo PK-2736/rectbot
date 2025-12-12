@@ -515,7 +515,7 @@ export default {
       try {
         const body = await request.json();
         if (store.forwardToDO) {
-          const res = await store.forwardToDO('/create', 'POST', body, { authorization: request.headers.get('authorization') || ''});
+          const res = await store.forwardToDO('/api/recruits', 'POST', body, { authorization: request.headers.get('authorization') || ''});
           const text = await res.text();
           return new Response(text, { status: res.status, headers: { ...cors, 'content-type': 'application/json; charset=utf-8' }});
         } else {
@@ -532,7 +532,7 @@ export default {
       const id = url.pathname.split('/')[2];
       try {
         if (store.forwardToDO) {
-          const res = await store.forwardToDO(`/get/${id}`, 'GET');
+          const res = await store.forwardToDO(`/api/recruits/${id}`, 'GET');
           const text = await res.text();
           return new Response(text, { status: res.status, headers: { ...cors, 'content-type': 'application/json; charset=utf-8' }});
         } else {
@@ -555,7 +555,7 @@ export default {
         const { userId } = await request.json();
         if (!userId) return jsonResponse({ ok: false, error: 'invalid_user' }, 400, safeHeaders);
         if (store.forwardToDO) {
-          const res = await store.forwardToDO(`/join/${id}`, 'POST', { userId }, { authorization: request.headers.get('authorization') || '' });
+          const res = await store.forwardToDO(`/api/recruits/${id}/join`, 'POST', { userId }, { authorization: request.headers.get('authorization') || '' });
           const text = await res.text();
           return new Response(text, { status: res.status, headers: { ...cors, 'content-type': 'application/json; charset=utf-8' }});
         } else {
@@ -581,7 +581,7 @@ export default {
       } catch(e){}
       try {
         if (store.forwardToDO) {
-          const res = await store.forwardToDO(`/delete/${id}`, 'DELETE', { userId: requesterId }, { authorization: request.headers.get('authorization') || ''});
+          const res = await store.forwardToDO(`/api/recruits/${id}`, 'DELETE', { userId: requesterId }, { authorization: request.headers.get('authorization') || ''});
           const text = await res.text();
           return new Response(text, { status: res.status, headers: { ...cors, 'content-type': 'application/json; charset=utf-8' }});
         } else {
