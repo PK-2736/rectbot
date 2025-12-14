@@ -84,38 +84,18 @@ function buildContainer({ headerTitle = '募集', participantText = '', recruitI
 function buildContainerSimple({ headerTitle = '募集', detailsText = '', participantText = '', recruitIdText = '(unknown)', accentColor = 0x000000, footerExtra = null, subHeaderText = null, contentText = '', titleText = '', avatarUrl = null }) {
   const container = new ContainerBuilder();
   container.setAccentColor(typeof accentColor === 'number' ? accentColor : parseInt(String(accentColor), 16) || 0x000000);
-  // ヘッダーセクション（サムネ付き）
-  const headerSection = new SectionBuilder();
-  if (avatarUrl && typeof avatarUrl === 'string') {
-    try {
-      const thumb = new ThumbnailBuilder({ media: { url: avatarUrl } });
-      headerSection.setThumbnailAccessory(thumb);
-    } catch (_) {}
-  }
+  
   // タイトルを最上段に配置（強調表示は呼び出し側で整形）
   if (titleText && String(titleText).trim().length > 0) {
-    headerSection.addTextDisplayComponents(new TextDisplayBuilder().setContent(String(titleText)));
+    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(String(titleText)));
   }
   // 次に「〜さんの募集」を表示
-  headerSection.addTextDisplayComponents(new TextDisplayBuilder().setContent(`🎮 **${headerTitle}**`));
+  container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`🎮 **${headerTitle}**`));
   // 通知ロールなどのサブヘッダー
   if (subHeaderText && String(subHeaderText).trim().length > 0) {
-    headerSection.addTextDisplayComponents(new TextDisplayBuilder().setContent(String(subHeaderText)));
+    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(String(subHeaderText)));
   }
   
-  // Clean up undefined accessory/thumbnail before adding to container
-  try {
-    if (Object.prototype.hasOwnProperty.call(headerSection, 'accessory') && headerSection.accessory === undefined) {
-      delete headerSection.accessory;
-    }
-    if (Object.prototype.hasOwnProperty.call(headerSection, 'thumbnail') && headerSection.thumbnail === undefined) {
-      delete headerSection.thumbnail;
-    }
-  } catch (cleanupErr) {
-    // ignore cleanup errors
-  }
-  
-  container.addSectionComponents(headerSection);
   container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
   if (detailsText) {
     container.addTextDisplayComponents(new TextDisplayBuilder().setContent(detailsText));
