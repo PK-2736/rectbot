@@ -25,8 +25,9 @@ async function deleteRecruitStatus(serverId) {
 
 async function getActiveRecruits() {
   try {
-    const body = await backendFetch(`${config.BACKEND_API_URL.replace(/\/$/, '')}/api/active-recruits`);
-    return { ok: true, body };
+     const response = await backendFetch(`${config.BACKEND_API_URL.replace(/\/$/, '')}/api/active-recruits`);
+     // backendFetch already returns { ok: true, body: [...] }, so we return it directly
+     return response;
   } catch (error) {
     return { ok: false, status: error?.status ?? null, error: error?.body ?? error?.message ?? String(error) };
   }
