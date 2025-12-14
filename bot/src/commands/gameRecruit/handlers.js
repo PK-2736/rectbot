@@ -369,8 +369,9 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
   // }, eightHoursMs);
 
   // 開始時刻メンション（任意）- 重複防止のため1回のみ実行
+  // 「今から」の場合は通知を出さない
   const startDelay = computeDelayMs(finalRecruitData.startAt, null);
-  if (startDelay !== null && startDelay >= 0 && startDelay <= (36 * 60 * 60 * 1000)) { // 36h上限
+  if (finalRecruitData.startTime !== '今から' && startDelay !== null && startDelay >= 0 && startDelay <= (36 * 60 * 60 * 1000)) { // 36h上限
     setTimeout(async () => {
       try {
         // 重複送信チェック
@@ -702,6 +703,20 @@ async function processClose(interaction, messageId, savedRecruitData) {
           const dedicatedChannelId = await getDedicatedChannel(recruitId).catch(() => null);
           
           if (dedicatedChannelId) {
+            // 専用チャンネルに削除予告メッセージを送信
+            try {
+              const channel = await interaction.guild.channels.fetch(dedicatedChannelId).catch(() => null);
+              if (channel && typeof channel.send === 'function') {
+                await channel.send({
+                  content: '⏰ **募集が締められたので5分後に専用チャンネルを削除します**',
+                  allowedMentions: { roles: [], users: [] }
+                });
+              }
+            } catch (e) {
+              console.warn('[processClose] Failed to send deletion notice:', e?.message || e);
+            }
+            
+            // 5分後に削除
             setTimeout(async () => {
               try {
                 const channel = await interaction.guild.channels.fetch(dedicatedChannelId).catch(() => null);
