@@ -291,7 +291,7 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
   let updatedContainer;
   if (styleForEdit === 'simple') {
     const { buildContainerSimple } = require('../../utils/recruitHelpers');
-      const labelsLine = '🕒 開始時間 | 👥 募集人数 | 🎙 通話有無';
+      const labelsLine = '**🕒 開始時間 | 👥 募集人数 | 🎙 通話有無**';
       const startVal = finalRecruitData?.startTime ? String(finalRecruitData.startTime) : null;
       const membersVal = typeof finalRecruitData?.participants === 'number' ? `${finalRecruitData.participants}人` : null;
       let voiceVal = null;
@@ -301,8 +301,10 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
       }
       const valuesLine = [startVal, membersVal, voiceVal].filter(Boolean).join(' | ');
       const detailsText = `${labelsLine}\n${valuesLine}`;
-    // 募集内容を取得
-    const contentText = finalRecruitData?.note || finalRecruitData?.content || '';
+    // 募集内容を取得（content, note, description のいずれかから）
+    const contentText = finalRecruitData?.content || finalRecruitData?.note || finalRecruitData?.description || '';
+    console.log('[finalizePersistAndEdit] simple style - detailsText:', detailsText);
+    console.log('[finalizePersistAndEdit] simple style - contentText:', contentText, 'from finalRecruitData:', { content: finalRecruitData?.content, note: finalRecruitData?.note, description: finalRecruitData?.description });
       updatedContainer = buildContainerSimple({
         headerTitle: `${user.username}さんの募集`,
         detailsText,
@@ -316,8 +318,9 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
     });
   } else {
     const { buildContainer } = require('../../utils/recruitHelpers');
-    // 募集内容を取得
-    const contentText = finalRecruitData?.note || finalRecruitData?.content || '';
+    // 募集内容を取得（content, note, description のいずれかから）
+    const contentText = finalRecruitData?.content || finalRecruitData?.note || finalRecruitData?.description || '';
+    console.log('[finalizePersistAndEdit] image style - contentText:', contentText);
       updatedContainer = buildContainer({
         headerTitle: `${user.username}さんの募集`,
         subHeaderText,
