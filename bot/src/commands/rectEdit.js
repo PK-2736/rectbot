@@ -352,7 +352,7 @@ module.exports = {
               return null;
             })();
             
-            const labelsLine = '🕒 開始時間 | 👥 募集人数 | 🎙 通話有無';
+            const labelsLine = '**🕒 開始時間 | 👥 募集人数 | 🎙 通話有無**';
             const valuesLine = [startVal, membersVal, vcVal].filter(Boolean).join(' | ');
             const detailsText = [labelsLine, valuesLine].filter(Boolean).join('\n');
             
@@ -386,7 +386,7 @@ module.exports = {
 
             // 参加リストテキストを作成時と同じ形式に変更
             const remainingSlots = maxMembers - currentMembers;
-            const simpleParticipantText = `📋 参加リスト (あと${remainingSlots}人)\n${participants.map(id => `<@${id}>`).join(' • ')}`;
+            const simpleParticipantText = `**📋 参加リスト** \`(あと${remainingSlots}人)\`\n${participants.map(id => `<@${id}>`).join(' • ')}`;
 
             container = buildContainerSimple({
               headerTitle: `${interaction.user.username}さんの募集`,
