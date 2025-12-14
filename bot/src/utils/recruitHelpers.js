@@ -135,6 +135,7 @@ function buildContainerSimple({ headerTitle = '募集', detailsText = '', partic
   if (detailsText) {
     // detailsText を各行に分割して個別に追加（マークダウンを正しく処理）
     const detailsLines = String(detailsText).split('\n').filter(Boolean);
+    console.log('[buildContainerSimple] detailsLines:', detailsLines);
     detailsLines.forEach(line => {
       container.addTextDisplayComponents(new TextDisplayBuilder().setContent(String(line)));
     });
@@ -147,6 +148,7 @@ function buildContainerSimple({ headerTitle = '募集', detailsText = '', partic
   if (contentText && String(contentText).trim().length > 0) {
     // contentText も各行に分割して個別に追加
     const contentLines = String(contentText).split('\n').filter(Boolean);
+    console.log('[buildContainerSimple] contentText:', contentText, 'contentLines:', contentLines);
     contentLines.forEach(line => {
       container.addTextDisplayComponents(new TextDisplayBuilder().setContent(String(line)));
     });
@@ -155,6 +157,7 @@ function buildContainerSimple({ headerTitle = '募集', detailsText = '', partic
   if (participantText) {
     // participantText も各行に分割して個別に追加（マークダウンを正しく処理）
     const participantLines = String(participantText).split('\n').filter(Boolean);
+    console.log('[buildContainerSimple] participantLines:', participantLines);
     participantLines.forEach(line => {
       container.addTextDisplayComponents(new TextDisplayBuilder().setContent(String(line)));
     });
