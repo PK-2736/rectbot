@@ -147,7 +147,17 @@ async function sendStartTimeNotification(client, recruit, guildSettings = null) 
     console.log(`[StartTimeNotifier] Sending notification for recruit ${recruitId} in channel ${channelId}`);
 
     // チャンネルを取得
-    const channel = await client.channels.fetch(channelId).catch(() => null);
+    let channel = null;
+    if (channelId) {
+      channel = await client.channels.fetch(channelId).catch(() => null);
+    }
+    if (!channel) {
+      const fallbackChannelId = guildSettings?.recruit_channel || (Array.isArray(guildSettings?.recruit_channels) ? guildSettings.recruit_channels[0] : null);
+      if (fallbackChannelId) {
+        channel = await client.channels.fetch(fallbackChannelId).catch(() => null);
+        console.log(`[StartTimeNotifier] Using fallback recruit channel ${fallbackChannelId}`);
+      }
+    }
     if (!channel || !channel.isTextBased()) {
       console.warn(`[StartTimeNotifier] Channel ${channelId} not found or not text-based`);
       return;

@@ -8,6 +8,7 @@ const {
 } = require('discord.js');
 
 const { updateRecruitmentData } = require('../utils/db');
+const { safeRespond } = require('../utils/interactionHandler');
 const backendFetch = require('../utils/backendFetch');
 const config = require('../config');
 
@@ -53,11 +54,11 @@ module.exports = {
       const ownerId = recruit?.ownerId || recruit?.metadata?.raw?.recruiterId;
       const messageId = recruit?.metadata?.messageId;
       if (!ownerId || !messageId) {
-        await interaction.reply({ content: '❌ 募集の取得に失敗しました。', flags: MessageFlags.Ephemeral });
+        await safeRespond(interaction, { content: '❌ 募集の取得に失敗しました。', flags: MessageFlags.Ephemeral });
         return;
       }
       if (String(ownerId) !== interaction.user.id) {
-        await interaction.reply({ content: '❌ 募集主のみが編集できます。', flags: MessageFlags.Ephemeral });
+        await safeRespond(interaction, { content: '❌ 募集主のみが編集できます。', flags: MessageFlags.Ephemeral });
         return;
       }
 
@@ -80,7 +81,7 @@ module.exports = {
       await interaction.showModal(modal);
     } catch (error) {
       console.error('[rect-edit] fetch or modal error', error);
-      await interaction.reply({ content: '❌ 募集が見つかりませんでした。', flags: MessageFlags.Ephemeral });
+      await safeRespond(interaction, { content: '❌ 募集が見つかりませんでした。', flags: MessageFlags.Ephemeral });
     }
   },
 
@@ -113,10 +114,10 @@ module.exports = {
         });
       }
 
-      await interaction.reply({ content: '✅ 募集を更新しました。', flags: MessageFlags.Ephemeral });
+      await safeRespond(interaction, { content: '✅ 募集を更新しました。', flags: MessageFlags.Ephemeral });
     } catch (error) {
       console.error('[rect-edit] update error', error);
-      await interaction.reply({ content: '❌ 更新に失敗しました。', flags: MessageFlags.Ephemeral });
+      await safeRespond(interaction, { content: '❌ 更新に失敗しました。', flags: MessageFlags.Ephemeral });
     }
   }
 };
