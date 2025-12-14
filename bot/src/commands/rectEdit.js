@@ -262,37 +262,42 @@ module.exports = {
           const result = await updateRecruitmentData(messageId, update);
           console.log('[rect-edit] updateRecruitmentData result:', { ok: result.ok, status: result.status });
 
-          // Extract recruitId from the response or derive it from messageId
-          let recruitId = null;
-          if (result.ok && result.body?.recruit?.recruitId) {
-            recruitId = result.body.recruit.recruitId;
-            console.log('[rect-edit] Got recruitId from response:', recruitId);
-          } else if (result.body?.recruitId) {
-            recruitId = result.body.recruitId;
-            console.log('[rect-edit] Got recruitId from body:', recruitId);
-          } else {
-            // Fallback: extract last 8 digits from messageId
-            recruitId = String(messageId).slice(-8);
-            console.log('[rect-edit] Extracted recruitId from messageId:', recruitId);
-          }
-
-          // Fetch updated recruit data using recruitId
-          const recruitData = await getRecruitFromRedis(recruitId);
-          console.log('[rect-edit] Fetched updated recruit:', recruitData);
-
-          if (!recruitData) {
-            await interaction.editReply({ content: '⚠️ 募集を更新しましたが、表示の更新に失敗しました。' });
+          if (!result.ok || !result.body?.recruit) {
+            console.error('[rect-edit] Update failed or no recruit data returned');
+            await interaction.editReply({ content: '⚠️ 募集の更新に失敗しました。' });
             return;
           }
 
-          const msg = await interaction.channel.messages.fetch(messageId).catch(() => null);
+          // Use the updated recruit data directly from the BACKEND response
+          const recruitData = result.body.recruit;
+          const actualMessageId = recruitData.metadata?.messageId || messageId;
+          const recruitId = recruitData.recruitId;
+          
+          console.log('[rect-edit] Updated recruit from backend:', { 
+            recruitId, 
+            title: recruitData.title, 
+            description: recruitData.description,
+            actualMessageId 
+          });
+
+          // Fetch the Discord message using the actual messageId
+          const msg = await interaction.channel.messages.fetch(actualMessageId).catch((err) => {
+            console.error('[rect-edit] Failed to fetch message:', err.message);
+            return null;
+          });
+          
           if (!msg) {
+            console.warn('[rect-edit] Message not found:', actualMessageId);
             await interaction.editReply({ content: '✅ 募集を更新しました（メッセージが見つかりません）。' });
             return;
           }
 
-          // Get participants using recruitId
-          const participants = await getParticipantsFromRedis(recruitId).catch(() => []);
+          // Get participants using recruitId from backend response
+          let participants = recruitData.participants || [];
+          if (!Array.isArray(participants)) {
+            participants = [recruitData.ownerId];
+          }
+          console.log('[rect-edit] Participants:', participants);
           
           // Regenerate image and container
           const useColor = recruitData.panelColor || '000000';
@@ -304,27 +309,27 @@ module.exports = {
 
           const participantText = participants.length > 0 
             ? `🎯✨ 参加リスト ✨🎯\n${participants.map(id => `🎮 <@${id}>`).join('\n')}`
-            : `🎯✨ 参加リスト ✨🎯\n🎮 <@${recruitData.recruiterId}>`;
+            : `🎯✨ 参加リスト ✨🎯\n🎮 <@${recruitData.ownerId}>`;
 
           console.log('[rect-edit] Building container...');
           const container = buildContainer({
             headerTitle: `${interaction.user.username}さんの募集`,
             subHeaderText: null,
-            contentText: recruitData.content || recruitData.note || '',
+            contentText: recruitData.description || recruitData.content || '',
             titleText: '',
             participantText,
-            recruitIdText: messageId,
+            recruitIdText: recruitId,
             accentColor,
             imageAttachmentName: 'attachment://recruit-card.png',
-            recruiterId: recruitData.recruiterId,
+            recruiterId: recruitData.ownerId,
             requesterId: interaction.user.id
           });
 
-          console.log('[rect-edit] Updating message...');
+          console.log('[rect-edit] Updating message:', actualMessageId);
           await msg.edit({
             files: [image],
             components: [container],
-            flags: MessageFlags.IsComponentsV2,
+            flags: require('discord.js').MessageFlags.IsComponentsV2,
             allowedMentions: { roles: [], users: [] }
           });
 
