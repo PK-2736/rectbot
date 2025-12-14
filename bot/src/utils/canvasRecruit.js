@@ -375,22 +375,32 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
   const infoBoxWidth = 48; // 各情報ボックスの幅（50から48に縮小）
   const infoBoxHeight = 15; // 各情報ボックスの高さ
   
-  // 情報配列
-  const currentMembers = Array.isArray(participantIds) ? participantIds.length : Number(recruitData.currentMembers) || 0;
-  const maxMembers = Number(recruitData.maxMembers || recruitData.participants || recruitData.participantsCount || recruitData.max_members || currentMembers || 0) || currentMembers || 4;
+  // 情報配列（上で算出した人数ロジックに合わせる）
+  const infoCurrent = Array.isArray(participantIds) ? participantIds.length : Number(recruitData.currentMembers || recruitData.participantsCount || 0) || 0;
+  const rawMaxInfo = recruitData.maxMembers
+    ?? recruitData.metadata?.raw?.maxMembers
+    ?? recruitData.metadata?.raw?.participants
+    ?? recruitData.raw?.maxMembers
+    ?? recruitData.raw?.participants
+    ?? recruitData.participantsCount
+    ?? recruitData.max_members
+    ?? null;
+  const infoMax = Number(rawMaxInfo) || Math.max(infoCurrent, 4);
+
+  const startLabel = recruitData.metadata?.startLabel || recruitData.startTime || null;
 
   const infoItems = [
-    { label: '人数：', value: `${currentMembers}/${maxMembers}人` },
+    { label: '人数：', value: `${infoCurrent}/${infoMax}人` },
     { 
       label: '時間：', 
-      value: recruitData.startTime ? `${recruitData.startTime}~` : '指定なし' 
+      value: startLabel ? `${startLabel}~` : '指定なし' 
     },
     { 
       label: '通話：', 
       value: (() => {
         // 通話有無の判定
-        const hasVoice = recruitData.vc === 'あり' || recruitData.vc === true;
-        const noVoice = recruitData.vc === 'なし' || recruitData.vc === false;
+        const hasVoice = recruitData.vc === 'あり' || recruitData.vc === true || recruitData.voice === true;
+        const noVoice = recruitData.vc === 'なし' || recruitData.vc === false || recruitData.voice === false;
         
         if (hasVoice) {
           // 通話ありの場合、チャンネル名があれば表示
@@ -398,6 +408,8 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
             return `あり/${recruitData.voiceChannelName}`;
           } else if (recruitData.voicePlace) {
             return `あり/${recruitData.voicePlace}`;
+          } else if (recruitData.metadata?.note) {
+            return `あり/${recruitData.metadata.note}`;
           }
           return 'あり';
         } else if (noVoice) {
