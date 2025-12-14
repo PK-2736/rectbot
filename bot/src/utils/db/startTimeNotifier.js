@@ -59,7 +59,7 @@ async function checkAndNotifyStartTime(client) {
 
         console.log(`[StartTimeNotifier] Recruit ${recruitId}: startTime=${recruit.startTime}, notified=${recruit.startTimeNotified}`);
 
-        const guildId = recruit.guildId || recruit.guild_id || recruit.guild;
+        const guildId = recruit.guildId || recruit.guild_id || recruit.guild || recruit.metadata?.guildId;
         console.log(`[StartTimeNotifier] Fetching settings for guildId: ${guildId}`);
         let guildSettings = settingsCache.get(guildId);
         if (!guildSettings) {

@@ -278,7 +278,14 @@ function applyRecruitUpdate(original, update, env) {
 
   for (const key of allowedFields) {
     if (Object.prototype.hasOwnProperty.call(update, key)) {
-      next[key] = key === "maxMembers" ? Number(update[key]) : update[key];
+      if (key === "maxMembers") {
+        next[key] = Number(update[key]);
+      } else if (key === "metadata") {
+        // Merge metadata instead of replacing
+        next[key] = { ...(original?.metadata || {}), ...update[key] };
+      } else {
+        next[key] = update[key];
+      }
     }
   }
 

@@ -29,6 +29,7 @@ async function fetchRecruitById(recruitId) {
 }
 
 module.exports = {
+  noDefer: true,
   data: new SlashCommandBuilder()
     .setName('rect-edit')
     .setDescription('募集を編集します')
@@ -50,6 +51,11 @@ module.exports = {
     };
 
     try {
+      // Defer first to get interaction into safe state, then showModal
+      if (!interaction.deferred && !interaction.replied) {
+        await interaction.deferReply({ ephemeral: true }).catch(() => {});
+      }
+
       const recruit = await fetchRecruitById(recruitId);
       const ownerId = recruit?.ownerId || recruit?.metadata?.raw?.recruiterId;
       const messageId = recruit?.metadata?.messageId;
