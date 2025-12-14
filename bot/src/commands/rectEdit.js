@@ -294,8 +294,11 @@ module.exports = {
 
           // Get participants using recruitId from backend response
           let participants = Array.isArray(recruitData.participants) ? recruitData.participants : [];
-          if (!participants.length && recruitData.ownerId) {
-            participants = [recruitData.ownerId];
+          if (!participants.length && recruitData.ownerId) participants = [recruitData.ownerId];
+          // 重複除去＆最大人数で切り詰め
+          participants = Array.from(new Set(participants));
+          if (recruitData.maxMembers && participants.length > recruitData.maxMembers) {
+            participants = participants.slice(0, recruitData.maxMembers);
           }
           console.log('[rect-edit] Participants:', participants);
           
