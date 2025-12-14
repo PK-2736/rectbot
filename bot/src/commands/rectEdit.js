@@ -9,6 +9,7 @@ const {
 
 const { updateRecruitmentData } = require('../utils/db');
 const { safeRespond } = require('../utils/interactionHandler');
+const { getActiveRecruits } = require('../utils/db/statusApi');
 const backendFetch = require('../utils/backendFetch');
 const config = require('../config');
 
@@ -33,7 +34,12 @@ module.exports = {
   data: new SlashCommandBuilder()
     .setName('rect-edit')
     .setDescription('募集を編集します')
-    .addStringOption(o => o.setName('id').setDescription('募集ID（パネル下部の8桁）').setRequired(true))
+    .addStringOption(o =>
+      o.setName('id')
+        .setDescription('募集ID（パネル下部の8桁）')
+        .setRequired(true)
+        .setAutocomplete(true)
+    )
     .addStringOption(o => o.setName('タイトル').setDescription('新しいタイトル').setRequired(false))
     .addIntegerOption(o => o.setName('人数').setDescription('参加人数').setRequired(false))
     .addStringOption(o => o.setName('開始時間').setDescription('開始時間（例: 今から/21:00）').setRequired(false))
@@ -42,6 +48,10 @@ module.exports = {
 
   async execute(interaction) {
     const recruitId = interaction.options.getString('id');
+    if (recruitId === 'NO_ACTIVE') {
+      await safeRespond(interaction, { content: '❌ 編集できる募集がありません。', flags: MessageFlags.Ephemeral });
+      return;
+    }
     const preset = {
       title: interaction.options.getString('タイトル') || '',
       participants: interaction.options.getInteger('人数') || '',
@@ -88,6 +98,44 @@ module.exports = {
     } catch (error) {
       console.error('[rect-edit] fetch or modal error', error);
       await safeRespond(interaction, { content: '❌ 募集が見つかりませんでした。', flags: MessageFlags.Ephemeral });
+    }
+  },
+
+  async autocomplete(interaction) {
+    try {
+      const focused = (interaction.options.getFocused() || '').trim();
+      const guildId = interaction.guild?.id;
+      const userId = interaction.user?.id;
+      const res = await getActiveRecruits();
+      const list = Array.isArray(res?.body) ? res.body : [];
+      const filtered = list
+        .filter(r => (r.status || 'recruiting') === 'recruiting')
+        .filter(r => !guildId || r.metadata?.guildId === guildId)
+        .filter(r => !userId || String(r.ownerId || r.owner_id) === String(userId))
+        .map(r => ({
+          id: r.recruitId || r.id,
+          title: r.title || r.game || '募集',
+          start: r.startTime || r.metadata?.startLabel || '',
+          voice: r.voice,
+          guildId: r.metadata?.guildId,
+        }));
+
+      const options = filtered
+        .filter(r => !focused || String(r.id).includes(focused) || (r.title && r.title.includes(focused)))
+        .slice(0, 25)
+        .map(r => ({
+          name: `${r.title} | ${r.start || ''} | ${r.id}`.slice(0, 100),
+          value: String(r.id).slice(-100)
+        }));
+
+      if (options.length === 0) {
+        await interaction.respond([{ name: 'アクティブな募集なし', value: 'NO_ACTIVE' }]);
+      } else {
+        await interaction.respond(options);
+      }
+    } catch (err) {
+      console.error('[rect-edit] autocomplete error', err);
+      try { await interaction.respond([]); } catch (_) { /* ignore */ }
     }
   },
 
