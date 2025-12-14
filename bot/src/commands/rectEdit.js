@@ -129,9 +129,18 @@ module.exports = {
         return;
       }
 
-      // Always show modal with preset values from arguments
+      // Cache arguments to avoid exceeding customId length limit (<= 100)
+      if (!interaction.client.rectEditArgCache) {
+        interaction.client.rectEditArgCache = new Map();
+      }
+      const cacheKey = Math.random().toString(36).slice(2, 10);
+      interaction.client.rectEditArgCache.set(cacheKey, argUpdates);
+      // Auto-expire cache entry after 5 minutes
+      setTimeout(() => interaction.client.rectEditArgCache.delete(cacheKey), 5 * 60 * 1000);
+
+      // Show modal with short customId
       const modal = new ModalBuilder()
-        .setCustomId(`rectEditModal_${messageId}_${JSON.stringify(argUpdates)}`)
+        .setCustomId(`rectEditModal_${messageId}_${cacheKey}`)
         .setTitle('募集内容編集');
       
       const contentInput = new TextInputBuilder()
@@ -222,13 +231,12 @@ module.exports = {
     if (!interaction.customId.startsWith('rectEditModal_')) return;
     const parts = interaction.customId.replace('rectEditModal_', '').split('_');
     const messageId = parts[0];
+    const cacheKey = parts[1] || null;
     let argUpdates = {};
-    try {
-      if (parts[1]) {
-        argUpdates = JSON.parse(parts.slice(1).join('_'));
-      }
-    } catch (e) {
-      console.warn('[rect-edit] Failed to parse argUpdates from customId', e);
+    if (cacheKey && interaction.client.rectEditArgCache && interaction.client.rectEditArgCache.has(cacheKey)) {
+      argUpdates = interaction.client.rectEditArgCache.get(cacheKey) || {};
+      // cleanup immediately after use
+      interaction.client.rectEditArgCache.delete(cacheKey);
     }
 
     try {
