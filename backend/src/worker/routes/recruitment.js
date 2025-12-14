@@ -333,7 +333,8 @@ export async function routeRecruitment(request, env, ctx, url, corsHeaders, send
   }
 
   // Recruitment API (create/list via DO + optional Upstash cache)
-  if (url.pathname === '/api/recruitment') {
+  // Support both /api/recruitment (canonical) and /api/recruitments (for backward compatibility)
+  if (url.pathname === '/api/recruitment' || url.pathname === '/api/recruitments') {
     const hasUpstash = !!(env.UPSTASH_REDIS_REST_URL && env.UPSTASH_REDIS_REST_TOKEN);
     const redisPost = async (cmd) => {
       if (!hasUpstash) return null;
@@ -384,8 +385,11 @@ export async function routeRecruitment(request, env, ctx, url, corsHeaders, send
   }
 
   // Update status via PATCH to DO
-  if (url.pathname.startsWith('/api/recruitment/') && request.method === 'PATCH') {
-    const messageId = url.pathname.split('/api/recruitment/')[1];
+  // Support both /api/recruitment/{id} (canonical) and /api/recruitments/{id} (backward compatibility)
+  const isPatchPath = (url.pathname.startsWith('/api/recruitment/') || url.pathname.startsWith('/api/recruitments/')) && request.method === 'PATCH';
+  if (isPatchPath) {
+    const pathPrefix = url.pathname.startsWith('/api/recruitments/') ? '/api/recruitments/' : '/api/recruitment/';
+    const messageId = url.pathname.split(pathPrefix)[1];
     if (!messageId) {
       return new Response(JSON.stringify({ error: 'Message ID required' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
@@ -403,8 +407,11 @@ export async function routeRecruitment(request, env, ctx, url, corsHeaders, send
   }
 
   // Single get/delete
-  if (url.pathname.startsWith('/api/recruitment/') && (request.method === 'GET' || request.method === 'DELETE')) {
-    const rid = url.pathname.split('/api/recruitment/')[1];
+  // Support both /api/recruitment/{id} (canonical) and /api/recruitments/{id} (backward compatibility)
+  const isRecruitmentPath = url.pathname.startsWith('/api/recruitment/') || url.pathname.startsWith('/api/recruitments/');
+  if (isRecruitmentPath && (request.method === 'GET' || request.method === 'DELETE')) {
+    const pathPrefix = url.pathname.startsWith('/api/recruitments/') ? '/api/recruitments/' : '/api/recruitment/';
+    const rid = url.pathname.split(pathPrefix)[1];
     if (!rid) {
       return new Response(JSON.stringify({ error: 'Message ID required' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
@@ -443,6 +450,46 @@ export async function routeRecruitment(request, env, ctx, url, corsHeaders, send
       const text = await resp.text();
       if (hasUpstash) { await redisPost(['DEL', `recruit:${rid}`]); }
       return new Response(text, { status: resp.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+  }
+
+  // Bot -> Recruit status endpoints (for notification tracking)
+  if (url.pathname === '/api/recruit-status') {
+    if (request.method === 'POST') {
+      try {
+        const data = await request.json();
+        const { serverId, channelId, messageId, startTime } = data;
+        console.log('[recruit-status] POST:', { serverId, channelId, messageId, startTime });
+        // This endpoint stores notification metadata - currently a no-op since we use DO for the source of truth
+        return new Response(JSON.stringify({ ok: true, message: 'Status recorded' }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      } catch (e) {
+        console.error('[recruit-status] POST error:', e);
+        return new Response(JSON.stringify({ error: 'invalid_request' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+    }
+
+    if (request.method === 'DELETE') {
+      try {
+        const serverId = url.searchParams.get('serverId');
+        console.log('[recruit-status] DELETE:', { serverId });
+        // This endpoint clears notification metadata - currently a no-op
+        return new Response(JSON.stringify({ ok: true, message: 'Status cleared' }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      } catch (e) {
+        console.error('[recruit-status] DELETE error:', e);
+        return new Response(JSON.stringify({ error: 'internal_error' }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
     }
   }
 
