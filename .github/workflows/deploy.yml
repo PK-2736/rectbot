@@ -8,6 +8,7 @@ on:
       - 'docker-compose.monitoring.yml'
       - 'docker/**'
       - '.github/workflows/deploy.yml'
+  workflow_dispatch:
 
 jobs:
   oci-deploy:
