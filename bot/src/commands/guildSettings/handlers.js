@@ -5,7 +5,7 @@ const {
   ChannelType,
 } = require('discord.js');
 
-const { saveGuildSettingsToRedis, getGuildSettingsFromRedis, getGuildSettingsSmart, finalizeGuildSettings } = require('../../utils/db');
+const { saveGuildSettingsToRedis, getGuildSettingsFromRedis, getGuildSettingsSmart, finalizeGuildSettings, deleteGuildSettings } = require('../../utils/db');
 const { safeReply } = require('../../utils/safeReply');
 const {
   showSettingsUI,
@@ -36,6 +36,16 @@ async function handleButtonInteraction(interaction) {
       return await safeReply(interaction, { content: '❌ この操作を実行するには「管理者」権限が必要です。', flags: MessageFlags.Ephemeral });
     }
     switch (customId) {
+      case 'back_to_main':
+        const settings = await getGuildSettingsSmart(interaction.guildId);
+        await showSettingsUI(interaction, settings, true);
+        break;
+      case 'confirm_reset_yes':
+        await confirmResetAllSettings(interaction, true);
+        break;
+      case 'confirm_reset_no':
+        await confirmResetAllSettings(interaction, false);
+        break;
       case 'set_update_channel':
         await showChannelSelect(interaction, 'update_channel', '📢 アップデート通知チャンネルを選択してください');
         break;
@@ -262,6 +272,49 @@ async function resetAllSettings(interaction) {
       return await safeReply(interaction, { content: '❌ この操作を実行するには「管理者」権限が必要です。', flags: MessageFlags.Ephemeral });
     }
     const guildId = interaction.guildId;
+    
+    // 確認ボタン付きのメッセージを送信
+    const confirmButtons = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId('confirm_reset_yes')
+        .setLabel('🗑️ リセットする')
+        .setStyle(ButtonStyle.Danger),
+      new ButtonBuilder()
+        .setCustomId('confirm_reset_no')
+        .setLabel('✖️ キャンセル')
+        .setStyle(ButtonStyle.Secondary)
+    );
+    
+    await safeReply(interaction, { 
+      content: '⚠️ **警告**: このギルドのすべての募集設定をリセットしますか？\n\n' +
+               '- 募集チャンネル\n' +
+               '- 通知ロール\n' +
+               '- タイトル・カラー\n' +
+               '- 専用チャンネル設定\n\n' +
+               'この操作は Supabase の設定データベースからも削除されます。',
+      components: [confirmButtons],
+      flags: MessageFlags.Ephemeral 
+    });
+  } catch (error) {
+    console.error('Reset settings error:', error);
+    await safeReply(interaction, { content: '❌ 設定のリセット確認画面の表示に失敗しました。', flags: MessageFlags.Ephemeral });
+  }
+}
+
+async function confirmResetAllSettings(interaction, confirmed) {
+  try {
+    if (!interaction.guild || !interaction.member || !interaction.member.permissions?.has(PermissionFlagsBits.Administrator)) {
+      return await safeReply(interaction, { content: '❌ この操作を実行するには「管理者」権限が必要です。', flags: MessageFlags.Ephemeral });
+    }
+    
+    if (!confirmed) {
+      await safeReply(interaction, { content: '❌ リセットがキャンセルされました。', flags: MessageFlags.Ephemeral });
+      return;
+    }
+    
+    const guildId = interaction.guildId;
+    
+    // Redis に設定をリセット
     const result = await saveGuildSettingsToRedis(guildId, {
       recruit_channel: null,
       notification_role: null,
@@ -274,7 +327,17 @@ async function resetAllSettings(interaction) {
       enable_dedicated_channel: false,
       dedicated_channel_category_id: null,
     });
-    await safeReply(interaction, { content: '✅ すべての設定をリセットしました！', flags: MessageFlags.Ephemeral });
+    
+    // Supabase からも削除を試みる
+    try {
+      await deleteGuildSettings(guildId);
+      console.log(`[guildSettings] Supabase settings deleted for guild ${guildId}`);
+    } catch (supabaseError) {
+      console.warn(`[guildSettings] Supabase deletion failed for guild ${guildId}:`, supabaseError?.message);
+      // Supabase の削除失敗は警告のみで、Redis リセットは成功しているので続行
+    }
+    
+    await safeReply(interaction, { content: '✅ すべての設定をリセットしました！\n✅ Supabase のデータベースからも削除されました。', flags: MessageFlags.Ephemeral });
 
     setTimeout(async () => {
       try {
@@ -286,7 +349,7 @@ async function resetAllSettings(interaction) {
       }
     }, 1000);
   } catch (error) {
-    console.error('Reset settings error:', error);
+    console.error('Confirm reset settings error:', error);
     await safeReply(interaction, { content: '❌ 設定のリセットに失敗しました。', flags: MessageFlags.Ephemeral });
   }
 }
@@ -394,6 +457,7 @@ module.exports = {
   updateGuildSetting,
   finalizeSettingsHandler,
   resetAllSettings,
+  confirmResetAllSettings,
   toggleSpecialMention,
   toggleRecruitStyle,
 };

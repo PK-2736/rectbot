@@ -209,10 +209,37 @@ async function finalizeGuildSettings(guildId) {
   }
 }
 
+async function deleteGuildSettings(guildId) {
+  try {
+    const response = await backendFetch(`/api/guild-settings/${encodeURIComponent(guildId)}`, {
+      method: 'DELETE'
+    });
+    console.log(`[deleteGuildSettings] Successfully deleted settings for guild ${guildId}`);
+    return { ok: true, body: response };
+  } catch (error) {
+    console.error(`[deleteGuildSettings] Error deleting settings for guild ${guildId}:`, error?.message);
+    throw error;
+  }
+}
+
 module.exports = {
   normalizeGuildSettingsObject,
   saveGuildSettingsToRedis,
   getGuildSettingsFromRedis,
   getGuildSettingsSmart,
   finalizeGuildSettings,
+  deleteGuildSettings,
 };
+
+async function deleteGuildSettings(guildId) {
+  try {
+    const response = await backendFetch(`/api/guild-settings/${encodeURIComponent(guildId)}`, {
+      method: 'DELETE'
+    });
+    console.log(`[deleteGuildSettings] Successfully deleted settings for guild ${guildId}`);
+    return { ok: true, body: response };
+  } catch (error) {
+    console.error(`[deleteGuildSettings] Error deleting settings for guild ${guildId}:`, error?.message);
+    throw error;
+  }
+}
