@@ -15,15 +15,24 @@ const config = require('../config');
 
 async function fetchRecruitById(recruitId) {
   const base = config.BACKEND_API_URL.replace(/\/$/, '');
+  console.log(`[fetchRecruitById] Attempting to fetch recruitId: ${recruitId}`);
   // Try plural first, then singular path
   try {
-    const body = await backendFetch(`${base}/api/recruits/${encodeURIComponent(recruitId)}`);
+    const url = `${base}/api/recruits/${encodeURIComponent(recruitId)}`;
+    console.log(`[fetchRecruitById] Trying URL: ${url}`);
+    const body = await backendFetch(url);
+    console.log(`[fetchRecruitById] Success with /api/recruits/`);
     return body;
   } catch (e1) {
+    console.log(`[fetchRecruitById] /api/recruits/ failed: ${e1.status || e1.message}`);
     try {
-      const body = await backendFetch(`${base}/api/recruitment/${encodeURIComponent(recruitId)}`);
+      const url = `${base}/api/recruitment/${encodeURIComponent(recruitId)}`;
+      console.log(`[fetchRecruitById] Trying URL: ${url}`);
+      const body = await backendFetch(url);
+      console.log(`[fetchRecruitById] Success with /api/recruitment/`);
       return body;
     } catch (e2) {
+      console.log(`[fetchRecruitById] /api/recruitment/ also failed: ${e2.status || e2.message}`);
       throw e2;
     }
   }
@@ -77,6 +86,7 @@ module.exports = {
 
   async execute(interaction) {
     const recruitId = interaction.options.getString('id');
+    console.log(`[rect-edit] execute called with recruitId: ${recruitId}`);
     if (recruitId === 'NO_ACTIVE') {
       await safeRespond(interaction, { content: '❌ 編集できる募集がありません。', flags: MessageFlags.Ephemeral });
       return;
@@ -98,9 +108,12 @@ module.exports = {
     if (placeArg) argUpdates.voiceChannel = { id: placeArg.id, name: placeArg.name };
     if (colorArg) argUpdates.panelColor = colorArg;
 
+    console.log(`[rect-edit] argUpdates:`, argUpdates);
+
     try {
       // DO NOT defer - showModal must be the first response
       const recruit = await fetchRecruitById(recruitId);
+      console.log(`[rect-edit] recruit fetched:`, { id: recruit?.recruitId || recruit?.id, title: recruit?.title });
       const ownerId = recruit?.ownerId || recruit?.metadata?.raw?.recruiterId;
       const messageId = recruit?.metadata?.messageId;
       if (!ownerId || !messageId) {
@@ -191,6 +204,7 @@ module.exports = {
       const userId = interaction.user?.id;
       const res = await getActiveRecruits();
       const list = Array.isArray(res?.body) ? res.body : [];
+      console.log(`[rect-edit autocomplete] Found ${list.length} total recruits`);
       const filtered = list
         .filter(r => (r.status || 'recruiting') === 'recruiting')
         .filter(r => !guildId || r.metadata?.guildId === guildId)
@@ -203,6 +217,8 @@ module.exports = {
           guildId: r.metadata?.guildId,
         }));
 
+      console.log(`[rect-edit autocomplete] After filtering: ${filtered.length} recruits`, filtered.map(r => r.id));
+
       const options = filtered
         .filter(r => !focused || String(r.id).includes(focused) || (r.title && r.title.includes(focused)))
         .slice(0, 25)
@@ -210,6 +226,8 @@ module.exports = {
           name: `${r.title} | ${r.start || ''} | ${r.id}`.slice(0, 100),
           value: String(r.id).slice(-100)
         }));
+
+      console.log(`[rect-edit autocomplete] Responding with ${options.length} options`, options.map(o => o.value));
 
       if (options.length === 0) {
         await interaction.respond([{ name: 'アクティブな募集なし', value: 'NO_ACTIVE' }]);
