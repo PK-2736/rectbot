@@ -41,10 +41,39 @@ module.exports = {
         .setAutocomplete(true)
     )
     .addStringOption(o => o.setName('タイトル').setDescription('新しいタイトル').setRequired(false))
-    .addIntegerOption(o => o.setName('人数').setDescription('参加人数').setRequired(false))
-    .addStringOption(o => o.setName('開始時間').setDescription('開始時間（例: 今から/21:00）').setRequired(false))
-    .addStringOption(o => o.setName('通話有無').setDescription('あり/なし').setRequired(false))
-    .addStringOption(o => o.setName('通話場所').setDescription('VCチャンネル名など').setRequired(false)),
+    .addIntegerOption(o => o.setName('人数').setDescription('参加人数（1-16）').setRequired(false).setMinValue(1).setMaxValue(16))
+    .addStringOption(o => 
+      o.setName('開始時間')
+        .setDescription('開始時間（例: 今から/21:00）')
+        .setRequired(false)
+        .setAutocomplete(true)
+    )
+    .addBooleanOption(o => o.setName('通話有無').setDescription('通話の有無').setRequired(false))
+    .addChannelOption(o => 
+      o.setName('通話場所')
+        .setDescription('通話で使うボイスチャンネル')
+        .addChannelTypes(2, 13)
+        .setRequired(false)
+    )
+    .addStringOption(o =>
+      o.setName('色')
+        .setDescription('募集パネルの色')
+        .setRequired(false)
+        .addChoices(
+          { name: '赤', value: 'FF0000' },
+          { name: 'オレンジ', value: 'FF8000' },
+          { name: '黄', value: 'FFFF00' },
+          { name: '緑', value: '00FF00' },
+          { name: '水色', value: '00FFFF' },
+          { name: '青', value: '0000FF' },
+          { name: '紫', value: '8000FF' },
+          { name: 'ピンク', value: 'FF69B4' },
+          { name: '茶', value: '8B4513' },
+          { name: '白', value: 'FFFFFF' },
+          { name: '黒', value: '000000' },
+          { name: 'グレー', value: '808080' }
+        )
+    ),
 
   async execute(interaction) {
     const recruitId = interaction.options.getString('id');
@@ -52,13 +81,22 @@ module.exports = {
       await safeRespond(interaction, { content: '❌ 編集できる募集がありません。', flags: MessageFlags.Ephemeral });
       return;
     }
-    const preset = {
-      title: interaction.options.getString('タイトル') || '',
-      participants: interaction.options.getInteger('人数') || '',
-      startTime: interaction.options.getString('開始時間') || '',
-      vc: interaction.options.getString('通話有無') || '',
-      place: interaction.options.getString('通話場所') || ''
-    };
+
+    // Get all options from arguments
+    const argUpdates = {};
+    const titleArg = interaction.options.getString('タイトル');
+    const peopleArg = interaction.options.getInteger('人数');
+    const startArg = interaction.options.getString('開始時間');
+    const vcArg = interaction.options.getBoolean('通話有無');
+    const placeArg = interaction.options.getChannel('通話場所');
+    const colorArg = interaction.options.getString('色');
+
+    if (titleArg) argUpdates.title = titleArg;
+    if (peopleArg) argUpdates.participants = peopleArg;
+    if (startArg) argUpdates.startTime = startArg;
+    if (vcArg !== null) argUpdates.vc = vcArg;
+    if (placeArg) argUpdates.voiceChannel = { id: placeArg.id, name: placeArg.name };
+    if (colorArg) argUpdates.panelColor = colorArg;
 
     try {
       // DO NOT defer - showModal must be the first response
@@ -74,22 +112,46 @@ module.exports = {
         return;
       }
 
-      // Modal
-      const modal = new ModalBuilder().setCustomId(`rectEditModal_${messageId}`).setTitle('募集編集');
-      const titleInput = new TextInputBuilder().setCustomId('title').setLabel('タイトル').setStyle(TextInputStyle.Short).setRequired(false).setValue(preset.title || (recruit.title || ''));
-      const peopleInput = new TextInputBuilder().setCustomId('participants').setLabel('参加人数').setStyle(TextInputStyle.Short).setRequired(false).setValue(preset.participants ? String(preset.participants) : String(recruit.maxMembers || ''));
-      const startInput = new TextInputBuilder().setCustomId('startTime').setLabel('開始時間').setStyle(TextInputStyle.Short).setRequired(false).setValue(preset.startTime || (recruit.startTime || ''));
-      const vcInput = new TextInputBuilder().setCustomId('vc').setLabel('VC有無（あり/なし）').setStyle(TextInputStyle.Short).setRequired(false).setValue(preset.vc || ((recruit.voice ? 'あり' : 'なし')));
-      const placeInput = new TextInputBuilder().setCustomId('place').setLabel('通話場所（任意）').setStyle(TextInputStyle.Short).setRequired(false).setValue(preset.place || (recruit.metadata?.raw?.voiceChannelName || ''));
+      // If only arguments provided, update directly without modal
+      if (Object.keys(argUpdates).length > 0 && !interaction.options.data.some(o => o.name === 'content')) {
+        await interaction.deferReply({ ephemeral: true });
+        
+        const update = {
+          title: argUpdates.title,
+          participants: argUpdates.participants,
+          startTime: argUpdates.startTime,
+          vc: argUpdates.vc,
+          note: argUpdates.voiceChannel?.name,
+        };
+        if (argUpdates.panelColor) {
+          update.panelColor = argUpdates.panelColor;
+        }
 
-      modal.addComponents(
-        new ActionRowBuilder().addComponents(titleInput),
-        new ActionRowBuilder().addComponents(peopleInput),
-        new ActionRowBuilder().addComponents(startInput),
-        new ActionRowBuilder().addComponents(vcInput),
-        new ActionRowBuilder().addComponents(placeInput),
-      );
+        await updateRecruitmentData(messageId, update);
 
+        const msg = await interaction.channel.messages.fetch(messageId).catch(() => null);
+        if (msg) {
+          await msg.edit({
+            components: msg.components,
+            flags: MessageFlags.IsComponentsV2,
+          });
+        }
+
+        await interaction.editReply({ content: '✅ 募集を更新しました。' });
+        return;
+      }
+
+      // Show modal for content editing
+      const modal = new ModalBuilder().setCustomId(`rectEditModal_${messageId}_${JSON.stringify(argUpdates)}`).setTitle('募集内容編集');
+      const contentInput = new TextInputBuilder()
+        .setCustomId('content')
+        .setLabel('募集内容')
+        .setStyle(TextInputStyle.Paragraph)
+        .setRequired(false)
+        .setMaxLength(1000)
+        .setValue(recruit.description || recruit.content || '');
+
+      modal.addComponents(new ActionRowBuilder().addComponents(contentInput));
       await interaction.showModal(modal);
     } catch (error) {
       console.error('[rect-edit] fetch or modal error', error);
@@ -101,6 +163,28 @@ module.exports = {
   },
 
   async autocomplete(interaction) {
+    const focusedName = interaction.options.getFocused(true)?.name;
+    
+    // 開始時間のオートコンプリート
+    if (focusedName === '開始時間') {
+      const focused = (interaction.options.getFocused() || '').trim();
+      const suggestions = [
+        { name: '今から', value: '今から' },
+        { name: '21:00', value: '21:00' },
+        { name: '22:00', value: '22:00' },
+        { name: '23:00', value: '23:00' },
+        { name: '20:00', value: '20:00' },
+        { name: '19:00', value: '19:00' },
+        { name: '18:00', value: '18:00' },
+      ];
+      const filtered = suggestions.filter(s => 
+        !focused || s.name.includes(focused) || s.value.includes(focused)
+      );
+      await interaction.respond(filtered.slice(0, 25));
+      return;
+    }
+
+    // 募集IDのオートコンプリート
     try {
       const focused = (interaction.options.getFocused() || '').trim();
       const guildId = interaction.guild?.id;
@@ -140,21 +224,31 @@ module.exports = {
 
   async handleModalSubmit(interaction) {
     if (!interaction.customId.startsWith('rectEditModal_')) return;
-    const messageId = interaction.customId.replace('rectEditModal_', '');
+    const parts = interaction.customId.replace('rectEditModal_', '').split('_');
+    const messageId = parts[0];
+    let argUpdates = {};
     try {
-      const title = interaction.fields.getTextInputValue('title') || null;
-      const participants = interaction.fields.getTextInputValue('participants') || null;
-      const startTime = interaction.fields.getTextInputValue('startTime') || null;
-      const vc = interaction.fields.getTextInputValue('vc') || null;
-      const place = interaction.fields.getTextInputValue('place') || null;
+      if (parts[1]) {
+        argUpdates = JSON.parse(parts.slice(1).join('_'));
+      }
+    } catch (e) {
+      console.warn('[rect-edit] Failed to parse argUpdates from customId', e);
+    }
+
+    try {
+      const content = interaction.fields.getTextInputValue('content') || null;
 
       const update = {
-        title: title || undefined,
-        participants: participants ? parseInt(participants, 10) : undefined,
-        startTime: startTime || undefined,
-        vc: vc || undefined,
-        note: place || undefined,
+        description: content || undefined,
+        title: argUpdates.title || undefined,
+        participants: argUpdates.participants || undefined,
+        startTime: argUpdates.startTime || undefined,
+        vc: argUpdates.vc !== undefined ? argUpdates.vc : undefined,
+        note: argUpdates.voiceChannel?.name || undefined,
       };
+      if (argUpdates.panelColor) {
+        update.panelColor = argUpdates.panelColor;
+      }
 
       await updateRecruitmentData(messageId, update);
 
