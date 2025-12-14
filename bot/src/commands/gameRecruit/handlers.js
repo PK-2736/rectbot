@@ -301,10 +301,11 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
       }
       const valuesLine = [startVal, membersVal, voiceVal].filter(Boolean).join(' | ');
       const detailsText = `${labelsLine}\n${valuesLine}`;
-    // 募集内容を取得（content, note, description のいずれかから）
-    const contentText = finalRecruitData?.content || finalRecruitData?.note || finalRecruitData?.description || '';
-    console.log('[finalizePersistAndEdit] simple style - detailsText:', detailsText);
-    console.log('[finalizePersistAndEdit] simple style - contentText:', contentText, 'from finalRecruitData:', { content: finalRecruitData?.content, note: finalRecruitData?.note, description: finalRecruitData?.description });
+    // 募集内容を取得して、ラベルを付ける
+    const contentTextValue = finalRecruitData?.content || finalRecruitData?.note || finalRecruitData?.description || '';
+    const contentText = contentTextValue && String(contentTextValue).trim().length > 0 
+      ? `**📝 募集内容**\n${String(contentTextValue).slice(0, 1500)}` 
+      : '';
       updatedContainer = buildContainerSimple({
         headerTitle: `${user.username}さんの募集`,
         detailsText,
@@ -318,8 +319,11 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
     });
   } else {
     const { buildContainer } = require('../../utils/recruitHelpers');
-    // 募集内容を取得（content, note, description のいずれかから）
-    const contentText = finalRecruitData?.content || finalRecruitData?.note || finalRecruitData?.description || '';
+    // 募集内容を取得して、ラベルを付ける
+    const contentTextValue = finalRecruitData?.content || finalRecruitData?.note || finalRecruitData?.description || '';
+    const contentText = contentTextValue && String(contentTextValue).trim().length > 0 
+      ? `**📝 募集内容**\n${String(contentTextValue).slice(0, 1500)}` 
+      : '';
     console.log('[finalizePersistAndEdit] image style - contentText:', contentText);
       updatedContainer = buildContainer({
         headerTitle: `${user.username}さんの募集`,
