@@ -262,8 +262,22 @@ module.exports = {
           const result = await updateRecruitmentData(messageId, update);
           console.log('[rect-edit] updateRecruitmentData result:', { ok: result.ok, status: result.status });
 
-          // Fetch updated recruit data using messageId directly (it becomes the recruitId in the system)
-          const recruitData = await getRecruitFromRedis(messageId);
+          // Extract recruitId from the response or derive it from messageId
+          let recruitId = null;
+          if (result.ok && result.body?.recruit?.recruitId) {
+            recruitId = result.body.recruit.recruitId;
+            console.log('[rect-edit] Got recruitId from response:', recruitId);
+          } else if (result.body?.recruitId) {
+            recruitId = result.body.recruitId;
+            console.log('[rect-edit] Got recruitId from body:', recruitId);
+          } else {
+            // Fallback: extract last 8 digits from messageId
+            recruitId = String(messageId).slice(-8);
+            console.log('[rect-edit] Extracted recruitId from messageId:', recruitId);
+          }
+
+          // Fetch updated recruit data using recruitId
+          const recruitData = await getRecruitFromRedis(recruitId);
           console.log('[rect-edit] Fetched updated recruit:', recruitData);
 
           if (!recruitData) {
@@ -277,8 +291,8 @@ module.exports = {
             return;
           }
 
-          // Get participants
-          const participants = await getParticipantsFromRedis(messageId).catch(() => []);
+          // Get participants using recruitId
+          const participants = await getParticipantsFromRedis(recruitId).catch(() => []);
           
           // Regenerate image and container
           const useColor = recruitData.panelColor || '000000';
