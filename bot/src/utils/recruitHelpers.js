@@ -133,7 +133,11 @@ function buildContainerSimple({ headerTitle = '募集', detailsText = '', partic
   
   container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
   if (detailsText) {
-    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(detailsText));
+    // detailsText を各行に分割して個別に追加（マークダウンを正しく処理）
+    const detailsLines = String(detailsText).split('\n').filter(Boolean);
+    detailsLines.forEach(line => {
+      container.addTextDisplayComponents(new TextDisplayBuilder().setContent(String(line)));
+    });
     // ユーザー要望: 「通話情報」と「募集内容」の間に区切り線は入れない
     // contentText が存在しない場合にのみ、ここで区切り線を入れる
     if (!contentText || String(contentText).trim().length === 0) {
@@ -141,11 +145,19 @@ function buildContainerSimple({ headerTitle = '募集', detailsText = '', partic
     }
   }
   if (contentText && String(contentText).trim().length > 0) {
-    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(String(contentText)));
+    // contentText も各行に分割して個別に追加
+    const contentLines = String(contentText).split('\n').filter(Boolean);
+    contentLines.forEach(line => {
+      container.addTextDisplayComponents(new TextDisplayBuilder().setContent(String(line)));
+    });
     container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
   }
   if (participantText) {
-    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(participantText));
+    // participantText も各行に分割して個別に追加（マークダウンを正しく処理）
+    const participantLines = String(participantText).split('\n').filter(Boolean);
+    participantLines.forEach(line => {
+      container.addTextDisplayComponents(new TextDisplayBuilder().setContent(String(line)));
+    });
   }
   const isRequesterRecruiter = true;
   container.addActionRowComponents(
