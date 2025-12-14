@@ -5,11 +5,15 @@ const {
   TextInputStyle,
   ActionRowBuilder,
   MessageFlags,
+  AttachmentBuilder,
 } = require('discord.js');
 
-const { updateRecruitmentData } = require('../utils/db');
+const { updateRecruitmentData, getRecruitFromRedis } = require('../utils/db');
 const { safeRespond } = require('../utils/interactionHandler');
 const { getActiveRecruits } = require('../utils/db/statusApi');
+const { generateRecruitCard } = require('../utils/canvasRecruit');
+const { buildContainer, buildContainerSimple } = require('../utils/recruitHelpers');
+const { getParticipantsFromRedis } = require('../utils/db');
 const backendFetch = require('../utils/backendFetch');
 const config = require('../config');
 
@@ -125,37 +129,11 @@ module.exports = {
         return;
       }
 
-      // If only arguments provided, update directly without modal
-      if (Object.keys(argUpdates).length > 0 && !interaction.options.data.some(o => o.name === 'content')) {
-        await interaction.deferReply({ ephemeral: true });
-        
-        const update = {
-          title: argUpdates.title,
-          participants: argUpdates.participants,
-          startTime: argUpdates.startTime,
-          vc: argUpdates.vc,
-          note: argUpdates.voiceChannel?.name,
-        };
-        if (argUpdates.panelColor) {
-          update.panelColor = argUpdates.panelColor;
-        }
-
-        await updateRecruitmentData(messageId, update);
-
-        const msg = await interaction.channel.messages.fetch(messageId).catch(() => null);
-        if (msg) {
-          await msg.edit({
-            components: msg.components,
-            flags: MessageFlags.IsComponentsV2,
-          });
-        }
-
-        await interaction.editReply({ content: '✅ 募集を更新しました。' });
-        return;
-      }
-
-      // Show modal for content editing
-      const modal = new ModalBuilder().setCustomId(`rectEditModal_${messageId}_${JSON.stringify(argUpdates)}`).setTitle('募集内容編集');
+      // Always show modal with preset values from arguments
+      const modal = new ModalBuilder()
+        .setCustomId(`rectEditModal_${messageId}_${JSON.stringify(argUpdates)}`)
+        .setTitle('募集内容編集');
+      
       const contentInput = new TextInputBuilder()
         .setCustomId('content')
         .setLabel('募集内容')
@@ -254,6 +232,8 @@ module.exports = {
     }
 
     try {
+      await interaction.deferReply({ ephemeral: true });
+
       const content = interaction.fields.getTextInputValue('content') || null;
 
       const update = {
@@ -268,21 +248,67 @@ module.exports = {
         update.panelColor = argUpdates.panelColor;
       }
 
+      console.log('[rect-edit] Updating recruit with:', update);
       await updateRecruitmentData(messageId, update);
 
-      // メッセージを軽く編集（募集ID表示は維持）
-      const msg = await interaction.channel.messages.fetch(messageId).catch(() => null);
-      if (msg) {
-        await msg.edit({
-          components: msg.components,
-          flags: MessageFlags.IsComponentsV2,
-        });
+      // Fetch updated recruit data and regenerate message
+      const recruitId = String(messageId).slice(-8);
+      const recruitData = await getRecruitFromRedis(recruitId);
+      console.log('[rect-edit] Fetched updated recruit:', recruitData);
+
+      if (!recruitData) {
+        await interaction.editReply({ content: '⚠️ 募集を更新しましたが、表示の更新に失敗しました。' });
+        return;
       }
 
-      await safeRespond(interaction, { content: '✅ 募集を更新しました。', flags: MessageFlags.Ephemeral });
+      const msg = await interaction.channel.messages.fetch(messageId).catch(() => null);
+      if (!msg) {
+        await interaction.editReply({ content: '✅ 募集を更新しました（メッセージが見つかりません）。' });
+        return;
+      }
+
+      // Get participants
+      const participants = await getParticipantsFromRedis(messageId).catch(() => []);
+      
+      // Regenerate image and container
+      const useColor = recruitData.panelColor || '000000';
+      const accentColor = /^[0-9A-Fa-f]{6}$/.test(useColor) ? parseInt(useColor, 16) : 0x000000;
+      
+      const imageBuffer = await generateRecruitCard(recruitData, participants, interaction.client, useColor);
+      const image = new AttachmentBuilder(imageBuffer, { name: 'recruit-card.png' });
+
+      const participantText = participants.length > 0 
+        ? `🎯✨ 参加リスト ✨🎯\n${participants.map(id => `🎮 <@${id}>`).join('\n')}`
+        : `🎯✨ 参加リスト ✨🎯\n🎮 <@${recruitData.recruiterId}>`;
+
+      const container = buildContainer({
+        headerTitle: `${interaction.user.username}さんの募集`,
+        subHeaderText: null,
+        contentText: recruitData.content || recruitData.note || '',
+        titleText: '',
+        participantText,
+        recruitIdText: recruitId,
+        accentColor,
+        imageAttachmentName: 'attachment://recruit-card.png',
+        recruiterId: recruitData.recruiterId,
+        requesterId: interaction.user.id
+      });
+
+      await msg.edit({
+        files: [image],
+        components: [container],
+        flags: MessageFlags.IsComponentsV2,
+        allowedMentions: { roles: [], users: [] }
+      });
+
+      await interaction.editReply({ content: '✅ 募集を更新しました。' });
     } catch (error) {
       console.error('[rect-edit] update error', error);
-      await safeRespond(interaction, { content: '❌ 更新に失敗しました。', flags: MessageFlags.Ephemeral });
+      if (interaction.deferred && !interaction.replied) {
+        await interaction.editReply({ content: '❌ 更新に失敗しました。' }).catch(() => {});
+      } else {
+        await safeRespond(interaction, { content: '❌ 更新に失敗しました。', flags: MessageFlags.Ephemeral });
+      }
     }
   }
 };
