@@ -139,8 +139,9 @@ module.exports = {
       setTimeout(() => interaction.client.rectEditArgCache.delete(cacheKey), 5 * 60 * 1000);
 
       // Show modal with short customId
+      const cid = `rectEditModal_${messageId}_${cacheKey}`.slice(0, 100);
       const modal = new ModalBuilder()
-        .setCustomId(`rectEditModal_${messageId}_${cacheKey}`)
+        .setCustomId(cid)
         .setTitle('募集内容編集');
       
       const contentInput = new TextInputBuilder()
