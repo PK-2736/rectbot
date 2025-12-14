@@ -334,7 +334,7 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
   // 実際の募集内容を表示
   ctx.font = '4px CorporateRounded'; // 7pxから6pxに縮小
   ctx.fillStyle = '#fff';
-  const content = recruitData.content || 'ガチエリア / 初心者歓迎';
+  const content = recruitData.description || recruitData.content || 'ガチエリア / 初心者歓迎';
   const lineHeight = 6; // 13から10に縮小（上下間隔を狭く）
   const maxLines = Math.floor((boxHeight - 20) / lineHeight); // ラベル分を除く（拡大した枠に対応）
   // 枠幅に合わせて自動改行
@@ -362,8 +362,11 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
   const infoBoxHeight = 15; // 各情報ボックスの高さ
   
   // 情報配列
+  const currentMembers = Array.isArray(participantIds) ? participantIds.length : Number(recruitData.currentMembers) || 0;
+  const maxMembers = Number(recruitData.maxMembers || recruitData.participants || recruitData.participantsCount || recruitData.max_members || currentMembers || 0) || currentMembers || 4;
+
   const infoItems = [
-    { label: '人数：', value: `${participantIds.length}/${recruitData.participants || 4}人` },
+    { label: '人数：', value: `${currentMembers}/${maxMembers}人` },
     { 
       label: '時間：', 
       value: recruitData.startTime ? `${recruitData.startTime}~` : '指定なし' 

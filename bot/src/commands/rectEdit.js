@@ -293,14 +293,14 @@ module.exports = {
           }
 
           // Get participants using recruitId from backend response
-          let participants = recruitData.participants || [];
-          if (!Array.isArray(participants)) {
+          let participants = Array.isArray(recruitData.participants) ? recruitData.participants : [];
+          if (!participants.length && recruitData.ownerId) {
             participants = [recruitData.ownerId];
           }
           console.log('[rect-edit] Participants:', participants);
           
           // Regenerate image and container
-          const useColor = recruitData.panelColor || '000000';
+          const useColor = recruitData.panelColor || recruitData.metadata?.panelColor || '000000';
           const accentColor = /^[0-9A-Fa-f]{6}$/.test(useColor) ? parseInt(useColor, 16) : 0x000000;
           
           console.log('[rect-edit] Generating recruit card image...');
