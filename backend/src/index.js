@@ -399,40 +399,73 @@ export default {
       }
     }
 
-    // JSON endpoint for Grafana JSON datasource plugin (public endpoint, no auth required)
-    if (url.pathname === '/api/grafana/recruits' && request.method === 'POST') {
+    // Grafana JSON datasource endpoints
+    if ((url.pathname === '/api/grafana/recruits' || url.pathname === '/api/grafana/recruits/search') && (request.method === 'POST' || request.method === 'GET')) {
       try {
+        // Check Grafana access token for security
+        const grafanaToken = env.GRAFANA_TOKEN;
+        const providedToken = request.headers.get('x-grafana-token') || request.headers.get('authorization')?.replace('Bearer ', '');
+        console.log('[Grafana API] Token check:', {
+          hasEnvToken: !!grafanaToken,
+          envTokenLength: grafanaToken?.length || 0,
+          hasProvidedToken: !!providedToken,
+          providedTokenLength: providedToken?.length || 0,
+          method: request.method,
+          path: url.pathname
+        });
+        
+        if (grafanaToken) {
+          if (!providedToken || providedToken !== grafanaToken) {
+            console.warn('[Grafana API] Unauthorized access attempt', { grafanaToken: !!grafanaToken, providedToken: !!providedToken });
+            return jsonResponse({ error: 'unauthorized' }, 401, safeHeaders);
+          }
+          console.log('[Grafana API] Token validated successfully');
+        } else {
+          console.warn('[Grafana API] No GRAFANA_TOKEN env variable set - API is open to any request');
+        }
+
         let items = [];
         if (store && store.forwardToDO) {
-          const res = await store.forwardToDO('/api/recruits', 'GET');
-          const data = await res.json();
+          const id = env.RECRUITS_DO.idFromName('global');
+          const stub = env.RECRUITS_DO.get(id);
+          const listReq = new Request(new URL('/api/recruits', request.url).toString(), {
+            method: 'GET',
+            headers: { 'content-type': 'application/json' }
+          });
+          const resp = await stub.fetch(listReq);
+          const data = await resp.json();
           items = data.items || [];
         } else if (store) {
           items = await store.listAll();
         }
-        
+
+        console.log(`[Grafana API] Got ${items.length} items from DO`);
+
         const now = Date.now();
-        const activeRecruits = items.filter(r => {
+        const formatted = items.filter(r => {
           const exp = r.expiresAt ? new Date(r.expiresAt).getTime() : Infinity;
-          return exp > now && r.status === 'recruiting';
-        });
-        
-        // Format for Grafana JSON datasource
-        return jsonResponse(activeRecruits.map(r => ({
+          const status = String(r.status || 'recruiting');
+          return (status === 'recruiting' && exp > now) || status !== 'recruiting';
+        }).map(r => ({
           id: r.recruitId || r.id,
           title: r.title,
           game: r.game,
           platform: r.platform,
           ownerId: r.ownerId,
-          currentMembers: r.currentMembers?.length || r.participants?.length || 0,
+          participants_count: r.participants?.length || r.currentMembers?.length || 0,
+          currentMembers: r.participants?.length || r.currentMembers?.length || 0,
           maxMembers: r.maxMembers || 0,
           voice: r.voice,
           status: r.status,
           createdAt: r.createdAt,
           expiresAt: r.expiresAt,
           startTime: r.startTime
-        })), 200, safeHeaders);
+        }));
+
+        console.log(`[Grafana API] Returning ${formatted.length} formatted items`);
+        return jsonResponse(formatted, 200, safeHeaders);
       } catch (e) {
+        console.error('[Grafana API] Error:', e);
         return jsonResponse({ ok: false, error: e.message }, 500, safeHeaders);
       }
     }
