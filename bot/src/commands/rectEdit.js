@@ -251,7 +251,7 @@ module.exports = {
           console.log('[rect-edit] Background update started - content:', content);
 
           const update = {
-            // Always send content, even if it's just the current description
+            // Always include content/description field
             description: content !== null ? content : undefined,
             content: content !== null ? content : undefined,
           };
@@ -380,7 +380,7 @@ module.exports = {
 
             // 参加リストテキストを作成時と同じ形式に変更
             const remainingSlots = maxMembers - currentMembers;
-            const simpleParticipantText = `📋 参加リスト (**あと${remainingSlots}人**)\n${participants.map(id => `<@${id}>`).join(' • ')}`;
+            const simpleParticipantText = `📋 参加リスト (あと${remainingSlots}人)\n${participants.map(id => `<@${id}>`).join(' • ')}`;
 
             container = buildContainerSimple({
               headerTitle: `${interaction.user.username}さんの募集`,
