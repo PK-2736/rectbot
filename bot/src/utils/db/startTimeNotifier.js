@@ -1,4 +1,4 @@
-const { getActiveRecruits } = require('./statusApi');
+const { getActiveRecruits, updateRecruitmentData } = require('./statusApi');
 const { getParticipantsFromRedis } = require('./participants');
 const { getGuildSettingsSmart } = require('./guildSettings');
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
@@ -66,7 +66,6 @@ async function checkAndNotifyStartTime(client) {
           console.log(`[StartTimeNotifier] ✅ Triggering immediate notification for recruit ${recruitId} (startTime: ${recruit.startTime})`);
           
           // 重複通知を防ぐため、まずフラグを更新してから通知を送信
-          const { updateRecruitmentData } = require('./statusApi');
           await updateRecruitmentData(recruitId, { startTimeNotified: true });
           console.log(`[StartTimeNotifier] Flag updated for recruit ${recruitId}, now sending notification`);
           
@@ -94,7 +93,6 @@ async function checkAndNotifyStartTime(client) {
           console.log(`[StartTimeNotifier] ✅ Triggering notification for recruit ${recruitId} at ${recruit.startTime}`);
           
           // 重複通知を防ぐため、まずフラグを更新してから通知を送信
-          const { updateRecruitmentData } = require('./statusApi');
           await updateRecruitmentData(recruitId, { startTimeNotified: true });
           console.log(`[StartTimeNotifier] Flag updated for recruit ${recruitId}, now sending notification`);
           

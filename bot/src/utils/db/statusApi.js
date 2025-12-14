@@ -120,7 +120,15 @@ async function updateRecruitmentStatus(messageId, status, endTime = null) {
 }
 
 async function updateRecruitmentData(messageId, recruitData) {
-  const updateData = { title: recruitData.title || null, content: recruitData.content, participants_count: parseInt(recruitData.participants), start_game_time: recruitData.startTime, vc: recruitData.vc, note: recruitData.note || null };
+  const updateData = { 
+    title: recruitData.title || null, 
+    content: recruitData.content || null, 
+    participants_count: recruitData.participants ? parseInt(recruitData.participants) : null, 
+    start_game_time: recruitData.startTime || null, 
+    vc: recruitData.vc || null, 
+    note: recruitData.note || null,
+    startTimeNotified: recruitData.startTimeNotified === true ? true : (recruitData.startTimeNotified === false ? false : null)
+  };
   const rid = normalizeRecruitId(messageId);
   const url = `${config.BACKEND_API_URL.replace(/\/$/, '')}/api/recruitment/${encodeURIComponent(rid)}`;
   try {
