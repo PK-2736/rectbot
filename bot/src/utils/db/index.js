@@ -20,17 +20,28 @@ const { checkAndNotifyStartTime } = require('./startTimeNotifier');
 // schedule start time notifications check (every minute)
 const START_TIME_CHECK_INTERVAL_MS = Number(process.env.START_TIME_CHECK_INTERVAL_MS || 60 * 1000);
 let discordClient = null;
+let notifierStarted = false;
 
 function setDiscordClient(client) {
   discordClient = client;
   console.log('[StartTimeNotifier] Discord client registered');
-}
-
-setInterval(() => {
-  if (discordClient) {
-    checkAndNotifyStartTime(discordClient).catch(e => console.warn('start time check failed:', e?.message || e));
+  
+  // 最初のチェック実行をスケジュール
+  if (!notifierStarted) {
+    notifierStarted = true;
+    console.log(`[StartTimeNotifier] Scheduling start time checks every ${START_TIME_CHECK_INTERVAL_MS}ms`);
+    setInterval(() => {
+      if (discordClient) {
+        console.log('[StartTimeNotifier] Running scheduled check...');
+        checkAndNotifyStartTime(discordClient).catch(e => {
+          console.error('[StartTimeNotifier] Check failed:', e?.message || e);
+        });
+      } else {
+        console.warn('[StartTimeNotifier] Discord client not registered, skipping check');
+      }
+    }, START_TIME_CHECK_INTERVAL_MS);
   }
-}, START_TIME_CHECK_INTERVAL_MS);
+}
 
 module.exports = {
   // Supabase

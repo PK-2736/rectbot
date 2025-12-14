@@ -8,14 +8,24 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('
  * @param {import('discord.js').Client} client - Discord.js Client
  */
 async function checkAndNotifyStartTime(client) {
-  if (!client || !client.isReady()) {
-    console.log('[StartTimeNotifier] Client not ready, skipping check');
+  console.log('[StartTimeNotifier] checkAndNotifyStartTime called');
+  
+  if (!client) {
+    console.log('[StartTimeNotifier] ❌ Client is null');
+    return;
+  }
+  
+  if (!client.isReady()) {
+    console.log('[StartTimeNotifier] ❌ Client not ready, isReady():', client.isReady());
     return;
   }
 
   try {
+    console.log('[StartTimeNotifier] ✅ Client ready, fetching active recruits...');
     // すべてのアクティブな募集を取得
     const result = await getActiveRecruits();
+    console.log('[StartTimeNotifier] getActiveRecruits result:', { ok: result.ok, bodyLength: result.body?.length, error: result.error });
+    
     if (!result.ok || !result.body) {
       console.log(`[StartTimeNotifier] Failed to fetch active recruits: ${result.error || 'unknown error'}`);
       return;
@@ -23,6 +33,7 @@ async function checkAndNotifyStartTime(client) {
     
     const activeRecruits = result.body;
     if (!Array.isArray(activeRecruits) || activeRecruits.length === 0) {
+      console.log('[StartTimeNotifier] No active recruits or invalid array');
       return;
     }
 
