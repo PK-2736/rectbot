@@ -61,11 +61,7 @@ module.exports = {
     };
 
     try {
-      // Defer first to get interaction into safe state, then showModal
-      if (!interaction.deferred && !interaction.replied) {
-        await interaction.deferReply({ ephemeral: true }).catch(() => {});
-      }
-
+      // DO NOT defer - showModal must be the first response
       const recruit = await fetchRecruitById(recruitId);
       const ownerId = recruit?.ownerId || recruit?.metadata?.raw?.recruiterId;
       const messageId = recruit?.metadata?.messageId;
@@ -97,7 +93,10 @@ module.exports = {
       await interaction.showModal(modal);
     } catch (error) {
       console.error('[rect-edit] fetch or modal error', error);
-      await safeRespond(interaction, { content: '❌ 募集が見つかりませんでした。', flags: MessageFlags.Ephemeral });
+      // Only respond if we haven't shown the modal yet
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.reply({ content: '❌ 募集が見つかりませんでした。', flags: MessageFlags.Ephemeral }).catch(() => {});
+      }
     }
   },
 
