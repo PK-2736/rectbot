@@ -81,7 +81,7 @@ async function checkAndNotifyStartTime(client) {
           console.log(`[StartTimeNotifier] Flag updated for recruit ${recruitId}, now sending notification`);
           
           // 通知を送信
-          await sendStartTimeNotification(client, recruit);
+          await sendStartTimeNotification(client, recruit, guildSettings);
           
           console.log(`[StartTimeNotifier] Notification sent successfully for recruit ${recruitId}`);
           continue;
@@ -108,7 +108,7 @@ async function checkAndNotifyStartTime(client) {
           console.log(`[StartTimeNotifier] Flag updated for recruit ${recruitId}, now sending notification`);
           
           // 通知を送信
-          await sendStartTimeNotification(client, recruit);
+          await sendStartTimeNotification(client, recruit, guildSettings);
           
           console.log(`[StartTimeNotifier] Notification sent successfully for recruit ${recruitId}`);
         }
@@ -126,7 +126,7 @@ async function checkAndNotifyStartTime(client) {
  * @param {import('discord.js').Client} client - Discord.js Client
  * @param {Object} recruit - 募集データ
  */
-async function sendStartTimeNotification(client, recruit) {
+async function sendStartTimeNotification(client, recruit, guildSettings = null) {
   try {
     const recruitId = recruit.recruitId || recruit.id;
     const messageId = recruit.metadata?.messageId;
