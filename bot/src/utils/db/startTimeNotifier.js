@@ -61,6 +61,22 @@ async function checkAndNotifyStartTime(client) {
           continue;
         }
 
+        // 「今から」対応：即座に通知を送信
+        if (recruit.startTime === '今から' || recruit.startTime === 'now' || recruit.startTime === '今') {
+          console.log(`[StartTimeNotifier] ✅ Triggering immediate notification for recruit ${recruitId} (startTime: ${recruit.startTime})`);
+          
+          // 重複通知を防ぐため、まずフラグを更新してから通知を送信
+          const { updateRecruitmentData } = require('./statusApi');
+          await updateRecruitmentData(recruitId, { startTimeNotified: true });
+          console.log(`[StartTimeNotifier] Flag updated for recruit ${recruitId}, now sending notification`);
+          
+          // 通知を送信
+          await sendStartTimeNotification(client, recruit);
+          
+          console.log(`[StartTimeNotifier] Notification sent successfully for recruit ${recruitId}`);
+          continue;
+        }
+
         // 開始時間をパース (HH:mm または H:mm 形式)
         const timeParts = recruit.startTime.split(':');
         if (timeParts.length !== 2) {

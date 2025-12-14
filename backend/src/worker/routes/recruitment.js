@@ -56,24 +56,24 @@ export async function routeRecruitment(request, env, ctx, url, corsHeaders, send
   }
 
   // Grafana JSON datasource endpoints
-  if (url.pathname === '/api/grafana/recruits' && request.method === 'POST') {
+  // Grafana JSON datasource endpoints
+  if ((url.pathname === '/api/grafana/recruits' || url.pathname === '/api/grafana/recruits/search') && (request.method === 'POST' || request.method === 'GET')) {
     try {
       // Check Grafana access token for security
       const grafanaToken = env.GRAFANA_TOKEN;
       if (grafanaToken) {
         const providedToken = request.headers.get('x-grafana-token') || request.headers.get('authorization')?.replace('Bearer ', '');
         if (!providedToken || providedToken !== grafanaToken) {
-          console.warn('[Grafana API] Unauthorized access attempt');
+          console.warn('[Grafana API] Unauthorized access attempt', { grafanaToken: !!grafanaToken, providedToken: !!providedToken });
           return new Response(JSON.stringify({ error: 'unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         }
       }
 
-      // Debug incoming headers
+      // Debug incoming headers and request
       try {
         const hdrs = {};
         for (const [k, v] of request.headers.entries()) hdrs[k] = v;
-        console.log('[Grafana API] Incoming headers:', JSON.stringify(hdrs));
-        console.log('[Grafana API] Request received for recruits data');
+        console.log('[Grafana API] Request:', { method: request.method, path: url.pathname, hasToken: !!grafanaToken });
       } catch (_) {}
 
       const id = env.RECRUITS_DO.idFromName('global');
@@ -85,6 +85,8 @@ export async function routeRecruitment(request, env, ctx, url, corsHeaders, send
       const resp = await stub.fetch(listReq);
       const data = await resp.json();
       const items = data.items || [];
+
+      console.log(`[Grafana API] Got ${items.length} items from DO`);
 
       let body = {};
       try { body = await request.json(); } catch {}
@@ -105,6 +107,8 @@ export async function routeRecruitment(request, env, ctx, url, corsHeaders, send
         const isRecentlyClosed = status !== 'recruiting' && (r.closedAt ? withinRange(r.closedAt) : (expMs >= (toMs - 5*3600*1000)));
         return isActive || isRecentlyClosed || withinRange(r.createdAt);
       });
+
+      console.log(`[Grafana API] Filtered to ${filtered.length} items`);
 
       const formatted = filtered.map(r => ({
         id: r.recruitId || r.id,
@@ -131,6 +135,7 @@ export async function routeRecruitment(request, env, ctx, url, corsHeaders, send
         start_game_time: r.start_game_time || r.startGameTime || null
       }));
 
+      console.log(`[Grafana API] Returning ${formatted.length} formatted items`);
       return new Response(JSON.stringify(formatted), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     } catch (e) {
       console.error('[Grafana API] Error:', e);
@@ -242,14 +247,30 @@ export async function routeRecruitment(request, env, ctx, url, corsHeaders, send
       const data = await resp.json();
       const items = data.items || [];
 
+      console.log(`[active-recruits] Total items from DO: ${items.length}`);
+
       // Filter for active recruits only
       const now = Date.now();
       const activeRecruits = items.filter(r => {
         const exp = r.expiresAt ? new Date(r.expiresAt).getTime() : Infinity;
-        return exp > now && r.status === 'recruiting';
+        const isActive = exp > now && r.status === 'recruiting';
+        if (!isActive) {
+          console.log(`[active-recruits] Filtered out: ${r.recruitId || r.id} (exp=${new Date(exp).toISOString()}, status=${r.status})`);
+        }
+        return isActive;
       });
 
       console.log(`[active-recruits] Returning ${activeRecruits.length} active recruits`);
+      if (activeRecruits.length > 0) {
+        console.log(`[active-recruits] Sample recruits:`, activeRecruits.slice(0, 2).map(r => ({
+          id: r.recruitId || r.id,
+          title: r.title,
+          startTime: r.startTime,
+          startTimeNotified: r.startTimeNotified,
+          status: r.status,
+          expiresAt: r.expiresAt
+        })));
+      }
       return new Response(JSON.stringify(activeRecruits), {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
