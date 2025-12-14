@@ -334,11 +334,13 @@ module.exports = {
             const titleLine = recruitData.title ? `## ${recruitData.title}` : '';
             const currentMembers = participants.length;
             const maxMembers = Number(recruitData.maxMembers) || currentMembers;
-            const startTimeLabel = recruitData.metadata?.startLabel || recruitData.startTime 
-              ? `🕒 ${recruitData.metadata?.startLabel || recruitData.startTime}` 
+            
+            // 値に絵文字を付与（作成時と同じフォーマット）
+            const startVal = recruitData.metadata?.startLabel || recruitData.startTime 
+              ? `🕒 ${String(recruitData.metadata?.startLabel || recruitData.startTime)}` 
               : null;
-            const membersLabel = `👥 ${currentMembers}/${maxMembers}人`;
-            const vcLabel = (() => {
+            const membersVal = `👥 ${currentMembers}/${maxMembers}人`;
+            const vcVal = (() => {
               const hasVoice = recruitData.vc === 'あり' || recruitData.vc === true || recruitData.voice === true;
               const noVoice = recruitData.vc === 'なし' || recruitData.vc === false || recruitData.voice === false;
               if (hasVoice) {
@@ -351,9 +353,21 @@ module.exports = {
             })();
             
             const labelsLine = '🕒 開始時間 | 👥 募集人数 | 🎙 通話有無';
-            const valuesLine = [startTimeLabel, membersLabel, vcLabel].filter(Boolean).join(' | ');
+            const valuesLine = [startVal, membersVal, vcVal].filter(Boolean).join(' | ');
             const detailsText = [labelsLine, valuesLine].filter(Boolean).join('\n');
             const contentText = recruitData.description || recruitData.content ? `📝 募集内容\n${String(recruitData.description || recruitData.content).slice(0, 1500)}` : '';
+
+            // 通知ロール情報を取得して subHeaderText を構築
+            let subHeaderText = null;
+            if (guildSettings?.notification_roles && guildSettings.notification_roles.length > 0) {
+              const roleIds = Array.isArray(guildSettings.notification_roles) 
+                ? guildSettings.notification_roles.filter(Boolean) 
+                : [];
+              if (roleIds.length > 0) {
+                const roleMentions = roleIds.slice(0, 3).map(id => `<@&${id}>`).join(', ');
+                subHeaderText = `🔔 通知ロール: ${roleMentions}${roleIds.length > 3 ? ` +${roleIds.length - 3}` : ''}`;
+              }
+            }
 
             // 募集主のアバターURL を取得
             let avatarUrl = null;
@@ -364,13 +378,17 @@ module.exports = {
               }
             } catch (_) {}
 
+            // 参加リストテキストを作成時と同じ形式に変更
+            const remainingSlots = maxMembers - currentMembers;
+            const simpleParticipantText = `📋 参加リスト (**あと${remainingSlots}人**)\n${participants.map(id => `<@${id}>`).join(' • ')}`;
+
             container = buildContainerSimple({
               headerTitle: `${interaction.user.username}さんの募集`,
               titleText: titleLine,
-              subHeaderText: null,
+              subHeaderText,
               detailsText,
               contentText,
-              participantText,
+              participantText: simpleParticipantText,
               recruitIdText: recruitId,
               accentColor,
               avatarUrl
