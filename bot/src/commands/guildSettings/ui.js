@@ -113,12 +113,12 @@ async function showSettingsUI(interaction, settings = {}, isAdmin = false) {
     const actionButtonRow = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId('finalize_settings')
-        .setLabel('💾 保存する')
+        .setLabel('保存する')
         .setStyle(ButtonStyle.Success)
         .setEmoji('💾'),
       new ButtonBuilder()
         .setCustomId('reset_all_settings')
-        .setLabel('🔄 すべてリセット')
+        .setLabel('すべてリセット')
         .setStyle(ButtonStyle.Danger)
         .setEmoji('🔄')
     );
@@ -318,20 +318,15 @@ async function showSettingsCategoryUI(interaction, category, settings = {}, isAd
       allButtonRows.forEach(row => container.addActionRowComponents(row));
     }
 
-    // 下部：保存＆リセットボタン
-    const actionButtonRow = new ActionRowBuilder().addComponents(
+    // 下部：保存ボタン（カテゴリ画面ではリセットを表示しない）
+    const saveRow = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId('finalize_settings')
         .setLabel('💾 保存する')
         .setStyle(ButtonStyle.Success)
-        .setEmoji('💾'),
-      new ButtonBuilder()
-        .setCustomId('reset_all_settings')
-        .setLabel('🔄 すべてリセット')
-        .setStyle(ButtonStyle.Danger)
-        .setEmoji('🔄')
+        .setEmoji('💾')
     );
-    container.addActionRowComponents(actionButtonRow);
+    container.addActionRowComponents(saveRow);
   } else if (!isAdmin) {
     container.addTextDisplayComponents(
       new TextDisplayBuilder().setContent('🔒 **変更には管理者権限が必要です**')

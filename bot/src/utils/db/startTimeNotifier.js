@@ -85,7 +85,7 @@ async function checkAndNotifyStartTime(client) {
           console.log(`[StartTimeNotifier] ✅ Triggering immediate notification for recruit ${recruitId} (startTime: ${recruit.startTime})`);
           
           // 重複通知を防ぐため、まずフラグを更新してから通知を送信
-          await updateRecruitmentData(recruitId, { startTimeNotified: true });
+          await updateRecruitmentData(recruitId, { startTimeNotified: true, startTime: recruit.startTime });
           console.log(`[StartTimeNotifier] Flag updated for recruit ${recruitId}, now sending notification`);
           
           // 通知を送信
@@ -112,7 +112,7 @@ async function checkAndNotifyStartTime(client) {
           console.log(`[StartTimeNotifier] ✅ Triggering notification for recruit ${recruitId} at ${recruit.startTime}`);
           
           // 重複通知を防ぐため、まずフラグを更新してから通知を送信
-          await updateRecruitmentData(recruitId, { startTimeNotified: true });
+          await updateRecruitmentData(recruitId, { startTimeNotified: true, startTime: recruit.startTime });
           console.log(`[StartTimeNotifier] Flag updated for recruit ${recruitId}, now sending notification`);
           
           // 通知を送信
@@ -204,8 +204,9 @@ async function sendStartTimeNotification(client, recruit, guildSettings = null) 
     let content = voiceLink ? voiceLink : null;
 
     const components = [];
-    const enableDedicated = Boolean(guildSettings?.enable_dedicated_channel);
-    console.log(`[StartTimeNotifier] Guild ${guildId} dedicated_channel feature: ${enableDedicated}`);
+    const isNowStart = (startTime === '今から' || startTime === 'now' || startTime === '今');
+    const enableDedicated = Boolean(guildSettings?.enable_dedicated_channel) && isNowStart;
+    console.log(`[StartTimeNotifier] Guild ${guildId} dedicated_channel feature: ${enableDedicated} (isNowStart=${isNowStart})`);
     if (enableDedicated) {
       const button = new ButtonBuilder()
         .setCustomId(`create_vc_${recruitId}`)
@@ -216,7 +217,7 @@ async function sendStartTimeNotification(client, recruit, guildSettings = null) 
       components.push(row);
       console.log('[StartTimeNotifier] Added dedicated channel button to components');
     } else {
-      console.log('[StartTimeNotifier] Skipping dedicated channel button (disabled in settings)');
+      console.log('[StartTimeNotifier] Skipping dedicated channel button (disabled or startTime is not now)');
     }
 
     await channel.send({

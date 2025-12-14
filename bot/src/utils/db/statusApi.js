@@ -121,15 +121,32 @@ async function updateRecruitmentStatus(messageId, status, endTime = null) {
 }
 
 async function updateRecruitmentData(messageId, recruitData) {
-  const updateData = { 
-    title: recruitData.title || null, 
-    content: recruitData.content || null, 
-    participants_count: recruitData.participants ? parseInt(recruitData.participants) : null, 
-    start_game_time: recruitData.startTime || null, 
-    vc: recruitData.vc || null, 
-    note: recruitData.note || null,
-    startTimeNotified: recruitData.startTimeNotified === true ? true : (recruitData.startTimeNotified === false ? false : null)
-  };
+  // Durable Objectが受け付けるフィールドに合わせて更新
+  // allowed: title, description, game, platform, status, maxMembers, voice, metadata, expiresAt, closedAt
+  const updateData = {};
+  if (recruitData.title != null) updateData.title = recruitData.title;
+  if (recruitData.description != null || recruitData.content != null) {
+    updateData.description = recruitData.description ?? recruitData.content;
+  }
+  if (recruitData.game != null) updateData.game = recruitData.game;
+  if (recruitData.platform != null) updateData.platform = recruitData.platform;
+  if (recruitData.status != null) updateData.status = recruitData.status;
+  if (recruitData.maxMembers != null || recruitData.participants != null) {
+    const val = recruitData.maxMembers ?? (recruitData.participants ? parseInt(recruitData.participants, 10) : null);
+    if (val != null && !Number.isNaN(val)) updateData.maxMembers = val;
+  }
+  if (recruitData.voice != null || recruitData.vc != null) {
+    const v = recruitData.voice ?? recruitData.vc;
+    updateData.voice = typeof v === 'boolean' ? v : String(v).toLowerCase().includes('あり');
+  }
+  // メタデータのマージ更新
+  const meta = {};
+  if (recruitData.note != null) meta.note = recruitData.note;
+  if (recruitData.startTime != null) meta.startLabel = recruitData.startTime;
+  if (recruitData.startTimeNotified !== undefined && recruitData.startTimeNotified !== null) {
+    meta.startTimeNotified = recruitData.startTimeNotified === true;
+  }
+  if (Object.keys(meta).length) updateData.metadata = meta;
   const rid = normalizeRecruitId(messageId);
   const url = `${config.BACKEND_API_URL.replace(/\/$/, '')}/api/recruitment/${encodeURIComponent(rid)}`;
   try {
