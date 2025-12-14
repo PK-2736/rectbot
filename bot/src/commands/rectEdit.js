@@ -8,7 +8,7 @@ const {
   AttachmentBuilder,
 } = require('discord.js');
 
-const { updateRecruitmentData, getRecruitFromRedis } = require('../utils/db');
+const { updateRecruitmentData, getRecruitFromRedis, getGuildSettingsFromRedis } = require('../utils/db');
 const { safeRespond } = require('../utils/interactionHandler');
 const { getActiveRecruits } = require('../utils/db/statusApi');
 const { generateRecruitCard } = require('../utils/canvasRecruit');
@@ -312,35 +312,82 @@ module.exports = {
           }
           console.log('[rect-edit] Participants:', participants);
           
-          // Regenerate image and container
+          // Determine recruit style: check guild settings
+          const guildSettings = await getGuildSettingsFromRedis(recruitData.metadata?.guildId || interaction.guildId).catch(() => ({}));
+          const recruitStyle = (guildSettings?.recruit_style === 'simple') ? 'simple' : 'image';
+          console.log('[rect-edit] Recruit style:', recruitStyle);
+          
+          // 色の決定
           const useColor = recruitData.panelColor || recruitData.metadata?.panelColor || '000000';
           const accentColor = /^[0-9A-Fa-f]{6}$/.test(useColor) ? parseInt(useColor, 16) : 0x000000;
           
-          console.log('[rect-edit] Generating recruit card image...');
-          const imageBuffer = await generateRecruitCard(recruitData, participants, interaction.client, useColor);
-          const image = new AttachmentBuilder(imageBuffer, { name: 'recruit-card.png' });
-
           const participantText = participants.length > 0 
             ? `🎯✨ 参加リスト ✨🎯\n${participants.map(id => `🎮 <@${id}>`).join('\n')}`
             : `🎯✨ 参加リスト ✨🎯\n🎮 <@${recruitData.ownerId}>`;
 
-          console.log('[rect-edit] Building container...');
-          const container = buildContainer({
-            headerTitle: `${interaction.user.username}さんの募集`,
-            subHeaderText: null,
-            contentText: recruitData.description || recruitData.content || '',
-            titleText: '',
-            participantText,
-            recruitIdText: recruitId,
-            accentColor,
-            imageAttachmentName: 'attachment://recruit-card.png',
-            recruiterId: recruitData.ownerId,
-            requesterId: interaction.user.id
-          });
+          let container;
+          let files = [];
+
+          if (recruitStyle === 'simple') {
+            // シンプル募集スタイル: テキストベース、画像なし
+            console.log('[rect-edit] Using simple style (no image)');
+            const titleLine = recruitData.title ? `**${recruitData.title}**` : '';
+            const currentMembers = participants.length;
+            const maxMembers = Number(recruitData.maxMembers) || currentMembers;
+            const startTimeLabel = recruitData.metadata?.startLabel || recruitData.startTime || '指定なし';
+            const vcLabel = (() => {
+              const hasVoice = recruitData.vc === 'あり' || recruitData.vc === true || recruitData.voice === true;
+              const noVoice = recruitData.vc === 'なし' || recruitData.vc === false || recruitData.voice === false;
+              if (hasVoice) {
+                if (recruitData.metadata?.note) return `あり/${recruitData.metadata.note}`;
+                if (recruitData.voiceChannelName) return `あり/${recruitData.voiceChannelName}`;
+                if (recruitData.voicePlace) return `あり/${recruitData.voicePlace}`;
+                return 'あり';
+              } else if (noVoice) {
+                return 'なし';
+              }
+              return '指定なし';
+            })();
+            
+            const detailsText = `📊 **人数**: ${currentMembers}/${maxMembers}人\n⏰ **時間**: ${startTimeLabel}~\n🎤 **通話**: ${vcLabel}`;
+            const contentText = recruitData.description || recruitData.content ? `**📝 募集内容**\n${recruitData.description || recruitData.content}` : '';
+
+            container = buildContainerSimple({
+              headerTitle: `${interaction.user.username}さんの募集`,
+              titleText: titleLine,
+              subHeaderText: null,
+              detailsText,
+              contentText,
+              participantText,
+              recruitIdText: recruitId,
+              accentColor,
+              avatarUrl: null
+            });
+          } else {
+            // 画像パネルスタイル: 既存の処理
+            console.log('[rect-edit] Generating recruit card image...');
+            const imageBuffer = await generateRecruitCard(recruitData, participants, interaction.client, useColor);
+            const image = new AttachmentBuilder(imageBuffer, { name: 'recruit-card.png' });
+            files = [image];
+
+            console.log('[rect-edit] Building container...');
+            container = buildContainer({
+              headerTitle: `${interaction.user.username}さんの募集`,
+              subHeaderText: null,
+              contentText: recruitData.description || recruitData.content || '',
+              titleText: '',
+              participantText,
+              recruitIdText: recruitId,
+              accentColor,
+              imageAttachmentName: 'attachment://recruit-card.png',
+              recruiterId: recruitData.ownerId,
+              requesterId: interaction.user.id
+            });
+          }
 
           console.log('[rect-edit] Updating message:', actualMessageId);
           await msg.edit({
-            files: [image],
+            files,
             components: [container],
             flags: require('discord.js').MessageFlags.IsComponentsV2,
             allowedMentions: { roles: [], users: [] }
