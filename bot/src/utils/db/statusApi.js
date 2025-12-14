@@ -75,6 +75,7 @@ async function saveRecruitmentData(guildId, channelId, messageId, guildName, cha
       vc: recruitData.vc ?? recruitData.voice ?? null,
       note: recruitData.note ?? null,
       startLabel: recruitData.startTime || null,
+      notificationRoleId: recruitData.notificationRoleId || null,
       raw: recruitData
     }
   };

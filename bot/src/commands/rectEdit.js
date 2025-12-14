@@ -355,17 +355,21 @@ module.exports = {
             const labelsLine = '🕒 開始時間 | 👥 募集人数 | 🎙 通話有無';
             const valuesLine = [startVal, membersVal, vcVal].filter(Boolean).join(' | ');
             const detailsText = [labelsLine, valuesLine].filter(Boolean).join('\n');
-            const contentText = recruitData.description || recruitData.content ? `📝 募集内容\n${String(recruitData.description || recruitData.content).slice(0, 1500)}` : '';
+            
+            // 募集内容を確実に取得（description/content/note のいずれかから）
+            const recruitContent = recruitData.description || recruitData.content || recruitData.note || recruitData.metadata?.raw?.content || '';
+            const contentText = recruitContent ? `📝 募集内容\n${String(recruitContent).slice(0, 1500)}` : '';
 
-            // 通知ロール情報を取得して subHeaderText を構築
+            // 通知ロール情報: 作成時に指定されたロールを使用（metadata から取得）
             let subHeaderText = null;
-            if (guildSettings?.notification_roles && guildSettings.notification_roles.length > 0) {
-              const roleIds = Array.isArray(guildSettings.notification_roles) 
-                ? guildSettings.notification_roles.filter(Boolean) 
-                : [];
-              if (roleIds.length > 0) {
-                const roleMentions = roleIds.slice(0, 3).map(id => `<@&${id}>`).join(', ');
-                subHeaderText = `🔔 通知ロール: ${roleMentions}${roleIds.length > 3 ? ` +${roleIds.length - 3}` : ''}`;
+            const notificationRoleId = recruitData.metadata?.notificationRoleId || recruitData.notificationRoleId;
+            if (notificationRoleId) {
+              if (notificationRoleId === 'everyone') {
+                subHeaderText = '🔔 通知ロール: @everyone';
+              } else if (notificationRoleId === 'here') {
+                subHeaderText = '🔔 通知ロール: @here';
+              } else {
+                subHeaderText = `🔔 通知ロール: <@&${notificationRoleId}>`;
               }
             }
 
