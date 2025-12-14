@@ -239,25 +239,31 @@ module.exports = {
       (async () => {
         try {
           const content = interaction.fields.getTextInputValue('content') || null;
+          console.log('[rect-edit] Background update started - content:', content);
 
           const update = {
-            description: content || undefined,
-            title: argUpdates.title || undefined,
-            participants: argUpdates.participants || undefined,
-            startTime: argUpdates.startTime || undefined,
-            vc: argUpdates.vc !== undefined ? argUpdates.vc : undefined,
-            note: argUpdates.voiceChannel?.name || undefined,
+            // Always send content, even if it's just the current description
+            description: content !== null ? content : undefined,
+            content: content !== null ? content : undefined,
           };
-          if (argUpdates.panelColor) {
-            update.panelColor = argUpdates.panelColor;
-          }
+          
+          // Add argument-based updates if they exist
+          if (argUpdates.title) update.title = argUpdates.title;
+          if (argUpdates.participants) update.participants = argUpdates.participants;
+          if (argUpdates.startTime) update.startTime = argUpdates.startTime;
+          if (argUpdates.vc !== undefined) update.vc = argUpdates.vc;
+          if (argUpdates.voiceChannel?.name) update.note = argUpdates.voiceChannel.name;
+          if (argUpdates.panelColor) update.panelColor = argUpdates.panelColor;
 
+          console.log('[rect-edit] handleModalSubmit - messageId:', messageId);
           console.log('[rect-edit] Updating recruit with:', update);
-          await updateRecruitmentData(messageId, update);
+          
+          // updateRecruitmentData expects messageId as first parameter
+          const result = await updateRecruitmentData(messageId, update);
+          console.log('[rect-edit] updateRecruitmentData result:', { ok: result.ok, status: result.status });
 
-          // Fetch updated recruit data
-          const recruitId = String(messageId).slice(-8);
-          const recruitData = await getRecruitFromRedis(recruitId);
+          // Fetch updated recruit data using messageId directly (it becomes the recruitId in the system)
+          const recruitData = await getRecruitFromRedis(messageId);
           console.log('[rect-edit] Fetched updated recruit:', recruitData);
 
           if (!recruitData) {
@@ -293,7 +299,7 @@ module.exports = {
             contentText: recruitData.content || recruitData.note || '',
             titleText: '',
             participantText,
-            recruitIdText: recruitId,
+            recruitIdText: messageId,
             accentColor,
             imageAttachmentName: 'attachment://recruit-card.png',
             recruiterId: recruitData.recruiterId,

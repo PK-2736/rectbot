@@ -125,8 +125,12 @@ async function updateRecruitmentData(messageId, recruitData) {
   // allowed: title, description, game, platform, status, maxMembers, voice, metadata, expiresAt, closedAt
   const updateData = {};
   if (recruitData.title != null) updateData.title = recruitData.title;
+  // Handle both 'description' and 'content' fields
   if (recruitData.description != null || recruitData.content != null) {
-    updateData.description = recruitData.description ?? recruitData.content;
+    const desc = recruitData.description ?? recruitData.content;
+    if (desc !== undefined && desc !== null) {
+      updateData.description = String(desc);
+    }
   }
   if (recruitData.game != null) updateData.game = recruitData.game;
   if (recruitData.platform != null) updateData.platform = recruitData.platform;
@@ -143,6 +147,7 @@ async function updateRecruitmentData(messageId, recruitData) {
   const meta = {};
   if (recruitData.note != null) meta.note = recruitData.note;
   if (recruitData.startTime != null) meta.startLabel = recruitData.startTime;
+  if (recruitData.panelColor != null) meta.panelColor = recruitData.panelColor;
   if (recruitData.startTimeNotified !== undefined && recruitData.startTimeNotified !== null) {
     meta.startTimeNotified = recruitData.startTimeNotified === true;
   }
