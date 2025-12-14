@@ -331,26 +331,38 @@ module.exports = {
           if (recruitStyle === 'simple') {
             // シンプル募集スタイル: テキストベース、画像なし
             console.log('[rect-edit] Using simple style (no image)');
-            const titleLine = recruitData.title ? `**${recruitData.title}**` : '';
+            const titleLine = recruitData.title ? `## ${recruitData.title}` : '';
             const currentMembers = participants.length;
             const maxMembers = Number(recruitData.maxMembers) || currentMembers;
-            const startTimeLabel = recruitData.metadata?.startLabel || recruitData.startTime || '指定なし';
+            const startTimeLabel = recruitData.metadata?.startLabel || recruitData.startTime 
+              ? `🕒 ${recruitData.metadata?.startLabel || recruitData.startTime}` 
+              : null;
+            const membersLabel = `👥 ${currentMembers}/${maxMembers}人`;
             const vcLabel = (() => {
               const hasVoice = recruitData.vc === 'あり' || recruitData.vc === true || recruitData.voice === true;
               const noVoice = recruitData.vc === 'なし' || recruitData.vc === false || recruitData.voice === false;
               if (hasVoice) {
-                if (recruitData.metadata?.note) return `あり/${recruitData.metadata.note}`;
-                if (recruitData.voiceChannelName) return `あり/${recruitData.voiceChannelName}`;
-                if (recruitData.voicePlace) return `あり/${recruitData.voicePlace}`;
-                return 'あり';
+                const place = recruitData.metadata?.note || recruitData.voiceChannelName || recruitData.voicePlace;
+                return place ? `🎙 あり(${place})` : '🎙 あり';
               } else if (noVoice) {
-                return 'なし';
+                return '🎙 なし';
               }
-              return '指定なし';
+              return null;
             })();
             
-            const detailsText = `📊 **人数**: ${currentMembers}/${maxMembers}人\n⏰ **時間**: ${startTimeLabel}~\n🎤 **通話**: ${vcLabel}`;
-            const contentText = recruitData.description || recruitData.content ? `**📝 募集内容**\n${recruitData.description || recruitData.content}` : '';
+            const labelsLine = '🕒 開始時間 | 👥 募集人数 | 🎙 通話有無';
+            const valuesLine = [startTimeLabel, membersLabel, vcLabel].filter(Boolean).join(' | ');
+            const detailsText = [labelsLine, valuesLine].filter(Boolean).join('\n');
+            const contentText = recruitData.description || recruitData.content ? `📝 募集内容\n${String(recruitData.description || recruitData.content).slice(0, 1500)}` : '';
+
+            // 募集主のアバターURL を取得
+            let avatarUrl = null;
+            try {
+              const fetchedUser = await interaction.client.users.fetch(recruitData.ownerId).catch(() => null);
+              if (fetchedUser && typeof fetchedUser.displayAvatarURL === 'function') {
+                avatarUrl = fetchedUser.displayAvatarURL({ size: 128, extension: 'png' });
+              }
+            } catch (_) {}
 
             container = buildContainerSimple({
               headerTitle: `${interaction.user.username}さんの募集`,
@@ -361,7 +373,7 @@ module.exports = {
               participantText,
               recruitIdText: recruitId,
               accentColor,
-              avatarUrl: null
+              avatarUrl
             });
           } else {
             // 画像パネルスタイル: 既存の処理

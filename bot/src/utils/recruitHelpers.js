@@ -80,20 +80,55 @@ function buildContainer({ headerTitle = '募集', participantText = '', recruitI
   return container;
 }
 
-// Simple text-first container (no image gallery)
+// Simple text-first container (no image gallery, but with header section that can have avatar)
 function buildContainerSimple({ headerTitle = '募集', detailsText = '', participantText = '', recruitIdText = '(unknown)', accentColor = 0x000000, footerExtra = null, subHeaderText = null, contentText = '', titleText = '', avatarUrl = null }) {
   const container = new ContainerBuilder();
   container.setAccentColor(typeof accentColor === 'number' ? accentColor : parseInt(String(accentColor), 16) || 0x000000);
   
-  // タイトルを最上段に配置（強調表示は呼び出し側で整形）
-  if (titleText && String(titleText).trim().length > 0) {
-    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(String(titleText)));
+  // ヘッダーセクション（アバター付き）
+  const headerSection = new SectionBuilder();
+  
+  // アバター（ThumbnailAccessory）を設定
+  if (avatarUrl && typeof avatarUrl === 'string') {
+    try {
+      const thumb = new ThumbnailBuilder({ media: { url: avatarUrl } });
+      headerSection.setThumbnailAccessory(thumb);
+    } catch (thumbErr) {
+      console.warn('[buildContainerSimple] ThumbnailBuilder failed:', thumbErr.message);
+    }
   }
-  // 次に「〜さんの募集」を表示
-  container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`🎮 **${headerTitle}**`));
-  // 通知ロールなどのサブヘッダー
+  
+  // ヘッダーテキスト追加
+  if (titleText && String(titleText).trim().length > 0) {
+    headerSection.addTextDisplayComponents(new TextDisplayBuilder().setContent(String(titleText)));
+  }
+  headerSection.addTextDisplayComponents(new TextDisplayBuilder().setContent(`🎮 **${headerTitle}**`));
   if (subHeaderText && String(subHeaderText).trim().length > 0) {
-    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(String(subHeaderText)));
+    headerSection.addTextDisplayComponents(new TextDisplayBuilder().setContent(String(subHeaderText)));
+  }
+  
+  // SectionBuilder をコンテナに追加する前に未定義プロパティをクリーンアップ
+  try {
+    // 未定義のプロパティを削除してバリデーション
+    if (Object.prototype.hasOwnProperty.call(headerSection, 'accessory') && headerSection.accessory === undefined) {
+      delete headerSection.accessory;
+    }
+    if (Object.prototype.hasOwnProperty.call(headerSection, 'thumbnail') && headerSection.thumbnail === undefined) {
+      delete headerSection.thumbnail;
+    }
+    // toJSON()をテストしてバリデーション
+    headerSection.toJSON();
+    container.addSectionComponents(headerSection);
+  } catch (sectionErr) {
+    console.warn('[buildContainerSimple] SectionBuilder validation failed, falling back to text-only:', sectionErr.message);
+    // フォールバック: テキストのみ追加
+    if (titleText && String(titleText).trim().length > 0) {
+      container.addTextDisplayComponents(new TextDisplayBuilder().setContent(String(titleText)));
+    }
+    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`🎮 **${headerTitle}**`));
+    if (subHeaderText && String(subHeaderText).trim().length > 0) {
+      container.addTextDisplayComponents(new TextDisplayBuilder().setContent(String(subHeaderText)));
+    }
   }
   
   container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
