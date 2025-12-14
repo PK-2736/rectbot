@@ -470,6 +470,129 @@ export default {
       }
     }
 
+    // Grafana: point-in-time snapshot ("/api/grafana/recruits/at")
+    if (url.pathname === '/api/grafana/recruits/at' && (request.method === 'POST' || request.method === 'GET')) {
+      try {
+        const grafanaToken = env.GRAFANA_TOKEN;
+        const providedToken = request.headers.get('x-grafana-token') || request.headers.get('authorization')?.replace('Bearer ', '');
+        console.log('[Grafana API /at] Token check:', { hasEnvToken: !!grafanaToken, hasProvidedToken: !!providedToken });
+        if (grafanaToken) {
+          if (!providedToken || providedToken !== grafanaToken) {
+            console.warn('[Grafana API /at] Unauthorized');
+            return jsonResponse({ error: 'unauthorized' }, 401, safeHeaders);
+          }
+        } else {
+          console.warn('[Grafana API /at] No GRAFANA_TOKEN set');
+        }
+
+        let items = [];
+        if (store && store.forwardToDO) {
+          const id = env.RECRUITS_DO.idFromName('global');
+          const stub = env.RECRUITS_DO.get(id);
+          const listReq = new Request(new URL('/api/recruits', request.url).toString(), { method: 'GET', headers: { 'content-type': 'application/json' } });
+          const resp = await stub.fetch(listReq);
+          const data = await resp.json();
+          items = data.items || [];
+        } else if (store) {
+          items = await store.listAll();
+        }
+
+        // If Grafana provides time in body.range.to, use it; else now
+        let body = {};
+        try { body = await request.json(); } catch {}
+        const toMs = body?.range?.to ? Date.parse(body.range.to) : Date.now();
+
+        const snapshot = items.filter(r => {
+          const expMs = r.expiresAt ? Date.parse(r.expiresAt) : Infinity;
+          const createdMs = r.createdAt ? Date.parse(r.createdAt) : 0;
+          return createdMs <= toMs && expMs > toMs;
+        }).map(r => ({
+          id: r.recruitId || r.id,
+          title: r.title,
+          game: r.game,
+          platform: r.platform,
+          ownerId: r.ownerId,
+          participants_count: r.participants?.length || r.currentMembers?.length || 0,
+          currentMembers: r.participants?.length || r.currentMembers?.length || 0,
+          maxMembers: r.maxMembers || 0,
+          voice: r.voice,
+          status: r.status,
+          createdAt: r.createdAt,
+          expiresAt: r.expiresAt,
+          startTime: r.startTime
+        }));
+
+        console.log(`[Grafana API /at] Returning ${snapshot.length} items`);
+        return jsonResponse(snapshot, 200, safeHeaders);
+      } catch (e) {
+        console.error('[Grafana API /at] Error:', e);
+        return jsonResponse({ ok: false, error: e.message }, 500, safeHeaders);
+      }
+    }
+
+    // Grafana: history (recent open/closed recruits)
+    if (url.pathname === '/api/grafana/recruits/history' && (request.method === 'POST' || request.method === 'GET')) {
+      try {
+        const grafanaToken = env.GRAFANA_TOKEN;
+        const providedToken = request.headers.get('x-grafana-token') || request.headers.get('authorization')?.replace('Bearer ', '');
+        console.log('[Grafana API /history] Token check:', { hasEnvToken: !!grafanaToken, hasProvidedToken: !!providedToken });
+        if (grafanaToken) {
+          if (!providedToken || providedToken !== grafanaToken) {
+            console.warn('[Grafana API /history] Unauthorized');
+            return jsonResponse({ error: 'unauthorized' }, 401, safeHeaders);
+          }
+        } else {
+          console.warn('[Grafana API /history] No GRAFANA_TOKEN set');
+        }
+
+        let items = [];
+        if (store && store.forwardToDO) {
+          const id = env.RECRUITS_DO.idFromName('global');
+          const stub = env.RECRUITS_DO.get(id);
+          const listReq = new Request(new URL('/api/recruits', request.url).toString(), { method: 'GET', headers: { 'content-type': 'application/json' } });
+          const resp = await stub.fetch(listReq);
+          const data = await resp.json();
+          items = data.items || [];
+        } else if (store) {
+          items = await store.listAll();
+        }
+
+        let body = {};
+        try { body = await request.json(); } catch {}
+        const range = body?.range || {};
+        const toMs = range?.to ? Date.parse(range.to) : Date.now();
+        const fromMs = range?.from ? Date.parse(range.from) : (toMs - 24*3600*1000);
+
+        const withinRange = (ts) => {
+          const t = ts ? Date.parse(ts) : NaN;
+          return !Number.isNaN(t) && t >= fromMs && t <= toMs;
+        };
+
+        const history = items.filter(r => withinRange(r.createdAt) || withinRange(r.closedAt)).map(r => ({
+          id: r.recruitId || r.id,
+          title: r.title,
+          game: r.game,
+          platform: r.platform,
+          ownerId: r.ownerId,
+          participants_count: r.participants?.length || r.currentMembers?.length || 0,
+          currentMembers: r.participants?.length || r.currentMembers?.length || 0,
+          maxMembers: r.maxMembers || 0,
+          voice: r.voice,
+          status: r.status,
+          createdAt: r.createdAt,
+          closedAt: r.closedAt || null,
+          expiresAt: r.expiresAt,
+          startTime: r.startTime
+        }));
+
+        console.log(`[Grafana API /history] Returning ${history.length} items`);
+        return jsonResponse(history, 200, safeHeaders);
+      } catch (e) {
+        console.error('[Grafana API /history] Error:', e);
+        return jsonResponse({ ok: false, error: e.message }, 500, safeHeaders);
+      }
+    }
+
     // Debug logging for recruitment endpoints
     if (url.pathname.includes('recruitment')) {
       console.log(`[DEBUG] ${request.method} ${url.pathname} (original: ${new URL(request.url).pathname})`);
