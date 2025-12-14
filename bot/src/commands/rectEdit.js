@@ -356,9 +356,11 @@ module.exports = {
             const valuesLine = [startVal, membersVal, vcVal].filter(Boolean).join(' | ');
             const detailsText = [labelsLine, valuesLine].filter(Boolean).join('\n');
             
-            // 募集内容を確実に取得（description/content/note のいずれかから）
+            // 募集内容を確実に取得し、マークダウンを保持して表示（ラベルは太字で強調）
             const recruitContent = recruitData.description || recruitData.content || recruitData.note || recruitData.metadata?.raw?.content || '';
-            const contentText = recruitContent ? `📝 募集内容\n${String(recruitContent).slice(0, 1500)}` : '';
+            const contentText = recruitContent && String(recruitContent).trim().length > 0 
+              ? `**📝 募集内容**\n${String(recruitContent).slice(0, 1500)}` 
+              : '';
 
             // 通知ロール情報: 作成時に指定されたロールを使用（metadata から取得）
             let subHeaderText = null;
