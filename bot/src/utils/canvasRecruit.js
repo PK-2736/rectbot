@@ -203,8 +203,21 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
   drawRoundedRect(boxX, boxY, boxWidth, boxHeight, 6, false, true);
   
   // 参加者円の描画（2列表示で最大16人対応）
-  const maxMembers = Number(recruitData.maxMembers || recruitData.participants || recruitData.participantsCount || 0) || 4;
-  const participantCount = Math.min(maxMembers, 16); // 最大16人に制限
+  const rawMax = recruitData.maxMembers
+    ?? recruitData.metadata?.raw?.maxMembers
+    ?? recruitData.metadata?.raw?.participants
+    ?? recruitData.raw?.maxMembers
+    ?? recruitData.raw?.participants
+    ?? recruitData.participantsCount
+    ?? recruitData.max_members
+    ?? null;
+
+  const currentMembers = Array.isArray(participantIds)
+    ? participantIds.length
+    : Number(recruitData.currentMembers || recruitData.participantsCount || 0) || 0;
+
+  const maxMembers = Number(rawMax) || Math.max(currentMembers, 4);
+  const participantCount = Math.min(Math.max(currentMembers, maxMembers), 16); // 最大16人に制限
   
   // 参加者数に応じてアバターサイズを動的調整
   const is2Rows = participantCount > 8;

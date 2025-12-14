@@ -297,8 +297,9 @@ module.exports = {
           if (!participants.length && recruitData.ownerId) participants = [recruitData.ownerId];
           // 重複除去＆最大人数で切り詰め
           participants = Array.from(new Set(participants));
-          if (recruitData.maxMembers && participants.length > recruitData.maxMembers) {
-            participants = participants.slice(0, recruitData.maxMembers);
+          const maxMembersCap = Number(recruitData.maxMembers) || null;
+          if (maxMembersCap && participants.length > maxMembersCap) {
+            participants = participants.slice(0, maxMembersCap);
           }
           console.log('[rect-edit] Participants:', participants);
           
