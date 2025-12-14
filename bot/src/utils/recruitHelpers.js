@@ -102,6 +102,19 @@ function buildContainerSimple({ headerTitle = '募集', detailsText = '', partic
   if (subHeaderText && String(subHeaderText).trim().length > 0) {
     headerSection.addTextDisplayComponents(new TextDisplayBuilder().setContent(String(subHeaderText)));
   }
+  
+  // Clean up undefined accessory/thumbnail before adding to container
+  try {
+    if (Object.prototype.hasOwnProperty.call(headerSection, 'accessory') && headerSection.accessory === undefined) {
+      delete headerSection.accessory;
+    }
+    if (Object.prototype.hasOwnProperty.call(headerSection, 'thumbnail') && headerSection.thumbnail === undefined) {
+      delete headerSection.thumbnail;
+    }
+  } catch (cleanupErr) {
+    // ignore cleanup errors
+  }
+  
   container.addSectionComponents(headerSection);
   container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
   if (detailsText) {
