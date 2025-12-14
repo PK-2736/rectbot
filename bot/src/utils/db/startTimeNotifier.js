@@ -60,10 +60,18 @@ async function checkAndNotifyStartTime(client) {
         console.log(`[StartTimeNotifier] Recruit ${recruitId}: startTime=${recruit.startTime}, notified=${recruit.startTimeNotified}`);
 
         const guildId = recruit.guildId || recruit.guild_id || recruit.guild;
+        console.log(`[StartTimeNotifier] Fetching settings for guildId: ${guildId}`);
         let guildSettings = settingsCache.get(guildId);
         if (!guildSettings) {
-          guildSettings = await getGuildSettingsSmart(guildId).catch(() => ({}));
+          guildSettings = await getGuildSettingsSmart(guildId).catch(e => {
+            console.warn(`[StartTimeNotifier] Failed to fetch guildSettings for ${guildId}:`, e?.message);
+            return {};
+          });
           settingsCache.set(guildId, guildSettings);
+          console.log(`[StartTimeNotifier] Cached guildSettings for ${guildId}:`, { 
+            hasSettings: !!Object.keys(guildSettings).length,
+            enable_dedicated_channel: guildSettings?.enable_dedicated_channel
+          });
         }
 
         // 既に通知済みの場合はスキップ（より厳密なチェック）
@@ -196,13 +204,19 @@ async function sendStartTimeNotification(client, recruit, guildSettings = null) 
     let content = voiceLink ? voiceLink : null;
 
     const components = [];
-    if (guildSettings?.enable_dedicated_channel) {
+    const enableDedicated = Boolean(guildSettings?.enable_dedicated_channel);
+    console.log(`[StartTimeNotifier] Guild ${guildId} dedicated_channel feature: ${enableDedicated}`);
+    if (enableDedicated) {
       const button = new ButtonBuilder()
         .setCustomId(`create_vc_${recruitId}`)
         .setLabel('専用チャンネル作成')
         .setEmoji('📢')
         .setStyle(ButtonStyle.Primary);
-      components.push(new ActionRowBuilder().addComponents(button));
+      const row = new ActionRowBuilder().addComponents(button);
+      components.push(row);
+      console.log('[StartTimeNotifier] Added dedicated channel button to components');
+    } else {
+      console.log('[StartTimeNotifier] Skipping dedicated channel button (disabled in settings)');
     }
 
     await channel.send({

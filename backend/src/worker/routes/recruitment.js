@@ -61,12 +61,24 @@ export async function routeRecruitment(request, env, ctx, url, corsHeaders, send
     try {
       // Check Grafana access token for security
       const grafanaToken = env.GRAFANA_TOKEN;
+      const providedToken = request.headers.get('x-grafana-token') || request.headers.get('authorization')?.replace('Bearer ', '');
+      console.log('[Grafana API] Token check:', {
+        hasEnvToken: !!grafanaToken,
+        envTokenLength: grafanaToken?.length || 0,
+        hasProvidedToken: !!providedToken,
+        providedTokenLength: providedToken?.length || 0,
+        method: request.method,
+        path: url.pathname
+      });
+      
       if (grafanaToken) {
-        const providedToken = request.headers.get('x-grafana-token') || request.headers.get('authorization')?.replace('Bearer ', '');
         if (!providedToken || providedToken !== grafanaToken) {
           console.warn('[Grafana API] Unauthorized access attempt', { grafanaToken: !!grafanaToken, providedToken: !!providedToken });
           return new Response(JSON.stringify({ error: 'unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         }
+        console.log('[Grafana API] Token validated successfully');
+      } else {
+        console.warn('[Grafana API] No GRAFANA_TOKEN env variable set - API is open to any request');
       }
 
       // Debug incoming headers and request
