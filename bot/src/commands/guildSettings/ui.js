@@ -38,7 +38,7 @@ async function showSettingsUI(interaction, settings = {}, isAdmin = false) {
 
   console.log('[guildSettings:showSettingsUI] isAdmin:', !!isAdmin);
   container.addTextDisplayComponents(
-    new TextDisplayBuilder().setContent(`⚙️ **ギルド募集設定**${isAdmin ? '' : ' (閲覧モード)'}`)
+    new TextDisplayBuilder().setContent(`### ⚙️ ギルド募集設定${isAdmin ? '' : ' (閲覧モード)'}`)
   );
 
   // StringSelectMenuで設定項目を選択
