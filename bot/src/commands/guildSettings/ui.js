@@ -104,6 +104,19 @@ async function showSettingsUI(interaction, settings = {}, isAdmin = false) {
     )
   );
 
+  // ホーム画面でのみ保存／リセットボタンを表示
+  if (isAdmin) {
+    container.addSeparatorComponents(
+      new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+    );
+    container.addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('finalize_settings').setLabel('保存').setStyle(ButtonStyle.Success).setEmoji('✅'),
+        new ButtonBuilder().setCustomId('reset_all_settings').setLabel('リセット').setStyle(ButtonStyle.Danger).setEmoji('🔄')
+      )
+    );
+  }
+
   const replyOptions = {
     content: '　',
     components: [container],
