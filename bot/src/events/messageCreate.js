@@ -81,7 +81,7 @@ module.exports = {
       const embed = new EmbedBuilder()
         .setColor(0x5865F2)
         .setTitle(titleGameName)
-        .setDescription(`## ${user.username} のフレンドコード / ID\n\`${friendCode.friend_code}\``)
+        .setDescription(`### ${user.username} のフレンドコード / ID\n\n\`\`\`\n${friendCode.friend_code}\n\`\`\``)
         .setThumbnail(user.displayAvatarURL({ dynamic: true }))
         .setTimestamp()
         .setFooter({ text: `登録日: ${new Date(friendCode.created_at * 1000).toLocaleDateString('ja-JP')}` });
