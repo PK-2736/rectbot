@@ -180,23 +180,9 @@ module.exports = {
         return;
       }
 
-      // editRecruitコマンド（rect-edit）のモーダル処理
-      if (interaction.customId && interaction.customId.startsWith('rectEditModal_')) {
-        const rectEdit = client.commands.get('rect-edit');
-        if (rectEdit && typeof rectEdit.handleModalSubmit === 'function') {
-          try {
-            await rectEdit.handleModalSubmit(interaction);
-          } catch (error) {
-            console.error('rect-edit モーダル送信処理中にエラー:', error);
-            await safeRespond(interaction, { content: `募集編集処理でエラー: ${error.message || error}`, flags: require('discord.js').MessageFlags.Ephemeral }).catch(() => {});
-          }
-        }
-        return;
-      }
-
-      // editRecruitコマンド（旧）のモーダル処理（互換性のため）
+      // editRecruitコマンドのモーダル処理
       if (interaction.customId && interaction.customId.startsWith('editRecruitModal_')) {
-        const editRecruit = client.commands.get('editRecruit');
+        const editRecruit = client.commands.get('rect-edit');
         if (editRecruit && typeof editRecruit.handleEditModalSubmit === 'function') {
           try {
             await editRecruit.handleEditModalSubmit(interaction);
