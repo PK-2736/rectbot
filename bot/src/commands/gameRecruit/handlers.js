@@ -960,23 +960,17 @@ async function handleModalSubmit(interaction) {
         requesterId: interaction.user.id
       });
     }
-    // 初回送信時から「今から」ボタンを表示（IDは確定後に差し替え）
+    // 初回送信時から「今から」ボタンを表示（IDは確定後に差し替え/ハンドラ側でpending対応）
     if (recruitDataObj?.startTime === '今から') {
       try {
         const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
         const pendingButton = new ButtonBuilder()
-          .setCustomId(`create_vc_pending`)
+          .setCustomId('create_vc_pending')
           .setLabel('専用チャンネル作成')
           .setEmoji('📢')
           .setStyle(ButtonStyle.Warning);
         const row = new ActionRowBuilder().addComponents(pendingButton);
-        // base componentsはコンテナ1つのみなので、追加
-        const base = { components: [container], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } };
-        // 下のsendAnnouncementsに渡すimageとcontainerはそのまま使うため、ここではbaseに反映せず、send後に即時編集で差し込む
-        // ただし、sendAnnouncementsはcontainerのみ送るので、直後編集にてボタンを差し込む
-        // このフラグで後続の即時編集でボタン追加を確実化
-        container.__addPendingButton = true;
-        container.__pendingButtonRow = row;
+        container.addActionRowComponents(row);
       } catch (e) {
         console.warn('[handleModalSubmit] failed to add pending button:', e?.message || e);
       }
@@ -1247,10 +1241,20 @@ async function handleButton(interaction) {
   console.log('=== ボタンクリック処理開始 ===', messageId, interaction.customId);
 
   // 専用チャンネル作成ボタン
-  if (interaction.customId.startsWith('create_vc_')) {
-    const recruitId = interaction.customId.replace('create_vc_', '');
-    await processCreateDedicatedChannel(interaction, recruitId);
-    return;
+  if (interaction.customId.startsWith('create_vc_') || interaction.customId === 'create_vc_pending') {
+    let recruitId = interaction.customId.replace('create_vc_', '');
+    // pendingの場合はメッセージIDから算出
+    if (!recruitId || recruitId === 'pending') {
+      try {
+        recruitId = String(interaction.message.id).slice(-8);
+      } catch (_) {
+        recruitId = null;
+      }
+    }
+    if (recruitId) {
+      await processCreateDedicatedChannel(interaction, recruitId);
+      return;
+    }
   }
 
   // hydrate participants if needed
