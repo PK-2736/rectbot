@@ -960,6 +960,27 @@ async function handleModalSubmit(interaction) {
         requesterId: interaction.user.id
       });
     }
+    // 初回送信時から「今から」ボタンを表示（IDは確定後に差し替え）
+    if (recruitDataObj?.startTime === '今から') {
+      try {
+        const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+        const pendingButton = new ButtonBuilder()
+          .setCustomId(`create_vc_pending`)
+          .setLabel('専用チャンネル作成')
+          .setEmoji('📢')
+          .setStyle(ButtonStyle.Warning);
+        const row = new ActionRowBuilder().addComponents(pendingButton);
+        // base componentsはコンテナ1つのみなので、追加
+        const base = { components: [container], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } };
+        // 下のsendAnnouncementsに渡すimageとcontainerはそのまま使うため、ここではbaseに反映せず、send後に即時編集で差し込む
+        // ただし、sendAnnouncementsはcontainerのみ送るので、直後編集にてボタンを差し込む
+        // このフラグで後続の即時編集でボタン追加を確実化
+        container.__addPendingButton = true;
+        container.__pendingButtonRow = row;
+      } catch (e) {
+        console.warn('[handleModalSubmit] failed to add pending button:', e?.message || e);
+      }
+    }
   const { mainMessage: followUpMessage, secondaryMessage } = await sendAnnouncements(interaction, selectedNotificationRole, configuredNotificationRoleIds, image, container, guildSettings, user);
     try { await safeReply(interaction, { content: '募集を作成しました。', flags: MessageFlags.Ephemeral }); } catch (e) { console.warn('safeReply failed (non-fatal):', e?.message || e); }
     
@@ -1036,6 +1057,10 @@ async function handleModalSubmit(interaction) {
           }
 
           const editPayload = { components: [immediateContainer], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } };
+          // 送信直後に保留ボタンが設定されている場合は、それも追加
+          if (container.__addPendingButton && container.__pendingButtonRow) {
+            editPayload.components.push(container.__pendingButtonRow);
+          }
           // 画像スタイルでは添付ファイルを維持
           if (styleForInit === 'image' && image) {
             editPayload.files = [image];
@@ -1069,6 +1094,10 @@ async function handleModalSubmit(interaction) {
                 .setStyle(ButtonStyle.Warning);
               const actionRow2 = new ActionRowBuilder().addComponents(createVCButton2);
               secondaryPayload.components.push(actionRow2);
+            }
+            // 送信直後の保留ボタン対応
+            if (container.__addPendingButton && container.__pendingButtonRow) {
+              secondaryPayload.components.push(container.__pendingButtonRow);
             }
             await secondaryMessage.edit(secondaryPayload);
             console.log('[handleModalSubmit] Secondary message updated with recruitId:', secondaryRecruitId);
