@@ -202,14 +202,32 @@ async function updateParticipantList(interactionOrMessage, participants, savedRe
       
       // 専用チャンネルボタン（create_vc_）を探して保持
       for (const row of existingComponents) {
-        if (row.components && row.components.length > 0) {
-          const hasCreateVCButton = row.components.some(comp => 
-            comp.customId && comp.customId.startsWith('create_vc_')
-          );
-          if (hasCreateVCButton) {
-            componentsToKeep.push(row);
-            break;
+        try {
+          if (row && row.components && row.components.length > 0) {
+            const hasCreateVCButton = row.components.some(comp => 
+              comp && comp.customId && comp.customId.startsWith('create_vc_')
+            );
+            if (hasCreateVCButton) {
+              // ActionRowBuilder を再構築（安全性のため）
+              const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+              const newRow = new ActionRowBuilder();
+              for (const button of row.components) {
+                if (button && button.customId && button.customId.startsWith('create_vc_')) {
+                  newRow.addComponents(
+                    new ButtonBuilder()
+                      .setCustomId(button.customId)
+                      .setLabel(button.label || '専用チャンネル作成')
+                      .setEmoji('📢')
+                      .setStyle(ButtonStyle.Warning)
+                  );
+                }
+              }
+              componentsToKeep.push(newRow);
+              break;
+            }
           }
+        } catch (e) {
+          console.warn('Failed to preserve create_vc button:', e?.message);
         }
       }
       

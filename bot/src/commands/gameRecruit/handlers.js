@@ -655,10 +655,15 @@ async function processClose(interaction, messageId, savedRecruitData) {
     const membersLabel = (typeof totalMembers === 'number') ? `👥 ${totalMembers}人` : null;
     let voiceLabel = null;
     if (typeof data?.vc === 'string') {
-      if (data.vc === 'あり') voiceLabel = data?.voicePlace ? `🎙 あり(${data.voicePlace})` : '🎙 あり';
-      else if (data.vc === 'なし') voiceLabel = '🎙 なし';
+      if (data.vc === 'あり(聞き専)') {
+        voiceLabel = data?.voicePlace ? `🎙 あり(聞き専)/${data.voicePlace}` : '🎙 あり(聞き専)';
+      } else if (data.vc === 'あり') {
+        voiceLabel = data?.voicePlace ? `🎙 あり/${data.voicePlace}` : '🎙 あり';
+      } else if (data.vc === 'なし') {
+        voiceLabel = '🎙 なし';
+      }
     } else if (data?.voice === true) {
-      voiceLabel = data?.voicePlace ? `🎙 あり(${data.voicePlace})` : '🎙 あり';
+      voiceLabel = data?.voicePlace ? `🎙 あり/${data.voicePlace}` : '🎙 あり';
     } else if (data?.voice === false) {
       voiceLabel = '🎙 なし';
     }
