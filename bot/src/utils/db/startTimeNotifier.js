@@ -80,18 +80,11 @@ async function checkAndNotifyStartTime(client) {
           continue;
         }
 
-        // 「今から」対応：即座に通知を送信
+        // 「今から」の場合は通知をスキップ（募集作成時に専用チャンネルボタンが表示されるため）
         if (recruit.startTime === '今から' || recruit.startTime === 'now' || recruit.startTime === '今') {
-          console.log(`[StartTimeNotifier] ✅ Triggering immediate notification for recruit ${recruitId} (startTime: ${recruit.startTime})`);
-          
-          // 重複通知を防ぐため、まずフラグを更新してから通知を送信
+          console.log(`[StartTimeNotifier] Skipping notification for "今から" recruit ${recruitId}`);
+          // フラグだけ更新して通知はスキップ
           await updateRecruitmentData(recruitId, { startTimeNotified: true, startTime: recruit.startTime });
-          console.log(`[StartTimeNotifier] Flag updated for recruit ${recruitId}, now sending notification`);
-          
-          // 通知を送信
-          await sendStartTimeNotification(client, recruit, guildSettings);
-          
-          console.log(`[StartTimeNotifier] Notification sent successfully for recruit ${recruitId}`);
           continue;
         }
 

@@ -341,14 +341,14 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
     try {
       const editPayload = { components: [updatedContainer], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } };
       
-      // 「今から」の場合、専用チャンネルボタンを追加
+      // 「今から」の場合、専用チャンネルボタンを追加（黄色）
       if (guildSettings?.enable_dedicated_channel && finalRecruitData?.startTime === '今から') {
         const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
         const createVCButton = new ButtonBuilder()
           .setCustomId(`create_vc_${actualRecruitId}`)
           .setLabel('専用チャンネル作成')
           .setEmoji('📢')
-          .setStyle(ButtonStyle.Primary);
+          .setStyle(ButtonStyle.Warning);
         
         const actionRow = new ActionRowBuilder().addComponents(createVCButton);
         editPayload.components.push(actionRow);

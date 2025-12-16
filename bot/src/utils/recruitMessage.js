@@ -191,7 +191,24 @@ async function updateParticipantList(interactionOrMessage, participants, savedRe
     }
 
     if (message && message.edit) {
-      const editPayload = { components: [updatedContainer], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } };
+      // 既存のメッセージから専用チャンネルボタンを保持
+      const existingComponents = message.components || [];
+      const componentsToKeep = [updatedContainer];
+      
+      // 専用チャンネルボタン（create_vc_）を探して保持
+      for (const row of existingComponents) {
+        if (row.components && row.components.length > 0) {
+          const hasCreateVCButton = row.components.some(comp => 
+            comp.customId && comp.customId.startsWith('create_vc_')
+          );
+          if (hasCreateVCButton) {
+            componentsToKeep.push(row);
+            break;
+          }
+        }
+      }
+      
+      const editPayload = { components: componentsToKeep, flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } };
       if (style === 'image' && updatedImage) {
         editPayload.files = [updatedImage];
       }
