@@ -843,9 +843,7 @@ async function handleModalSubmit(interaction) {
       content: interaction.fields.getTextInputValue('content'),
       participants: participantsNum || pendingData?.participants || 1,
       startTime: pendingData?.startTime || '',
-      vc: (pendingData?.voice !== null && pendingData?.voice !== undefined) 
-        ? (pendingData.voice ? 'あり' : 'なし') 
-        : '',
+      vc: pendingData?.voice || '',
       voicePlace: pendingData?.voicePlace,
       voiceChannelId: pendingData?.voiceChannelId,
       voiceChannelName: voiceChannelName,
@@ -904,9 +902,16 @@ async function handleModalSubmit(interaction) {
       const { buildContainerSimple } = require('../../utils/recruitHelpers');
       const startLabel = recruitDataObj?.startTime ? `🕒 ${recruitDataObj.startTime}` : null;
       const membersLabel = typeof recruitDataObj?.participants === 'number' ? `👥 ${recruitDataObj.participants}人` : null;
-      const voiceLabel = (recruitDataObj?.vc === 'あり')
-        ? (recruitDataObj?.voicePlace ? `🎙 あり(${recruitDataObj.voicePlace})` : '🎙 あり')
-        : (recruitDataObj?.vc === 'なし' ? '🎙 なし' : null);
+      const voiceLabel = (() => {
+        if (recruitDataObj?.vc === 'あり(聞き専)') {
+          return recruitDataObj?.voicePlace ? `🎙 あり(聞き専)/${recruitDataObj.voicePlace}` : '🎙 あり(聞き専)';
+        } else if (recruitDataObj?.vc === 'あり') {
+          return recruitDataObj?.voicePlace ? `🎙 あり/${recruitDataObj.voicePlace}` : '🎙 あり';
+        } else if (recruitDataObj?.vc === 'なし') {
+          return '🎙 なし';
+        }
+        return null;
+      })();
       const valuesLine = [startLabel, membersLabel, voiceLabel].filter(Boolean).join(' | ');
       const labelsLine = '**🕒 開始時間 | 👥 募集人数 | 🎙 通話有無**';
       const detailsText = [labelsLine, valuesLine].filter(Boolean).join('\n');
