@@ -937,7 +937,7 @@ async function handleModalSubmit(interaction) {
         contentText,
         titleText,
         participantText,
-        recruitIdText: '(送信後決定)',
+        recruitIdText: '(作成中)',
         accentColor,
         subHeaderText,
         avatarUrl
@@ -954,7 +954,7 @@ async function handleModalSubmit(interaction) {
         contentText,
         titleText,
         participantText, 
-        recruitIdText: '(送信後決定)', 
+        recruitIdText: '(作成中)', 
         accentColor, 
         imageAttachmentName: 'attachment://recruit-card.png', 
         recruiterId: interaction.user.id, 
@@ -964,10 +964,74 @@ async function handleModalSubmit(interaction) {
   const followUpMessage = await sendAnnouncements(interaction, selectedNotificationRole, configuredNotificationRoleIds, image, container, guildSettings, user);
     try { await safeReply(interaction, { content: '募集を作成しました。', flags: MessageFlags.Ephemeral }); } catch (e) { console.warn('safeReply failed (non-fatal):', e?.message || e); }
     
-    // 送信後の保存とUI更新（「今から」のボタンもここで追加される）
+    // 送信後の保存とUI更新（募集IDと「今から」ボタンを即座に追加）
     try {
+      // finalizePersistAndEditでメッセージを編集する
+      // 募集IDはメッセージIDの末尾8文字、「今から」の場合はボタンも追加される
       await finalizePersistAndEdit({ interaction, recruitDataObj, guildSettings, user, participantText, subHeaderText, followUpMessage, currentParticipants });
     } catch (error) { console.error('メッセージ取得エラー:', error); }
+    
+      // 初期メッセージの即座編集（募集ID表示と「今から」ボタン追加）
+      (async () => {
+        try {
+          const msgId = followUpMessage?.id;
+          if (!msgId) return;
+        
+          const recruitId = msgId.slice(-8);
+          const editContainer = (() => {
+            const { buildContainer, buildContainerSimple } = require('../../utils/recruitHelpers');
+            const styleForInit = (guildSettings?.recruit_style === 'simple') ? 'simple' : 'image';
+            const useColorInit = normalizeHex(panelColor ? panelColor : (guildSettings.defaultColor ? guildSettings.defaultColor : '000000'), '000000');
+            const accentColorInit = /^[0-9A-Fa-f]{6}$/.test(useColorInit) ? parseInt(useColorInit, 16) : 0x000000;
+          
+            if (styleForInit === 'simple') {
+              return buildContainerSimple({
+                headerTitle: `${user.username}さんの募集`,
+                detailsText: participantText,
+                contentText: '',
+                titleText: '',
+                participantText,
+                recruitIdText: recruitId,
+                accentColor: accentColorInit,
+                subHeaderText,
+                avatarUrl: null
+              });
+            } else {
+              return buildContainer({
+                headerTitle: `${user.username}さんの募集`,
+                subHeaderText,
+                contentText: '',
+                titleText: '',
+                participantText,
+                recruitIdText: recruitId,
+                accentColor: accentColorInit,
+                imageAttachmentName: 'attachment://recruit-card.png',
+                recruiterId: interaction.user.id,
+                requesterId: interaction.user.id
+              });
+            }
+          })();
+        
+          const editPayload = { components: [editContainer], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } };
+        
+          // 「今から」の場合、専用チャンネルボタンを追加（黄色）
+          if (recruitDataObj?.startTime === '今から') {
+            const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+            const createVCButton = new ButtonBuilder()
+              .setCustomId(`create_vc_${recruitId}`)
+              .setLabel('専用チャンネル作成')
+              .setEmoji('📢')
+              .setStyle(ButtonStyle.Warning);
+            const actionRow = new ActionRowBuilder().addComponents(createVCButton);
+            editPayload.components.push(actionRow);
+          }
+        
+          await followUpMessage.edit(editPayload);
+          console.log('[handleModalSubmit] Initial message updated with recruitId:', recruitId);
+        } catch (e) {
+          console.warn('[handleModalSubmit] Initial message edit failed:', e?.message || e);
+        }
+      })();
   } catch (error) {
     console.error('handleModalSubmit error:', error);
     if (error && error.code === 10062) return; // Unknown interaction

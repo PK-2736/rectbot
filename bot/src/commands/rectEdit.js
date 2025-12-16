@@ -335,9 +335,12 @@ module.exports = {
           const useColor = recruitData.panelColor || recruitData.metadata?.panelColor || '000000';
           const accentColor = /^[0-9A-Fa-f]{6}$/.test(useColor) ? parseInt(useColor, 16) : 0x000000;
           
-          const participantText = participants.length > 0 
-            ? `🎯✨ 参加リスト ✨🎯\n${participants.map(id => `🎮 <@${id}>`).join('\n')}`
-            : `🎯✨ 参加リスト ✨🎯\n🎮 <@${recruitData.ownerId}>`;
+          const participantText = (() => {
+            const currentMembers = participants.length;
+            const maxMembers = Number(recruitData.maxMembers) || currentMembers;
+            const remainingSlots = maxMembers - currentMembers;
+            return `📋 参加リスト (**あと${remainingSlots}人**)\n${participants.map(id => `<@${id}>`).join(' • ')}`;
+          })();
 
           let container;
           let files = [];
