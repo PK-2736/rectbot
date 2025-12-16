@@ -238,7 +238,12 @@ module.exports = {
   },
 
   async handleModalSubmit(interaction) {
-    if (!interaction.customId.startsWith('editRecruitModal_')) return;
+    console.log('[rect-edit handleModalSubmit] called with customId:', interaction.customId);
+    if (!interaction.customId.startsWith('editRecruitModal_')) {
+      console.log('[rect-edit handleModalSubmit] skipped - customId does not start with editRecruitModal_');
+      return;
+    }
+    console.log('[rect-edit handleModalSubmit] processing editRecruitModal');
     const parts = interaction.customId.replace('editRecruitModal_', '').split('_');
     const messageId = parts[0];
     const cacheKey = parts[1] || null;

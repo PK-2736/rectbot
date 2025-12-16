@@ -162,6 +162,8 @@ module.exports = {
 
     // モーダル送信(type=5)の処理
     if ((interaction.isModalSubmit && interaction.isModalSubmit()) || interaction.type === 5) {
+      console.log('[interactionCreate] Modal submit detected, customId:', interaction.customId);
+      
       // ギルド設定のモーダル処理
       if (interaction.customId === 'default_title_modal' || interaction.customId === 'default_color_modal') {
         const guildSettings = getGuildSettingsCommand();
@@ -182,10 +184,12 @@ module.exports = {
 
       // editRecruitコマンドのモーダル処理
       if (interaction.customId && interaction.customId.startsWith('editRecruitModal_')) {
+        console.log('[interactionCreate] Routing to rect-edit handleModalSubmit');
         const editRecruit = client.commands.get('rect-edit');
-        if (editRecruit && typeof editRecruit.handleEditModalSubmit === 'function') {
+        console.log('[interactionCreate] editRecruit command found:', Boolean(editRecruit), 'has handleModalSubmit:', editRecruit && typeof editRecruit.handleModalSubmit === 'function');
+        if (editRecruit && typeof editRecruit.handleModalSubmit === 'function') {
           try {
-            await editRecruit.handleEditModalSubmit(interaction);
+            await editRecruit.handleModalSubmit(interaction);
           } catch (error) {
             console.error('編集モーダル送信処理中にエラー:', error);
             await safeRespond(interaction, { content: `編集モーダル送信処理でエラー: ${error.message || error}`, flags: require('discord.js').MessageFlags.Ephemeral }).catch(() => {});
