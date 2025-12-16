@@ -318,6 +318,13 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
     const contentText = contentTextValue && String(contentTextValue).trim().length > 0 
       ? `**📝 募集内容**\n${String(contentTextValue).slice(0, 1500)}` 
       : '';
+      const extraButtonsFinal = [];
+      if (finalRecruitData?.startTime === '今から') {
+        const { ButtonBuilder, ButtonStyle } = require('discord.js');
+        extraButtonsFinal.push(
+          new ButtonBuilder().setCustomId(`create_vc_${actualRecruitId}`).setLabel('専用チャンネル作成').setEmoji('📢').setStyle(ButtonStyle.Warning)
+        );
+      }
       updatedContainer = buildContainerSimple({
         headerTitle: `${user.username}さんの募集`,
         detailsText,
@@ -347,7 +354,8 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
         accentColor: finalAccentColor,
         imageAttachmentName: 'attachment://recruit-card.png',
         recruiterId: interaction.user.id,
-        requesterId: interaction.user.id
+        requesterId: interaction.user.id,
+        extraActionButtons: extraButtonsFinal
       });
   }
     try {
@@ -938,6 +946,13 @@ async function handleModalSubmit(interaction) {
           avatarUrl = fetchedUser.displayAvatarURL({ size: 128, extension: 'png' });
         }
       } catch (_) {}
+      const extraButtons = [];
+      if (recruitDataObj?.startTime === '今から') {
+        const { ButtonBuilder, ButtonStyle } = require('discord.js');
+        extraButtons.push(
+          new ButtonBuilder().setCustomId('create_vc_pending').setLabel('専用チャンネル作成').setEmoji('📢').setStyle(ButtonStyle.Warning)
+        );
+      }
       container = buildContainerSimple({
         headerTitle: `${user.username}さんの募集`,
         detailsText,
@@ -947,7 +962,8 @@ async function handleModalSubmit(interaction) {
         recruitIdText: '(作成中)',
         accentColor,
         subHeaderText,
-        avatarUrl
+        avatarUrl,
+        extraActionButtons: extraButtons
       });
     } else {
       const { buildContainer } = require('../../utils/recruitHelpers');
@@ -955,7 +971,21 @@ async function handleModalSubmit(interaction) {
       const titleText = '';
       // 画像スタイルでもヘッダー右上にアバター表示
       // 画像スタイルでは右上サムネイルのアバターは非表示
-      container = buildContainer({ 
+      const extraButtons = [];
+      if (recruitDataObj?.startTime === '今から') {
+        const { ButtonBuilder, ButtonStyle } = require('discord.js');
+        extraButtons.push(
+          new ButtonBuilder().setCustomId('create_vc_pending').setLabel('専用チャンネル作成').setEmoji('📢').setStyle(ButtonStyle.Warning)
+        );
+      }
+      const extraButtonsFinalImg = [];
+      if (finalRecruitData?.startTime === '今から') {
+        const { ButtonBuilder, ButtonStyle } = require('discord.js');
+        extraButtonsFinalImg.push(
+          new ButtonBuilder().setCustomId(`create_vc_${actualRecruitId}`).setLabel('専用チャンネル作成').setEmoji('📢').setStyle(ButtonStyle.Warning)
+        );
+      }
+      updatedContainer = buildContainer({
         headerTitle: `${user.username}さんの募集`, 
         subHeaderText, 
         contentText,
@@ -965,31 +995,17 @@ async function handleModalSubmit(interaction) {
         accentColor, 
         imageAttachmentName: 'attachment://recruit-card.png', 
         recruiterId: interaction.user.id, 
-        requesterId: interaction.user.id
+        requesterId: interaction.user.id,
+        extraActionButtons: extraButtonsFinalImg
+        extraActionButtons: extraButtons
       });
-    }
-    // 初回送信時から「今から」ボタンを表示（IDは確定後に差し替え/ハンドラ側でpending対応）
-    if (recruitDataObj?.startTime === '今から') {
-      try {
-        const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-        const pendingButton = new ButtonBuilder()
-          .setCustomId('create_vc_pending')
-          .setLabel('専用チャンネル作成')
-          .setEmoji('📢')
-          .setStyle(ButtonStyle.Warning);
-        const row = new ActionRowBuilder().addComponents(pendingButton);
-        container.addActionRowComponents(row);
-      } catch (e) {
-        console.warn('[handleModalSubmit] failed to build pending button row:', e?.message || e);
-      }
-    }
-  const { mainMessage: followUpMessage, secondaryMessage } = await sendAnnouncements(interaction, selectedNotificationRole, configuredNotificationRoleIds, image, container, guildSettings, user);
-    try { await safeReply(interaction, { content: '募集を作成しました。', flags: MessageFlags.Ephemeral }); } catch (e) { console.warn('safeReply failed (non-fatal):', e?.message || e); }
-    
-      // 初期メッセージの即座編集（募集ID表示と「今から」ボタン追加）
-      (async () => {
-        try {
-          const msgId = followUpMessage?.id;
+    try {
+      const editPayload = { components: [updatedContainer], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } };
+      if (updatedImage) editPayload.files = [updatedImage];
+      console.log('[finalizePersistAndEdit] Calling actualMessage.edit() for messageId:', actualMessageId);
+      const editedMsg = await actualMessage.edit(editPayload);
+      console.log('[finalizePersistAndEdit] Message edited successfully, recruitIdText should be:', actualRecruitId);
+    } catch (editError) { console.error('メッセージ更新エラー:', editError?.message || editError); }
           if (!msgId) return;
 
           const recruitId = msgId.slice(-8);
@@ -1025,6 +1041,13 @@ async function handleModalSubmit(interaction) {
                 avatarUrl = fetchedUser.displayAvatarURL({ size: 128, extension: 'png' });
               }
             } catch (_) {}
+            const extraButtonsImmediate = [];
+            if (recruitDataObj?.startTime === '今から') {
+              const { ButtonBuilder, ButtonStyle } = require('discord.js');
+              extraButtonsImmediate.push(
+                new ButtonBuilder().setCustomId(`create_vc_${recruitId}`).setLabel('専用チャンネル作成').setEmoji('📢').setStyle(ButtonStyle.Warning)
+              );
+            }
             immediateContainer = buildContainerSimple({
               headerTitle: `${user.username}さんの募集`,
               detailsText,
@@ -1034,9 +1057,17 @@ async function handleModalSubmit(interaction) {
               recruitIdText: recruitId,
               accentColor: accentColorInit,
               subHeaderText,
-              avatarUrl
+              avatarUrl,
+              extraActionButtons: extraButtonsImmediate
             });
           } else {
+            const extraButtonsImmediate = [];
+            if (recruitDataObj?.startTime === '今から') {
+              const { ButtonBuilder, ButtonStyle } = require('discord.js');
+              extraButtonsImmediate.push(
+                new ButtonBuilder().setCustomId(`create_vc_${recruitId}`).setLabel('専用チャンネル作成').setEmoji('📢').setStyle(ButtonStyle.Warning)
+              );
+            }
             immediateContainer = buildContainer({
               headerTitle: `${user.username}さんの募集`,
               subHeaderText,
@@ -1047,7 +1078,8 @@ async function handleModalSubmit(interaction) {
               accentColor: accentColorInit,
               imageAttachmentName: 'attachment://recruit-card.png',
               recruiterId: interaction.user.id,
-              requesterId: interaction.user.id
+              requesterId: interaction.user.id,
+              extraActionButtons: extraButtonsImmediate
             });
           }
 
@@ -1061,17 +1093,7 @@ async function handleModalSubmit(interaction) {
             editPayload.files = [image];
           }
 
-          // 「今から」の場合、専用チャンネルボタンを追加（黄色）
-          if (recruitDataObj?.startTime === '今から') {
-            const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-            const createVCButton = new ButtonBuilder()
-              .setCustomId(`create_vc_${recruitId}`)
-              .setLabel('専用チャンネル作成')
-              .setEmoji('📢')
-              .setStyle(ButtonStyle.Warning);
-            const actionRow = new ActionRowBuilder().addComponents(createVCButton);
-            editPayload.components.push(actionRow);
-          }
+          // 追加のアクション行は不要（同じ行に組み込まれている）
 
           await followUpMessage.edit(editPayload);
           // もう一つの投稿がある場合も同様に編集

@@ -7,7 +7,7 @@ const {
 } = require('discord.js');
 
 // Build a consistent ContainerBuilder for recruit messages
-function buildContainer({ headerTitle = '募集', participantText = '', recruitIdText = '(unknown)', accentColor = 0x000000, imageAttachmentName = 'attachment://recruit-card.png', recruiterId = null, requesterId = null, footerExtra = null, subHeaderText = null, contentText = '', titleText = '', avatarUrl = null }) {
+function buildContainer({ headerTitle = '募集', participantText = '', recruitIdText = '(unknown)', accentColor = 0x000000, imageAttachmentName = 'attachment://recruit-card.png', recruiterId = null, requesterId = null, footerExtra = null, subHeaderText = null, contentText = '', titleText = '', avatarUrl = null, extraActionButtons = [] }) {
   const container = new ContainerBuilder();
   container.setAccentColor(typeof accentColor === 'number' ? accentColor : parseInt(String(accentColor), 16) || 0x000000);
   // 画像スタイル用: コンテナ直下にテキストを追加（サムネイルは非表示）
@@ -48,25 +48,21 @@ function buildContainer({ headerTitle = '募集', participantText = '', recruitI
   );
   // close ボタンはグローバルには無効化せずに常に表示する（権限チェックはボタンハンドラ側で行う）
   const isRequesterRecruiter = true;
-  container.addActionRowComponents(
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId('join')
-        .setLabel('参加')
-        .setEmoji('✅')
-        .setStyle(ButtonStyle.Success),
-      new ButtonBuilder()
-        .setCustomId('cancel')
-        .setLabel('取り消し')
-        .setEmoji('✖️')
-        .setStyle(ButtonStyle.Danger),
-      new ButtonBuilder()
-        .setCustomId('close')
-        .setLabel('締め')
-        .setStyle(ButtonStyle.Secondary)
-        .setDisabled(false)
-    )
+  const actionRow = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId('join').setLabel('参加').setEmoji('✅').setStyle(ButtonStyle.Success),
+    new ButtonBuilder().setCustomId('cancel').setLabel('取り消し').setEmoji('✖️').setStyle(ButtonStyle.Danger),
+    new ButtonBuilder().setCustomId('close').setLabel('締め').setStyle(ButtonStyle.Secondary).setDisabled(false)
   );
+  if (Array.isArray(extraActionButtons) && extraActionButtons.length > 0) {
+    try {
+      // 1行に最大5コンポーネントまで
+      const safeButtons = extraActionButtons.slice(0, Math.max(0, 5 - 3));
+      actionRow.addComponents(...safeButtons);
+    } catch (e) {
+      console.warn('[buildContainer] failed to add extraActionButtons:', e?.message || e);
+    }
+  }
+  container.addActionRowComponents(actionRow);
   container.addSeparatorComponents(
     new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
   );
@@ -81,7 +77,7 @@ function buildContainer({ headerTitle = '募集', participantText = '', recruitI
 }
 
 // Simple text-first container (no image gallery, but with header section that can have avatar)
-function buildContainerSimple({ headerTitle = '募集', detailsText = '', participantText = '', recruitIdText = '(unknown)', accentColor = 0x000000, footerExtra = null, subHeaderText = null, contentText = '', titleText = '', avatarUrl = null }) {
+function buildContainerSimple({ headerTitle = '募集', detailsText = '', participantText = '', recruitIdText = '(unknown)', accentColor = 0x000000, footerExtra = null, subHeaderText = null, contentText = '', titleText = '', avatarUrl = null, extraActionButtons = [] }) {
   const container = new ContainerBuilder();
   container.setAccentColor(typeof accentColor === 'number' ? accentColor : parseInt(String(accentColor), 16) || 0x000000);
   
@@ -163,13 +159,20 @@ function buildContainerSimple({ headerTitle = '募集', detailsText = '', partic
     });
   }
   const isRequesterRecruiter = true;
-  container.addActionRowComponents(
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId('join').setLabel('参加').setEmoji('✅').setStyle(ButtonStyle.Success),
-      new ButtonBuilder().setCustomId('cancel').setLabel('取り消し').setEmoji('✖️').setStyle(ButtonStyle.Danger),
-      new ButtonBuilder().setCustomId('close').setLabel('締め').setStyle(ButtonStyle.Secondary).setDisabled(false)
-    )
+  const actionRow = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId('join').setLabel('参加').setEmoji('✅').setStyle(ButtonStyle.Success),
+    new ButtonBuilder().setCustomId('cancel').setLabel('取り消し').setEmoji('✖️').setStyle(ButtonStyle.Danger),
+    new ButtonBuilder().setCustomId('close').setLabel('締め').setStyle(ButtonStyle.Secondary).setDisabled(false)
   );
+  if (Array.isArray(extraActionButtons) && extraActionButtons.length > 0) {
+    try {
+      const safeButtons = extraActionButtons.slice(0, Math.max(0, 5 - 3));
+      actionRow.addComponents(...safeButtons);
+    } catch (e) {
+      console.warn('[buildContainerSimple] failed to add extraActionButtons:', e?.message || e);
+    }
+  }
+  container.addActionRowComponents(actionRow);
   container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
   const footerParts = [`募集ID：\`${recruitIdText}\``];
   if (footerExtra) footerParts.push(footerExtra);
