@@ -296,8 +296,13 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
       const membersVal = typeof finalRecruitData?.participants === 'number' ? `${finalRecruitData.participants}人` : null;
       let voiceVal = null;
       if (typeof finalRecruitData?.vc === 'string') {
-        if (finalRecruitData.vc === 'あり') voiceVal = finalRecruitData?.voicePlace ? `あり(${finalRecruitData.voicePlace})` : 'あり';
-        else if (finalRecruitData.vc === 'なし') voiceVal = 'なし';
+        if (finalRecruitData.vc === 'あり(聞き専)') {
+          voiceVal = finalRecruitData?.voicePlace ? `あり(聞き専)/${finalRecruitData.voicePlace}` : 'あり(聞き専)';
+        } else if (finalRecruitData.vc === 'あり') {
+          voiceVal = finalRecruitData?.voicePlace ? `あり/${finalRecruitData.voicePlace}` : 'あり';
+        } else if (finalRecruitData.vc === 'なし') {
+          voiceVal = 'なし';
+        }
       }
       const valuesLine = [startVal, membersVal, voiceVal].filter(Boolean).join(' | ');
       const detailsText = `${labelsLine}\n${valuesLine}`;
@@ -342,7 +347,8 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
       const editPayload = { components: [updatedContainer], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } };
       
       // 「今から」の場合、専用チャンネルボタンを追加（黄色）
-      if (guildSettings?.enable_dedicated_channel && finalRecruitData?.startTime === '今から') {
+      if (finalRecruitData?.startTime === '今から') {
+        console.log('[finalizePersistAndEdit] Adding dedicated channel button for "今から" recruit');
         const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
         const createVCButton = new ButtonBuilder()
           .setCustomId(`create_vc_${actualRecruitId}`)
@@ -352,6 +358,7 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
         
         const actionRow = new ActionRowBuilder().addComponents(createVCButton);
         editPayload.components.push(actionRow);
+        console.log('[finalizePersistAndEdit] Button added to editPayload');
       }
       
       if (updatedImage) editPayload.files = [updatedImage];

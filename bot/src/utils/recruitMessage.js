@@ -144,10 +144,15 @@ async function updateParticipantList(interactionOrMessage, participants, savedRe
         : null;
       let voiceVal = null;
       if (typeof savedRecruitData?.vc === 'string') {
-        if (savedRecruitData.vc === 'あり') voiceVal = savedRecruitData?.voicePlace ? `あり(${savedRecruitData.voicePlace})` : 'あり';
-        else if (savedRecruitData.vc === 'なし') voiceVal = 'なし';
+        if (savedRecruitData.vc === 'あり(聞き専)') {
+          voiceVal = savedRecruitData?.voicePlace ? `あり(聞き専)/${savedRecruitData.voicePlace}` : 'あり(聞き専)';
+        } else if (savedRecruitData.vc === 'あり') {
+          voiceVal = savedRecruitData?.voicePlace ? `あり/${savedRecruitData.voicePlace}` : 'あり';
+        } else if (savedRecruitData.vc === 'なし') {
+          voiceVal = 'なし';
+        }
       } else if (savedRecruitData?.voice === true) {
-        voiceVal = savedRecruitData?.voicePlace ? `あり(${savedRecruitData.voicePlace})` : 'あり';
+        voiceVal = savedRecruitData?.voicePlace ? `あり/${savedRecruitData.voicePlace}` : 'あり';
       } else if (savedRecruitData?.voice === false) {
         voiceVal = 'なし';
       }

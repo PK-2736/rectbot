@@ -407,6 +407,12 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
           if (vcLower.includes('なし')) {
             return 'なし';
           } else if (vcLower.includes('聞き専')) {
+            // 聞き専の場合、チャンネル名があれば表示
+            if (recruitData.voiceChannelName) {
+              return `あり(聞き専)/${recruitData.voiceChannelName}`;
+            } else if (recruitData.voicePlace) {
+              return `あり(聞き専)/${recruitData.voicePlace}`;
+            }
             return 'あり(聞き専)';
           } else if (vcLower.includes('あり')) {
             // 通話ありの場合、チャンネル名があれば表示
