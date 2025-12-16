@@ -178,7 +178,7 @@ async function selectNotificationRole(interaction, configuredIds) {
   }
 }
 
-async function sendAnnouncements(interaction, selectedNotificationRole, configuredIds, image, container, guildSettings, user) {
+async function sendAnnouncements(interaction, selectedNotificationRole, configuredIds, image, container, guildSettings, user, extraComponents = []) {
   const shouldUseDefaultNotification = !selectedNotificationRole && configuredIds.length === 0;
   
   // メンション用の通知メッセージを送信
@@ -196,6 +196,10 @@ async function sendAnnouncements(interaction, selectedNotificationRole, configur
 
   // 画像とUIの投稿 (Components V2使用、通知ロール情報はcontainer内に含まれる)
   const baseOptions = { components: [container], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } };
+  // 送信時点で追加したいアクション行を同梱
+  if (Array.isArray(extraComponents) && extraComponents.length > 0) {
+    baseOptions.components.push(...extraComponents);
+  }
   if (image) baseOptions.files = [image];
   const followUpMessage = await interaction.channel.send(baseOptions);
   let secondaryMessage = null;
@@ -223,12 +227,16 @@ async function sendAnnouncements(interaction, selectedNotificationRole, configur
         
         // 募集メッセージ投稿 (通知ロール情報はcontainer内に含まれる)
         try {
-          secondaryMessage = await recruitChannel.send({ 
-            files: image ? [image] : undefined, 
+          const secondaryOptions = { 
             components: [container], 
             flags: MessageFlags.IsComponentsV2, 
             allowedMentions: { roles: [], users: [] }
-          });
+          };
+          if (image) secondaryOptions.files = [image];
+          if (Array.isArray(extraComponents) && extraComponents.length > 0) {
+            secondaryOptions.components.push(...extraComponents);
+          }
+          secondaryMessage = await recruitChannel.send(secondaryOptions);
         } catch (e) { console.warn('募集メッセージ送信失敗(指定ch):', e?.message || e); }
       }
     } catch (channelError) { console.error('指定チャンネルへの送信でエラー:', channelError); }
@@ -961,6 +969,7 @@ async function handleModalSubmit(interaction) {
       });
     }
     // 初回送信時から「今から」ボタンを表示（IDは確定後に差し替え/ハンドラ側でpending対応）
+    let initialExtraRows = [];
     if (recruitDataObj?.startTime === '今から') {
       try {
         const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
@@ -970,20 +979,13 @@ async function handleModalSubmit(interaction) {
           .setEmoji('📢')
           .setStyle(ButtonStyle.Warning);
         const row = new ActionRowBuilder().addComponents(pendingButton);
-        container.addActionRowComponents(row);
+        initialExtraRows.push(row);
       } catch (e) {
-        console.warn('[handleModalSubmit] failed to add pending button:', e?.message || e);
+        console.warn('[handleModalSubmit] failed to build pending button row:', e?.message || e);
       }
     }
-  const { mainMessage: followUpMessage, secondaryMessage } = await sendAnnouncements(interaction, selectedNotificationRole, configuredNotificationRoleIds, image, container, guildSettings, user);
+  const { mainMessage: followUpMessage, secondaryMessage } = await sendAnnouncements(interaction, selectedNotificationRole, configuredNotificationRoleIds, image, container, guildSettings, user, initialExtraRows);
     try { await safeReply(interaction, { content: '募集を作成しました。', flags: MessageFlags.Ephemeral }); } catch (e) { console.warn('safeReply failed (non-fatal):', e?.message || e); }
-    
-    // 送信後の保存とUI更新（募集IDと「今から」ボタンを即座に追加）
-    try {
-      // finalizePersistAndEditでメッセージを編集する
-      // 募集IDはメッセージIDの末尾8文字、「今から」の場合はボタンも追加される
-      await finalizePersistAndEdit({ interaction, recruitDataObj, guildSettings, user, participantText, subHeaderText, followUpMessage, currentParticipants });
-    } catch (error) { console.error('メッセージ取得エラー:', error); }
     
       // 初期メッセージの即座編集（募集ID表示と「今から」ボタン追加）
       (async () => {
@@ -1101,6 +1103,11 @@ async function handleModalSubmit(interaction) {
           console.warn('[handleModalSubmit] Initial message edit failed:', e?.message || e);
         }
       })();
+    
+      // 送信後の保存とUI更新（確定画像/ID/ボタン）
+      try {
+        await finalizePersistAndEdit({ interaction, recruitDataObj, guildSettings, user, participantText, subHeaderText, followUpMessage, currentParticipants });
+      } catch (error) { console.error('メッセージ取得エラー:', error); }
   } catch (error) {
     console.error('handleModalSubmit error:', error);
     if (error && error.code === 10062) return; // Unknown interaction
