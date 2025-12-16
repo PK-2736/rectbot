@@ -398,12 +398,31 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
     { 
       label: '通話：', 
       value: (() => {
-        // 通話有無の判定
-        const hasVoice = recruitData.vc === 'あり' || recruitData.vc === true || recruitData.voice === true;
-        const noVoice = recruitData.vc === 'なし' || recruitData.vc === false || recruitData.voice === false;
+        // 通話有無の判定（文字列 'あり'/'なし'/'あり(聞き専)' または boolean）
+        const vcValue = recruitData.vc || recruitData.voice;
         
-        if (hasVoice) {
-          // 通話ありの場合、チャンネル名があれば表示
+        // 文字列の場合
+        if (typeof vcValue === 'string') {
+          const vcLower = vcValue.toLowerCase();
+          if (vcLower.includes('なし')) {
+            return 'なし';
+          } else if (vcLower.includes('聞き専')) {
+            return 'あり(聞き専)';
+          } else if (vcLower.includes('あり')) {
+            // 通話ありの場合、チャンネル名があれば表示
+            if (recruitData.voiceChannelName) {
+              return `あり/${recruitData.voiceChannelName}`;
+            } else if (recruitData.voicePlace) {
+              return `あり/${recruitData.voicePlace}`;
+            } else if (recruitData.metadata?.note) {
+              return `あり/${recruitData.metadata.note}`;
+            }
+            return 'あり';
+          }
+        }
+        
+        // boolean の場合（後方互換性）
+        if (vcValue === true) {
           if (recruitData.voiceChannelName) {
             return `あり/${recruitData.voiceChannelName}`;
           } else if (recruitData.voicePlace) {
@@ -412,9 +431,10 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
             return `あり/${recruitData.metadata.note}`;
           }
           return 'あり';
-        } else if (noVoice) {
+        } else if (vcValue === false) {
           return 'なし';
         }
+        
         // 指定なしの場合
         return '指定なし';
       })()

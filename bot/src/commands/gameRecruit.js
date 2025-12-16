@@ -95,11 +95,16 @@ module.exports = {
           { name: 'グレー', value: '808080' }
         )
     )
-    // 任意: 通話の有無（true/false）
-    .addBooleanOption(option =>
+    // 任意: 通話の有無（あり/なし/あり(聞き専)）
+    .addStringOption(option =>
       option.setName('通話有無')
         .setDescription('通話の有無（任意）')
         .setRequired(false)
+        .addChoices(
+          { name: 'あり', value: 'あり' },
+          { name: 'なし', value: 'なし' },
+          { name: 'あり(聞き専)', value: 'あり(聞き専)' }
+        )
     )
     // 任意: 通話場所（サーバーのボイスチャンネル）
     .addChannelOption(option =>

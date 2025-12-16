@@ -61,7 +61,16 @@ module.exports = {
         .setRequired(false)
         .setAutocomplete(true)
     )
-    .addBooleanOption(o => o.setName('通話有無').setDescription('通話の有無').setRequired(false))
+    .addStringOption(o => 
+      o.setName('通話有無')
+        .setDescription('通話の有無')
+        .setRequired(false)
+        .addChoices(
+          { name: 'あり', value: 'あり' },
+          { name: 'なし', value: 'なし' },
+          { name: 'あり(聞き専)', value: 'あり(聞き専)' }
+        )
+    )
     .addChannelOption(o => 
       o.setName('通話場所')
         .setDescription('通話で使うボイスチャンネル')
@@ -101,7 +110,7 @@ module.exports = {
     const titleArg = interaction.options.getString('タイトル');
     const peopleArg = interaction.options.getInteger('人数');
     const startArg = interaction.options.getString('開始時間');
-    const vcArg = interaction.options.getBoolean('通話有無');
+    const vcArg = interaction.options.getString('通話有無');
     const placeArg = interaction.options.getChannel('通話場所');
     const colorArg = interaction.options.getString('色');
 

@@ -142,7 +142,12 @@ async function updateRecruitmentData(messageId, recruitData) {
   }
   if (recruitData.voice != null || recruitData.vc != null) {
     const v = recruitData.voice ?? recruitData.vc;
-    updateData.voice = typeof v === 'boolean' ? v : String(v).toLowerCase().includes('あり');
+    // 文字列の場合はそのまま、boolean の場合は 'あり'/'なし' に変換
+    if (typeof v === 'string') {
+      updateData.voice = v;
+    } else if (typeof v === 'boolean') {
+      updateData.voice = v ? 'あり' : 'なし';
+    }
   }
   // メタデータのマージ更新
   const meta = {};

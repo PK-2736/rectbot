@@ -90,7 +90,7 @@ async function execute(interaction) {
     const membersArg = optInt('人数') ?? optInt('members');
   // 開始時間: 自由入力（オートコンプリートで「今から」を提示）
   const startArg = optStr('開始時間') ?? optStr('start');
-    const voiceArg = optBool('通話有無') ?? optBool('voice'); // true/false/undefined
+    const voiceArg = optStr('通話有無') ?? optStr('voice'); // 'あり'/'なし'/'あり(聞き専)'/null
     const voiceChannel = optChan('通話場所');
     const legacyVoicePlace = optStr('voice_place');
     const voicePlaceArg = voiceChannel
@@ -162,7 +162,7 @@ async function execute(interaction) {
           participants: membersArg,
           startTime: displayStart, // 表示用（今からの場合は日本語表記）
           startAt: startAtISO, // 予約実行用
-          voice: typeof voiceArg === 'boolean' ? voiceArg : null,
+          voice: voiceArg || null, // 'あり'/'なし'/'あり(聞き専)'/null
           voicePlace: voicePlaceArg,
           voiceChannelId: voiceChannelId
         });
