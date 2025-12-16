@@ -969,7 +969,6 @@ async function handleModalSubmit(interaction) {
       });
     }
     // 初回送信時から「今から」ボタンを表示（IDは確定後に差し替え/ハンドラ側でpending対応）
-    let initialExtraRows = [];
     if (recruitDataObj?.startTime === '今から') {
       try {
         const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
@@ -979,12 +978,12 @@ async function handleModalSubmit(interaction) {
           .setEmoji('📢')
           .setStyle(ButtonStyle.Warning);
         const row = new ActionRowBuilder().addComponents(pendingButton);
-        initialExtraRows.push(row);
+        container.addActionRowComponents(row);
       } catch (e) {
         console.warn('[handleModalSubmit] failed to build pending button row:', e?.message || e);
       }
     }
-  const { mainMessage: followUpMessage, secondaryMessage } = await sendAnnouncements(interaction, selectedNotificationRole, configuredNotificationRoleIds, image, container, guildSettings, user, initialExtraRows);
+  const { mainMessage: followUpMessage, secondaryMessage } = await sendAnnouncements(interaction, selectedNotificationRole, configuredNotificationRoleIds, image, container, guildSettings, user);
     try { await safeReply(interaction, { content: '募集を作成しました。', flags: MessageFlags.Ephemeral }); } catch (e) { console.warn('safeReply failed (non-fatal):', e?.message || e); }
     
       // 初期メッセージの即座編集（募集ID表示と「今から」ボタン追加）
