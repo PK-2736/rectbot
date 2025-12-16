@@ -976,44 +976,72 @@ async function handleModalSubmit(interaction) {
         try {
           const msgId = followUpMessage?.id;
           if (!msgId) return;
-        
+
           const recruitId = msgId.slice(-8);
-          const editContainer = (() => {
-            const { buildContainer, buildContainerSimple } = require('../../utils/recruitHelpers');
-            const styleForInit = (guildSettings?.recruit_style === 'simple') ? 'simple' : 'image';
-            const useColorInit = normalizeHex(panelColor ? panelColor : (guildSettings.defaultColor ? guildSettings.defaultColor : '000000'), '000000');
-            const accentColorInit = /^[0-9A-Fa-f]{6}$/.test(useColorInit) ? parseInt(useColorInit, 16) : 0x000000;
-          
-            if (styleForInit === 'simple') {
-              return buildContainerSimple({
-                headerTitle: `${user.username}さんの募集`,
-                detailsText: participantText,
-                contentText: '',
-                titleText: '',
-                participantText,
-                recruitIdText: recruitId,
-                accentColor: accentColorInit,
-                subHeaderText,
-                avatarUrl: null
-              });
-            } else {
-              return buildContainer({
-                headerTitle: `${user.username}さんの募集`,
-                subHeaderText,
-                contentText: '',
-                titleText: '',
-                participantText,
-                recruitIdText: recruitId,
-                accentColor: accentColorInit,
-                imageAttachmentName: 'attachment://recruit-card.png',
-                recruiterId: interaction.user.id,
-                requesterId: interaction.user.id
-              });
-            }
-          })();
-        
-          const editPayload = { components: [editContainer], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } };
-        
+          const { buildContainer, buildContainerSimple } = require('../../utils/recruitHelpers');
+          const styleForInit = (guildSettings?.recruit_style === 'simple') ? 'simple' : 'image';
+          const useColorInit = normalizeHex(panelColor ? panelColor : (guildSettings.defaultColor ? guildSettings.defaultColor : '000000'), '000000');
+          const accentColorInit = /^[0-9A-Fa-f]{6}$/.test(useColorInit) ? parseInt(useColorInit, 16) : 0x000000;
+
+          let immediateContainer;
+          if (styleForInit === 'simple') {
+            const startLabel = recruitDataObj?.startTime ? `🕒 ${recruitDataObj.startTime}` : null;
+            const membersLabel = typeof recruitDataObj?.participants === 'number' ? `👥 ${recruitDataObj.participants}人` : null;
+            const voiceLabel = (() => {
+              if (recruitDataObj?.vc === 'あり(聞き専)') {
+                return recruitDataObj?.voicePlace ? `🎙 聞き専/${recruitDataObj.voicePlace}` : '🎙 聞き専';
+              } else if (recruitDataObj?.vc === 'あり') {
+                return recruitDataObj?.voicePlace ? `🎙 あり/${recruitDataObj.voicePlace}` : '🎙 あり';
+              } else if (recruitDataObj?.vc === 'なし') {
+                return '🎙 なし';
+              }
+              return null;
+            })();
+            const valuesLine = [startLabel, membersLabel, voiceLabel].filter(Boolean).join(' | ');
+            const labelsLine = '**🕒 開始時間 | 👥 募集人数 | 🎙 通話有無**';
+            const detailsText = [labelsLine, valuesLine].filter(Boolean).join('\n');
+            const contentText = recruitDataObj?.content && String(recruitDataObj.content).trim().length > 0
+              ? `**📝 募集内容**\n${String(recruitDataObj.content).slice(0,1500)}`
+              : '';
+            let avatarUrl = null;
+            try {
+              const fetchedUser = await interaction.client.users.fetch(interaction.user.id).catch(() => null);
+              if (fetchedUser && typeof fetchedUser.displayAvatarURL === 'function') {
+                avatarUrl = fetchedUser.displayAvatarURL({ size: 128, extension: 'png' });
+              }
+            } catch (_) {}
+            immediateContainer = buildContainerSimple({
+              headerTitle: `${user.username}さんの募集`,
+              detailsText,
+              contentText,
+              titleText: recruitDataObj?.title ? `## ${String(recruitDataObj.title).slice(0,200)}` : '',
+              participantText,
+              recruitIdText: recruitId,
+              accentColor: accentColorInit,
+              subHeaderText,
+              avatarUrl
+            });
+          } else {
+            immediateContainer = buildContainer({
+              headerTitle: `${user.username}さんの募集`,
+              subHeaderText,
+              contentText: '',
+              titleText: '',
+              participantText,
+              recruitIdText: recruitId,
+              accentColor: accentColorInit,
+              imageAttachmentName: 'attachment://recruit-card.png',
+              recruiterId: interaction.user.id,
+              requesterId: interaction.user.id
+            });
+          }
+
+          const editPayload = { components: [immediateContainer], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } };
+          // 画像スタイルでは添付ファイルを維持
+          if (styleForInit === 'image' && image) {
+            editPayload.files = [image];
+          }
+
           // 「今から」の場合、専用チャンネルボタンを追加（黄色）
           if (recruitDataObj?.startTime === '今から') {
             const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
@@ -1025,7 +1053,7 @@ async function handleModalSubmit(interaction) {
             const actionRow = new ActionRowBuilder().addComponents(createVCButton);
             editPayload.components.push(actionRow);
           }
-        
+
           await followUpMessage.edit(editPayload);
           console.log('[handleModalSubmit] Initial message updated with recruitId:', recruitId);
         } catch (e) {
