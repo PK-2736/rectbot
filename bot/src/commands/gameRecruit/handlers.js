@@ -318,10 +318,10 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
     const contentText = contentTextValue && String(contentTextValue).trim().length > 0 
       ? `**📝 募集内容**\n${String(contentTextValue).slice(0, 1500)}` 
       : '';
-      const extraButtonsFinal = [];
+      const extraButtonsFinalSimple = [];
       if (finalRecruitData?.startTime === '今から') {
         const { ButtonBuilder, ButtonStyle } = require('discord.js');
-        extraButtonsFinal.push(
+        extraButtonsFinalSimple.push(
           new ButtonBuilder().setCustomId(`create_vc_${actualRecruitId}`).setLabel('専用チャンネル作成').setEmoji('📢').setStyle(ButtonStyle.Warning)
         );
       }
@@ -334,7 +334,8 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
       recruitIdText: actualRecruitId,
       accentColor: finalAccentColor,
         subHeaderText,
-        avatarUrl
+        avatarUrl,
+        extraActionButtons: extraButtonsFinalSimple
     });
   } else {
     const { buildContainer } = require('../../utils/recruitHelpers');
@@ -344,6 +345,13 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
       ? `**📝 募集内容**\n${String(contentTextValue).slice(0, 1500)}` 
       : '';
     console.log('[finalizePersistAndEdit] image style - contentText:', contentText);
+      const extraButtonsFinalImg = [];
+      if (finalRecruitData?.startTime === '今から') {
+        const { ButtonBuilder, ButtonStyle } = require('discord.js');
+        extraButtonsFinalImg.push(
+          new ButtonBuilder().setCustomId(`create_vc_${actualRecruitId}`).setLabel('専用チャンネル作成').setEmoji('📢').setStyle(ButtonStyle.Warning)
+        );
+      }
       updatedContainer = buildContainer({
         headerTitle: `${user.username}さんの募集`,
         subHeaderText,
@@ -355,27 +363,12 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
         imageAttachmentName: 'attachment://recruit-card.png',
         recruiterId: interaction.user.id,
         requesterId: interaction.user.id,
-        extraActionButtons: extraButtonsFinal
+        extraActionButtons: extraButtonsFinalImg
       });
   }
     try {
       const editPayload = { components: [updatedContainer], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } };
-      
-      // 「今から」の場合、専用チャンネルボタンを追加（黄色）
-      if (finalRecruitData?.startTime === '今から') {
-        console.log('[finalizePersistAndEdit] Adding dedicated channel button for "今から" recruit, actualRecruitId:', actualRecruitId);
-        const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-        const createVCButton = new ButtonBuilder()
-          .setCustomId(`create_vc_${actualRecruitId}`)
-          .setLabel('専用チャンネル作成')
-          .setEmoji('📢')
-          .setStyle(ButtonStyle.Warning);
-        
-        const actionRow = new ActionRowBuilder().addComponents(createVCButton);
-        editPayload.components.push(actionRow);
-        console.log('[finalizePersistAndEdit] Button added to editPayload, components count:', editPayload.components.length);
-      }
-      
+
       if (updatedImage) editPayload.files = [updatedImage];
       console.log('[finalizePersistAndEdit] Calling actualMessage.edit() for messageId:', actualMessageId);
       const editedMsg = await actualMessage.edit(editPayload);
@@ -978,14 +971,7 @@ async function handleModalSubmit(interaction) {
           new ButtonBuilder().setCustomId('create_vc_pending').setLabel('専用チャンネル作成').setEmoji('📢').setStyle(ButtonStyle.Warning)
         );
       }
-      const extraButtonsFinalImg = [];
-      if (finalRecruitData?.startTime === '今から') {
-        const { ButtonBuilder, ButtonStyle } = require('discord.js');
-        extraButtonsFinalImg.push(
-          new ButtonBuilder().setCustomId(`create_vc_${actualRecruitId}`).setLabel('専用チャンネル作成').setEmoji('📢').setStyle(ButtonStyle.Warning)
-        );
-      }
-      updatedContainer = buildContainer({
+      container = buildContainer({
         headerTitle: `${user.username}さんの募集`, 
         subHeaderText, 
         contentText,
@@ -996,139 +982,144 @@ async function handleModalSubmit(interaction) {
         imageAttachmentName: 'attachment://recruit-card.png', 
         recruiterId: interaction.user.id, 
         requesterId: interaction.user.id,
-        extraActionButtons: extraButtonsFinalImg
         extraActionButtons: extraButtons
       });
+    }
+
+    // ここで投稿を行う（通知・画像・UI含む）
+    let followUpMessage, secondaryMessage;
     try {
-      const editPayload = { components: [updatedContainer], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } };
-      if (updatedImage) editPayload.files = [updatedImage];
-      console.log('[finalizePersistAndEdit] Calling actualMessage.edit() for messageId:', actualMessageId);
-      const editedMsg = await actualMessage.edit(editPayload);
-      console.log('[finalizePersistAndEdit] Message edited successfully, recruitIdText should be:', actualRecruitId);
-    } catch (editError) { console.error('メッセージ更新エラー:', editError?.message || editError); }
-          if (!msgId) return;
+      const announceRes = await sendAnnouncements(interaction, selectedNotificationRole, configuredNotificationRoleIds, image, container, guildSettings, user);
+      followUpMessage = announceRes.mainMessage;
+      secondaryMessage = announceRes.secondaryMessage;
+    } catch (e) {
+      console.warn('[handleModalSubmit] sendAnnouncements failed:', e?.message || e);
+    }
 
-          const recruitId = msgId.slice(-8);
-          const { buildContainer, buildContainerSimple } = require('../../utils/recruitHelpers');
-          const styleForInit = (guildSettings?.recruit_style === 'simple') ? 'simple' : 'image';
-          const useColorInit = normalizeHex(panelColor ? panelColor : (guildSettings.defaultColor ? guildSettings.defaultColor : '000000'), '000000');
-          const accentColorInit = /^[0-9A-Fa-f]{6}$/.test(useColorInit) ? parseInt(useColorInit, 16) : 0x000000;
+    const msgId = followUpMessage?.id;
+    if (!msgId) return;
 
-          let immediateContainer;
-          if (styleForInit === 'simple') {
-            const startLabel = recruitDataObj?.startTime ? `🕒 ${recruitDataObj.startTime}` : null;
-            const membersLabel = typeof recruitDataObj?.participants === 'number' ? `👥 ${recruitDataObj.participants}人` : null;
-            const voiceLabel = (() => {
-              if (recruitDataObj?.vc === 'あり(聞き専)') {
-                return recruitDataObj?.voicePlace ? `🎙 聞き専/${recruitDataObj.voicePlace}` : '🎙 聞き専';
-              } else if (recruitDataObj?.vc === 'あり') {
-                return recruitDataObj?.voicePlace ? `🎙 あり/${recruitDataObj.voicePlace}` : '🎙 あり';
-              } else if (recruitDataObj?.vc === 'なし') {
-                return '🎙 なし';
-              }
-              return null;
-            })();
-            const valuesLine = [startLabel, membersLabel, voiceLabel].filter(Boolean).join(' | ');
-            const labelsLine = '**🕒 開始時間 | 👥 募集人数 | 🎙 通話有無**';
-            const detailsText = [labelsLine, valuesLine].filter(Boolean).join('\n');
-            const contentText = recruitDataObj?.content && String(recruitDataObj.content).trim().length > 0
-              ? `**📝 募集内容**\n${String(recruitDataObj.content).slice(0,1500)}`
-              : '';
-            let avatarUrl = null;
-            try {
-              const fetchedUser = await interaction.client.users.fetch(interaction.user.id).catch(() => null);
-              if (fetchedUser && typeof fetchedUser.displayAvatarURL === 'function') {
-                avatarUrl = fetchedUser.displayAvatarURL({ size: 128, extension: 'png' });
-              }
-            } catch (_) {}
-            const extraButtonsImmediate = [];
-            if (recruitDataObj?.startTime === '今から') {
-              const { ButtonBuilder, ButtonStyle } = require('discord.js');
-              extraButtonsImmediate.push(
-                new ButtonBuilder().setCustomId(`create_vc_${recruitId}`).setLabel('専用チャンネル作成').setEmoji('📢').setStyle(ButtonStyle.Warning)
-              );
-            }
-            immediateContainer = buildContainerSimple({
-              headerTitle: `${user.username}さんの募集`,
-              detailsText,
-              contentText,
-              titleText: recruitDataObj?.title ? `## ${String(recruitDataObj.title).slice(0,200)}` : '',
-              participantText,
-              recruitIdText: recruitId,
-              accentColor: accentColorInit,
-              subHeaderText,
-              avatarUrl,
-              extraActionButtons: extraButtonsImmediate
-            });
-          } else {
-            const extraButtonsImmediate = [];
-            if (recruitDataObj?.startTime === '今から') {
-              const { ButtonBuilder, ButtonStyle } = require('discord.js');
-              extraButtonsImmediate.push(
-                new ButtonBuilder().setCustomId(`create_vc_${recruitId}`).setLabel('専用チャンネル作成').setEmoji('📢').setStyle(ButtonStyle.Warning)
-              );
-            }
-            immediateContainer = buildContainer({
-              headerTitle: `${user.username}さんの募集`,
-              subHeaderText,
-              contentText: '',
-              titleText: '',
-              participantText,
-              recruitIdText: recruitId,
-              accentColor: accentColorInit,
-              imageAttachmentName: 'attachment://recruit-card.png',
-              recruiterId: interaction.user.id,
-              requesterId: interaction.user.id,
-              extraActionButtons: extraButtonsImmediate
-            });
+    const recruitId = msgId.slice(-8);
+    const { buildContainerSimple } = require('../../utils/recruitHelpers');
+    const styleForInit = (guildSettings?.recruit_style === 'simple') ? 'simple' : 'image';
+    const useColorInit = normalizeHex(panelColor ? panelColor : (guildSettings.defaultColor ? guildSettings.defaultColor : '000000'), '000000');
+    const accentColorInit = /^[0-9A-Fa-f]{6}$/.test(useColorInit) ? parseInt(useColorInit, 16) : 0x000000;
+
+    try {
+      let immediateContainer;
+      if (styleForInit === 'simple') {
+        const startLabel = recruitDataObj?.startTime ? `🕒 ${recruitDataObj.startTime}` : null;
+        const membersLabel = typeof recruitDataObj?.participants === 'number' ? `👥 ${recruitDataObj.participants}人` : null;
+        const voiceLabel = (() => {
+          if (recruitDataObj?.vc === 'あり(聞き専)') {
+            return recruitDataObj?.voicePlace ? `🎙 聞き専/${recruitDataObj.voicePlace}` : '🎙 聞き専';
+          } else if (recruitDataObj?.vc === 'あり') {
+            return recruitDataObj?.voicePlace ? `🎙 あり/${recruitDataObj.voicePlace}` : '🎙 あり';
+          } else if (recruitDataObj?.vc === 'なし') {
+            return '🎙 なし';
           }
-
-          const editPayload = { components: [immediateContainer], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } };
-          // 送信直後に保留ボタンが設定されている場合は、それも追加
-          if (container.__addPendingButton && container.__pendingButtonRow) {
-            editPayload.components.push(container.__pendingButtonRow);
+          return null;
+        })();
+        const valuesLine = [startLabel, membersLabel, voiceLabel].filter(Boolean).join(' | ');
+        const labelsLine = '**🕒 開始時間 | 👥 募集人数 | 🎙 通話有無**';
+        const detailsText = [labelsLine, valuesLine].filter(Boolean).join('\n');
+        const contentText = recruitDataObj?.content && String(recruitDataObj.content).trim().length > 0
+          ? `**📝 募集内容**\n${String(recruitDataObj.content).slice(0,1500)}`
+          : '';
+        let avatarUrl = null;
+        try {
+          const fetchedUser = await interaction.client.users.fetch(interaction.user.id).catch(() => null);
+          if (fetchedUser && typeof fetchedUser.displayAvatarURL === 'function') {
+            avatarUrl = fetchedUser.displayAvatarURL({ size: 128, extension: 'png' });
           }
-          // 画像スタイルでは添付ファイルを維持
-          if (styleForInit === 'image' && image) {
-            editPayload.files = [image];
-          }
-
-          // 追加のアクション行は不要（同じ行に組み込まれている）
-
-          await followUpMessage.edit(editPayload);
-          // もう一つの投稿がある場合も同様に編集
-          if (secondaryMessage && secondaryMessage.id) {
-            const secondaryRecruitId = secondaryMessage.id.slice(-8);
-            // ボタンのcustomIdはrecruitIdに依存するため再構築
-            const secondaryPayload = { ...editPayload };
-            secondaryPayload.components = [immediateContainer];
-            if (recruitDataObj?.startTime === '今から') {
-              const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-              const createVCButton2 = new ButtonBuilder()
-                .setCustomId(`create_vc_${secondaryRecruitId}`)
-                .setLabel('専用チャンネル作成')
-                .setEmoji('📢')
-                .setStyle(ButtonStyle.Warning);
-              const actionRow2 = new ActionRowBuilder().addComponents(createVCButton2);
-              secondaryPayload.components.push(actionRow2);
-            }
-            // 送信直後の保留ボタン対応
-            if (container.__addPendingButton && container.__pendingButtonRow) {
-              secondaryPayload.components.push(container.__pendingButtonRow);
-            }
-            await secondaryMessage.edit(secondaryPayload);
-            console.log('[handleModalSubmit] Secondary message updated with recruitId:', secondaryRecruitId);
-          }
-          console.log('[handleModalSubmit] Initial message updated with recruitId:', recruitId);
-        } catch (e) {
-          console.warn('[handleModalSubmit] Initial message edit failed:', e?.message || e);
+        } catch (_) {}
+        const extraButtonsImmediate = [];
+        if (recruitDataObj?.startTime === '今から') {
+          const { ButtonBuilder, ButtonStyle } = require('discord.js');
+          extraButtonsImmediate.push(
+            new ButtonBuilder().setCustomId(`create_vc_${recruitId}`).setLabel('専用チャンネル作成').setEmoji('📢').setStyle(ButtonStyle.Warning)
+          );
         }
-      })();
-    
-      // 送信後の保存とUI更新（確定画像/ID/ボタン）
-      try {
-        await finalizePersistAndEdit({ interaction, recruitDataObj, guildSettings, user, participantText, subHeaderText, followUpMessage, currentParticipants });
-      } catch (error) { console.error('メッセージ取得エラー:', error); }
+        immediateContainer = buildContainerSimple({
+          headerTitle: `${user.username}さんの募集`,
+          detailsText,
+          contentText,
+          titleText: recruitDataObj?.title ? `## ${String(recruitDataObj.title).slice(0,200)}` : '',
+          participantText,
+          recruitIdText: recruitId,
+          accentColor: accentColorInit,
+          subHeaderText,
+          avatarUrl,
+          extraActionButtons: extraButtonsImmediate
+        });
+      } else {
+        const extraButtonsImmediate = [];
+        if (recruitDataObj?.startTime === '今から') {
+          const { ButtonBuilder, ButtonStyle } = require('discord.js');
+          extraButtonsImmediate.push(
+            new ButtonBuilder().setCustomId(`create_vc_${recruitId}`).setLabel('専用チャンネル作成').setEmoji('📢').setStyle(ButtonStyle.Warning)
+          );
+        }
+        immediateContainer = buildContainer({
+          headerTitle: `${user.username}さんの募集`,
+          subHeaderText,
+          contentText: '',
+          titleText: '',
+          participantText,
+          recruitIdText: recruitId,
+          accentColor: accentColorInit,
+          imageAttachmentName: 'attachment://recruit-card.png',
+          recruiterId: interaction.user.id,
+          requesterId: interaction.user.id,
+          extraActionButtons: extraButtonsImmediate
+        });
+      }
+
+      const editPayload = { components: [immediateContainer], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } };
+      // 送信直後に保留ボタンが設定されている場合は、それも追加
+      if (container.__addPendingButton && container.__pendingButtonRow) {
+        editPayload.components.push(container.__pendingButtonRow);
+      }
+      // 画像スタイルでは添付ファイルを維持
+      if (styleForInit === 'image' && image) {
+        editPayload.files = [image];
+      }
+
+      // 追加のアクション行は不要（同じ行に組み込まれている）
+
+      await followUpMessage.edit(editPayload);
+      // もう一つの投稿がある場合も同様に編集
+      if (secondaryMessage && secondaryMessage.id) {
+        const secondaryRecruitId = secondaryMessage.id.slice(-8);
+        // ボタンのcustomIdはrecruitIdに依存するため再構築
+        const secondaryPayload = { ...editPayload };
+        secondaryPayload.components = [immediateContainer];
+        if (recruitDataObj?.startTime === '今から') {
+          const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+          const createVCButton2 = new ButtonBuilder()
+            .setCustomId(`create_vc_${secondaryRecruitId}`)
+            .setLabel('専用チャンネル作成')
+            .setEmoji('📢')
+            .setStyle(ButtonStyle.Warning);
+          const actionRow2 = new ActionRowBuilder().addComponents(createVCButton2);
+          secondaryPayload.components.push(actionRow2);
+        }
+        // 送信直後の保留ボタン対応
+        if (container.__addPendingButton && container.__pendingButtonRow) {
+          secondaryPayload.components.push(container.__pendingButtonRow);
+        }
+        await secondaryMessage.edit(secondaryPayload);
+        console.log('[handleModalSubmit] Secondary message updated with recruitId:', secondaryRecruitId);
+      }
+      console.log('[handleModalSubmit] Initial message updated with recruitId:', recruitId);
+    } catch (e) {
+      console.warn('[handleModalSubmit] Initial message edit failed:', e?.message || e);
+    }
+
+    // 送信後の保存とUI更新（確定画像/ID/ボタン）
+    try {
+      await finalizePersistAndEdit({ interaction, recruitDataObj, guildSettings, user, participantText, subHeaderText, followUpMessage, currentParticipants });
+    } catch (error) { console.error('メッセージ取得エラー:', error); }
   } catch (error) {
     console.error('handleModalSubmit error:', error);
     if (error && error.code === 10062) return; // Unknown interaction
