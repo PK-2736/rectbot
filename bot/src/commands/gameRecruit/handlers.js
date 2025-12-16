@@ -198,6 +198,7 @@ async function sendAnnouncements(interaction, selectedNotificationRole, configur
   const baseOptions = { components: [container], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } };
   if (image) baseOptions.files = [image];
   const followUpMessage = await interaction.channel.send(baseOptions);
+  let secondaryMessage = null;
 
   // 別チャンネルにも投稿（複数設定時は先頭を優先）
   const primaryRecruitChannelId = Array.isArray(guildSettings.recruit_channels) && guildSettings.recruit_channels.length > 0
@@ -221,21 +222,19 @@ async function sendAnnouncements(interaction, selectedNotificationRole, configur
         }
         
         // 募集メッセージ投稿 (通知ロール情報はcontainer内に含まれる)
-        (async () => { 
-          try {
-            await recruitChannel.send({ 
-              files: [image], 
-              components: [container], 
-              flags: MessageFlags.IsComponentsV2, 
-              allowedMentions: { roles: [], users: [] }
-            }); 
-          } catch (e) { console.warn('募集メッセージ送信失敗(指定ch):', e?.message || e); } 
-        })();
+        try {
+          secondaryMessage = await recruitChannel.send({ 
+            files: image ? [image] : undefined, 
+            components: [container], 
+            flags: MessageFlags.IsComponentsV2, 
+            allowedMentions: { roles: [], users: [] }
+          });
+        } catch (e) { console.warn('募集メッセージ送信失敗(指定ch):', e?.message || e); }
       }
     } catch (channelError) { console.error('指定チャンネルへの送信でエラー:', channelError); }
   }
 
-  return followUpMessage;
+  return { mainMessage: followUpMessage, secondaryMessage };
 }
 
 async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettings, user, participantText, subHeaderText, followUpMessage, currentParticipants }) {
@@ -961,7 +960,7 @@ async function handleModalSubmit(interaction) {
         requesterId: interaction.user.id
       });
     }
-  const followUpMessage = await sendAnnouncements(interaction, selectedNotificationRole, configuredNotificationRoleIds, image, container, guildSettings, user);
+  const { mainMessage: followUpMessage, secondaryMessage } = await sendAnnouncements(interaction, selectedNotificationRole, configuredNotificationRoleIds, image, container, guildSettings, user);
     try { await safeReply(interaction, { content: '募集を作成しました。', flags: MessageFlags.Ephemeral }); } catch (e) { console.warn('safeReply failed (non-fatal):', e?.message || e); }
     
     // 送信後の保存とUI更新（募集IDと「今から」ボタンを即座に追加）
@@ -1055,6 +1054,25 @@ async function handleModalSubmit(interaction) {
           }
 
           await followUpMessage.edit(editPayload);
+          // もう一つの投稿がある場合も同様に編集
+          if (secondaryMessage && secondaryMessage.id) {
+            const secondaryRecruitId = secondaryMessage.id.slice(-8);
+            // ボタンのcustomIdはrecruitIdに依存するため再構築
+            const secondaryPayload = { ...editPayload };
+            secondaryPayload.components = [immediateContainer];
+            if (recruitDataObj?.startTime === '今から') {
+              const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+              const createVCButton2 = new ButtonBuilder()
+                .setCustomId(`create_vc_${secondaryRecruitId}`)
+                .setLabel('専用チャンネル作成')
+                .setEmoji('📢')
+                .setStyle(ButtonStyle.Warning);
+              const actionRow2 = new ActionRowBuilder().addComponents(createVCButton2);
+              secondaryPayload.components.push(actionRow2);
+            }
+            await secondaryMessage.edit(secondaryPayload);
+            console.log('[handleModalSubmit] Secondary message updated with recruitId:', secondaryRecruitId);
+          }
           console.log('[handleModalSubmit] Initial message updated with recruitId:', recruitId);
         } catch (e) {
           console.warn('[handleModalSubmit] Initial message edit failed:', e?.message || e);
