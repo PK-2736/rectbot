@@ -297,7 +297,7 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
       let voiceVal = null;
       if (typeof finalRecruitData?.vc === 'string') {
         if (finalRecruitData.vc === 'あり(聞き専)') {
-          voiceVal = finalRecruitData?.voicePlace ? `あり(聞き専)/${finalRecruitData.voicePlace}` : 'あり(聞き専)';
+          voiceVal = finalRecruitData?.voicePlace ? `聞き専/${finalRecruitData.voicePlace}` : '聞き専';
         } else if (finalRecruitData.vc === 'あり') {
           voiceVal = finalRecruitData?.voicePlace ? `あり/${finalRecruitData.voicePlace}` : 'あり';
         } else if (finalRecruitData.vc === 'なし') {
@@ -348,7 +348,7 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
       
       // 「今から」の場合、専用チャンネルボタンを追加（黄色）
       if (finalRecruitData?.startTime === '今から') {
-        console.log('[finalizePersistAndEdit] Adding dedicated channel button for "今から" recruit');
+        console.log('[finalizePersistAndEdit] Adding dedicated channel button for "今から" recruit, actualRecruitId:', actualRecruitId);
         const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
         const createVCButton = new ButtonBuilder()
           .setCustomId(`create_vc_${actualRecruitId}`)
@@ -358,12 +358,14 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
         
         const actionRow = new ActionRowBuilder().addComponents(createVCButton);
         editPayload.components.push(actionRow);
-        console.log('[finalizePersistAndEdit] Button added to editPayload');
+        console.log('[finalizePersistAndEdit] Button added to editPayload, components count:', editPayload.components.length);
       }
       
       if (updatedImage) editPayload.files = [updatedImage];
-      await actualMessage.edit(editPayload);
-    } catch (editError) { console.error('メッセージ更新エラー:', editError); }
+      console.log('[finalizePersistAndEdit] Calling actualMessage.edit() for messageId:', actualMessageId);
+      const editedMsg = await actualMessage.edit(editPayload);
+      console.log('[finalizePersistAndEdit] Message edited successfully, recruitIdText should be:', actualRecruitId);
+    } catch (editError) { console.error('メッセージ更新エラー:', editError?.message || editError); }
 
   // 自動締切タイマー（8h）— 一時的に無効化
   // setTimeout(async () => {
@@ -656,7 +658,7 @@ async function processClose(interaction, messageId, savedRecruitData) {
     let voiceLabel = null;
     if (typeof data?.vc === 'string') {
       if (data.vc === 'あり(聞き専)') {
-        voiceLabel = data?.voicePlace ? `🎙 あり(聞き専)/${data.voicePlace}` : '🎙 あり(聞き専)';
+        voiceLabel = data?.voicePlace ? `🎙 聞き専/${data.voicePlace}` : '🎙 聞き専';
       } else if (data.vc === 'あり') {
         voiceLabel = data?.voicePlace ? `🎙 あり/${data.voicePlace}` : '🎙 あり';
       } else if (data.vc === 'なし') {
@@ -904,7 +906,7 @@ async function handleModalSubmit(interaction) {
       const membersLabel = typeof recruitDataObj?.participants === 'number' ? `👥 ${recruitDataObj.participants}人` : null;
       const voiceLabel = (() => {
         if (recruitDataObj?.vc === 'あり(聞き専)') {
-          return recruitDataObj?.voicePlace ? `🎙 あり(聞き専)/${recruitDataObj.voicePlace}` : '🎙 あり(聞き専)';
+          return recruitDataObj?.voicePlace ? `🎙 聞き専/${recruitDataObj.voicePlace}` : '🎙 聞き専';
         } else if (recruitDataObj?.vc === 'あり') {
           return recruitDataObj?.voicePlace ? `🎙 あり/${recruitDataObj.voicePlace}` : '🎙 あり';
         } else if (recruitDataObj?.vc === 'なし') {

@@ -148,7 +148,7 @@ module.exports = {
       setTimeout(() => interaction.client.rectEditArgCache.delete(cacheKey), 5 * 60 * 1000);
 
       // Show modal with short customId
-      const cid = `rectEditModal_${messageId}_${cacheKey}`.slice(0, 100);
+      const cid = `editRecruitModal_${messageId}_${cacheKey}`.slice(0, 100);
       const modal = new ModalBuilder()
         .setCustomId(cid)
         .setTitle('募集内容編集');
@@ -238,8 +238,8 @@ module.exports = {
   },
 
   async handleModalSubmit(interaction) {
-    if (!interaction.customId.startsWith('rectEditModal_')) return;
-    const parts = interaction.customId.replace('rectEditModal_', '').split('_');
+    if (!interaction.customId.startsWith('editRecruitModal_')) return;
+    const parts = interaction.customId.replace('editRecruitModal_', '').split('_');
     const messageId = parts[0];
     const cacheKey = parts[1] || null;
     let argUpdates = {};
