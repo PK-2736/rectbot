@@ -122,7 +122,8 @@ export default {
     // Bot API: Discord Botからの管理系リクエストを許可（Originヘッダーなし、SERVICE_TOKEN認証必須）
     const isBotAPI = url.pathname.startsWith('/api/guild-settings/') || 
                      url.pathname.startsWith('/api/recruitments') || 
-                     url.pathname.startsWith('/api/recruitment');
+                     url.pathname.startsWith('/api/recruitment') ||
+                     url.pathname.startsWith('/api/bot-invite/');
     
     // セキュリティ: 不正なOriginからの通常リクエストも拒否（GETとFriend Code API、Bot APIは除く）
     if (!cors && request.method !== 'GET' && !isFriendCodeAPI && !isBotAPI) {
