@@ -1,8 +1,29 @@
 // routes/botInvite.js
 
 export async function routeBotInvite(request, env, ctx, url, corsHeaders) {
+  // SERVICE_TOKEN 認証チェック（Bot API として安全に実行）
+  const authHeader = request.headers.get('authorization') || '';
+  const xServiceToken = request.headers.get('x-service-token') || '';
+  const serviceToken = env.SERVICE_TOKEN || '';
+  
+  // SERVICE_TOKEN が設定されている場合のみ検証
+  const requireAuth = !!serviceToken;
+  const hasValidAuth = !serviceToken || (
+    authHeader === `Bearer ${serviceToken}` || 
+    xServiceToken === serviceToken
+  );
+
   // Create one-time wrapper URL
   if (url.pathname === '/api/bot-invite/one-time' && request.method === 'POST') {
+    // SERVICE_TOKEN チェック
+    if (requireAuth && !hasValidAuth) {
+      console.warn('[routeBotInvite] Unauthorized: SERVICE_TOKEN mismatch or missing (required)');
+      return new Response(JSON.stringify({ error: 'unauthorized', detail: 'Invalid or missing SERVICE_TOKEN' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+    if (!hasValidAuth && !requireAuth) {
+      console.log('[routeBotInvite] Warning: SERVICE_TOKEN not configured, allowing unauthenticated request');
+    }
+    
     try {
       if (!env.DISCORD_CLIENT_ID) {
         console.error('[routeBotInvite] DISCORD_CLIENT_ID not configured');
