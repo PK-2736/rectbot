@@ -278,12 +278,15 @@ module.exports = {
           await handleComponentSafely(interaction, async () => {
             try {
               const backendFetch = require('../utils/backendFetch');
+              console.log('[interactionCreate] one_time_support_invite button clicked');
               let resp;
               try {
                 resp = await backendFetch('/api/bot-invite/one-time', { method: 'POST' });
+                console.log('[interactionCreate] Backend response:', { ok: resp?.ok, url: resp?.url ? resp.url.slice(0, 60) + '...' : undefined });
               } catch (err) {
                 // 認証不足（SERVICE_TOKEN未設定や不一致）・ネットワークエラーの扱い
                 const status = err?.status;
+                console.error('[interactionCreate] backendFetch error:', { status, message: err?.message });
                 if (status === 401) {
                   await safeRespond(interaction, { content: '❌ 招待URLを発行できません（認証エラー）。管理者に連絡してください。', flags: require('discord.js').MessageFlags.Ephemeral });
                   return;
@@ -291,10 +294,12 @@ module.exports = {
                 throw err;
               }
               if (!resp?.ok || !resp?.url) {
+                console.error('[interactionCreate] Invalid response:', resp);
                 await safeRespond(interaction, { content: '❌ 招待URLの発行に失敗しました。しばらくして再試行してください。', flags: require('discord.js').MessageFlags.Ephemeral });
                 return;
               }
               // ランディング（ワンタイム）URLを返す（クリック時に消費 → Discord OAuth2 へリダイレクト）
+              console.log('[interactionCreate] Sending invite URL to user');
               await safeRespond(interaction, { content: `✅ 一回限りの招待リンクを発行しました。
 <${resp.url}>`, flags: require('discord.js').MessageFlags.Ephemeral });
             } catch (e) {

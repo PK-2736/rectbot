@@ -5,20 +5,27 @@ export async function routeBotInvite(request, env, ctx, url, corsHeaders) {
   if (url.pathname === '/api/bot-invite/one-time' && request.method === 'POST') {
     try {
       if (!env.DISCORD_CLIENT_ID) {
+        console.error('[routeBotInvite] DISCORD_CLIENT_ID not configured');
         return new Response(JSON.stringify({ error: 'config_missing', detail: 'DISCORD_CLIENT_ID not configured' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
+      console.log('[routeBotInvite /api/bot-invite/one-time] Creating token...');
       const id = env.INVITE_TOKENS_DO.idFromName('global');
       const stub = env.INVITE_TOKENS_DO.get(id);
       const createResp = await stub.fetch(new Request(new URL('/do/invite-token', url).toString(), { method: 'POST' }));
+      console.log('[routeBotInvite] Durable Object response status:', createResp.status);
       const data = await createResp.json();
-      if (!data?.ok) {
-        return new Response(JSON.stringify({ error: 'create_failed' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      console.log('[routeBotInvite] Token response:', { ok: data?.ok, token: data?.token ? data.token.slice(0, 16) + '...' : undefined });
+      if (!data?.ok || !data?.token) {
+        console.error('[routeBotInvite] Token creation failed:', data);
+        return new Response(JSON.stringify({ error: 'create_failed', detail: data }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
       const token = data.token;
       const wrapperUrl = new URL(`/api/bot-invite/t/${encodeURIComponent(token)}`, url).toString();
+      console.log('[routeBotInvite] Generated wrapper URL:', wrapperUrl.slice(0, 60) + '...');
       return new Response(JSON.stringify({ ok: true, url: wrapperUrl }), { status: 201, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     } catch (e) {
-      return new Response(JSON.stringify({ error: 'internal_error' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      console.error('[routeBotInvite] Error creating token:', e?.message || e);
+      return new Response(JSON.stringify({ error: 'internal_error', detail: e?.message }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
   }
 
@@ -119,18 +126,31 @@ export async function routeBotInvite(request, env, ctx, url, corsHeaders) {
   if (matchInviteGo && request.method === 'POST') {
     try {
       const token = matchInviteGo[1];
+      console.log('[routeBotInvite /go] Consuming token:', token.slice(0, 16) + '...');
       const id = env.INVITE_TOKENS_DO.idFromName('global');
       const stub = env.INVITE_TOKENS_DO.get(id);
       const consumeResp = await stub.fetch(new Request(new URL(`/do/invite-token/${encodeURIComponent(token)}/consume`, url).toString(), { method: 'POST' }));
-      if (consumeResp.status === 404) return new Response('この招待リンクは存在しません。', { status: 404, headers: { ...corsHeaders, 'Content-Type': 'text/plain; charset=utf-8' } });
-      if (consumeResp.status === 410) return new Response('この招待リンクは使用済みです。', { status: 410, headers: { ...corsHeaders, 'Content-Type': 'text/plain; charset=utf-8' } });
-      if (!consumeResp.ok) return new Response('内部エラーが発生しました。', { status: 500, headers: { ...corsHeaders, 'Content-Type': 'text/plain; charset=utf-8' } });
+      console.log('[routeBotInvite /go] Consume response status:', consumeResp.status);
+      if (consumeResp.status === 404) {
+        console.warn('[routeBotInvite /go] Token not found:', token.slice(0, 16) + '...');
+        return new Response('この招待リンクは存在しません。', { status: 404, headers: { ...corsHeaders, 'Content-Type': 'text/plain; charset=utf-8' } });
+      }
+      if (consumeResp.status === 410) {
+        console.warn('[routeBotInvite /go] Token already used:', token.slice(0, 16) + '...');
+        return new Response('この招待リンクは使用済みです。', { status: 410, headers: { ...corsHeaders, 'Content-Type': 'text/plain; charset=utf-8' } });
+      }
+      if (!consumeResp.ok) {
+        console.error('[routeBotInvite /go] Consume failed:', consumeResp.status);
+        return new Response('内部エラーが発生しました。', { status: 500, headers: { ...corsHeaders, 'Content-Type': 'text/plain; charset=utf-8' } });
+      }
       const clientId = env.DISCORD_CLIENT_ID;
       const perms = encodeURIComponent(env.BOT_INVITE_PERMISSIONS || '0');
       const scopes = encodeURIComponent('bot applications.commands');
       const discordUrl = `https://discord.com/api/oauth2/authorize?client_id=${clientId}&permissions=${perms}&scope=${scopes}`;
+      console.log('[routeBotInvite /go] Redirecting to Discord OAuth:', discordUrl.slice(0, 60) + '...');
       return new Response(null, { status: 302, headers: { Location: discordUrl, ...corsHeaders } });
     } catch (e) {
+      console.error('[routeBotInvite /go] Error:', e?.message || e);
       return new Response('内部エラーが発生しました。', { status: 500, headers: { ...corsHeaders, 'Content-Type': 'text/plain; charset=utf-8' } });
     }
   }

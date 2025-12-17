@@ -44,6 +44,7 @@ export class InviteTokensDO {
       const token = generateInviteToken();
       store.items[token] = { used: false, createdAt: new Date().toISOString() };
       await this.saveStore(store);
+      console.log('[InviteTokensDO] Token created:', { token: token.slice(0, 16) + '...', createdAt: store.items[token].createdAt });
       return jsonResponse({ ok: true, token }, 201);
     }
 
