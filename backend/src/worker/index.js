@@ -364,8 +364,13 @@ export default {
 
     // Delegate: One-Time Bot Invite endpoints
     {
+      console.log('[worker] Attempting routeBotInvite for:', url.pathname);
       const routedInvite = await routeBotInvite(request, env, ctx, url, corsHeaders);
-      if (routedInvite) return routedInvite;
+      if (routedInvite) {
+        console.log('[worker] routeBotInvite returned response');
+        return routedInvite;
+      }
+      console.log('[worker] routeBotInvite returned null');
     }
 
     // 軽量な環境変数診断（Service Token 必須、値は返さず存在のみ）

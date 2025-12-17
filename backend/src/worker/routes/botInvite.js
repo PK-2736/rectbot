@@ -1,6 +1,8 @@
 // routes/botInvite.js
 
 export async function routeBotInvite(request, env, ctx, url, corsHeaders) {
+  console.log('[routeBotInvite] Called with pathname:', url.pathname, 'method:', request.method);
+  
   // SERVICE_TOKEN 認証チェック（Bot API として安全に実行）
   const authHeader = request.headers.get('authorization') || '';
   const xServiceToken = request.headers.get('x-service-token') || '';
@@ -15,6 +17,7 @@ export async function routeBotInvite(request, env, ctx, url, corsHeaders) {
 
   // Create one-time wrapper URL
   if (url.pathname === '/api/bot-invite/one-time' && request.method === 'POST') {
+    console.log('[routeBotInvite /api/bot-invite/one-time] POST request received');
     // SERVICE_TOKEN チェック
     if (requireAuth && !hasValidAuth) {
       console.warn('[routeBotInvite] Unauthorized: SERVICE_TOKEN mismatch or missing (required)');
