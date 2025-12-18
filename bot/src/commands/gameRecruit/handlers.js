@@ -436,10 +436,24 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
         const recruitUrl = `https://discord.com/channels/${interaction.guildId}/${interaction.channelId}/${actualMessageId}`;
         notifyEmbed.addFields({ name: '📋 募集の詳細', value: `[メッセージを確認](${recruitUrl})`, inline: false });
         
+        // 専用チャンネル作成ボタンを追加
+        const components = [];
+        if (guildSettings?.enable_dedicated_channel) {
+          const { ButtonBuilder, ButtonStyle } = require('discord.js');
+          const button = new ButtonBuilder()
+            .setCustomId(`create_vc_${actualRecruitId}`)
+            .setLabel('専用チャンネル作成')
+            .setEmoji('📢')
+            .setStyle(ButtonStyle.Primary);
+          const row = new ActionRowBuilder().addComponents(button);
+          components.push(row);
+        }
+        
         // メッセージ送信（1回のみ）
         const sendOptions = { 
           content: mentions, 
           embeds: [notifyEmbed], 
+          components,
           allowedMentions: { users: ids } 
         };
         

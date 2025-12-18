@@ -207,9 +207,8 @@ async function sendStartTimeNotification(client, recruit, guildSettings = null) 
     let content = voiceLink ? voiceLink : null;
 
     const components = [];
-    const isNowStart = (startTime === '今から' || startTime === 'now' || startTime === '今');
-    const enableDedicated = Boolean(guildSettings?.enable_dedicated_channel) && isNowStart;
-    console.log(`[StartTimeNotifier] Guild ${guildId} dedicated_channel feature: ${enableDedicated} (isNowStart=${isNowStart})`);
+    const enableDedicated = Boolean(guildSettings?.enable_dedicated_channel);
+    console.log(`[StartTimeNotifier] Guild ${guildId} dedicated_channel feature: ${enableDedicated}`);
     if (enableDedicated) {
       const button = new ButtonBuilder()
         .setCustomId(`create_vc_${recruitId}`)
@@ -220,7 +219,7 @@ async function sendStartTimeNotification(client, recruit, guildSettings = null) 
       components.push(row);
       console.log('[StartTimeNotifier] Added dedicated channel button to components');
     } else {
-      console.log('[StartTimeNotifier] Skipping dedicated channel button (disabled or startTime is not now)');
+      console.log('[StartTimeNotifier] Skipping dedicated channel button (feature disabled)');
     }
 
     await channel.send({
