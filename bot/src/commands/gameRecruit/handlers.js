@@ -1134,13 +1134,20 @@ async function handleModalSubmit(interaction) {
     try {
       await finalizePersistAndEdit({ interaction, recruitDataObj, guildSettings, user, participantText, subHeaderText, followUpMessage, currentParticipants });
     } catch (error) { console.error('メッセージ取得エラー:', error); }
+
+    // インタラクション応答を完了（defer された応答を削除）
+    try {
+      await interaction.deleteReply();
+    } catch (e) {
+      console.warn('[handleModalSubmit] Failed to delete deferred reply:', e?.message || e);
+    }
   } catch (error) {
     console.error('handleModalSubmit error:', error);
     if (error && error.code === 10062) return; // Unknown interaction
     if (!interaction.replied && !interaction.deferred) {
       try { await safeReply(interaction, { content: `モーダル送信エラー: ${error.message || error}`, flags: MessageFlags.Ephemeral, allowedMentions: { roles: [], users: [] } }); } catch (e) { console.error('二重応答防止: safeReply failed', e); }
     } else {
-      try { await safeReply(interaction, { content: `モーダル送信エラー: ${error.message || error}` }); } catch (e) { console.error('safeReply(edit) failed', e); }
+      try { await interaction.editReply({ content: `❌ モーダル送信エラー: ${error.message || error}` }); } catch (e) { console.error('editReply failed', e); }
     }
   }
 }
