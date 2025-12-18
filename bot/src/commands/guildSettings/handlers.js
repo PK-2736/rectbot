@@ -8,6 +8,7 @@ const {
 
 const { saveGuildSettingsToRedis, getGuildSettingsFromRedis, getGuildSettingsSmart, finalizeGuildSettings } = require('../../utils/db');
 const { safeReply } = require('../../utils/safeReply');
+const { createErrorEmbed, createSuccessEmbed, createWarningEmbed } = require('../../utils/embedHelpers');
 const {
   showSettingsUI,
   showSettingsCategoryUI,
@@ -62,7 +63,7 @@ async function execute(interaction) {
   } catch (error) {
     console.error('Guild settings command error:', error);
     if (!interaction.replied && !interaction.deferred) {
-      await safeReply(interaction, { content: '❌ 設定画面の表示でエラーが発生しました。', flags: MessageFlags.Ephemeral });
+      await safeReply(interaction, { embeds: [createErrorEmbed('設定画面の表示でエラーが発生しました。')], flags: MessageFlags.Ephemeral });
     }
   }
 }
@@ -187,7 +188,7 @@ async function handleModalSubmit(interaction) {
     } else if (customId === 'default_color_modal') {
       const color = interaction.fields.getTextInputValue('default_color');
       if (color && !/^[0-9A-Fa-f]{6}$/.test(color)) {
-        return await safeReply(interaction, { content: '❌ 無効なカラーコードです。6桁の16進数（例: 5865F2）を入力してください。', flags: MessageFlags.Ephemeral });
+        return await safeReply(interaction, { embeds: [createErrorEmbed('無効なカラーコードです。6桁の16進数（例: 5865F2）を入力してください。', '入力エラー')], flags: MessageFlags.Ephemeral });
       }
       await updateGuildSetting(interaction, 'defaultColor', color);
     }
@@ -238,7 +239,7 @@ async function updateGuildSetting(interaction, settingKey, value) {
     };
 
     const settingName = settingNames[settingKey] || settingKey;
-    await safeReply(interaction, { content: `✅ ${settingName}を更新しました！`, flags: MessageFlags.Ephemeral });
+    await safeReply(interaction, { embeds: [createSuccessEmbed(`${settingName}を更新しました！`, '設定更新')], flags: MessageFlags.Ephemeral });
 
     setTimeout(async () => {
       try {

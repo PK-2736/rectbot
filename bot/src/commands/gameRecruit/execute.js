@@ -1,6 +1,7 @@
 const { MessageFlags, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, LabelBuilder, UserSelectMenuBuilder, RoleSelectMenuBuilder, StringSelectMenuBuilder } = require('discord.js');
 const { pendingModalOptions } = require('./state');
 const { safeReply } = require('../../utils/safeReply');
+const { createErrorEmbed, createWarningEmbed } = require('../../utils/embedHelpers');
 const { listRecruitsFromRedis, getCooldownRemaining } = require('../../utils/db');
 const { EXEMPT_GUILD_IDS } = require('./constants');
 const { getGuildSettings } = require('../../utils/db');
@@ -45,7 +46,7 @@ async function execute(interaction) {
     if (guildActiveCount >= 3) {
       console.log('[gameRecruit.execute] blocking create due to 3 active recruits limit');
       await safeReply(interaction, {
-        content: '❌ このサーバーでは同時に実行できる募集は3件までです。既存の募集をいくつか締め切ってから新しい募集を作成してください。',
+        embeds: [createErrorEmbed('このサーバーでは同時に実行できる募集は3件までです。\n既存の募集をいくつか締め切ってから新しい募集を作成してください。', '募集上限到達')],
         flags: MessageFlags.Ephemeral,
         allowedMentions: { roles: [], users: [] }
       });

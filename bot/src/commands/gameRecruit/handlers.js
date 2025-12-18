@@ -1,6 +1,7 @@
 const { MessageFlags, EmbedBuilder, ComponentType, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, ActionRowBuilder, AttachmentBuilder, UserSelectMenuBuilder, PermissionsBitField } = require('discord.js');
 const { recruitParticipants, pendingModalOptions } = require('./state');
 const { safeReply } = require('../../utils/safeReply');
+const { createErrorEmbed, createSuccessEmbed, createWarningEmbed } = require('../../utils/embedHelpers');
 const { getGuildSettings, listRecruitsFromRedis, saveRecruitmentData, updateRecruitmentStatus, deleteRecruitmentData, saveRecruitToRedis, getRecruitFromRedis, saveParticipantsToRedis, getParticipantsFromRedis, deleteParticipantsFromRedis, pushRecruitToWebAPI, getCooldownRemaining, setCooldown } = require('../../utils/db');
 const { buildContainer } = require('../../utils/recruitHelpers');
 const { generateRecruitCard } = require('../../utils/canvasRecruit');
@@ -59,7 +60,7 @@ async function ensureNoActiveRecruit(interaction) {
         return gid === guildIdStr && (status === 'recruiting' || status === 'active');
       });
       if (matched.length >= 3) {
-        await safeReply(interaction, { content: '❌ このサーバーでは同時に実行できる募集は3件までです。既存の募集をいくつか締め切ってから新しい募集を作成してください。', flags: MessageFlags.Ephemeral, allowedMentions: { roles: [], users: [] } });
+        await safeReply(interaction, { embeds: [createErrorEmbed('このサーバーでは同時に実行できる募集は3件までです。\n既存の募集をいくつか締め切ってから新しい募集を作成してください。', '募集上限到達')], flags: MessageFlags.Ephemeral, allowedMentions: { roles: [], users: [] } });
         return false;
       }
     }
@@ -567,7 +568,7 @@ async function processJoin(interaction, messageId, participants, savedRecruitDat
       })();
     }
   } else {
-    await safeReply(interaction, { content: '❌ 既に参加済みです。', flags: MessageFlags.Ephemeral, allowedMentions: { roles: [], users: [] } });
+    await safeReply(interaction, { embeds: [createErrorEmbed('既に参加済みです。')], flags: MessageFlags.Ephemeral, allowedMentions: { roles: [], users: [] } });
   }
   updateParticipantList(interaction, participants, savedRecruitData).catch(e => console.warn('updateParticipantList failed (async):', e?.message || e));
 }
@@ -575,7 +576,7 @@ async function processJoin(interaction, messageId, participants, savedRecruitDat
 async function processCancel(interaction, messageId, participants, savedRecruitData) {
   const beforeLength = participants.length;
   if (savedRecruitData && savedRecruitData.recruiterId === interaction.user.id) {
-    await safeReply(interaction, { content: '❌ 募集主は参加をキャンセルできません。募集を締める場合は「締め」ボタンを使用してください。', flags: MessageFlags.Ephemeral, allowedMentions: { roles: [], users: [] } });
+    await safeReply(interaction, { embeds: [createErrorEmbed('募集主は参加をキャンセルできません。\n募集を締める場合は「締め」ボタンを使用してください。')], flags: MessageFlags.Ephemeral, allowedMentions: { roles: [], users: [] } });
     return participants;
   }
   const updated = participants.filter(id => id !== interaction.user.id);
@@ -602,7 +603,7 @@ async function processCancel(interaction, messageId, participants, savedRecruitD
       })();
     }
   } else {
-    await safeReply(interaction, { content: '❌ 参加していないため、取り消せません。', flags: MessageFlags.Ephemeral, allowedMentions: { roles: [], users: [] } });
+    await safeReply(interaction, { embeds: [createErrorEmbed('参加していないため、取り消せません。')], flags: MessageFlags.Ephemeral, allowedMentions: { roles: [], users: [] } });
   }
   updateParticipantList(interaction, updated, savedRecruitData).catch(e => console.warn('updateParticipantList failed (async):', e?.message || e));
   return updated;
@@ -615,11 +616,11 @@ async function processClose(interaction, messageId, savedRecruitData) {
       try { const fromRedis = await getRecruitFromRedis(String(messageId).slice(-8)); if (fromRedis) data = fromRedis; } catch (e) { console.warn('close: getRecruitFromRedis failed:', e?.message || e); }
     }
     if (!data) {
-      await safeReply(interaction, { content: '❌ 募集データが見つからないため締め切れません。', flags: MessageFlags.Ephemeral });
+      await safeReply(interaction, { embeds: [createErrorEmbed('募集データが見つからないため締め切れません。')], flags: MessageFlags.Ephemeral });
       return;
     }
     if (data.recruiterId !== interaction.user.id) {
-      await safeReply(interaction, { content: '❌ 締め切りを実行できるのは募集主のみです。', flags: MessageFlags.Ephemeral });
+      await safeReply(interaction, { embeds: [createErrorEmbed('締め切りを実行できるのは募集主のみです。', '権限エラー')], flags: MessageFlags.Ephemeral });
       return;
     }
 
@@ -789,7 +790,7 @@ async function handleModalSubmit(interaction) {
 
     const participantsNum = parseParticipantsNumFromModal(interaction);
     if (participantsNum === null) {
-      await safeReply(interaction, { content: '❌ 参加人数は1〜16の数字で入力してください。', flags: MessageFlags.Ephemeral, allowedMentions: { roles: [], users: [] } });
+      await safeReply(interaction, { embeds: [createErrorEmbed('参加人数は1〜16の数字で入力してください。', '入力エラー')], flags: MessageFlags.Ephemeral, allowedMentions: { roles: [], users: [] } });
       return;
     }
 
