@@ -16,9 +16,32 @@ const {
   showColorModal,
 } = require('./ui');
 
+// 管理者判定を一元化（Administrator または ManageGuild で許可）
+async function isAdminUser(interaction) {
+  if (!interaction || !interaction.guild) return false;
+
+  const hasAdminFlag = (perms) => {
+    if (!perms || typeof perms.has !== 'function') return false;
+    return perms.has(PermissionFlagsBits.Administrator) || perms.has(PermissionFlagsBits.ManageGuild);
+  };
+
+  if (hasAdminFlag(interaction.memberPermissions)) return true;
+  if (hasAdminFlag(interaction.member?.permissions)) return true;
+
+  // フォールバックでメンバーを取得して再判定（キャッシュに無い/partial対策）
+  try {
+    const member = await interaction.guild.members.fetch(interaction.user.id);
+    if (hasAdminFlag(member?.permissions)) return true;
+  } catch (_) {
+    // ignore fetch errors; treat as non-admin
+  }
+
+  return false;
+}
+
 async function execute(interaction) {
   try {
-    const isAdmin = interaction.guild && interaction.member && interaction.member.permissions?.has(PermissionFlagsBits.Administrator);
+    const isAdmin = await isAdminUser(interaction);
     const currentSettings = await getGuildSettingsSmart(interaction.guildId);
     await showSettingsUI(interaction, currentSettings, isAdmin);
   } catch (error) {
@@ -32,7 +55,8 @@ async function execute(interaction) {
 async function handleButtonInteraction(interaction) {
   const { customId } = interaction;
   try {
-    if (!interaction.guild || !interaction.member || !interaction.member.permissions?.has(PermissionFlagsBits.Administrator)) {
+    const isAdmin = await isAdminUser(interaction);
+    if (!isAdmin) {
       return await safeReply(interaction, { content: '❌ この操作を実行するには「管理者」権限が必要です。', flags: MessageFlags.Ephemeral });
     }
     switch (customId) {
@@ -85,7 +109,8 @@ async function handleButtonInteraction(interaction) {
 async function handleSelectMenuInteraction(interaction) {
   const { customId, values } = interaction;
   try {
-    if (!interaction.guild || !interaction.member || !interaction.member.permissions?.has(PermissionFlagsBits.Administrator)) {
+    const isAdmin = await isAdminUser(interaction);
+    if (!isAdmin) {
       return await safeReply(interaction, { content: '❌ この操作を実行するには「管理者」権限が必要です。', flags: MessageFlags.Ephemeral });
     }
 
@@ -136,7 +161,8 @@ async function handleSelectMenuInteraction(interaction) {
 async function handleModalSubmit(interaction) {
   const { customId } = interaction;
   try {
-    if (!interaction.guild || !interaction.member || !interaction.member.permissions?.has(PermissionFlagsBits.Administrator)) {
+    const isAdmin = await isAdminUser(interaction);
+    if (!isAdmin) {
       return await safeReply(interaction, { content: '❌ この操作を実行するには「管理者」権限が必要です。', flags: MessageFlags.Ephemeral });
     }
     if (customId === 'default_title_modal') {
@@ -159,7 +185,8 @@ async function handleModalSubmit(interaction) {
 
 async function updateGuildSetting(interaction, settingKey, value) {
   try {
-    if (!interaction.guild || !interaction.member || !interaction.member.permissions?.has(PermissionFlagsBits.Administrator)) {
+    const isAdmin = await isAdminUser(interaction);
+    if (!isAdmin) {
       return await safeReply(interaction, { content: '❌ この操作を実行するには「管理者」権限が必要です。', flags: MessageFlags.Ephemeral });
     }
     const guildId = interaction.guildId;
@@ -200,7 +227,7 @@ async function updateGuildSetting(interaction, settingKey, value) {
     setTimeout(async () => {
       try {
         const latestSettings = await getGuildSettingsFromRedis(guildId);
-        const isAdmin = interaction.guild && interaction.member && interaction.member.permissions?.has(PermissionFlagsBits.Administrator);
+        const isAdmin = await isAdminUser(interaction);
         await showSettingsUI(interaction, latestSettings, isAdmin);
       } catch (error) {
         console.error('Settings UI update error:', error);
@@ -214,7 +241,8 @@ async function updateGuildSetting(interaction, settingKey, value) {
 
 async function finalizeSettingsHandler(interaction) {
   try {
-    if (!interaction.guild || !interaction.member || !interaction.member.permissions?.has(PermissionFlagsBits.Administrator)) {
+    const isAdmin = await isAdminUser(interaction);
+    if (!isAdmin) {
       return await safeReply(interaction, { content: '❌ この操作を実行するには「管理者」権限が必要です。', flags: MessageFlags.Ephemeral });
     }
 
@@ -258,7 +286,8 @@ async function finalizeSettingsHandler(interaction) {
 
 async function resetAllSettings(interaction) {
   try {
-    if (!interaction.guild || !interaction.member || !interaction.member.permissions?.has(PermissionFlagsBits.Administrator)) {
+    const isAdmin = await isAdminUser(interaction);
+    if (!isAdmin) {
       return await safeReply(interaction, { content: '❌ この操作を実行するには「管理者」権限が必要です。', flags: MessageFlags.Ephemeral });
     }
     const guildId = interaction.guildId;
@@ -279,7 +308,7 @@ async function resetAllSettings(interaction) {
     setTimeout(async () => {
       try {
         const resetSettings = await getGuildSettingsFromRedis(guildId);
-        const isAdmin = interaction.guild && interaction.member && interaction.member.permissions?.has(PermissionFlagsBits.Administrator);
+        const isAdmin = await isAdminUser(interaction);
         await showSettingsUI(interaction, resetSettings, isAdmin);
       } catch (error) {
         console.error('Settings UI update error:', error);
@@ -293,7 +322,8 @@ async function resetAllSettings(interaction) {
 
 async function toggleRecruitStyle(interaction) {
   try {
-    if (!interaction.guild || !interaction.member || !interaction.member.permissions?.has(PermissionFlagsBits.Administrator)) {
+    const isAdmin = await isAdminUser(interaction);
+    if (!isAdmin) {
       return await safeReply(interaction, { content: '❌ この操作を実行するには「管理者」権限が必要です。', flags: MessageFlags.Ephemeral });
     }
     const guildId = interaction.guildId;
@@ -304,7 +334,7 @@ async function toggleRecruitStyle(interaction) {
     setTimeout(async () => {
       try {
         const latest = await getGuildSettingsFromRedis(guildId);
-        const isAdmin = interaction.guild && interaction.member && interaction.member.permissions?.has(PermissionFlagsBits.Administrator);
+        const isAdmin = await isAdminUser(interaction);
         await showSettingsUI(interaction, latest, isAdmin);
       } catch (e) {
         console.error('Settings UI update error:', e);
@@ -320,7 +350,8 @@ async function toggleRecruitStyle(interaction) {
 
 async function toggleDedicatedChannel(interaction) {
   try {
-    if (!interaction.guild || !interaction.member || !interaction.member.permissions?.has(PermissionFlagsBits.Administrator)) {
+    const isAdmin = await isAdminUser(interaction);
+    if (!isAdmin) {
       return await safeReply(interaction, { content: '❌ この操作を実行するには「管理者」権限が必要です。', flags: MessageFlags.Ephemeral });
     }
     const guildId = interaction.guildId;
@@ -331,7 +362,7 @@ async function toggleDedicatedChannel(interaction) {
     setTimeout(async () => {
       try {
         const latest = await getGuildSettingsFromRedis(guildId);
-        const isAdmin = interaction.guild && interaction.member && interaction.member.permissions?.has(PermissionFlagsBits.Administrator);
+        const isAdmin = await isAdminUser(interaction);
         await showSettingsUI(interaction, latest, isAdmin);
       } catch (e) {
         console.error('Settings UI update error:', e);
@@ -347,7 +378,8 @@ async function toggleDedicatedChannel(interaction) {
 
 async function toggleSpecialMention(interaction, mentionType) {
   try {
-    if (!interaction.guild || !interaction.member || !interaction.member.permissions?.has(PermissionFlagsBits.Administrator)) {
+    const isAdmin = await isAdminUser(interaction);
+    if (!isAdmin) {
       return await safeReply(interaction, { content: '❌ この操作を実行するには「管理者」権限が必要です。', flags: MessageFlags.Ephemeral });
     }
 
