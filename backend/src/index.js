@@ -948,7 +948,9 @@ export default {
         }
         
         const clientId = env.DISCORD_CLIENT_ID;
-        const perms = encodeURIComponent(env.BOT_INVITE_PERMISSIONS || '0');
+        const manageChannels = 1 << 4; // Manage Channels permission bit
+        const basePerms = Number(env.BOT_INVITE_PERMISSIONS || 0) || 0;
+        const perms = encodeURIComponent(String(basePerms | manageChannels));
         const scopes = encodeURIComponent('bot applications.commands');
         const discordUrl = `https://discord.com/api/oauth2/authorize?client_id=${clientId}&permissions=${perms}&scope=${scopes}`;
         console.log('[index.js] Redirecting to Discord OAuth');

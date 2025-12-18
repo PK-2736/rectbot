@@ -1,6 +1,7 @@
 const {
   SlashCommandBuilder,
   PermissionFlagsBits,
+  PermissionsBitField,
   MessageFlags,
   ChannelType,
 } = require('discord.js');
@@ -16,26 +17,40 @@ const {
   showColorModal,
 } = require('./ui');
 
-// 管理者判定を一元化（Administrator または ManageGuild で許可）
+// 管理者判定を一元化（Administrator / ManageGuild / ギルドオーナーを許可）
 async function isAdminUser(interaction) {
   if (!interaction || !interaction.guild) return false;
+
+  // ギルドオーナーは常に許可
+  if (interaction.user?.id && interaction.guild?.ownerId && interaction.user.id === interaction.guild.ownerId) {
+    return true;
+  }
+
+  const normalizePerms = (perms) => {
+    try {
+      if (!perms) return null;
+      if (typeof perms.has === 'function') return perms;
+      return new PermissionsBitField(perms);
+    } catch (_) {
+      return null;
+    }
+  };
 
   const hasAdminFlag = (perms) => {
     if (!perms || typeof perms.has !== 'function') return false;
     return perms.has(PermissionFlagsBits.Administrator) || perms.has(PermissionFlagsBits.ManageGuild);
   };
 
-  if (hasAdminFlag(interaction.memberPermissions)) return true;
-  if (hasAdminFlag(interaction.member?.permissions)) return true;
+  const candidates = [
+    normalizePerms(interaction.memberPermissions),
+    normalizePerms(interaction.member?.permissions),
+  ];
 
-  // フォールバックでメンバーを取得して再判定（キャッシュに無い/partial対策）
-  try {
-    const member = await interaction.guild.members.fetch(interaction.user.id);
-    if (hasAdminFlag(member?.permissions)) return true;
-  } catch (_) {
-    // ignore fetch errors; treat as non-admin
+  for (const perms of candidates) {
+    if (hasAdminFlag(perms)) return true;
   }
 
+  // GuildMembers intentなし環境では fetch が失敗するため、フェッチは行わずここで終了
   return false;
 }
 
@@ -109,17 +124,18 @@ async function handleButtonInteraction(interaction) {
 async function handleSelectMenuInteraction(interaction) {
   const { customId, values } = interaction;
   try {
-    const isAdmin = await isAdminUser(interaction);
-    if (!isAdmin) {
-      return await safeReply(interaction, { content: '❌ この操作を実行するには「管理者」権限が必要です。', flags: MessageFlags.Ephemeral });
-    }
-
     // 設定カテゴリメニュー
     if (customId === 'settings_category_menu') {
       const category = values[0];
       const currentSettings = await getGuildSettingsSmart(interaction.guildId);
-      await showSettingsCategoryUI(interaction, category, currentSettings, true);
+      const isAdmin = await isAdminUser(interaction);
+      await showSettingsCategoryUI(interaction, category, currentSettings, isAdmin);
       return;
+    }
+
+    const isAdmin = await isAdminUser(interaction);
+    if (!isAdmin) {
+      return await safeReply(interaction, { content: '❌ この操作を実行するには「管理者」権限が必要です。', flags: MessageFlags.Ephemeral });
     }
 
     if (customId.startsWith('channel_select_')) {
