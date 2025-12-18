@@ -120,15 +120,6 @@ module.exports = {
         return;
       }
 
-      // 募集クローズ用セレクトメニュー
-      if (interaction.customId === 'rect_close_select') {
-        const closeCmd = client.commands.get('rect-close');
-        if (closeCmd && typeof closeCmd.handleSelectMenu === 'function') {
-          await handleComponentSafely(interaction, () => closeCmd.handleSelectMenu(interaction));
-        }
-        return;
-      }
-
       // ヘルプコマンドのセレクトメニュー
       if (interaction.customId === 'help_command_select') {
         const helpCommand = client.commands.get('help');
