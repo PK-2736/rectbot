@@ -322,7 +322,7 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
       if (finalRecruitData?.startTime === '今から') {
         const { ButtonBuilder, ButtonStyle } = require('discord.js');
         extraButtonsFinalSimple.push(
-          new ButtonBuilder().setCustomId(`create_vc_${actualRecruitId}`).setLabel('専用チャンネル作成').setEmoji('📢').setStyle(ButtonStyle.Warning)
+          new ButtonBuilder().setCustomId(`create_vc_${actualRecruitId}`).setLabel('専用チャンネル作成').setEmoji('📢').setStyle(ButtonStyle.Danger)
         );
       }
       updatedContainer = buildContainerSimple({
@@ -349,7 +349,7 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
       if (finalRecruitData?.startTime === '今から') {
         const { ButtonBuilder, ButtonStyle } = require('discord.js');
         extraButtonsFinalImg.push(
-          new ButtonBuilder().setCustomId(`create_vc_${actualRecruitId}`).setLabel('専用チャンネル作成').setEmoji('📢').setStyle(ButtonStyle.Warning)
+          new ButtonBuilder().setCustomId(`create_vc_${actualRecruitId}`).setLabel('専用チャンネル作成').setEmoji('📢').setStyle(ButtonStyle.Danger)
         );
       }
       updatedContainer = buildContainer({
@@ -943,7 +943,7 @@ async function handleModalSubmit(interaction) {
       if (recruitDataObj?.startTime === '今から') {
         const { ButtonBuilder, ButtonStyle } = require('discord.js');
         extraButtons.push(
-          new ButtonBuilder().setCustomId('create_vc_pending').setLabel('専用チャンネル作成').setEmoji('📢').setStyle(ButtonStyle.Warning)
+          new ButtonBuilder().setCustomId('create_vc_pending').setLabel('専用チャンネル作成').setEmoji('📢').setStyle(ButtonStyle.Danger)
         );
       }
       container = buildContainerSimple({
@@ -968,7 +968,7 @@ async function handleModalSubmit(interaction) {
       if (recruitDataObj?.startTime === '今から') {
         const { ButtonBuilder, ButtonStyle } = require('discord.js');
         extraButtons.push(
-          new ButtonBuilder().setCustomId('create_vc_pending').setLabel('専用チャンネル作成').setEmoji('📢').setStyle(ButtonStyle.Warning)
+          new ButtonBuilder().setCustomId('create_vc_pending').setLabel('専用チャンネル作成').setEmoji('📢').setStyle(ButtonStyle.Danger)
         );
       }
       container = buildContainer({
@@ -1037,7 +1037,7 @@ async function handleModalSubmit(interaction) {
         if (recruitDataObj?.startTime === '今から') {
           const { ButtonBuilder, ButtonStyle } = require('discord.js');
           extraButtonsImmediate.push(
-            new ButtonBuilder().setCustomId(`create_vc_${recruitId}`).setLabel('専用チャンネル作成').setEmoji('📢').setStyle(ButtonStyle.Warning)
+            new ButtonBuilder().setCustomId(`create_vc_${recruitId}`).setLabel('専用チャンネル作成').setEmoji('📢').setStyle(ButtonStyle.Danger)
           );
         }
         immediateContainer = buildContainerSimple({
@@ -1057,7 +1057,7 @@ async function handleModalSubmit(interaction) {
         if (recruitDataObj?.startTime === '今から') {
           const { ButtonBuilder, ButtonStyle } = require('discord.js');
           extraButtonsImmediate.push(
-            new ButtonBuilder().setCustomId(`create_vc_${recruitId}`).setLabel('専用チャンネル作成').setEmoji('📢').setStyle(ButtonStyle.Warning)
+            new ButtonBuilder().setCustomId(`create_vc_${recruitId}`).setLabel('専用チャンネル作成').setEmoji('📢').setStyle(ButtonStyle.Danger)
           );
         }
         immediateContainer = buildContainer({
@@ -1100,7 +1100,7 @@ async function handleModalSubmit(interaction) {
             .setCustomId(`create_vc_${secondaryRecruitId}`)
             .setLabel('専用チャンネル作成')
             .setEmoji('📢')
-            .setStyle(ButtonStyle.Warning);
+            .setStyle(ButtonStyle.Danger);
           const actionRow2 = new ActionRowBuilder().addComponents(createVCButton2);
           secondaryPayload.components.push(actionRow2);
         }
