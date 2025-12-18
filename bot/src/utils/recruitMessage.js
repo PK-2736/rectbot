@@ -218,7 +218,7 @@ async function updateParticipantList(interactionOrMessage, participants, savedRe
                       .setCustomId(button.customId)
                       .setLabel(button.label || '専用チャンネル作成')
                       .setEmoji('📢')
-                      .setStyle(ButtonStyle.Warning)
+                      .setStyle(ButtonStyle.Primary)
                   );
                 }
               }
