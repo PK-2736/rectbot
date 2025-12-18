@@ -783,7 +783,7 @@ async function handleModalSubmit(interaction) {
       // 前処理: クールダウン + 同時募集制限(最大3件)
       // enforce guild concurrent limit to 3 via ensureNoActiveRecruit
     if (!(await enforceCooldown(interaction))) return;
-    // if (!(await ensureNoActiveRecruit(interaction))) return; // temporarily disabled
+    if (!(await ensureNoActiveRecruit(interaction))) return;
 
     const guildSettings = await getGuildSettings(interaction.guildId);
 

@@ -29,7 +29,7 @@ try {
   redis = null;
 }
 
-// 募集TTL: 環境変数未設定時は3日(259200秒)
+// 募集TTL: 3日(259200秒 = 72時間)
 const RECRUIT_TTL_SECONDS = Number(process.env.REDIS_RECRUIT_TTL_SECONDS || 259200);
 
 async function ensureRedisConnection() {
