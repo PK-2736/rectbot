@@ -204,20 +204,14 @@ async function sendAnnouncements(interaction, selectedNotificationRole, configur
   const followUpMessage = await interaction.channel.send(baseOptions);
   let secondaryMessage = null;
 
-  // 複数チャンネルへの投稿対応
-  const recruitChannelIds = Array.isArray(guildSettings.recruit_channels) && guildSettings.recruit_channels.length > 0
-    ? guildSettings.recruit_channels
-    : (guildSettings.recruit_channel ? [guildSettings.recruit_channel] : []);
+  // 別チャンネルにも投稿（募集専用チャンネルの最初のもののみ）
+  const primaryRecruitChannelId = Array.isArray(guildSettings.recruit_channels) && guildSettings.recruit_channels.length > 0
+    ? guildSettings.recruit_channels[0]
+    : guildSettings.recruit_channel;
 
-  // すでに投稿したチャンネルのIDを追跡（重複投稿防止）
-  const postedChannels = new Set([interaction.channelId]);
-
-  for (const recruitChannelId of recruitChannelIds) {
-    if (postedChannels.has(recruitChannelId)) continue; // すでに投稿済みならスキップ
-    postedChannels.add(recruitChannelId);
-
+  if (primaryRecruitChannelId && primaryRecruitChannelId !== interaction.channelId) {
     try {
-      const recruitChannel = await interaction.guild.channels.fetch(recruitChannelId);
+      const recruitChannel = await interaction.guild.channels.fetch(primaryRecruitChannelId);
       if (recruitChannel && recruitChannel.isTextBased()) {
         if (selectedNotificationRole) {
           if (selectedNotificationRole === 'everyone') {
@@ -242,9 +236,7 @@ async function sendAnnouncements(interaction, selectedNotificationRole, configur
           if (Array.isArray(extraComponents) && extraComponents.length > 0) {
             secondaryOptions.components.push(...extraComponents);
           }
-          const msg = await recruitChannel.send(secondaryOptions);
-          // 最初の別チャンネル投稿のみをsecondaryMessageとして記録
-          if (!secondaryMessage) secondaryMessage = msg;
+          secondaryMessage = await recruitChannel.send(secondaryOptions);
         } catch (e) { console.warn('募集メッセージ送信失敗(指定ch):', e?.message || e); }
       }
     } catch (channelError) { console.error('指定チャンネルへの送信でエラー:', channelError); }
