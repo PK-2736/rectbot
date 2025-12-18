@@ -134,7 +134,27 @@ async function updateParticipantList(interactionOrMessage, participants, savedRe
     const accentColor = parseInt(useColor, 16);
     const recruiterId = savedRecruitData?.recruiterId || null;
     const requesterId = interaction ? interaction.user?.id : null;
-    const recruitIdText = savedRecruitData?.recruitId || (savedRecruitData?.message_id ? savedRecruitData.message_id.slice(-8) : '(unknown)');
+    const recruitIdText = savedRecruitData?.recruitId || (savedRecruitData?.message_id ? savedRecruitData.message_id.slice(-8) : (messageIdStr ? messageIdStr.slice(-8) : '(unknown)'));
+    const actualRecruitId = recruitId || (recruitIdText && recruitIdText !== '(unknown)' ? recruitIdText : null);
+
+    // 今から + 設定有効時は専用チャンネルボタンを再付与
+    const extraActionButtons = [];
+    try {
+      const { ButtonBuilder, ButtonStyle } = require('discord.js');
+      const enableDedicated = Boolean(guildSettings?.enable_dedicated_channel);
+      const isNowStart = String(savedRecruitData?.startTime || '').trim() === '今から';
+      if (enableDedicated && isNowStart && actualRecruitId) {
+        extraActionButtons.push(
+          new ButtonBuilder()
+            .setCustomId(`create_vc_${actualRecruitId}`)
+            .setLabel('専用チャンネル作成')
+            .setEmoji('📢')
+            .setStyle(ButtonStyle.Primary)
+        );
+      }
+    } catch (e) {
+      console.warn('updateParticipantList: failed to build extraActionButtons:', e?.message || e);
+    }
     let updatedContainer;
     if (style === 'simple') {
       const labelsLine = '**🕒 開始時間 | 👥 募集人数 | 🎙 通話有無**';
@@ -174,7 +194,8 @@ async function updateParticipantList(interactionOrMessage, participants, savedRe
         recruitIdText,
         accentColor,
         subHeaderText,
-        avatarUrl
+        avatarUrl,
+        extraActionButtons
       });
     } else {
       const { buildContainer } = require('./recruitHelpers');
@@ -191,47 +212,13 @@ async function updateParticipantList(interactionOrMessage, participants, savedRe
         recruiterId, 
         requesterId,
         subHeaderText,
-        avatarUrl
+        avatarUrl,
+        extraActionButtons
       });
     }
 
     if (message && message.edit) {
-      // 既存のメッセージから専用チャンネルボタンを保持
-      const existingComponents = message.components || [];
-      const componentsToKeep = [updatedContainer];
-      
-      // 専用チャンネルボタン（create_vc_）を探して保持
-      for (const row of existingComponents) {
-        try {
-          if (row && row.components && row.components.length > 0) {
-            const hasCreateVCButton = row.components.some(comp => 
-              comp && comp.customId && comp.customId.startsWith('create_vc_')
-            );
-            if (hasCreateVCButton) {
-              // ActionRowBuilder を再構築（安全性のため）
-              const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-              const newRow = new ActionRowBuilder();
-              for (const button of row.components) {
-                if (button && button.customId && button.customId.startsWith('create_vc_')) {
-                  newRow.addComponents(
-                    new ButtonBuilder()
-                      .setCustomId(button.customId)
-                      .setLabel(button.label || '専用チャンネル作成')
-                      .setEmoji('📢')
-                      .setStyle(ButtonStyle.Primary)
-                  );
-                }
-              }
-              componentsToKeep.push(newRow);
-              break;
-            }
-          }
-        } catch (e) {
-          console.warn('Failed to preserve create_vc button:', e?.message);
-        }
-      }
-      
-      const editPayload = { components: componentsToKeep, flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } };
+      const editPayload = { components: [updatedContainer], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } };
       if (style === 'image' && updatedImage) {
         editPayload.files = [updatedImage];
       }
