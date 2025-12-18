@@ -1108,16 +1108,6 @@ async function handleModalSubmit(interaction) {
         // ボタンのcustomIdはrecruitIdに依存するため再構築
         const secondaryPayload = { ...editPayload };
         secondaryPayload.components = [immediateContainer];
-        if (recruitDataObj?.startTime === '今から') {
-          const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-          const createVCButton2 = new ButtonBuilder()
-            .setCustomId(`create_vc_${secondaryRecruitId}`)
-            .setLabel('専用チャンネル作成')
-            .setEmoji('📢')
-            .setStyle(ButtonStyle.Primary);
-          const actionRow2 = new ActionRowBuilder().addComponents(createVCButton2);
-          secondaryPayload.components.push(actionRow2);
-        }
         // 送信直後の保留ボタン対応
         if (container.__addPendingButton && container.__pendingButtonRow) {
           secondaryPayload.components.push(container.__pendingButtonRow);
@@ -1183,7 +1173,7 @@ async function processCreateDedicatedChannel(interaction, recruitId) {
     
     // 募集データを取得して参加者リストを確認
     const recruit = await getRecruitFromRedis(recruitId).catch(() => null);
-    const messageId = recruit?.message_id || recruit?.messageId;
+    const messageId = recruit?.message_id || recruit?.messageId || interaction?.message?.id;
     let participants = [];
     try {
       if (messageId) {
@@ -1198,6 +1188,16 @@ async function processCreateDedicatedChannel(interaction, recruitId) {
       console.warn('Failed to get participants:', e?.message || e);
     }
     
+    // 参加者限定: 押下ユーザーが参加者に含まれているかチェック
+    if (!participants.includes(interaction.user.id)) {
+      await safeReply(interaction, {
+        content: '❌ この募集の参加者のみが専用チャンネルを作成できます。',
+        flags: MessageFlags.Ephemeral,
+        allowedMentions: { roles: [], users: [] }
+      });
+      return;
+    }
+
     if (participants.length === 0) {
       await safeReply(interaction, { 
         content: '❌ 参加者がいないため、チャンネルを作成できません。',
