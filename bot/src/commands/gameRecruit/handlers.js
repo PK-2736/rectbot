@@ -344,7 +344,7 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
     const contentText = contentTextValue && String(contentTextValue).trim().length > 0 
       ? `**📝 募集内容**\n${String(contentTextValue).slice(0, 1500)}` 
       : '';
-    console.log('[finalizePersistAndEdit] image style - contentText:', contentText);
+    /* quiet: avoid verbose content logging */
       const extraButtonsFinalImg = [];
       if (finalRecruitData?.startTime === '今から') {
         const { ButtonBuilder, ButtonStyle } = require('discord.js');
@@ -370,9 +370,7 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
       const editPayload = { components: [updatedContainer], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } };
 
       if (updatedImage) editPayload.files = [updatedImage];
-      console.log('[finalizePersistAndEdit] Calling actualMessage.edit() for messageId:', actualMessageId);
       const editedMsg = await actualMessage.edit(editPayload);
-      console.log('[finalizePersistAndEdit] Message edited successfully, recruitIdText should be:', actualRecruitId);
     } catch (editError) { console.error('メッセージ更新エラー:', editError?.message || editError); }
 
   // 自動締切タイマー（8h）— 一時的に無効化
@@ -392,10 +390,7 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
     setTimeout(async () => {
       try {
         // 重複送信チェック
-        if (startNotifySent.has(actualRecruitId)) {
-          console.log('[開始通知] 重複送信防止: 既に通知済み', actualRecruitId);
-          return;
-        }
+        if (startNotifySent.has(actualRecruitId)) { return; }
         startNotifySent.add(actualRecruitId);
         
         if (!recruitParticipants.has(actualMessageId)) return; // 既に終了
@@ -458,8 +453,6 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
         };
         
         await interaction.channel.send(sendOptions).catch(() => {});
-        
-        console.log('[開始通知] 送信完了:', actualRecruitId);
       } catch (e) {
         console.warn('開始通知送信失敗:', e?.message || e);
       }
@@ -758,7 +751,6 @@ async function processClose(interaction, messageId, savedRecruitData) {
                 const channel = await interaction.guild.channels.fetch(dedicatedChannelId).catch(() => null);
                 if (channel) {
                   await channel.delete();
-                  console.log(`[processClose] Deleted dedicated channel ${dedicatedChannelId}`);
                 }
                 await deleteDedicatedChannel(recruitId);
               } catch (e) {
@@ -780,10 +772,10 @@ async function processClose(interaction, messageId, savedRecruitData) {
 
 async function handleModalSubmit(interaction) {
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-  console.log('[handleModalSubmit] started for guild:', interaction.guildId, 'user:', interaction.user?.id);
+  // quiet
 
   if (interaction.customId !== 'recruitModal') {
-    console.log('[handleModalSubmit] ignored customId:', interaction.customId);
+    // ignore other modals
     return;
   }
 
@@ -814,10 +806,10 @@ async function handleModalSubmit(interaction) {
           const member = selectedMembers.get(id);
           return id !== interaction.user.id && !(member?.user?.bot);
         });
-        console.log('[handleModalSubmit] existingMembers selected from modal:', existingMembers);
+        // keep silent
       }
     } catch (e) {
-      console.log('[handleModalSubmit] no existing members selected or error:', e?.message || 'none');
+      // no existing members selected
       existingMembers = [];
     }
 
@@ -830,24 +822,24 @@ async function handleModalSubmit(interaction) {
         if (roleId === 'none') {
           // 「通知なし」が選択された
           selectedNotificationRole = null;
-          console.log('[handleModalSubmit] no notification role selected (user chose none)');
+          // none selected
         } else if (roleId === 'everyone' || roleId === 'here') {
           // @everyone または @here が選択された
           selectedNotificationRole = roleId;
-          console.log('[handleModalSubmit] special notification role selected:', roleId);
+          // special role selected
         } else {
           // ロールIDが選択された（StringSelectMenuなので設定済みロールのみが選択肢）
           selectedNotificationRole = roleId;
-          console.log('[handleModalSubmit] notificationRole selected from modal:', selectedNotificationRole);
+          // role selected
         }
       }
     } catch (e) {
-      console.log('[handleModalSubmit] no notification role selected or error:', e?.message || 'none');
+      // no notification role selected
       selectedNotificationRole = null;
     }
 
     const pendingData = pendingModalOptions.get(interaction.user.id);
-    console.log('[handleModalSubmit] pendingData:', pendingData);
+    // quiet
     
     // 通話場所のチャンネル名を取得
     let voiceChannelName = null;
@@ -875,13 +867,12 @@ async function handleModalSubmit(interaction) {
       recruitId: '',
       panelColor
     };
-    console.log('[handleModalSubmit] recruitDataObj.content:', recruitDataObj.content, 'from modal input');
-    console.log('[handleModalSubmit] recruitDataObj.title:', recruitDataObj.title, 'from pending.title:', pendingData?.title);
+    // quiet
     
     // pendingModalOptionsを削除（全データ取得済み）
     if (interaction.user && interaction.user.id) {
       pendingModalOptions.delete(interaction.user.id);
-      console.log('[handleModalSubmit] cleared pendingModalOptions for user:', interaction.user.id);
+      // cleared pending
     }
     
     // 通知ロールをrecruitDataObjに追加
@@ -943,7 +934,7 @@ async function handleModalSubmit(interaction) {
       const contentText = recruitDataObj?.content && String(recruitDataObj.content).trim().length > 0 
         ? `**📝 募集内容**\n${String(recruitDataObj.content).slice(0,1500)}` 
         : '';
-      console.log('[handleModalSubmit-simple] contentText:', contentText, 'recruitDataObj.content:', recruitDataObj?.content);
+      // quiet
       const titleText = recruitDataObj?.title ? `## ${String(recruitDataObj.title).slice(0,200)}` : '';
       // 募集主のアバターURL（右上サムネイル用）: client経由でfetch
       let avatarUrl = null;
@@ -1113,9 +1104,8 @@ async function handleModalSubmit(interaction) {
           secondaryPayload.components.push(container.__pendingButtonRow);
         }
         await secondaryMessage.edit(secondaryPayload);
-        console.log('[handleModalSubmit] Secondary message updated with recruitId:', secondaryRecruitId);
       }
-      console.log('[handleModalSubmit] Initial message updated with recruitId:', recruitId);
+      // updated initial message
     } catch (e) {
       console.warn('[handleModalSubmit] Initial message edit failed:', e?.message || e);
     }
@@ -1264,7 +1254,7 @@ async function processCreateDedicatedChannel(interaction, recruitId) {
       allowedMentions: { roles: [], users: [] }
     });
     
-    console.log(`[dedicatedChannel] Created channel ${dedicatedChannel.id} for recruit ${recruitId}`);
+    // quiet
   } catch (error) {
     console.error('[processCreateDedicatedChannel] Error:', error);
     await safeReply(interaction, {
@@ -1278,7 +1268,6 @@ async function processCreateDedicatedChannel(interaction, recruitId) {
 
 async function handleButton(interaction) {
   const messageId = interaction.message.id;
-  console.log('=== ボタンクリック処理開始 ===', messageId, interaction.customId);
 
   // 専用チャンネル作成ボタン
   if (interaction.customId.startsWith('create_vc_') || interaction.customId === 'create_vc_pending') {

@@ -8,32 +8,29 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('
  * @param {import('discord.js').Client} client - Discord.js Client
  */
 async function checkAndNotifyStartTime(client) {
-  console.log('[StartTimeNotifier] checkAndNotifyStartTime called');
-  
+  // quiet: avoid noisy interval logs
   if (!client) {
-    console.log('[StartTimeNotifier] ❌ Client is null');
+    console.warn('[StartTimeNotifier] Client is null');
     return;
   }
   
   if (!client.isReady()) {
-    console.log('[StartTimeNotifier] ❌ Client not ready, isReady():', client.isReady());
+    console.warn('[StartTimeNotifier] Client not ready');
     return;
   }
 
   try {
-    console.log('[StartTimeNotifier] ✅ Client ready, fetching active recruits...');
     // すべてのアクティブな募集を取得
     const result = await getActiveRecruits();
-    console.log('[StartTimeNotifier] getActiveRecruits result:', { ok: result.ok, bodyLength: result.body?.length, error: result.error });
     
     if (!result.ok || !result.body) {
-      console.log(`[StartTimeNotifier] Failed to fetch active recruits: ${result.error || 'unknown error'}`);
+      console.warn(`[StartTimeNotifier] Failed to fetch active recruits: ${result.error || 'unknown error'}`);
       return;
     }
     
     const activeRecruits = result.body;
     if (!Array.isArray(activeRecruits) || activeRecruits.length === 0) {
-      console.log('[StartTimeNotifier] No active recruits or invalid array');
+      // nothing to do
       return;
     }
 
@@ -43,8 +40,6 @@ async function checkAndNotifyStartTime(client) {
     const currentHour = jstNow.getUTCHours();
     const currentMinute = jstNow.getUTCMinutes();
     const currentTimeStr = `${currentHour}:${currentMinute.toString().padStart(2, '0')}`;
-
-    console.log(`[StartTimeNotifier] Checking ${activeRecruits.length} active recruits at JST ${currentTimeStr}`);
 
     const settingsCache = new Map();
 
@@ -57,10 +52,7 @@ async function checkAndNotifyStartTime(client) {
           continue;
         }
 
-        console.log(`[StartTimeNotifier] Recruit ${recruitId}: startTime=${recruit.startTime}, notified=${recruit.startTimeNotified}`);
-
         const guildId = recruit.guildId || recruit.guild_id || recruit.guild || recruit.metadata?.guildId;
-        console.log(`[StartTimeNotifier] Fetching settings for guildId: ${guildId}`);
         let guildSettings = settingsCache.get(guildId);
         if (!guildSettings) {
           guildSettings = await getGuildSettingsSmart(guildId).catch(e => {
@@ -68,21 +60,15 @@ async function checkAndNotifyStartTime(client) {
             return {};
           });
           settingsCache.set(guildId, guildSettings);
-          console.log(`[StartTimeNotifier] Cached guildSettings for ${guildId}:`, { 
-            hasSettings: !!Object.keys(guildSettings).length,
-            enable_dedicated_channel: guildSettings?.enable_dedicated_channel
-          });
         }
 
         // 既に通知済みの場合はスキップ（より厳密なチェック）
         if (recruit.startTimeNotified === true || recruit.startTimeNotified === 'true') {
-          console.log(`[StartTimeNotifier] Recruit ${recruitId} already notified, skipping`);
           continue;
         }
 
         // 「今から」の場合は通知をスキップ（募集作成時に専用チャンネルボタンが表示されるため）
         if (recruit.startTime === '今から' || recruit.startTime === 'now' || recruit.startTime === '今') {
-          console.log(`[StartTimeNotifier] Skipping notification for "今から" recruit ${recruitId}`);
           // フラグだけ更新して通知はスキップ
           await updateRecruitmentData(recruitId, { startTimeNotified: true, startTime: recruit.startTime });
           continue;
@@ -98,20 +84,12 @@ async function checkAndNotifyStartTime(client) {
         const startHour = parseInt(timeParts[0], 10);
         const startMinute = parseInt(timeParts[1], 10);
         
-        console.log(`[StartTimeNotifier] Comparing: current=${currentHour}:${currentMinute} vs start=${startHour}:${startMinute}`);
-        
         // 現在時刻と比較(分単位で一致)
         if (currentHour === startHour && currentMinute === startMinute) {
-          console.log(`[StartTimeNotifier] ✅ Triggering notification for recruit ${recruitId} at ${recruit.startTime}`);
-          
           // 重複通知を防ぐため、まずフラグを更新してから通知を送信
           await updateRecruitmentData(recruitId, { startTimeNotified: true, startTime: recruit.startTime });
-          console.log(`[StartTimeNotifier] Flag updated for recruit ${recruitId}, now sending notification`);
-          
           // 通知を送信
           await sendStartTimeNotification(client, recruit, guildSettings);
-          
-          console.log(`[StartTimeNotifier] Notification sent successfully for recruit ${recruitId}`);
         }
       } catch (err) {
         console.error(`[StartTimeNotifier] Error processing recruit ${recruit.recruitId || recruit.message_id}:`, err);
@@ -137,8 +115,6 @@ async function sendStartTimeNotification(client, recruit, guildSettings = null) 
     const vc = recruit.voice;
     const startTime = recruit.startTime;
 
-    console.log(`[StartTimeNotifier] Sending notification for recruit ${recruitId} in channel ${channelId}`);
-
     // チャンネルを取得
     let channel = null;
     if (channelId) {
@@ -148,7 +124,6 @@ async function sendStartTimeNotification(client, recruit, guildSettings = null) 
       const fallbackChannelId = guildSettings?.recruit_channel || (Array.isArray(guildSettings?.recruit_channels) ? guildSettings.recruit_channels[0] : null);
       if (fallbackChannelId) {
         channel = await client.channels.fetch(fallbackChannelId).catch(() => null);
-        console.log(`[StartTimeNotifier] Using fallback recruit channel ${fallbackChannelId}`);
       }
     }
     if (!channel || !channel.isTextBased()) {
@@ -158,7 +133,6 @@ async function sendStartTimeNotification(client, recruit, guildSettings = null) 
 
     // 参加者リストを取得 (messageIdを使用)
     const participantIds = await getParticipantsFromRedis(messageId).catch(() => []);
-    console.log(`[StartTimeNotifier] Found ${participantIds.length} participants for recruit ${recruitId}`);
     
     // 参加者のメンション
     const participantMentions = participantIds.length > 0 
@@ -208,7 +182,6 @@ async function sendStartTimeNotification(client, recruit, guildSettings = null) 
 
     const components = [];
     const enableDedicated = Boolean(guildSettings?.enable_dedicated_channel);
-    console.log(`[StartTimeNotifier] Guild ${guildId} dedicated_channel feature: ${enableDedicated}`);
     if (enableDedicated) {
       const button = new ButtonBuilder()
         .setCustomId(`create_vc_${recruitId}`)
@@ -217,9 +190,8 @@ async function sendStartTimeNotification(client, recruit, guildSettings = null) 
         .setStyle(ButtonStyle.Primary);
       const row = new ActionRowBuilder().addComponents(button);
       components.push(row);
-      console.log('[StartTimeNotifier] Added dedicated channel button to components');
     } else {
-      console.log('[StartTimeNotifier] Skipping dedicated channel button (feature disabled)');
+      // feature disabled
     }
 
     await channel.send({
@@ -229,7 +201,6 @@ async function sendStartTimeNotification(client, recruit, guildSettings = null) 
       allowedMentions: { users: participantIds }
     });
     
-    console.log(`[StartTimeNotifier] Notification sent for recruit ${recruitId}`);
   } catch (error) {
     console.error(`[StartTimeNotifier] Error sending notification for recruit ${recruit.recruitId}:`, error);
   }

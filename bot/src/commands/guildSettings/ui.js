@@ -36,7 +36,7 @@ async function showSettingsUI(interaction, settings = {}, isAdmin = false) {
   const container = new ContainerBuilder();
   container.setAccentColor(0x5865F2);
 
-  console.log('[guildSettings:showSettingsUI] isAdmin:', !!isAdmin);
+  // quiet
   container.addTextDisplayComponents(
     new TextDisplayBuilder().setContent(`### ⚙️ ギルド募集設定${isAdmin ? '' : ' (閲覧モード)'}`)
   );
@@ -136,7 +136,7 @@ async function showSettingsUI(interaction, settings = {}, isAdmin = false) {
 
   setTimeout(async () => {
     try { await interaction.deleteReply(); } catch (error) {
-      console.log('[guildSettings] メッセージの自動削除に失敗（既に削除済みの可能性）:', error.message);
+      console.warn('[guildSettings] メッセージの自動削除に失敗（既に削除済みの可能性）:', error.message);
     }
   }, 5 * 60 * 1000);
 }
@@ -325,7 +325,7 @@ async function showSettingsCategoryUI(interaction, category, settings = {}, isAd
 
   setTimeout(async () => {
     try { await interaction.deleteReply(); } catch (error) {
-      console.log('[guildSettings] メッセージの自動削除に失敗', error.message);
+      console.warn('[guildSettings] メッセージの自動削除に失敗', error.message);
     }
   }, 5 * 60 * 1000);
 }

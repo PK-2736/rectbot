@@ -6,29 +6,19 @@ const { safeRespond, handleCommandSafely, handleComponentSafely } = require('../
 module.exports = {
   name: 'interactionCreate',
   async execute(interaction, client) {
-    try {
-      console.log(
-        `[interaction] received: type=${interaction.type}` +
-          `${interaction.isChatInputCommand && interaction.isChatInputCommand() ? ` command=${interaction.commandName}` : ''}` +
-          `${interaction.isButton && interaction.isButton() ? ` button=${interaction.customId}` : ''}` +
-          `${interaction.isStringSelectMenu && interaction.isStringSelectMenu() ? ` select=${interaction.customId}` : ''}`
-      );
-    } catch (_) {}
+    try { /* reduce noisy receive logs */ } catch (_) {}
 
     // デデュープ: すでに処理済みのインタラクションIDなら無視
     try {
       const hasSet = client && client.processedInteractions && typeof client.processedInteractions.has === 'function' && client.processedInteractions.has(interaction.id);
-      if (hasSet) {
-        console.log(`[interactionCreate] Skipping already-processed interaction id=${interaction.id}`);
-        return;
-      }
+      if (hasSet) { return; }
       if (client && client.processedInteractions && typeof client.processedInteractions.add === 'function') {
         client.processedInteractions.add(interaction.id);
         setTimeout(() => {
           try {
             client.processedInteractions.delete(interaction.id);
           } catch (e) {
-            console.warn('[interactionCreate] Failed to remove interaction id from processedInteractions', e?.message || e);
+            /* silent */
           }
         }, client.DEDUPE_TTL_MS || 3000);
       }
@@ -86,21 +76,12 @@ module.exports = {
     // P0修正: スラッシュコマンドの処理を統一ハンドラーでラップ
     if (interaction.isChatInputCommand && interaction.isChatInputCommand()) {
       const command = client.commands.get(interaction.commandName);
-      if (!command) {
-        try {
-          console.warn(`[interactionCreate] Command handler not found for '${interaction.commandName}'. Available commands: ${[...client.commands.keys()].join(', ')}`);
-        } catch (e) {
-          console.warn('[interactionCreate] Command handler not found and failed to list available commands');
-        }
-        return;
-      }
+      if (!command) { return; }
       
       // 統一エラーハンドリング: deferReply + try/catch + 安全な返信
       const deferNeeded = !(command && command.noDefer === true);
       await handleCommandSafely(interaction, async (inter) => {
-        console.log(`[interactionCreate] about to call execute for command=${interaction.commandName}, executeType=${typeof command.execute}`);
         await command.execute(inter);
-        console.log(`[interactionCreate] execute returned for command=${interaction.commandName}`);
       }, { defer: deferNeeded, deferOptions: { ephemeral: true } });
       return;
     }
@@ -110,11 +91,9 @@ module.exports = {
       // ギルド設定のセレクトメニュー（カテゴリ選択含む）
       if (interaction.customId && (interaction.customId.startsWith('channel_select_') || interaction.customId.startsWith('role_select_') || interaction.customId === 'settings_category_menu')) {
         const guildSettings = getGuildSettingsCommand();
-        console.log(`[interactionCreate] routing to guildSettings (select) - found=${Boolean(guildSettings)}`);
         if (guildSettings && typeof guildSettings.handleSelectMenuInteraction === 'function') {
           await handleComponentSafely(interaction, () => guildSettings.handleSelectMenuInteraction(interaction));
         } else {
-          console.warn('[interactionCreate] guildSettings handler not found for select menu. Available commands:', [...client.commands.keys()].join(', '));
           await safeRespond(interaction, { content: '設定ハンドラが見つかりませんでした。', flags: MessageFlags.Ephemeral }).catch(() => {});
         }
         return;
@@ -132,10 +111,8 @@ module.exports = {
 
     // ロールセレクト/チャンネルセレクトの処理 (role/channel select)
     if ((interaction.isRoleSelectMenu && interaction.isRoleSelectMenu()) || (interaction.isChannelSelectMenu && interaction.isChannelSelectMenu())) {
-      console.log(`[interactionCreate] Role/Channel select menu - customId: ${interaction.customId}, type: ${interaction.type}`);
       if (interaction.customId && (interaction.customId.startsWith('channel_select_') || interaction.customId.startsWith('role_select_'))) {
         const guildSettings = getGuildSettingsCommand();
-        console.log(`[interactionCreate] routing to guildSettings (role/channel select) - found=${Boolean(guildSettings)}`);
         if (guildSettings && typeof guildSettings.handleSelectMenuInteraction === 'function') {
           try {
             await guildSettings.handleSelectMenuInteraction(interaction);
@@ -153,12 +130,10 @@ module.exports = {
 
     // モーダル送信(type=5)の処理
     if ((interaction.isModalSubmit && interaction.isModalSubmit()) || interaction.type === 5) {
-      console.log('[interactionCreate] Modal submit detected, customId:', interaction.customId);
       
       // ギルド設定のモーダル処理
       if (interaction.customId === 'default_title_modal' || interaction.customId === 'default_color_modal') {
         const guildSettings = getGuildSettingsCommand();
-        console.log(`[interactionCreate] routing to guildSettings (modal) - found=${Boolean(guildSettings)}`);
         if (guildSettings && typeof guildSettings.handleModalSubmit === 'function') {
           try {
             await guildSettings.handleModalSubmit(interaction);
@@ -175,9 +150,7 @@ module.exports = {
 
       // editRecruitコマンドのモーダル処理
       if (interaction.customId && interaction.customId.startsWith('editRecruitModal_')) {
-        console.log('[interactionCreate] Routing to rect-edit handleModalSubmit');
         const editRecruit = client.commands.get('rect-edit');
-        console.log('[interactionCreate] editRecruit command found:', Boolean(editRecruit), 'has handleModalSubmit:', editRecruit && typeof editRecruit.handleModalSubmit === 'function');
         if (editRecruit && typeof editRecruit.handleModalSubmit === 'function') {
           try {
             await editRecruit.handleModalSubmit(interaction);
@@ -269,11 +242,9 @@ module.exports = {
           await handleComponentSafely(interaction, async () => {
             try {
               const backendFetch = require('../utils/backendFetch');
-              console.log('[interactionCreate] one_time_support_invite button clicked');
               let resp;
               try {
                 resp = await backendFetch('/api/bot-invite/one-time', { method: 'POST' });
-                console.log('[interactionCreate] Backend response:', { ok: resp?.ok, url: resp?.url ? resp.url.slice(0, 60) + '...' : undefined });
               } catch (err) {
                 // 認証不足（SERVICE_TOKEN未設定や不一致）・ネットワークエラーの扱い
                 const status = err?.status;
@@ -290,7 +261,6 @@ module.exports = {
                 return;
               }
               // ランディング（ワンタイム）URLを返す（クリック時に消費 → Discord OAuth2 へリダイレクト）
-              console.log('[interactionCreate] Sending invite URL to user');
               await safeRespond(interaction, { content: `✅ 一回限りの招待リンクを発行しました。
 <${resp.url}>`, flags: require('discord.js').MessageFlags.Ephemeral });
             } catch (e) {

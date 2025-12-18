@@ -259,7 +259,7 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
       ctx.drawImage(avatar, x - circleRadius, y - circleRadius, circleRadius * 2, circleRadius * 2);
       ctx.restore();
       
-      console.log(`Avatar loaded for user ${user.username}`);
+      // quiet
     } catch (error) {
       console.error(`Failed to load avatar for user ${userId}:`, error);
       

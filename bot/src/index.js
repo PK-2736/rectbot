@@ -19,7 +19,6 @@ const fs = require('fs');
 const path = require('path');
 
 console.log(`[boot] Starting bot. Node: ${process.version}, env: ${process.env.NODE_ENV || 'development'}`);
-console.log(`[boot] CWD: ${process.cwd()}`);
 
 // P0修正: DISCORD_BOT_TOKEN未設定時は即座にプロセスを終了
 if (!TOKEN) {
@@ -69,7 +68,7 @@ for (const file of commandFiles) {
     client.commands.set(command.data.name, command);
   }
 }
-console.log(`[commands] Loaded ${client.commands.size} command(s): ${[...client.commands.keys()].join(', ')}`);
+// quiet: loaded commands
 
 // イベントの読み込み
 const eventFiles = fs.readdirSync(path.join(__dirname, 'events')).filter(file => file.endsWith('.js'));
@@ -81,7 +80,7 @@ for (const file of eventFiles) {
     client.on(event.name, (...args) => event.execute(...args, client));
   }
 }
-console.log(`[events] Loaded ${eventFiles.length} event(s): ${eventFiles.map(f => f.replace('.js', '')).join(', ')}`);
+// quiet: loaded events
 
 // ステータス更新のヘルパー
 function computeGuildStatusString(client) {
@@ -101,14 +100,14 @@ function setBotStatus(client) {
       activities: [{ name: text, type: ActivityType.Watching }],
       status: 'online'
     });
-    console.log(`[status] Updated bot status: ${text}`);
+    // quiet: avoid frequent status logs
   } catch (e) {
     console.warn('[status] Failed to set presence:', e?.message || e);
   }
 }
 
 client.once('clientReady', () => {
-  console.log(`[ready] Logged in as ${client.user.tag} (id: ${client.user.id})`);
+  console.log(`[ready] Logged in as ${client.user.tag} (${client.user.id})`);
   
   // ボットステータスを更新する関数
   const updateBotStatus = () => setBotStatus(client);
@@ -150,7 +149,6 @@ client.once('clientReady', () => {
   
   // 初回実行
   updateBotStatus();
-  console.log('[commands] runtime commands:', [...client.commands.keys()].join(', '));
   // updateGuildCount(); // 一時的にコメントアウト
 
   // --- 起動時ハイドレーション: Redis からアクティブな募集を読み込み、gameRecruit モジュールの recruitParticipants を初期化 ---
@@ -175,8 +173,8 @@ client.once('clientReady', () => {
                   } else if (gameRecruit && gameRecruit.recruitParticipants) {
                     gameRecruit.recruitParticipants.set(msgId, participants);
                   } else {
-                    // もし内部へのアクセスが異なる場合は console に出す
-                    console.log('[hydration] gameRecruit モジュールに recruitParticipants マップが見つかりません');
+                    // もし内部へのアクセスが異なる場合は警告のみ
+                    console.warn('[hydration] gameRecruit モジュールに recruitParticipants マップが見つかりません');
                   }
                 }
               }
@@ -184,7 +182,7 @@ client.once('clientReady', () => {
               console.warn('[hydration] 個別募集の復元で失敗:', e?.message || e);
             }
           }
-          console.log('[hydration] Redis からアクティブ募集の復元が完了しました:', recruits.length);
+          // quiet: hydration complete
         }
       } catch (e) {
         console.warn('[hydration] Redis からの募集一覧取得に失敗:', e?.message || e);
@@ -210,7 +208,6 @@ client.once('clientReady', () => {
 
 // ギルド参加時と退出時にもギルド数を更新
 client.on('guildCreate', async (guild) => {
-  console.log(`[guild] Joined guild: ${guild.name} (${guild.id})`);
   
   // ステータスを更新
   setBotStatus(client);
@@ -246,7 +243,6 @@ client.on('guildCreate', async (guild) => {
 });
 
 client.on('guildDelete', async (guild) => {
-  console.log(`[guild] Left guild: ${guild.name} (${guild.id})`);
   
   // ステータスを更新
   setBotStatus(client);

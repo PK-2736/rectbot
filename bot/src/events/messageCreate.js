@@ -14,8 +14,7 @@ module.exports = {
     const mentionRegex = /<@!?(\d+)>/g;
     const allMentions = [...message.content.matchAll(mentionRegex)];
     
-    console.log(`[messageCreate] Message content: "${message.content}"`);
-    console.log(`[messageCreate] All mentions: ${allMentions.map(m => m[1]).join(', ')}`);
+    // quiet
 
     // メッセージ送信者が自分自身にメンションしているかチェック
     const hasSelfMention = allMentions.some(match => match[1] === message.author.id);
@@ -27,7 +26,7 @@ module.exports = {
 
     // すべてのメンションを除去してゲーム名を取得
     const gameName = message.content.replace(mentionRegex, '').trim();
-    console.log(`[messageCreate] Game name: "${gameName}"`);
+    // quiet
 
     if (!gameName) {
       await message.reply('❌ ゲーム名を指定してください。\n例: `valorant @自分` または `ばろ @自分`');
