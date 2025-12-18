@@ -204,16 +204,22 @@ async function sendAnnouncements(interaction, selectedNotificationRole, configur
   const followUpMessage = await interaction.channel.send(baseOptions);
   let secondaryMessage = null;
 
-  // 別チャンネルにも投稿（複数設定時は先頭を優先）
-  const primaryRecruitChannelId = Array.isArray(guildSettings.recruit_channels) && guildSettings.recruit_channels.length > 0
-    ? guildSettings.recruit_channels[0]
-    : guildSettings.recruit_channel;
+  // 複数チャンネルへの投稿対応
+  const recruitChannelIds = Array.isArray(guildSettings.recruit_channels) && guildSettings.recruit_channels.length > 0
+    ? guildSettings.recruit_channels
+    : (guildSettings.recruit_channel ? [guildSettings.recruit_channel] : []);
 
-  if (primaryRecruitChannelId && primaryRecruitChannelId !== interaction.channelId) {
+  // すでに投稿したチャンネルのIDを追跡（重複投稿防止）
+  const postedChannels = new Set([interaction.channelId]);
+
+  for (const recruitChannelId of recruitChannelIds) {
+    if (postedChannels.has(recruitChannelId)) continue; // すでに投稿済みならスキップ
+    postedChannels.add(recruitChannelId);
+
     try {
-      const recruitChannel = await interaction.guild.channels.fetch(primaryRecruitChannelId);
+      const recruitChannel = await interaction.guild.channels.fetch(recruitChannelId);
       if (recruitChannel && recruitChannel.isTextBased()) {
-  if (selectedNotificationRole) {
+        if (selectedNotificationRole) {
           if (selectedNotificationRole === 'everyone') {
             (async () => { try { await recruitChannel.send({ content: '新しい募集が作成されました。@everyone', allowedMentions: { parse: ['everyone'] } }); } catch (e) { console.warn('通知送信失敗 (指定ch, @everyone):', e?.message || e); } })();
           } else if (selectedNotificationRole === 'here') {
@@ -236,7 +242,9 @@ async function sendAnnouncements(interaction, selectedNotificationRole, configur
           if (Array.isArray(extraComponents) && extraComponents.length > 0) {
             secondaryOptions.components.push(...extraComponents);
           }
-          secondaryMessage = await recruitChannel.send(secondaryOptions);
+          const msg = await recruitChannel.send(secondaryOptions);
+          // 最初の別チャンネル投稿のみをsecondaryMessageとして記録
+          if (!secondaryMessage) secondaryMessage = msg;
         } catch (e) { console.warn('募集メッセージ送信失敗(指定ch):', e?.message || e); }
       }
     } catch (channelError) { console.error('指定チャンネルへの送信でエラー:', channelError); }
@@ -322,7 +330,7 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
       if (finalRecruitData?.startTime === '今から') {
         const { ButtonBuilder, ButtonStyle } = require('discord.js');
         extraButtonsFinalSimple.push(
-          new ButtonBuilder().setCustomId(`create_vc_${actualRecruitId}`).setLabel('専用チャンネル作成').setEmoji('📢').setStyle(ButtonStyle.Danger)
+          new ButtonBuilder().setCustomId(`create_vc_${actualRecruitId}`).setLabel('専用チャンネル作成').setEmoji('📢').setStyle(ButtonStyle.Primary)
         );
       }
       updatedContainer = buildContainerSimple({
@@ -349,7 +357,7 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
       if (finalRecruitData?.startTime === '今から') {
         const { ButtonBuilder, ButtonStyle } = require('discord.js');
         extraButtonsFinalImg.push(
-          new ButtonBuilder().setCustomId(`create_vc_${actualRecruitId}`).setLabel('専用チャンネル作成').setEmoji('📢').setStyle(ButtonStyle.Danger)
+          new ButtonBuilder().setCustomId(`create_vc_${actualRecruitId}`).setLabel('専用チャンネル作成').setEmoji('📢').setStyle(ButtonStyle.Primary)
         );
       }
       updatedContainer = buildContainer({
@@ -943,7 +951,7 @@ async function handleModalSubmit(interaction) {
       if (recruitDataObj?.startTime === '今から') {
         const { ButtonBuilder, ButtonStyle } = require('discord.js');
         extraButtons.push(
-          new ButtonBuilder().setCustomId('create_vc_pending').setLabel('専用チャンネル作成').setEmoji('📢').setStyle(ButtonStyle.Danger)
+          new ButtonBuilder().setCustomId('create_vc_pending').setLabel('専用チャンネル作成').setEmoji('📢').setStyle(ButtonStyle.Primary)
         );
       }
       container = buildContainerSimple({
@@ -968,7 +976,7 @@ async function handleModalSubmit(interaction) {
       if (recruitDataObj?.startTime === '今から') {
         const { ButtonBuilder, ButtonStyle } = require('discord.js');
         extraButtons.push(
-          new ButtonBuilder().setCustomId('create_vc_pending').setLabel('専用チャンネル作成').setEmoji('📢').setStyle(ButtonStyle.Danger)
+          new ButtonBuilder().setCustomId('create_vc_pending').setLabel('専用チャンネル作成').setEmoji('📢').setStyle(ButtonStyle.Primary)
         );
       }
       container = buildContainer({
@@ -1037,7 +1045,7 @@ async function handleModalSubmit(interaction) {
         if (recruitDataObj?.startTime === '今から') {
           const { ButtonBuilder, ButtonStyle } = require('discord.js');
           extraButtonsImmediate.push(
-            new ButtonBuilder().setCustomId(`create_vc_${recruitId}`).setLabel('専用チャンネル作成').setEmoji('📢').setStyle(ButtonStyle.Danger)
+            new ButtonBuilder().setCustomId(`create_vc_${recruitId}`).setLabel('専用チャンネル作成').setEmoji('📢').setStyle(ButtonStyle.Primary)
           );
         }
         immediateContainer = buildContainerSimple({
@@ -1057,7 +1065,7 @@ async function handleModalSubmit(interaction) {
         if (recruitDataObj?.startTime === '今から') {
           const { ButtonBuilder, ButtonStyle } = require('discord.js');
           extraButtonsImmediate.push(
-            new ButtonBuilder().setCustomId(`create_vc_${recruitId}`).setLabel('専用チャンネル作成').setEmoji('📢').setStyle(ButtonStyle.Danger)
+            new ButtonBuilder().setCustomId(`create_vc_${recruitId}`).setLabel('専用チャンネル作成').setEmoji('📢').setStyle(ButtonStyle.Primary)
           );
         }
         immediateContainer = buildContainer({
@@ -1100,7 +1108,7 @@ async function handleModalSubmit(interaction) {
             .setCustomId(`create_vc_${secondaryRecruitId}`)
             .setLabel('専用チャンネル作成')
             .setEmoji('📢')
-            .setStyle(ButtonStyle.Danger);
+            .setStyle(ButtonStyle.Primary);
           const actionRow2 = new ActionRowBuilder().addComponents(createVCButton2);
           secondaryPayload.components.push(actionRow2);
         }
