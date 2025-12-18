@@ -42,10 +42,10 @@ async function execute(interaction) {
     }
     console.log('[gameRecruit.execute] matched active recruits for guild:', matched.map(m => m?.recruitId || m?.message_id || m?.recruit_id || '(no-id)'));
     const guildActiveCount = matched.length;
-    if (guildActiveCount >= 1) {
-      console.log('[gameRecruit.execute] blocking create due to existing active recruit');
+    if (guildActiveCount >= 3) {
+      console.log('[gameRecruit.execute] blocking create due to 3 active recruits limit');
       await safeReply(interaction, {
-        content: '❌ このサーバーでは同時に実行できる募集は1件までです。既存の募集を締め切ってから新しい募集を作成してください。',
+        content: '❌ このサーバーでは同時に実行できる募集は3件までです。既存の募集をいくつか締め切ってから新しい募集を作成してください。',
         flags: MessageFlags.Ephemeral,
         allowedMentions: { roles: [], users: [] }
       });
