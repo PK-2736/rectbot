@@ -1237,48 +1237,69 @@ async function processCreateDedicatedChannel(interaction, recruitId) {
       }))
     ];
     
-    const dedicatedChannel = await interaction.guild.channels.create({
-      name: channelName,
-      type: 0, // Text Channel
-      permissionOverwrites,
-      topic: `🎮 ${recruit?.title || '募集'} の専用チャンネル`,
-      parent: guildSettings?.dedicated_channel_category_id || undefined,
-    });
-
-    // ここから先は「作成済み」を前提にベストエフォート。失敗しても作成結果は返す。
     try {
-      // Redis に保存（86400秒 = 24時間のTTL）
-      await saveDedicatedChannel(recruitId, dedicatedChannel.id, 86400);
+      console.log('[processCreateDedicatedChannel] Creating channel with:', {
+        name: channelName,
+        permissionOverwritesLength: permissionOverwrites.length,
+        parentId: guildSettings?.dedicated_channel_category_id
+      });
+
+      const dedicatedChannel = await interaction.guild.channels.create({
+        name: channelName,
+        type: 0, // Text Channel
+        permissionOverwrites,
+        topic: `🎮 ${recruit?.title || '募集'} の専用チャンネル`,
+        parent: guildSettings?.dedicated_channel_category_id || undefined,
+      });
+
+      console.log('[processCreateDedicatedChannel] Channel created:', dedicatedChannel.id);
+
+      // ここから先は「作成済み」を前提にベストエフォート。失敗しても作成結果は返す。
+      try {
+        // Redis に保存（86400秒 = 24時間のTTL）
+        await saveDedicatedChannel(recruitId, dedicatedChannel.id, 86400);
+      } catch (error) {
+        console.warn('[processCreateDedicatedChannel] saveDedicatedChannel failed:', error);
+      }
+
+      try {
+        // ウェルカムメッセージを送信
+        const welcomeEmbed = new EmbedBuilder()
+          .setTitle('🎮 専用チャンネルへようこそ')
+          .setDescription(`**${recruit?.title || '募集'}** の専用チャンネルです。`)
+          .setColor('#5865F2')
+          .addFields(
+            { name: '参加者', value: participants.map(id => `<@${id}>`).join(', ') || 'なし', inline: false }
+          )
+          .setFooter({ text: 'Recrubo' })
+          .setTimestamp();
+
+        await dedicatedChannel.send({ embeds: [welcomeEmbed] });
+      } catch (error) {
+        console.warn('[processCreateDedicatedChannel] welcome message failed:', error);
+      }
+
+      await safeReply(interaction, { 
+        content: `✨ 専用チャンネルを作成しました: <#${dedicatedChannel.id}>`,
+        flags: MessageFlags.Ephemeral,
+        allowedMentions: { roles: [], users: [] }
+      });
     } catch (error) {
-      console.warn('[processCreateDedicatedChannel] saveDedicatedChannel failed:', error);
+      console.error('[processCreateDedicatedChannel] Channel creation failed:', error);
+      console.error('[processCreateDedicatedChannel] Error details:', {
+        message: error?.message,
+        code: error?.code,
+        status: error?.status,
+        stack: error?.stack
+      });
+      await safeReply(interaction, {
+        content: `❌ チャンネル作成に失敗しました。\n詳細: ${error?.message || '不明なエラー'}`,
+        flags: MessageFlags.Ephemeral,
+        allowedMentions: { roles: [], users: [] }
+      }).catch(() => null);
     }
-
-    try {
-      // ウェルカムメッセージを送信
-      const welcomeEmbed = new EmbedBuilder()
-        .setTitle('🎮 専用チャンネルへようこそ')
-        .setDescription(`**${recruit?.title || '募集'}** の専用チャンネルです。`)
-        .setColor('#5865F2')
-        .addFields(
-          { name: '参加者', value: participants.map(id => `<@${id}>`).join(', ') || 'なし', inline: false }
-        )
-        .setFooter({ text: 'Recrubo' })
-        .setTimestamp();
-
-      await dedicatedChannel.send({ embeds: [welcomeEmbed] });
-    } catch (error) {
-      console.warn('[processCreateDedicatedChannel] welcome message failed:', error);
-    }
-
-    await safeReply(interaction, { 
-      content: `✨ 専用チャンネルを作成しました: <#${dedicatedChannel.id}>`,
-      flags: MessageFlags.Ephemeral,
-      allowedMentions: { roles: [], users: [] }
-    });
-
-    // quiet
   } catch (error) {
-    console.error('[processCreateDedicatedChannel] Error:', error);
+    console.error('[processCreateDedicatedChannel] Outer error:', error);
     await safeReply(interaction, {
       content: '❌ チャンネル作成に失敗しました。',
       flags: MessageFlags.Ephemeral,
