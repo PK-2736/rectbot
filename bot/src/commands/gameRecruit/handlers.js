@@ -1219,6 +1219,18 @@ async function processCreateDedicatedChannel(interaction, recruitId) {
         id: interaction.guild.id,
         deny: ['ViewChannel']
       },
+      {
+        id: interaction.client.user.id,
+        allow: [
+          'ViewChannel',
+          'SendMessages',
+          'EmbedLinks',
+          'AttachFiles',
+          'ManageChannels',
+          'ManageMessages',
+          'ReadMessageHistory'
+        ]
+      },
       ...participants.map(userId => ({
         id: userId,
         allow: ['ViewChannel']
