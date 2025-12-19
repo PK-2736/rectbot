@@ -1232,29 +1232,38 @@ async function processCreateDedicatedChannel(interaction, recruitId) {
       topic: `🎮 ${recruit?.title || '募集'} の専用チャンネル`,
       parent: guildSettings?.dedicated_channel_category_id || undefined,
     });
-    
-    // Redis に保存（86400秒 = 24時間のTTL）
-    await saveDedicatedChannel(recruitId, dedicatedChannel.id, 86400);
-    
-    // ウェルカムメッセージを送信
-    const welcomeEmbed = new EmbedBuilder()
-      .setTitle('🎮 専用チャンネルへようこそ')
-      .setDescription(`**${recruit?.title || '募集'}** の専用チャンネルです。`)
-      .setColor('#5865F2')
-      .addFields(
-        { name: '参加者', value: participants.map(id => `<@${id}>`).join(', ') || 'なし', inline: false }
-      )
-      .setFooter({ text: 'Recrubo' })
-      .setTimestamp();
-    
-    await dedicatedChannel.send({ embeds: [welcomeEmbed] });
-    
+
+    // ここから先は「作成済み」を前提にベストエフォート。失敗しても作成結果は返す。
+    try {
+      // Redis に保存（86400秒 = 24時間のTTL）
+      await saveDedicatedChannel(recruitId, dedicatedChannel.id, 86400);
+    } catch (error) {
+      console.warn('[processCreateDedicatedChannel] saveDedicatedChannel failed:', error);
+    }
+
+    try {
+      // ウェルカムメッセージを送信
+      const welcomeEmbed = new EmbedBuilder()
+        .setTitle('🎮 専用チャンネルへようこそ')
+        .setDescription(`**${recruit?.title || '募集'}** の専用チャンネルです。`)
+        .setColor('#5865F2')
+        .addFields(
+          { name: '参加者', value: participants.map(id => `<@${id}>`).join(', ') || 'なし', inline: false }
+        )
+        .setFooter({ text: 'Recrubo' })
+        .setTimestamp();
+
+      await dedicatedChannel.send({ embeds: [welcomeEmbed] });
+    } catch (error) {
+      console.warn('[processCreateDedicatedChannel] welcome message failed:', error);
+    }
+
     await safeReply(interaction, { 
       content: `✨ 専用チャンネルを作成しました: <#${dedicatedChannel.id}>`,
       flags: MessageFlags.Ephemeral,
       allowedMentions: { roles: [], users: [] }
     });
-    
+
     // quiet
   } catch (error) {
     console.error('[processCreateDedicatedChannel] Error:', error);
