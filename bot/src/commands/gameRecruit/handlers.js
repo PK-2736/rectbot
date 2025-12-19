@@ -1217,23 +1217,23 @@ async function processCreateDedicatedChannel(interaction, recruitId) {
     const permissionOverwrites = [
       {
         id: interaction.guild.id,
-        deny: ['ViewChannel']
+        deny: [PermissionsBitField.Flags.ViewChannel]
       },
       {
         id: interaction.client.user.id,
         allow: [
-          'ViewChannel',
-          'SendMessages',
-          'EmbedLinks',
-          'AttachFiles',
-          'ManageChannels',
-          'ManageMessages',
-          'ReadMessageHistory'
+          PermissionsBitField.Flags.ViewChannel,
+          PermissionsBitField.Flags.SendMessages,
+          PermissionsBitField.Flags.EmbedLinks,
+          PermissionsBitField.Flags.AttachFiles,
+          PermissionsBitField.Flags.ManageChannels,
+          PermissionsBitField.Flags.ManageMessages,
+          PermissionsBitField.Flags.ReadMessageHistory
         ]
       },
       ...participants.map(userId => ({
         id: userId,
-        allow: ['ViewChannel']
+        allow: [PermissionsBitField.Flags.ViewChannel]
       }))
     ];
     
