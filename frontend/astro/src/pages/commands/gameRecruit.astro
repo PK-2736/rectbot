@@ -2,13 +2,176 @@
 import CommandLayout from "./CommandLayout.astro";
 
 const title = "ゲーム募集機能のコマンド";
-const description = "Recruboのゲーム募集コマンド（/rect, /setting, /rect-edit）の使い方。埋め込み画像で視覚的にわかりやすい募集を作成・管理する方法を解説。";
+const description = "Recruboのゲーム募集コマンド（/rect, /setting, /rect-edit, /rect-close）の使い方。埋め込み画像で視覚的にわかりやすい募集を作成・管理する方法を解説。";
 ---
 <CommandLayout title={title} description={description}>
-  <p class="text-lg text-slate-600 mb-6 text-center">ゲーム募集を作成・管理するためのコマンド一覧と使い方を紹介します。</p>
-  <ul class="space-y-2 text-slate-700">
-    <li><code class="bg-brand-50 border border-brand-200 text-slate-900 px-2 py-1 rounded">/rect</code> ゲーム募集を作成</li>
-    <li><code class="bg-brand-50 border border-brand-200 text-slate-900 px-2 py-1 rounded">/setting</code> 募集設定を変更</li>
-    <li><code class="bg-brand-50 border border-brand-200 text-slate-900 px-2 py-1 rounded">/rect-edit</code> 募集内容を編集</li>
-  </ul>
+  <p class="text-lg text-slate-600 mb-8 text-center">ゲーム募集を作成・管理するためのコマンド一覧と使い方を紹介します。</p>
+  
+  <!-- コマンド一覧 -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-12">
+    <div class="bg-gradient-to-br from-brand-50 to-white p-6 rounded-xl border border-brand-200 shadow-sm hover:shadow-md transition-shadow">
+      <h3 class="text-xl font-bold mb-2 text-brand-600">📝 /rect</h3>
+      <p class="text-slate-700">ゲーム募集を作成</p>
+    </div>
+    <div class="bg-gradient-to-br from-purple-50 to-white p-6 rounded-xl border border-purple-200 shadow-sm hover:shadow-md transition-shadow">
+      <h3 class="text-xl font-bold mb-2 text-purple-600">⚙️ /setting</h3>
+      <p class="text-slate-700">募集設定を変更</p>
+    </div>
+    <div class="bg-gradient-to-br from-green-50 to-white p-6 rounded-xl border border-green-200 shadow-sm hover:shadow-md transition-shadow">
+      <h3 class="text-xl font-bold mb-2 text-green-600">✏️ /rect-edit</h3>
+      <p class="text-slate-700">募集内容を編集</p>
+    </div>
+    <div class="bg-gradient-to-br from-rose-50 to-white p-6 rounded-xl border border-rose-200 shadow-sm hover:shadow-md transition-shadow">
+      <h3 class="text-xl font-bold mb-2 text-rose-600">🔒 /rect-close</h3>
+      <p class="text-slate-700">募集を締め切り</p>
+    </div>
+  </div>
+
+  <!-- /rect コマンド詳細 -->
+  <div class="mb-12">
+    <h2 class="text-2xl font-bold mb-6 text-slate-900 border-b-2 border-brand-200 pb-2">📝 /rect - 募集を作成する</h2>
+    
+    <div class="mb-6">
+      <h3 class="text-lg font-semibold mb-3 text-slate-800">🎯 基本的な使い方</h3>
+      <ol class="list-decimal list-inside space-y-3 text-slate-700 bg-slate-50 p-5 rounded-lg">
+        <li>Discordで <code class="bg-white px-2 py-1 rounded border">/rect</code> と入力</li>
+        <li>モーダルが開くので、以下を入力：
+          <ul class="list-disc list-inside ml-6 mt-2 space-y-1">
+            <li><strong>タイトル</strong>: 募集の見出し（例: ランクマッチ募集！）</li>
+            <li><strong>募集内容</strong>: 詳細な説明</li>
+            <li><strong>人数</strong>: 募集人数（例: 3）</li>
+            <li><strong>開始時間</strong>: いつから開始するか</li>
+            <li><strong>VC</strong>: ボイスチャット使用の有無</li>
+          </ul>
+        </li>
+        <li>送信すると、見やすい募集カードが投稿されます</li>
+        <li>他のユーザーは「参加」ボタンをクリックして参加できます</li>
+      </ol>
+    </div>
+
+    <div class="bg-white p-6 rounded-xl border-2 border-brand-200 shadow-sm mb-6">
+      <h4 class="text-md font-semibold mb-3 text-slate-800">📸 募集カードの例</h4>
+      <img src="/image copy.png" alt="募集カードの例" class="w-full max-w-md mx-auto rounded-lg shadow-md" />
+      <p class="text-sm text-slate-600 mt-3 text-center">タイトル、人数、開始時間が一目でわかる美しいデザイン</p>
+    </div>
+
+    <div class="bg-blue-50 border-l-4 border-blue-400 p-4 mb-6">
+      <p class="text-blue-800"><strong>💡 ヒント:</strong> タイトルにゲーム名を入れると、他のプレイヤーが見つけやすくなります</p>
+    </div>
+  </div>
+
+  <!-- /setting コマンド詳細 -->
+  <div class="mb-12">
+    <h2 class="text-2xl font-bold mb-6 text-slate-900 border-b-2 border-purple-200 pb-2">⚙️ /setting - 募集設定を変更する</h2>
+    
+    <div class="bg-white p-6 rounded-xl border-2 border-purple-200 shadow-sm mb-6">
+      <h4 class="text-md font-semibold mb-3 text-slate-800">📸 設定メニューの例</h4>
+      <img src="/image copy 2.png" alt="設定メニュー画面" class="w-full max-w-2xl mx-auto rounded-lg shadow-md mb-3" />
+      <p class="text-sm text-slate-600 text-center">セレクトメニューから設定項目を選択できます</p>
+    </div>
+
+    <div class="mb-6">
+      <h3 class="text-lg font-semibold mb-3 text-slate-800">🎨 カスタマイズオプション</h3>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="bg-gradient-to-br from-purple-50 to-white p-5 rounded-lg border border-purple-200">
+          <h4 class="font-bold text-purple-700 mb-2">📢 募集チャンネル</h4>
+          <p class="text-slate-700 text-sm mb-3">募集を投稿するチャンネルと通知チャンネルを指定</p>
+          <img src="/image copy 3.png" alt="チャンネル設定" class="w-full rounded-lg shadow-sm" />
+        </div>
+        <div class="bg-gradient-to-br from-purple-50 to-white p-5 rounded-lg border border-purple-200">
+          <h4 class="font-bold text-purple-700 mb-2">🔔 通知設定</h4>
+          <p class="text-slate-700 text-sm mb-3">参加・キャンセル時の通知ロールを設定</p>
+          <img src="/image copy 4.png" alt="通知設定" class="w-full rounded-lg shadow-sm" />
+        </div>
+        <div class="bg-gradient-to-br from-purple-50 to-white p-5 rounded-lg border border-purple-200">
+          <h4 class="font-bold text-purple-700 mb-2">🎨 表示設定</h4>
+          <p class="text-slate-700 text-sm mb-3">タイトル、カラー、スタイルをカスタマイズ</p>
+          <img src="/image copy 5.png" alt="表示設定" class="w-full rounded-lg shadow-sm" />
+        </div>
+        <div class="bg-gradient-to-br from-purple-50 to-white p-5 rounded-lg border border-purple-200">
+          <h4 class="font-bold text-purple-700 mb-2">⚡ 機能設定</h4>
+          <p class="text-slate-700 text-sm mb-3">専用チャンネル作成ボタンの有効化</p>
+          <img src="/image copy 6.png" alt="機能設定" class="w-full rounded-lg shadow-sm" />
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-purple-50 border-l-4 border-purple-400 p-4">
+      <p class="text-purple-800"><strong>⚠️ 注意:</strong> 設定変更には管理者権限が必要です</p>
+    </div>
+  </div>
+
+  <!-- /rect-edit コマンド詳細 -->
+  <div class="mb-12">
+    <h2 class="text-2xl font-bold mb-6 text-slate-900 border-b-2 border-green-200 pb-2">✏️ /rect-edit - 募集内容を編集する</h2>
+    
+    <div class="mb-6">
+      <h3 class="text-lg font-semibold mb-3 text-slate-800">📝 編集手順</h3>
+      <ol class="list-decimal list-inside space-y-3 text-slate-700 bg-slate-50 p-5 rounded-lg">
+        <li><code class="bg-white px-2 py-1 rounded border">/rect-edit</code> と入力</li>
+        <li>編集したい募集をオートコンプリートから選択</li>
+        <li>編集モーダルが開き、現在の内容が表示されます</li>
+        <li>変更したい項目を修正</li>
+        <li>送信すると、募集カードが即座に更新されます</li>
+      </ol>
+    </div>
+
+    <div class="bg-green-50 border-l-4 border-green-400 p-4 mb-6">
+      <p class="text-green-800"><strong>✅ 編集可能な項目:</strong> タイトル、募集内容、参加人数、開始時間、VC有無、カードの色</p>
+    </div>
+
+    <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4">
+      <p class="text-yellow-800"><strong>👤 権限:</strong> 募集を作成した本人のみ編集できます</p>
+    </div>
+  </div>
+
+  <!-- /rect-close コマンド詳細 -->
+  <div class="mb-12">
+    <h2 class="text-2xl font-bold mb-6 text-slate-900 border-b-2 border-rose-200 pb-2">🔒 /rect-close - 募集を締め切る</h2>
+    
+    <div class="mb-6">
+      <h3 class="text-lg font-semibold mb-3 text-slate-800">🎯 締切手順</h3>
+      <ol class="list-decimal list-inside space-y-3 text-slate-700 bg-slate-50 p-5 rounded-lg">
+        <li><code class="bg-white px-2 py-1 rounded border">/rect-close</code> と入力</li>
+        <li>締め切りたい募集をオートコンプリートから選択</li>
+        <li>確認メッセージが表示されます</li>
+        <li>実行すると：
+          <ul class="list-disc list-inside ml-6 mt-2 space-y-1">
+            <li>募集カードが締切状態に更新</li>
+            <li>参加ボタンが無効化</li>
+            <li>参加者に通知が送信</li>
+          </ul>
+        </li>
+      </ol>
+    </div>
+
+    <div class="bg-rose-50 border-l-4 border-rose-400 p-4">
+      <p class="text-rose-800"><strong>💡 活用例:</strong> 人数が揃った時、予定が変更になった時、募集をキャンセルしたい時に使用</p>
+    </div>
+  </div>
+
+  <!-- 便利な使い方 -->
+  <div class="bg-gradient-to-br from-brand-50 via-purple-50 to-rose-50 p-8 rounded-2xl border-2 border-brand-300 shadow-lg">
+    <h2 class="text-2xl font-bold mb-6 text-slate-900">💡 便利な使い方のヒント</h2>
+    <ul class="space-y-4 text-slate-700">
+      <li class="flex items-start">
+        <span class="text-2xl mr-3">⏰</span>
+        <div>
+          <strong>開始時間の書き方:</strong> 「21:00から」「30分後」「今から」など柔軟に指定できます
+        </div>
+      </li>
+      <li class="flex items-start">
+        <span class="text-2xl mr-3">🎨</span>
+        <div>
+          <strong>色でカテゴリ分け:</strong> ランクマは赤、カジュアルは青など、色で募集の種類を分けると見やすくなります
+        </div>
+      </li>
+      <li class="flex items-start">
+        <span class="text-2xl mr-3">📱</span>
+        <div>
+          <strong>スマホからも簡単:</strong> すべてのコマンドはスマホのDiscordアプリからも使えます
+        </div>
+      </li>
+    </ul>
+  </div>
 </CommandLayout>

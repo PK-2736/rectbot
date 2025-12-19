@@ -2,13 +2,167 @@
 import CommandLayout from "./CommandLayout.astro";
 
 const title = "フレンドコード管理コマンド";
-const description = "Recruboのフレンドコード管理コマンド（/friendcode add, list, remove）の使い方。複数のゲームのフレンドコードを一元管理する方法を解説。";
+const description = "Recruboのフレンドコード管理コマンド（/link-add, /link-show, /link-delete）の使い方。複数のゲームのフレンドコードを一元管理する方法を解説。";
 ---
 <CommandLayout title={title} description={description}>
-  <p class="text-lg text-slate-600 mb-6 text-center">フレンドコードを登録・管理するためのコマンド一覧と使い方を紹介します。</p>
-  <ul class="space-y-2 text-slate-700">
-    <li><code class="bg-brand-50 border border-brand-200 text-slate-900 px-2 py-1 rounded">/friendcode add</code> フレンドコードを登録</li>
-    <li><code class="bg-brand-50 border border-brand-200 text-slate-900 px-2 py-1 rounded">/friendcode list</code> 登録済みコードを表示</li>
-    <li><code class="bg-brand-50 border border-brand-200 text-slate-900 px-2 py-1 rounded">/friendcode remove</code> コードを削除</li>
-  </ul>
+  <p class="text-lg text-slate-600 mb-8 text-center">フレンドコードを登録・管理するためのコマンド一覧と使い方を紹介します。</p>
+  
+  <!-- コマンド一覧 -->
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-12">
+    <div class="bg-gradient-to-br from-green-50 to-white p-6 rounded-xl border border-green-200 shadow-sm hover:shadow-md transition-shadow">
+      <h3 class="text-xl font-bold mb-2 text-green-600">➕ /link-add</h3>
+      <p class="text-slate-700">フレンドコードを登録</p>
+    </div>
+    <div class="bg-gradient-to-br from-blue-50 to-white p-6 rounded-xl border border-blue-200 shadow-sm hover:shadow-md transition-shadow">
+      <h3 class="text-xl font-bold mb-2 text-blue-600">👁️ /link-show</h3>
+      <p class="text-slate-700">登録済みコードを表示</p>
+    </div>
+    <div class="bg-gradient-to-br from-red-50 to-white p-6 rounded-xl border border-red-200 shadow-sm hover:shadow-md transition-shadow">
+      <h3 class="text-xl font-bold mb-2 text-red-600">🗑️ /link-delete</h3>
+      <p class="text-slate-700">コードを削除</p>
+    </div>
+  </div>
+
+  <!-- /link-add コマンド詳細 -->
+  <div class="mb-12">
+    <h2 class="text-2xl font-bold mb-6 text-slate-900 border-b-2 border-green-200 pb-2">➕ /link-add - フレンドコードを登録する</h2>
+    
+    <div class="mb-6">
+      <h3 class="text-lg font-semibold mb-3 text-slate-800">📝 登録手順</h3>
+      <ol class="list-decimal list-inside space-y-3 text-slate-700 bg-slate-50 p-5 rounded-lg">
+        <li><code class="bg-white px-2 py-1 rounded border">/link-add</code> と入力</li>
+        <li>モーダルが開くので、以下を入力：
+          <ul class="list-disc list-inside ml-6 mt-2 space-y-1">
+            <li><strong>ゲーム名</strong>: 例）Valorant、スプラ、フォトナ など</li>
+            <li><strong>フレンドコード/ID</strong>: ゲーム内のIDやフレンドコード</li>
+          </ul>
+        </li>
+        <li>送信すると、コードが保存されます</li>
+      </ol>
+    </div>
+
+    <div class="bg-white p-6 rounded-xl border-2 border-green-200 shadow-sm mb-6">
+      <h4 class="text-md font-semibold mb-3 text-slate-800">📸 登録モーダルの例</h4>
+      <img src="/image copy 8.png" alt="フレンドコード登録モーダル" class="w-full max-w-md mx-auto rounded-lg shadow-md mb-3" />
+      <p class="text-sm text-slate-600 text-center">ゲーム名とフレンドコードを入力するだけで簡単に登録できます</p>
+    </div>
+
+    <div class="bg-white p-6 rounded-xl border-2 border-green-200 shadow-sm mb-6">
+      <h4 class="text-md font-semibold mb-3 text-slate-800">🤖 AI自動認識機能</h4>
+      <div class="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
+        <div class="bg-green-50 p-3 rounded-lg">
+          <p class="font-semibold text-green-700">ばろ → Valorant</p>
+        </div>
+        <div class="bg-green-50 p-3 rounded-lg">
+          <p class="font-semibold text-green-700">valo → Valorant</p>
+        </div>
+        <div class="bg-green-50 p-3 rounded-lg">
+          <p class="font-semibold text-green-700">スプラ → Splatoon</p>
+        </div>
+        <div class="bg-green-50 p-3 rounded-lg">
+          <p class="font-semibold text-green-700">apex → Apex Legends</p>
+        </div>
+        <div class="bg-green-50 p-3 rounded-lg">
+          <p class="font-semibold text-green-700">フォトナ → Fortnite</p>
+        </div>
+        <div class="bg-green-50 p-3 rounded-lg">
+          <p class="font-semibold text-green-700">マイクラ → Minecraft</p>
+        </div>
+      </div>
+      <p class="text-slate-600 mt-4 text-sm">ゲーム名は略称でもAIが自動で正式名称に変換します</p>
+    </div>
+
+    <div class="bg-blue-50 border-l-4 border-blue-400 p-4">
+      <p class="text-blue-800"><strong>💡 ヒント:</strong> 複数のゲームのコードを登録できます。1つのゲームに1つのコードを保存できます。</p>
+    </div>
+  </div>
+
+  <!-- /link-show コマンド詳細 -->
+  <div class="mb-12">
+    <h2 class="text-2xl font-bold mb-6 text-slate-900 border-b-2 border-blue-200 pb-2">👁️ /link-show - フレンドコードを表示する</h2>
+    
+    <div class="mb-6">
+      <h3 class="text-lg font-semibold mb-3 text-slate-800">📋 表示方法</h3>
+      <div class="space-y-4">
+        <div class="bg-slate-50 p-5 rounded-lg border border-slate-200">
+          <h4 class="font-bold text-slate-800 mb-2">🙋 自分のコードを表示</h4>
+          <code class="bg-white px-3 py-2 rounded border block">/link-show</code>
+          <p class="text-slate-600 text-sm mt-2">自分が登録したすべてのフレンドコードを表示</p>
+        </div>
+        <div class="bg-slate-50 p-5 rounded-lg border border-slate-200">
+          <h4 class="font-bold text-slate-800 mb-2">👥 他のユーザーのコードを表示</h4>
+          <code class="bg-white px-3 py-2 rounded border block">/link-show user:@ユーザー名</code>
+          <p class="text-slate-600 text-sm mt-2">指定したユーザーの公開フレンドコードを表示</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-white p-6 rounded-xl border-2 border-blue-200 shadow-sm mb-6">
+      <h4 class="text-md font-semibold mb-3 text-slate-800">📸 表示例</h4>
+      <img src="/image copy 9.png" alt="フレンドコード表示例" class="w-full max-w-md mx-auto rounded-lg shadow-md mb-3" />
+      <p class="text-sm text-slate-600 text-center">登録されたゲームとフレンドコードが美しく表示されます</p>
+    </div>
+
+    <div class="bg-white p-6 rounded-xl border-2 border-blue-200 shadow-sm mb-6">
+      <h4 class="text-md font-semibold mb-3 text-slate-800">💬 メンション機能の例</h4>
+      <img src="/image copy 10.png" alt="メンション機能" class="w-full max-w-md mx-auto rounded-lg shadow-md mb-3" />
+      <p class="text-sm text-slate-600 text-center">チャットで「valo @ユーザー名」と送信するだけでコードを表示</p>
+    </div>
+
+    <div class="bg-purple-50 border-l-4 border-purple-400 p-4">
+      <p class="text-purple-800"><strong>💬 便利な呼び出し:</strong> メンションでもコードを呼び出せます！<br>
+      例: <code class="bg-white px-2 py-1 rounded">valorant @username</code> とチャットで送信すると、そのユーザーのValorantコードを表示</p>
+    </div>
+  </div>
+
+  <!-- /link-delete コマンド詳細 -->
+  <div class="mb-12">
+    <h2 class="text-2xl font-bold mb-6 text-slate-900 border-b-2 border-red-200 pb-2">🗑️ /link-delete - フレンドコードを削除する</h2>
+    
+    <div class="mb-6">
+      <h3 class="text-lg font-semibold mb-3 text-slate-800">🎯 削除手順</h3>
+      <ol class="list-decimal list-inside space-y-3 text-slate-700 bg-slate-50 p-5 rounded-lg">
+        <li><code class="bg-white px-2 py-1 rounded border">/link-delete</code> と入力</li>
+        <li>セレクトメニューが表示され、登録済みゲーム一覧が表示されます</li>
+        <li>削除したいゲームを選択</li>
+        <li>確認メッセージが表示されます</li>
+        <li>確定すると、そのゲームのフレンドコードが削除されます</li>
+      </ol>
+    </div>
+
+    <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4">
+      <p class="text-yellow-800"><strong>⚠️ 注意:</strong> 削除したフレンドコードは復元できません。再度登録が必要です。</p>
+    </div>
+  </div>
+
+  <!-- 活用例 -->
+  <div class="bg-gradient-to-br from-green-50 via-blue-50 to-purple-50 p-8 rounded-2xl border-2 border-green-300 shadow-lg">
+    <h2 class="text-2xl font-bold mb-6 text-slate-900">💡 フレンドコード機能の活用例</h2>
+    <ul class="space-y-4 text-slate-700">
+      <li class="flex items-start">
+        <span class="text-2xl mr-3">🎮</span>
+        <div>
+          <strong>複数ゲームの一元管理:</strong> Valorant、Apex、スプラなど、すべてのゲームのIDを1箇所で管理
+        </div>
+      </li>
+      <li class="flex items-start">
+        <span class="text-2xl mr-3">👥</span>
+        <div>
+          <strong>新メンバーとの交流:</strong> サーバーに参加した新メンバーがすぐにフレンド申請できる
+        </div>
+      </li>
+      <li class="flex items-start">
+        <span class="text-2xl mr-3">🔄</span>
+        <div>
+          <strong>名前変更時も安心:</strong> ゲーム内で名前を変更したら、すぐに /link-add で更新（上書き保存）
+        </div>
+      </li>
+      <li class="flex items-start">
+        <span class="text-2xl mr-3">🚀</span>
+        <div>
+          <strong>募集と連携:</strong> 募集に参加した人のコードをすぐに確認して、フレンド申請をスムーズに
+        </div>
+      </li>
+    </ul>
+  </div>
 </CommandLayout>

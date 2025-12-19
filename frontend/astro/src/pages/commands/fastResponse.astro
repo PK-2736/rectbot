@@ -1,9 +1,150 @@
 ---
 import CommandLayout from "./CommandLayout.astro";
 
-const title = "高速レスポンスについて";
-const description = "Recruboの高速レスポンス機能について。最新技術による快適な応答速度で、Discordのゲーム募集とコミュニティ管理をスムーズに。";
+const title = "その他の便利なコマンド";
+const description = "Recruboのヘルプや招待コマンドの使い方。サポートやボット招待をスムーズに行うための便利な機能を解説。";
 ---
 <CommandLayout title={title} description={description}>
-	<p class="text-lg text-slate-600 mb-6 text-center">Recruboは最新技術で高速な応答を実現しています。特別な専用コマンドはありませんが、どの機能も快適に動作します。</p>
+  <p class="text-lg text-slate-600 mb-8 text-center">ヘルプ表示や招待など、Recruboをより便利に使うためのコマンドを紹介します。</p>
+  
+  <!-- コマンド一覧 -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-12">
+    <div class="bg-gradient-to-br from-blue-50 to-white p-6 rounded-xl border border-blue-200 shadow-sm hover:shadow-md transition-shadow">
+      <h3 class="text-xl font-bold mb-2 text-blue-600">❓ /help</h3>
+      <p class="text-slate-700">コマンド一覧とヘルプを表示</p>
+    </div>
+    <div class="bg-gradient-to-br from-purple-50 to-white p-6 rounded-xl border border-purple-200 shadow-sm hover:shadow-md transition-shadow">
+      <h3 class="text-xl font-bold mb-2 text-purple-600">🔗 /invite</h3>
+      <p class="text-slate-700">ボット招待リンクを取得</p>
+    </div>
+  </div>
+
+  <!-- /help コマンド詳細 -->
+  <div class="mb-12">
+    <h2 class="text-2xl font-bold mb-6 text-slate-900 border-b-2 border-blue-200 pb-2">❓ /help - ヘルプを表示する</h2>
+    
+    <div class="mb-6">
+      <h3 class="text-lg font-semibold mb-3 text-slate-800">📚 基本的な使い方</h3>
+      <ol class="list-decimal list-inside space-y-3 text-slate-700 bg-slate-50 p-5 rounded-lg">
+        <li><code class="bg-white px-2 py-1 rounded border">/help</code> と入力</li>
+        <li>コマンド選択メニューまたはオートコンプリートで特定のコマンドを選択（オプション）</li>
+        <li>すべてのコマンド一覧または選択したコマンドの詳細が表示されます</li>
+      </ol>
+    </div>
+
+    <div class="bg-white p-6 rounded-xl border-2 border-blue-200 shadow-sm mb-6">
+      <h4 class="text-md font-semibold mb-3 text-slate-800">📸 ヘルプメニューの例</h4>
+      <img src="/image copy 11.png" alt="ヘルプメニュー" class="w-full max-w-2xl mx-auto rounded-lg shadow-md mb-3" />
+      <p class="text-sm text-slate-600 text-center">すべてのコマンドが分かりやすく分類されています</p>
+    </div>
+
+    <div class="bg-white p-6 rounded-xl border-2 border-blue-200 shadow-sm mb-6">
+      <h4 class="text-md font-semibold mb-3 text-slate-800">🎯 ヘルプで見られる情報</h4>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="space-y-3">
+          <div class="flex items-start">
+            <span class="text-2xl mr-3">📋</span>
+            <div>
+              <p class="font-semibold text-slate-800">コマンド一覧</p>
+              <p class="text-sm text-slate-600">すべての利用可能なコマンド</p>
+            </div>
+          </div>
+          <div class="flex items-start">
+            <span class="text-2xl mr-3">💡</span>
+            <div>
+              <p class="font-semibold text-slate-800">使い方の説明</p>
+              <p class="text-sm text-slate-600">各コマンドの詳しい使用方法</p>
+            </div>
+          </div>
+        </div>
+        <div class="space-y-3">
+          <div class="flex items-start">
+            <span class="text-2xl mr-3">🎨</span>
+            <div>
+              <p class="font-semibold text-slate-800">オプション一覧</p>
+              <p class="text-sm text-slate-600">各コマンドの設定可能な項目</p>
+            </div>
+          </div>
+          <div class="flex items-start">
+            <span class="text-2xl mr-3">📝</span>
+            <div>
+              <p class="font-semibold text-slate-800">使用例</p>
+              <p class="text-sm text-slate-600">実際の入力例とその結果</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-blue-50 border-l-4 border-blue-400 p-4">
+      <p class="text-blue-800"><strong>💡 ヒント:</strong> 初めてRecruboを使う場合は、まず <code class="bg-white px-2 py-1 rounded">/help</code> で全体像を把握するのがおすすめです</p>
+    </div>
+  </div>
+
+  <!-- /invite コマンド詳細 -->
+  <div class="mb-12">
+    <h2 class="text-2xl font-bold mb-6 text-slate-900 border-b-2 border-purple-200 pb-2">🔗 /invite - ボット招待リンクを取得する</h2>
+    
+    <div class="mb-6">
+      <h3 class="text-lg font-semibold mb-3 text-slate-800">🎯 使い方</h3>
+      <ol class="list-decimal list-inside space-y-3 text-slate-700 bg-slate-50 p-5 rounded-lg">
+        <li><code class="bg-white px-2 py-1 rounded border">/invite</code> と入力</li>
+        <li>以下の2つのリンクが表示されます：
+          <ul class="list-disc list-inside ml-6 mt-2 space-y-1">
+            <li><strong>ボット招待リンク</strong>: Recruboを他のサーバーに追加</li>
+            <li><strong>サポートサーバー</strong>: ヘルプや質問ができる公式サーバー</li>
+          </ul>
+        </li>
+        <li>リンクをクリックして、サーバーを選択するだけで導入完了</li>
+      </ol>
+    </div>
+
+    <div class="bg-white p-6 rounded-xl border-2 border-purple-200 shadow-sm mb-6">
+      <h4 class="text-md font-semibold mb-3 text-slate-800">� 招待リンク画面の例</h4>
+      <img src="/image copy 7.png" alt="招待リンク画面" class="w-full max-w-2xl mx-auto rounded-lg shadow-md mb-3" />
+      <p class="text-sm text-slate-600 text-center">公式サーバーへの参加リンクとワンタイム招待リンクが表示されます</p>
+    </div>
+
+    <div class="bg-white p-6 rounded-xl border-2 border-purple-200 shadow-sm mb-6">
+      <h4 class="text-md font-semibold mb-3 text-slate-800">�🔐 セキュリティ機能</h4>
+      <div class="bg-purple-50 p-4 rounded-lg">
+        <p class="text-slate-700 mb-2"><strong>ワンタイム招待リンク</strong></p>
+        <p class="text-sm text-slate-600">各ユーザーに対して一度のみ有効な招待リンクを生成します。セキュリティを保ちながら、安全にボットを導入できます。</p>
+      </div>
+    </div>
+
+    <div class="bg-purple-50 border-l-4 border-purple-400 p-4">
+      <p class="text-purple-800"><strong>🌟 おすすめ:</strong> 友達にRecruboを紹介するときは、<code class="bg-white px-2 py-1 rounded">/invite</code> コマンドで招待リンクを共有しましょう</p>
+    </div>
+  </div>
+
+  <!-- 高速レスポンスについて -->
+  <div class="bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 p-8 rounded-2xl border-2 border-blue-300 shadow-lg">
+    <h2 class="text-2xl font-bold mb-6 text-slate-900">⚡ Recruboの高速レスポンス</h2>
+    <p class="text-slate-700 mb-4">Recruboは最新のCloudflare Workers技術を採用し、世界中どこからでも高速に応答します。</p>
+    
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+      <div class="bg-white p-5 rounded-lg border border-blue-200">
+        <div class="text-3xl mb-2">🚀</div>
+        <h4 class="font-bold text-slate-800 mb-2">瞬時の応答</h4>
+        <p class="text-sm text-slate-600">コマンド実行から表示まで1秒以内</p>
+      </div>
+      <div class="bg-white p-5 rounded-lg border border-purple-200">
+        <div class="text-3xl mb-2">🌍</div>
+        <h4 class="font-bold text-slate-800 mb-2">グローバル配信</h4>
+        <p class="text-sm text-slate-600">世界中のエッジサーバーで高速配信</p>
+      </div>
+      <div class="bg-white p-5 rounded-lg border border-pink-200">
+        <div class="text-3xl mb-2">💯</div>
+        <h4 class="font-bold text-slate-800 mb-2">安定稼働</h4>
+        <p class="text-sm text-slate-600">99.9%以上の高い稼働率を実現</p>
+      </div>
+    </div>
+
+    <div class="mt-6 bg-white/50 backdrop-blur-sm p-4 rounded-lg border border-blue-200">
+      <p class="text-sm text-slate-700">
+        <strong>技術スタック:</strong> Cloudflare Workers + Durable Objects + D1 Database により、エンタープライズグレードの速度と信頼性を実現
+      </p>
+    </div>
+  </div>
 </CommandLayout>
