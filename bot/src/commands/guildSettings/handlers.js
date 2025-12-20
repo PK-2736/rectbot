@@ -202,7 +202,7 @@ async function handleModalSubmit(interaction) {
       const title = interaction.fields.getTextInputValue('template_title');
       const membersRaw = interaction.fields.getTextInputValue('template_members');
       const colorRaw = interaction.fields.getTextInputValue('template_color');
-      const optionalRaw = interaction.fields.getTextInputValue('template_optional');
+      const roleRaw = interaction.fields.getTextInputValue('template_role');
 
       const parseIntSafe = (val) => {
         const num = Number(val);
@@ -237,75 +237,72 @@ async function handleModalSubmit(interaction) {
         return null;
       };
 
-      const optional = {
-        notificationRoleId: null,
-        content: null,
-        startTimeText: null,
-        regulationMembers: null,
-        voicePlace: null,
-        voiceOption: null,
+      const roleId = normalizeRoleInput(roleRaw);
+      if (!roleId) {
+        return await interaction.editReply({ embeds: [createErrorEmbed('通知ロールは @ロール名 または everyone/here で指定してください。', '入力エラー')] });
+      }
+
+      // 必須項目を検証したら、任意項目入力モーダルを表示
+      await interaction.editReply({ embeds: [createSuccessEmbed('必須項目を確認しました。次に任意項目（詳細設定）を入力してください。', 'ステップ1/2完了')] });
+
+      // 一時的にデータを保存（interaction メモリに保持）
+      const templateData = { name, title, participants: memberCount, color: hex, notificationRoleId: roleId };
+      interaction.templateData = templateData;
+
+      // 300ms後に任意項目モーダルを表示
+      setTimeout(async () => {
+        try {
+          const { showTemplateOptionalModal } = require('./ui');
+          await showTemplateOptionalModal(interaction, templateData);
+        } catch (err) {
+          console.error('[guildSettings] showTemplateOptionalModal error:', err);
+        }
+      }, 300);
+
+    } else if (customId === 'template_optional_modal') {
+      const content = interaction.fields.getTextInputValue('template_content') || null;
+      const startTime = interaction.fields.getTextInputValue('template_start_time') || null;
+      const regulationRaw = interaction.fields.getTextInputValue('template_regulation') || null;
+      const voicePlace = interaction.fields.getTextInputValue('template_voice_place') || null;
+      const voiceOption = interaction.fields.getTextInputValue('template_voice_option') || null;
+
+      const parseIntSafe = (val) => {
+        const num = Number(val);
+        return Number.isFinite(num) ? Math.trunc(num) : NaN;
       };
 
-      const pairs = optionalRaw
-        .split(/[\n,]/)
-        .map(p => p.trim())
-        .filter(Boolean);
-
-      for (const pair of pairs) {
-        const [rawKey, ...rest] = pair.split(/[:=：]/);
-        const key = (rawKey || '').trim().toLowerCase();
-        const value = rest.join(':').trim();
-        if (!key || !value) continue;
-
-        const isKey = (candidates) => candidates.some(c => key.includes(c));
-
-        if (isKey(['通知', 'role', 'ロール'])) {
-          const roleId = normalizeRoleInput(value);
-          if (!roleId) {
-            return await interaction.editReply({ embeds: [createErrorEmbed('通知ロールはロールID/@ロール/@everyone/@here で指定してください。', '入力エラー')] });
-          }
-          optional.notificationRoleId = roleId;
-        } else if (isKey(['内容', 'comment', 'メモ', '備考'])) {
-          optional.content = value.slice(0, 200);
-        } else if (isKey(['開始', 'start', '時間'])) {
-          optional.startTimeText = value.slice(0, 100);
-        } else if (isKey(['規定', '定員', 'required'])) {
-          const num = parseIntSafe(value);
-          if (Number.isFinite(num) && num > 0 && num <= 99) {
-            optional.regulationMembers = num;
-          }
-        } else if (isKey(['通話場所', 'vc', 'ボイス'])) {
-          optional.voicePlace = value.slice(0, 100);
-        } else if (isKey(['通話有無', '通話', 'voice'])) {
-          optional.voiceOption = value.slice(0, 50);
+      let regulationMembers = null;
+      if (regulationRaw) {
+        const num = parseIntSafe(regulationRaw);
+        if (Number.isFinite(num) && num > 0 && num <= 99) {
+          regulationMembers = num;
         }
       }
 
-      if (!optional.notificationRoleId) {
-        return await interaction.editReply({ embeds: [createErrorEmbed('通知ロールは必須です。「通知=ロール名」形式で入力してください。', '入力エラー')] });
-      }
+      // interaction.templateData から前のモーダルで保存したデータを取得
+      const baseData = interaction.templateData || {};
 
       try {
         await upsertTemplate({
           guildId: interaction.guildId,
           createdBy: interaction.user?.id,
-          name,
-          title,
-          participants: memberCount,
-          color: hex,
-          notificationRoleId: optional.notificationRoleId,
-          content: optional.content,
-          startTimeText: optional.startTimeText,
-          regulationMembers: optional.regulationMembers,
-          voicePlace: optional.voicePlace,
-          voiceOption: optional.voiceOption,
+          name: baseData.name,
+          title: baseData.title,
+          participants: baseData.participants,
+          color: baseData.color,
+          notificationRoleId: baseData.notificationRoleId,
+          content: content?.slice(0, 200),
+          startTimeText: startTime?.slice(0, 100),
+          regulationMembers,
+          voicePlace: voicePlace?.slice(0, 100),
+          voiceOption: voiceOption?.slice(0, 50),
         });
       } catch (error) {
         console.error('Template upsert error:', error);
         return await interaction.editReply({ embeds: [createErrorEmbed('テンプレートの保存に失敗しました。時間をおいて再度お試しください。', '保存エラー')] });
       }
 
-      await interaction.editReply({ embeds: [createSuccessEmbed('テンプレートを保存しました！', '募集テンプレート')] });
+      await interaction.editReply({ embeds: [createSuccessEmbed('テンプレートを保存しました！✨\n\n次回からこのテンプレートを使って素早く募集を開始できます。', '募集テンプレート')] });
     }
   } catch (error) {
     console.error('Modal submit error:', error);

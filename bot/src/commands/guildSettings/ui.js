@@ -487,7 +487,7 @@ async function showTemplateModal(interaction) {
 
   const memberInput = new TextInputBuilder()
     .setCustomId('template_members')
-    .setLabel('募集人数（必須）1-16')
+    .setLabel('募集人数（必須）1-16の数字')
     .setStyle(TextInputStyle.Short)
     .setRequired(true)
     .setMaxLength(2)
@@ -495,33 +495,96 @@ async function showTemplateModal(interaction) {
 
   const colorInput = new TextInputBuilder()
     .setCustomId('template_color')
-    .setLabel('募集色（必須）HEX 6桁 / #なし')
+    .setLabel('募集色（必須）HEX 6桁 #なし')
     .setStyle(TextInputStyle.Short)
     .setRequired(true)
     .setMinLength(6)
     .setMaxLength(6)
-    .setPlaceholder('例: 5865F2');
+    .setPlaceholder('例: 5865F2（青）、FF0000（赤）');
 
-  const optionalInput = new TextInputBuilder()
-    .setCustomId('template_optional')
-    .setLabel('通知ロール（必須）＋任意項目をカンマ区切りで')
-    .setStyle(TextInputStyle.Paragraph)
+  const roleInput = new TextInputBuilder()
+    .setCustomId('template_role')
+    .setLabel('通知ロール（必須）@ロール名 or everyone/here')
+    .setStyle(TextInputStyle.Short)
     .setRequired(true)
-    .setMaxLength(400)
-    .setPlaceholder('例: 通知=@レイド, 内容=エンジョイ, 開始=今から, 規定人数=4, 通話場所=VC1, 通話有無=あり');
+    .setMaxLength(50)
+    .setPlaceholder('例: @レイド員 または everyone');
 
   modal.addComponents(
     new ActionRowBuilder().addComponents(nameInput),
     new ActionRowBuilder().addComponents(titleInput),
     new ActionRowBuilder().addComponents(memberInput),
     new ActionRowBuilder().addComponents(colorInput),
-    new ActionRowBuilder().addComponents(optionalInput)
+    new ActionRowBuilder().addComponents(roleInput)
   );
 
   try {
     await interaction.showModal(modal);
   } catch (showErr) {
     console.error('[guildSettings] showTemplateModal error:', showErr);
+    throw showErr;
+  }
+}
+
+async function showTemplateOptionalModal(interaction, templateData) {
+  const modal = new ModalBuilder()
+    .setCustomId('template_optional_modal')
+    .setTitle('📄 テンプレート詳細設定（任意）');
+
+  const contentInput = new TextInputBuilder()
+    .setCustomId('template_content')
+    .setLabel('募集内容（任意）')
+    .setStyle(TextInputStyle.Paragraph)
+    .setRequired(false)
+    .setMaxLength(200)
+    .setPlaceholder('例: エンジョイ勢向け、レート不問、楽しくプレイしましょう');
+
+  const startTimeInput = new TextInputBuilder()
+    .setCustomId('template_start_time')
+    .setLabel('開始時間（任意）')
+    .setStyle(TextInputStyle.Short)
+    .setRequired(false)
+    .setMaxLength(100)
+    .setPlaceholder('例: 今から / 20:00 / 2時間後');
+
+  const regulationInput = new TextInputBuilder()
+    .setCustomId('template_regulation')
+    .setLabel('規定人数（任意）1-99の数字')
+    .setStyle(TextInputStyle.Short)
+    .setRequired(false)
+    .setMaxLength(2)
+    .setPlaceholder('例: 4 （最少必要人数）');
+
+  const voicePlaceInput = new TextInputBuilder()
+    .setCustomId('template_voice_place')
+    .setLabel('通話場所（任意）')
+    .setStyle(TextInputStyle.Short)
+    .setRequired(false)
+    .setMaxLength(100)
+    .setPlaceholder('例: Discord / VC1 / アプリ内通話');
+
+  const voiceOptionInput = new TextInputBuilder()
+    .setCustomId('template_voice_option')
+    .setLabel('通話有無（任意）')
+    .setStyle(TextInputStyle.Short)
+    .setRequired(false)
+    .setMaxLength(50)
+    .setPlaceholder('例: あり / なし / 推奨');
+
+  modal.addComponents(
+    new ActionRowBuilder().addComponents(contentInput),
+    new ActionRowBuilder().addComponents(startTimeInput),
+    new ActionRowBuilder().addComponents(regulationInput),
+    new ActionRowBuilder().addComponents(voicePlaceInput),
+    new ActionRowBuilder().addComponents(voiceOptionInput)
+  );
+
+  modal.data = templateData || {};
+
+  try {
+    await interaction.showModal(modal);
+  } catch (showErr) {
+    console.error('[guildSettings] showTemplateOptionalModal error:', showErr);
     throw showErr;
   }
 }
@@ -534,4 +597,5 @@ module.exports = {
   showTitleModal,
   showColorModal,
   showTemplateModal,
+  showTemplateOptionalModal,
 };

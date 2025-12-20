@@ -132,7 +132,7 @@ module.exports = {
     if ((interaction.isModalSubmit && interaction.isModalSubmit()) || interaction.type === 5) {
       
       // ギルド設定のモーダル処理
-      if (interaction.customId === 'default_title_modal' || interaction.customId === 'default_color_modal') {
+      if (interaction.customId === 'default_title_modal' || interaction.customId === 'default_color_modal' || interaction.customId === 'template_create_modal' || interaction.customId === 'template_optional_modal') {
         const guildSettings = getGuildSettingsCommand();
         if (guildSettings && typeof guildSettings.handleModalSubmit === 'function') {
           try {
