@@ -1224,11 +1224,7 @@ async function processCreateDedicatedChannel(interaction, recruitId) {
         allow: [
           PermissionsBitField.Flags.ViewChannel,
           PermissionsBitField.Flags.SendMessages,
-          PermissionsBitField.Flags.EmbedLinks,
-          PermissionsBitField.Flags.AttachFiles,
-          PermissionsBitField.Flags.ManageChannels,
-          PermissionsBitField.Flags.ManageMessages,
-          PermissionsBitField.Flags.ReadMessageHistory
+          PermissionsBitField.Flags.EmbedLinks
         ]
       },
       ...participants.map(userId => ({
@@ -1238,10 +1234,15 @@ async function processCreateDedicatedChannel(interaction, recruitId) {
     ];
     
     try {
-      console.log('[processCreateDedicatedChannel] Creating channel with:', {
+      console.log('[processCreateDedicatedChannel] Creating channel:', {
         name: channelName,
-        permissionOverwritesLength: permissionOverwrites.length,
-        parentId: guildSettings?.dedicated_channel_category_id
+        botId: interaction.client.user.id,
+        participantsCount: participants.length,
+        permissionOverwrites: JSON.stringify(permissionOverwrites.map(p => ({
+          id: p.id,
+          allow: Array.isArray(p.allow) ? p.allow.length : 0,
+          deny: Array.isArray(p.deny) ? p.deny.length : 0
+        })))
       });
 
       const dedicatedChannel = await interaction.guild.channels.create({
