@@ -271,6 +271,23 @@ async function showSettingsCategoryUI(interaction, category, settings = {}, isAd
         `📁 作成先カテゴリ: ${dedicatedCategory}`
       )
     );
+  } else if (category === 'templates') {
+    try {
+      const templates = await listTemplates(interaction.guildId);
+      const templateList = templates && templates.length > 0
+        ? templates.slice(0, 5)
+          .map((t, i) => `${i + 1}. **${t.name}** (${t.title}) - ${t.participants}人 - <@&${t.notification_role_id}>`)
+          .join('\n')
+        : 'テンプレートがありません';
+      container.addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(`**保存済みテンプレート**\n${templateList}`)
+      );
+    } catch (err) {
+      console.error('[guildSettings] Template list load error:', err);
+      container.addTextDisplayComponents(
+        new TextDisplayBuilder().setContent('**保存済みテンプレート**\nテンプレートを読み込めませんでした。')
+      );
+    }
   }
 
   container.addSeparatorComponents(
