@@ -299,7 +299,8 @@ module.exports = {
           'set_default_color',
           'set_update_channel',
           'reset_all_settings',
-          'finalize_settings'
+          'finalize_settings',
+          'create_template'
         ]);
 
         if (guildSettingsButtons.has(id)) {
