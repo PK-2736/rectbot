@@ -182,9 +182,10 @@ async function handleSelectMenuInteraction(interaction) {
 async function handleModalSubmit(interaction) {
   const { customId } = interaction;
   try {
+    await interaction.deferReply({ ephemeral: true });
     const isAdmin = await isAdminUser(interaction);
     if (!isAdmin) {
-      return await safeReply(interaction, { content: '❌ この操作を実行するには「管理者」権限が必要です。', flags: MessageFlags.Ephemeral });
+      return await interaction.editReply({ content: '❌ この操作を実行するには「管理者」権限が必要です。' });
     }
     if (customId === 'default_title_modal') {
       const title = interaction.fields.getTextInputValue('default_title');
@@ -192,7 +193,7 @@ async function handleModalSubmit(interaction) {
     } else if (customId === 'default_color_modal') {
       const color = interaction.fields.getTextInputValue('default_color');
       if (color && !/^[0-9A-Fa-f]{6}$/.test(color)) {
-        return await safeReply(interaction, { embeds: [createErrorEmbed('無効なカラーコードです。6桁の16進数（例: 5865F2）を入力してください。', '入力エラー')], flags: MessageFlags.Ephemeral });
+        return await interaction.editReply({ embeds: [createErrorEmbed('無効なカラーコードです。6桁の16進数（例: 5865F2）を入力してください。', '入力エラー')] });
       }
       await updateGuildSetting(interaction, 'defaultColor', color);
     } else if (customId === 'template_create_modal') {
@@ -209,7 +210,7 @@ async function handleModalSubmit(interaction) {
 
       const memberCount = parseIntSafe(membersRaw);
       if (!Number.isFinite(memberCount) || memberCount < 1 || memberCount > 16) {
-        return await safeReply(interaction, { embeds: [createErrorEmbed('募集人数は1〜16の数字で入力してください。', '入力エラー')], flags: MessageFlags.Ephemeral });
+        return await interaction.editReply({ embeds: [createErrorEmbed('募集人数は1〜16の数字で入力してください。', '入力エラー')] });
       }
 
       const normalizeHex = (c) => {
@@ -221,7 +222,7 @@ async function handleModalSubmit(interaction) {
 
       const hex = normalizeHex(colorRaw);
       if (!hex) {
-        return await safeReply(interaction, { embeds: [createErrorEmbed('募集色は6桁の16進数（#なし）で入力してください。', '入力エラー')], flags: MessageFlags.Ephemeral });
+        return await interaction.editReply({ embeds: [createErrorEmbed('募集色は6桁の16進数（#なし）で入力してください。', '入力エラー')] });
       }
 
       const normalizeRoleInput = (input) => {
@@ -260,7 +261,7 @@ async function handleModalSubmit(interaction) {
         if (isKey(['通知', 'role', 'ロール'])) {
           const roleId = normalizeRoleInput(value);
           if (!roleId) {
-            return await safeReply(interaction, { embeds: [createErrorEmbed('通知ロールはロールID/@ロール/@everyone/@here で指定してください。', '入力エラー')], flags: MessageFlags.Ephemeral });
+            return await interaction.editReply({ embeds: [createErrorEmbed('通知ロールはロールID/@ロール/@everyone/@here で指定してください。', '入力エラー')] });
           }
           optional.notificationRoleId = roleId;
         } else if (isKey(['内容', 'comment', 'メモ', '備考'])) {
@@ -280,7 +281,7 @@ async function handleModalSubmit(interaction) {
       }
 
       if (!optional.notificationRoleId) {
-        return await safeReply(interaction, { embeds: [createErrorEmbed('通知ロールは必須です。「通知=ロール名」形式で入力してください。', '入力エラー')], flags: MessageFlags.Ephemeral });
+        return await interaction.editReply({ embeds: [createErrorEmbed('通知ロールは必須です。「通知=ロール名」形式で入力してください。', '入力エラー')] });
       }
 
       try {
@@ -300,10 +301,10 @@ async function handleModalSubmit(interaction) {
         });
       } catch (error) {
         console.error('Template upsert error:', error);
-        return await safeReply(interaction, { embeds: [createErrorEmbed('テンプレートの保存に失敗しました。時間をおいて再度お試しください。', '保存エラー')], flags: MessageFlags.Ephemeral });
+        return await interaction.editReply({ embeds: [createErrorEmbed('テンプレートの保存に失敗しました。時間をおいて再度お試しください。', '保存エラー')] });
       }
 
-      await safeReply(interaction, { embeds: [createSuccessEmbed('テンプレートを保存しました！', '募集テンプレート')], flags: MessageFlags.Ephemeral });
+      await interaction.editReply({ embeds: [createSuccessEmbed('テンプレートを保存しました！', '募集テンプレート')] });
 
       setTimeout(async () => {
         try {
@@ -318,7 +319,7 @@ async function handleModalSubmit(interaction) {
   } catch (error) {
     console.error('Modal submit error:', error);
     if (!interaction.replied && !interaction.deferred) {
-      await safeReply(interaction, { content: '❌ 設定の更新でエラーが発生しました。', flags: MessageFlags.Ephemeral });
+      await interaction.editReply({ content: '❌ 設定の更新でエラーが発生しました。' });
     }
   }
 }
