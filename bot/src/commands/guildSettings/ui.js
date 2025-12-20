@@ -497,7 +497,12 @@ async function showTemplateModal(interaction) {
     new ActionRowBuilder().addComponents(optionalInput)
   );
 
-  await interaction.showModal(modal);
+  try {
+    await interaction.showModal(modal);
+  } catch (showErr) {
+    console.error('[guildSettings] showTemplateModal error:', showErr);
+    throw showErr;
+  }
 }
 
 module.exports = {

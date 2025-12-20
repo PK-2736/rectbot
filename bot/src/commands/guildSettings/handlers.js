@@ -112,7 +112,14 @@ async function handleButtonInteraction(interaction) {
         await toggleDedicatedChannel(interaction);
         break;
       case 'create_template':
-        await showTemplateModal(interaction);
+        try {
+          await showTemplateModal(interaction);
+        } catch (modalErr) {
+          console.error('showTemplateModal error:', modalErr);
+          if (!interaction.replied && !interaction.deferred) {
+            await safeReply(interaction, { content: '❌ モーダルの表示に失敗しました。', flags: MessageFlags.Ephemeral });
+          }
+        }
         break;
       case 'set_dedicated_category':
         await showChannelSelect(interaction, 'dedicated_channel_category_id', '📂 専用チャンネル用カテゴリを選択してください', { maxValues: 1, channelTypes: [ChannelType.GuildCategory] });
