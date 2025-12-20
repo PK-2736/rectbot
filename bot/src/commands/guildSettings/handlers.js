@@ -195,6 +195,125 @@ async function handleModalSubmit(interaction) {
         return await safeReply(interaction, { embeds: [createErrorEmbed('無効なカラーコードです。6桁の16進数（例: 5865F2）を入力してください。', '入力エラー')], flags: MessageFlags.Ephemeral });
       }
       await updateGuildSetting(interaction, 'defaultColor', color);
+    } else if (customId === 'template_create_modal') {
+      const name = interaction.fields.getTextInputValue('template_name');
+      const title = interaction.fields.getTextInputValue('template_title');
+      const membersRaw = interaction.fields.getTextInputValue('template_members');
+      const colorRaw = interaction.fields.getTextInputValue('template_color');
+      const optionalRaw = interaction.fields.getTextInputValue('template_optional');
+
+      const parseIntSafe = (val) => {
+        const num = Number(val);
+        return Number.isFinite(num) ? Math.trunc(num) : NaN;
+      };
+
+      const memberCount = parseIntSafe(membersRaw);
+      if (!Number.isFinite(memberCount) || memberCount < 1 || memberCount > 16) {
+        return await safeReply(interaction, { embeds: [createErrorEmbed('募集人数は1〜16の数字で入力してください。', '入力エラー')], flags: MessageFlags.Ephemeral });
+      }
+
+      const normalizeHex = (c) => {
+        if (!c) return null;
+        let v = String(c).trim();
+        if (v.startsWith('#')) v = v.slice(1);
+        return /^[0-9A-Fa-f]{6}$/.test(v) ? v.toUpperCase() : null;
+      };
+
+      const hex = normalizeHex(colorRaw);
+      if (!hex) {
+        return await safeReply(interaction, { embeds: [createErrorEmbed('募集色は6桁の16進数（#なし）で入力してください。', '入力エラー')], flags: MessageFlags.Ephemeral });
+      }
+
+      const normalizeRoleInput = (input) => {
+        if (!input) return null;
+        const raw = String(input).trim();
+        const lower = raw.toLowerCase();
+        if (lower === '@everyone' || lower === 'everyone') return 'everyone';
+        if (lower === '@here' || lower === 'here') return 'here';
+        const mentionMatch = raw.match(/^(?:<@&)?(\d+)>?$/);
+        if (mentionMatch) return mentionMatch[1];
+        return null;
+      };
+
+      const optional = {
+        notificationRoleId: null,
+        content: null,
+        startTimeText: null,
+        regulationMembers: null,
+        voicePlace: null,
+        voiceOption: null,
+      };
+
+      const pairs = optionalRaw
+        .split(/[\n,]/)
+        .map(p => p.trim())
+        .filter(Boolean);
+
+      for (const pair of pairs) {
+        const [rawKey, ...rest] = pair.split(/[:=：]/);
+        const key = (rawKey || '').trim().toLowerCase();
+        const value = rest.join(':').trim();
+        if (!key || !value) continue;
+
+        const isKey = (candidates) => candidates.some(c => key.includes(c));
+
+        if (isKey(['通知', 'role', 'ロール'])) {
+          const roleId = normalizeRoleInput(value);
+          if (!roleId) {
+            return await safeReply(interaction, { embeds: [createErrorEmbed('通知ロールはロールID/@ロール/@everyone/@here で指定してください。', '入力エラー')], flags: MessageFlags.Ephemeral });
+          }
+          optional.notificationRoleId = roleId;
+        } else if (isKey(['内容', 'comment', 'メモ', '備考'])) {
+          optional.content = value.slice(0, 200);
+        } else if (isKey(['開始', 'start', '時間'])) {
+          optional.startTimeText = value.slice(0, 100);
+        } else if (isKey(['規定', '定員', 'required'])) {
+          const num = parseIntSafe(value);
+          if (Number.isFinite(num) && num > 0 && num <= 99) {
+            optional.regulationMembers = num;
+          }
+        } else if (isKey(['通話場所', 'vc', 'ボイス'])) {
+          optional.voicePlace = value.slice(0, 100);
+        } else if (isKey(['通話有無', '通話', 'voice'])) {
+          optional.voiceOption = value.slice(0, 50);
+        }
+      }
+
+      if (!optional.notificationRoleId) {
+        return await safeReply(interaction, { embeds: [createErrorEmbed('通知ロールは必須です。「通知=ロール名」形式で入力してください。', '入力エラー')], flags: MessageFlags.Ephemeral });
+      }
+
+      try {
+        await upsertTemplate({
+          guildId: interaction.guildId,
+          createdBy: interaction.user?.id,
+          name,
+          title,
+          participants: memberCount,
+          color: hex,
+          notificationRoleId: optional.notificationRoleId,
+          content: optional.content,
+          startTimeText: optional.startTimeText,
+          regulationMembers: optional.regulationMembers,
+          voicePlace: optional.voicePlace,
+          voiceOption: optional.voiceOption,
+        });
+      } catch (error) {
+        console.error('Template upsert error:', error);
+        return await safeReply(interaction, { embeds: [createErrorEmbed('テンプレートの保存に失敗しました。時間をおいて再度お試しください。', '保存エラー')], flags: MessageFlags.Ephemeral });
+      }
+
+      await safeReply(interaction, { embeds: [createSuccessEmbed('テンプレートを保存しました！', '募集テンプレート')], flags: MessageFlags.Ephemeral });
+
+      setTimeout(async () => {
+        try {
+          const latestSettings = await getGuildSettingsSmart(interaction.guildId);
+          const isAdminLatest = await isAdminUser(interaction);
+          await showSettingsCategoryUI(interaction, 'templates', latestSettings, isAdminLatest);
+        } catch (err) {
+          console.error('Template UI refresh error:', err);
+        }
+      }, 800);
     }
   } catch (error) {
     console.error('Modal submit error:', error);
