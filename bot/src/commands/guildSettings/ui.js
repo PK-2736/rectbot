@@ -493,20 +493,10 @@ async function showTemplateModal(interaction) {
     .setMaxLength(2)
     .setPlaceholder('例: 4');
 
-  const colorInput = new TextInputBuilder()
-    .setCustomId('template_color')
-    .setLabel('募集色（必須）HEX 6桁 #なし')
-    .setStyle(TextInputStyle.Short)
-    .setRequired(true)
-    .setMinLength(6)
-    .setMaxLength(6)
-    .setPlaceholder('例: 5865F2（青）、FF0000（赤）');
-
   modal.addComponents(
     new ActionRowBuilder().addComponents(nameInput),
     new ActionRowBuilder().addComponents(titleInput),
-    new ActionRowBuilder().addComponents(memberInput),
-    new ActionRowBuilder().addComponents(colorInput)
+    new ActionRowBuilder().addComponents(memberInput)
   );
 
   try {
@@ -580,6 +570,61 @@ async function showTemplateOptionalModal(interaction, templateData) {
   }
 }
 
+const RECRUIT_COLOR_CHOICES = [
+  { name: '赤', value: 'FF0000' },
+  { name: 'オレンジ', value: 'FF8000' },
+  { name: '黄', value: 'FFFF00' },
+  { name: '緑', value: '00FF00' },
+  { name: '水色', value: '00FFFF' },
+  { name: '青', value: '0000FF' },
+  { name: '紫', value: '8000FF' },
+  { name: 'ピンク', value: 'FF69B4' },
+  { name: '茶', value: '8B4513' },
+  { name: '白', value: 'FFFFFF' },
+  { name: '黒', value: '000000' },
+  { name: 'グレー', value: '808080' },
+];
+
+async function showTemplateColorSelect(interaction) {
+  const options = RECRUIT_COLOR_CHOICES.map(c =>
+    new StringSelectMenuOptionBuilder()
+      .setLabel(`${c.name} (#${c.value})`)
+      .setValue(c.value)
+  );
+
+  const selectMenu = new StringSelectMenuBuilder()
+    .setCustomId(`template_color_select_${interaction.id}`)
+    .setPlaceholder('募集カラーを選択してください')
+    .setMinValues(1)
+    .setMaxValues(1)
+    .addOptions(options);
+
+  const selectRow = new ActionRowBuilder().addComponents(selectMenu);
+
+  const prompt = await interaction.followUp({
+    content: '🎨 **ステップ2/3：募集カラーを選択してください**\n/rect と同じプリセット色から選べます。',
+    components: [selectRow],
+    ephemeral: true,
+    allowedMentions: { roles: [], users: [] }
+  });
+
+  if (!prompt || typeof prompt.awaitMessageComponent !== 'function') {
+    return null;
+  }
+
+  try {
+    const selectInteraction = await prompt.awaitMessageComponent({
+      componentType: ComponentType.StringSelect,
+      time: 60_000,
+      filter: (i) => i.user.id === interaction.user.id
+    });
+    return selectInteraction.values[0];
+  } catch (err) {
+    console.error('[guildSettings] template color select timeout:', err?.message || err);
+    return null;
+  }
+}
+
 async function showTemplateNotificationRoleSelect(interaction, templateData) {
   const settings = await getGuildSettingsFromRedis(interaction.guildId);
   
@@ -603,7 +648,7 @@ async function showTemplateNotificationRoleSelect(interaction, templateData) {
   }
 
   if (validRoles.length === 0) {
-    await safeRespond(interaction, { content: '❌ ギルド設定で通知ロールが設定されていません。先に設定を行ってください。', flags: MessageFlags.Ephemeral });
+    await interaction.followUp({ content: '❌ ギルド設定で通知ロールが設定されていません。先に設定を行ってください。', ephemeral: true, allowedMentions: { roles: [], users: [] } });
     return null;
   }
 
@@ -629,10 +674,10 @@ async function showTemplateNotificationRoleSelect(interaction, templateData) {
   const selectRow = new ActionRowBuilder().addComponents(selectMenu);
 
   try {
-    const promptMessage = await safeRespond(interaction, {
-      content: '🔔 **ステップ2/3：通知ロールを選択してください**\n\nギルド設定で許可されているロールから選択できます。',
+    const promptMessage = await interaction.followUp({
+      content: '🔔 **ステップ3/3：通知ロールを選択してください**\n\nギルド設定で許可されているロールから選択できます。',
       components: [selectRow],
-      flags: MessageFlags.Ephemeral,
+      ephemeral: true,
       allowedMentions: { roles: [], users: [] }
     });
 
@@ -641,7 +686,7 @@ async function showTemplateNotificationRoleSelect(interaction, templateData) {
     }
 
     const selectInteraction = await promptMessage.awaitMessageComponent({
-      componentType: 3, // StringSelect
+      componentType: ComponentType.StringSelect,
       time: 60_000,
       filter: (i) => i.user.id === interaction.user.id
     });
@@ -662,5 +707,6 @@ module.exports = {
   showColorModal,
   showTemplateModal,
   showTemplateOptionalModal,
+  showTemplateColorSelect,
   showTemplateNotificationRoleSelect,
 };

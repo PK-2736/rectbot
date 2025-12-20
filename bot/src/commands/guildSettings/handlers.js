@@ -201,7 +201,6 @@ async function handleModalSubmit(interaction) {
       const name = interaction.fields.getTextInputValue('template_name');
       const title = interaction.fields.getTextInputValue('template_title');
       const membersRaw = interaction.fields.getTextInputValue('template_members');
-      const colorRaw = interaction.fields.getTextInputValue('template_color');
 
       const parseIntSafe = (val) => {
         const num = Number(val);
@@ -213,49 +212,30 @@ async function handleModalSubmit(interaction) {
         return await interaction.editReply({ embeds: [createErrorEmbed('募集人数は1〜16の数字で入力してください。', '入力エラー')] });
       }
 
-      const normalizeHex = (c) => {
-        if (!c) return null;
-        let v = String(c).trim();
-        if (v.startsWith('#')) v = v.slice(1);
-        return /^[0-9A-Fa-f]{6}$/.test(v) ? v.toUpperCase() : null;
-      };
+      // 必須項目を検証したら、カラー選択メニューを表示
+      await interaction.editReply({ embeds: [createSuccessEmbed('必須項目を確認しました。次にカラーを選択してください。', 'ステップ1/3完了')] });
 
-      const hex = normalizeHex(colorRaw);
-      if (!hex) {
-        return await interaction.editReply({ embeds: [createErrorEmbed('募集色は6桁の16進数（#なし）で入力してください。', '入力エラー')] });
-      }
-
-      // 必須項目を検証したら、ロール選択メニューを表示
-      await interaction.editReply({ embeds: [createSuccessEmbed('必須項目を確認しました。次にロールを選択してください。', 'ステップ1/3完了')] });
-
-      // 一時的にデータを保存（interaction メモリに保持）
-      const templateData = { name, title, participants: memberCount, color: hex };
+      const templateData = { name, title, participants: memberCount };
       interaction.templateData = templateData;
 
-      // 500ms後にロール選択メニューを表示
       setTimeout(async () => {
         try {
-          const { showTemplateNotificationRoleSelect } = require('./ui');
+          const { showTemplateColorSelect, showTemplateNotificationRoleSelect, showTemplateOptionalModal } = require('./ui');
+          const color = await showTemplateColorSelect(interaction);
+          if (!color) return;
+          templateData.color = color;
+          interaction.templateData = templateData;
+
           const roleId = await showTemplateNotificationRoleSelect(interaction, templateData);
-          if (!roleId) {
-            return; // ユーザーがキャンセルした
-          }
+          if (!roleId) return;
           templateData.notificationRoleId = roleId;
           interaction.templateData = templateData;
 
-          // さらに500ms後に詳細設定モーダルを表示
-          setTimeout(async () => {
-            try {
-              const { showTemplateOptionalModal } = require('./ui');
-              await showTemplateOptionalModal(interaction, templateData);
-            } catch (err) {
-              console.error('[guildSettings] showTemplateOptionalModal error:', err);
-            }
-          }, 500);
+          await showTemplateOptionalModal(interaction, templateData);
         } catch (err) {
-          console.error('[guildSettings] showTemplateNotificationRoleSelect error:', err);
+          console.error('[guildSettings] template flow error:', err);
         }
-      }, 500);
+      }, 400);
 
     } else if (customId === 'template_optional_modal') {
       const content = interaction.fields.getTextInputValue('template_content') || null;
