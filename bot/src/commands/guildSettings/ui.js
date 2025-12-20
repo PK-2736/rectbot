@@ -4,7 +4,7 @@ const {
   ActionRowBuilder, ButtonBuilder, ButtonStyle,
   RoleSelectMenuBuilder, ChannelSelectMenuBuilder,
   StringSelectMenuBuilder, StringSelectMenuOptionBuilder,
-  ChannelType, MessageFlags,
+  ChannelType, MessageFlags, ComponentType,
   ModalBuilder, TextInputBuilder, TextInputStyle,
   SectionBuilder
 } = require('discord.js');
@@ -467,7 +467,7 @@ async function showColorModal(interaction) {
 }
 
 async function showTemplateModal(interaction) {
-  const modal = new ModalBuilder().setCustomId('template_create_modal').setTitle('📄 募集テンプレート作成');
+  const modal = new ModalBuilder().setCustomId('template_create_modal').setTitle('📄 募集テンプレート作成（ステップ1/3）');
 
   const nameInput = new TextInputBuilder()
     .setCustomId('template_name')
@@ -502,20 +502,11 @@ async function showTemplateModal(interaction) {
     .setMaxLength(6)
     .setPlaceholder('例: 5865F2（青）、FF0000（赤）');
 
-  const roleInput = new TextInputBuilder()
-    .setCustomId('template_role')
-    .setLabel('通知ロール（必須）@ロール名 or everyone/here')
-    .setStyle(TextInputStyle.Short)
-    .setRequired(true)
-    .setMaxLength(50)
-    .setPlaceholder('例: @レイド員 または everyone');
-
   modal.addComponents(
     new ActionRowBuilder().addComponents(nameInput),
     new ActionRowBuilder().addComponents(titleInput),
     new ActionRowBuilder().addComponents(memberInput),
-    new ActionRowBuilder().addComponents(colorInput),
-    new ActionRowBuilder().addComponents(roleInput)
+    new ActionRowBuilder().addComponents(colorInput)
   );
 
   try {
@@ -529,7 +520,7 @@ async function showTemplateModal(interaction) {
 async function showTemplateOptionalModal(interaction, templateData) {
   const modal = new ModalBuilder()
     .setCustomId('template_optional_modal')
-    .setTitle('📄 テンプレート詳細設定（任意）');
+    .setTitle('📄 テンプレート詳細設定（ステップ3/3、任意）');
 
   const contentInput = new TextInputBuilder()
     .setCustomId('template_content')
@@ -589,6 +580,79 @@ async function showTemplateOptionalModal(interaction, templateData) {
   }
 }
 
+async function showTemplateNotificationRoleSelect(interaction, templateData) {
+  const settings = await getGuildSettingsFromRedis(interaction.guildId);
+  
+  // ギルド設定から許可されている通知ロールを取得
+  const configuredIds = [];
+  if (Array.isArray(settings.notification_roles)) configuredIds.push(...settings.notification_roles.filter(Boolean));
+  if (settings.notification_role) configuredIds.push(settings.notification_role);
+  const uniqueIds = [...new Set(configuredIds.map(String))];
+
+  // 有効なロールを確認
+  const validRoles = [];
+  for (const roleId of uniqueIds) {
+    if (roleId === 'everyone' || roleId === 'here') {
+      validRoles.push({ id: roleId, name: roleId === 'everyone' ? '@everyone' : '@here' });
+    } else {
+      const role = interaction.guild?.roles?.cache?.get(roleId) || (await interaction.guild.roles.fetch(roleId).catch(() => null));
+      if (role) {
+        validRoles.push({ id: role.id, name: role.name });
+      }
+    }
+  }
+
+  if (validRoles.length === 0) {
+    await safeRespond(interaction, { content: '❌ ギルド設定で通知ロールが設定されていません。先に設定を行ってください。', flags: MessageFlags.Ephemeral });
+    return null;
+  }
+
+  // 1つだけの場合は自動選択
+  if (validRoles.length === 1) {
+    return validRoles[0].id;
+  }
+
+  // 複数ある場合はセレクトメニューで選択
+  const options = validRoles.slice(0, 24).map(role =>
+    new StringSelectMenuOptionBuilder()
+      .setLabel(role.name?.slice(0, 100) || '通知ロール')
+      .setValue(role.id)
+  );
+
+  const selectMenu = new StringSelectMenuBuilder()
+    .setCustomId(`template_notification_role_select_${interaction.id}`)
+    .setPlaceholder('通知ロールを選択してください')
+    .setMinValues(1)
+    .setMaxValues(1)
+    .addOptions(options);
+
+  const selectRow = new ActionRowBuilder().addComponents(selectMenu);
+
+  try {
+    const promptMessage = await safeRespond(interaction, {
+      content: '🔔 **ステップ2/3：通知ロールを選択してください**\n\nギルド設定で許可されているロールから選択できます。',
+      components: [selectRow],
+      flags: MessageFlags.Ephemeral,
+      allowedMentions: { roles: [], users: [] }
+    });
+
+    if (!promptMessage || typeof promptMessage.awaitMessageComponent !== 'function') {
+      return validRoles[0]?.id || null;
+    }
+
+    const selectInteraction = await promptMessage.awaitMessageComponent({
+      componentType: 3, // StringSelect
+      time: 60_000,
+      filter: (i) => i.user.id === interaction.user.id
+    });
+
+    return selectInteraction.values[0];
+  } catch (err) {
+    console.error('[guildSettings] showTemplateNotificationRoleSelect timeout:', err?.message || err);
+    return null;
+  }
+}
+
 module.exports = {
   showSettingsUI,
   showSettingsCategoryUI,
@@ -598,4 +662,5 @@ module.exports = {
   showColorModal,
   showTemplateModal,
   showTemplateOptionalModal,
+  showTemplateNotificationRoleSelect,
 };

@@ -8,7 +8,7 @@ const {
   finalizeSettingsHandler,
   resetAllSettings,
 } = require('./guildSettings/handlers');
-const { showSettingsUI, showChannelSelect, showRoleSelect, showTitleModal, showColorModal, showTemplateModal, showTemplateOptionalModal } = require('./guildSettings/ui');
+const { showSettingsUI, showChannelSelect, showRoleSelect, showTitleModal, showColorModal, showTemplateModal, showTemplateOptionalModal, showTemplateNotificationRoleSelect } = require('./guildSettings/ui');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -32,4 +32,6 @@ module.exports = {
   showTitleModal,
   showColorModal,
   showTemplateModal,
+  showTemplateOptionalModal,
+  showTemplateNotificationRoleSelect,
 };

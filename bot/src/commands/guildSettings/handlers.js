@@ -202,7 +202,6 @@ async function handleModalSubmit(interaction) {
       const title = interaction.fields.getTextInputValue('template_title');
       const membersRaw = interaction.fields.getTextInputValue('template_members');
       const colorRaw = interaction.fields.getTextInputValue('template_color');
-      const roleRaw = interaction.fields.getTextInputValue('template_role');
 
       const parseIntSafe = (val) => {
         const num = Number(val);
@@ -226,38 +225,37 @@ async function handleModalSubmit(interaction) {
         return await interaction.editReply({ embeds: [createErrorEmbed('募集色は6桁の16進数（#なし）で入力してください。', '入力エラー')] });
       }
 
-      const normalizeRoleInput = (input) => {
-        if (!input) return null;
-        const raw = String(input).trim();
-        const lower = raw.toLowerCase();
-        if (lower === '@everyone' || lower === 'everyone') return 'everyone';
-        if (lower === '@here' || lower === 'here') return 'here';
-        const mentionMatch = raw.match(/^(?:<@&)?(\d+)>?$/);
-        if (mentionMatch) return mentionMatch[1];
-        return null;
-      };
-
-      const roleId = normalizeRoleInput(roleRaw);
-      if (!roleId) {
-        return await interaction.editReply({ embeds: [createErrorEmbed('通知ロールは @ロール名 または everyone/here で指定してください。', '入力エラー')] });
-      }
-
-      // 必須項目を検証したら、任意項目入力モーダルを表示
-      await interaction.editReply({ embeds: [createSuccessEmbed('必須項目を確認しました。次に任意項目（詳細設定）を入力してください。', 'ステップ1/2完了')] });
+      // 必須項目を検証したら、ロール選択メニューを表示
+      await interaction.editReply({ embeds: [createSuccessEmbed('必須項目を確認しました。次にロールを選択してください。', 'ステップ1/3完了')] });
 
       // 一時的にデータを保存（interaction メモリに保持）
-      const templateData = { name, title, participants: memberCount, color: hex, notificationRoleId: roleId };
+      const templateData = { name, title, participants: memberCount, color: hex };
       interaction.templateData = templateData;
 
-      // 300ms後に任意項目モーダルを表示
+      // 500ms後にロール選択メニューを表示
       setTimeout(async () => {
         try {
-          const { showTemplateOptionalModal } = require('./ui');
-          await showTemplateOptionalModal(interaction, templateData);
+          const { showTemplateNotificationRoleSelect } = require('./ui');
+          const roleId = await showTemplateNotificationRoleSelect(interaction, templateData);
+          if (!roleId) {
+            return; // ユーザーがキャンセルした
+          }
+          templateData.notificationRoleId = roleId;
+          interaction.templateData = templateData;
+
+          // さらに500ms後に詳細設定モーダルを表示
+          setTimeout(async () => {
+            try {
+              const { showTemplateOptionalModal } = require('./ui');
+              await showTemplateOptionalModal(interaction, templateData);
+            } catch (err) {
+              console.error('[guildSettings] showTemplateOptionalModal error:', err);
+            }
+          }, 500);
         } catch (err) {
-          console.error('[guildSettings] showTemplateOptionalModal error:', err);
+          console.error('[guildSettings] showTemplateNotificationRoleSelect error:', err);
         }
-      }, 300);
+      }, 500);
 
     } else if (customId === 'template_optional_modal') {
       const content = interaction.fields.getTextInputValue('template_content') || null;
@@ -279,7 +277,7 @@ async function handleModalSubmit(interaction) {
         }
       }
 
-      // interaction.templateData から前のモーダルで保存したデータを取得
+      // interaction.templateData から前のステップで保存したデータを取得
       const baseData = interaction.templateData || {};
 
       try {
@@ -302,7 +300,7 @@ async function handleModalSubmit(interaction) {
         return await interaction.editReply({ embeds: [createErrorEmbed('テンプレートの保存に失敗しました。時間をおいて再度お試しください。', '保存エラー')] });
       }
 
-      await interaction.editReply({ embeds: [createSuccessEmbed('テンプレートを保存しました！✨\n\n次回からこのテンプレートを使って素早く募集を開始できます。', '募集テンプレート')] });
+      await interaction.editReply({ embeds: [createSuccessEmbed('テンプレートを保存しました！✨\n\n次回からこのテンプレートを使って素早く募集を開始できます。', '募集テンプレート完成')] });
     }
   } catch (error) {
     console.error('Modal submit error:', error);
