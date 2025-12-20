@@ -1,5 +1,4 @@
 const { getSupabase } = require('./supabase');
-const { config } = require('../config');
 
 // Supabase table name for recruit templates
 const TABLE_NAME = 'recruit_templates';
