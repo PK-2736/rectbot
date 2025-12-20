@@ -111,9 +111,9 @@ async function handleButtonInteraction(interaction) {
       case 'toggle_dedicated_channel':
         await toggleDedicatedChannel(interaction);
         break;
-        case 'create_template':
-          await showTemplateModal(interaction);
-          break;
+      case 'create_template':
+        await showTemplateModal(interaction);
+        break;
       case 'set_dedicated_category':
         await showChannelSelect(interaction, 'dedicated_channel_category_id', '📂 専用チャンネル用カテゴリを選択してください', { maxValues: 1, channelTypes: [ChannelType.GuildCategory] });
         break;
