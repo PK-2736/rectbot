@@ -305,16 +305,6 @@ async function handleModalSubmit(interaction) {
       }
 
       await interaction.editReply({ embeds: [createSuccessEmbed('テンプレートを保存しました！', '募集テンプレート')] });
-
-      setTimeout(async () => {
-        try {
-          const latestSettings = await getGuildSettingsSmart(interaction.guildId);
-          const isAdminLatest = await isAdminUser(interaction);
-          await showSettingsCategoryUI(interaction, 'templates', latestSettings, isAdminLatest);
-        } catch (err) {
-          console.error('Template UI refresh error:', err);
-        }
-      }, 800);
     }
   } catch (error) {
     console.error('Modal submit error:', error);
