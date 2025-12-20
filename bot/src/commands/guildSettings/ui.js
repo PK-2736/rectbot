@@ -9,7 +9,7 @@ const {
   SectionBuilder
 } = require('discord.js');
 
-const { getGuildSettingsFromRedis } = require('../../utils/db');
+const { getGuildSettingsFromRedis, listTemplates } = require('../../utils/db');
 const { safeRespond } = require('../../utils/interactionHandler');
 
 function addSafeSection(container, builder, fallbackText) {
@@ -47,6 +47,7 @@ async function showSettingsUI(interaction, settings = {}, isAdmin = false) {
     { label: '🔔 通知設定', value: 'notifications', description: '通知対象ロールの選択' },
     { label: '🎨 表示設定', value: 'display', description: 'タイトル、カラー、スタイル' },
     { label: '📂 機能設定', value: 'features', description: '専用チャンネルボタン、スタイル' },
+    { label: '📄 募集テンプレート', value: 'templates', description: 'テンプレートの作成・管理' },
   ];
 
   const selectMenu = new StringSelectMenuBuilder()
@@ -176,6 +177,13 @@ async function showSettingsCategoryUI(interaction, category, settings = {}, isAd
       buttons: [
         { customId: 'toggle_dedicated_channel', label: 'オン/オフ', style: ButtonStyle.Primary, emoji: '⚡' },
         { customId: 'set_dedicated_category', label: 'カテゴリ指定', style: ButtonStyle.Secondary, emoji: '📁' }
+      ]
+    },
+    templates: {
+      title: '📄 募集テンプレート',
+      description: 'タイトル・人数・色・通知ロールをテンプレ化して素早く募集を開始',
+      buttons: [
+        { customId: 'create_template', label: 'テンプレート作成', style: ButtonStyle.Primary, emoji: '🆕' }
       ]
     }
   };
@@ -437,6 +445,61 @@ async function showColorModal(interaction) {
   await interaction.showModal(modal);
 }
 
+async function showTemplateModal(interaction) {
+  const modal = new ModalBuilder().setCustomId('template_create_modal').setTitle('📄 募集テンプレート作成');
+
+  const nameInput = new TextInputBuilder()
+    .setCustomId('template_name')
+    .setLabel('テンプレート名（必須）')
+    .setStyle(TextInputStyle.Short)
+    .setRequired(true)
+    .setMaxLength(100)
+    .setPlaceholder('例: 深夜ランク用 / カジュアル用');
+
+  const titleInput = new TextInputBuilder()
+    .setCustomId('template_title')
+    .setLabel('募集タイトル（必須）')
+    .setStyle(TextInputStyle.Short)
+    .setRequired(true)
+    .setMaxLength(150)
+    .setPlaceholder('例: ランクマ固定募集 / 初心者歓迎');
+
+  const memberInput = new TextInputBuilder()
+    .setCustomId('template_members')
+    .setLabel('募集人数（必須）1-16')
+    .setStyle(TextInputStyle.Short)
+    .setRequired(true)
+    .setMaxLength(2)
+    .setPlaceholder('例: 4');
+
+  const colorInput = new TextInputBuilder()
+    .setCustomId('template_color')
+    .setLabel('募集色（必須）HEX 6桁 / #なし')
+    .setStyle(TextInputStyle.Short)
+    .setRequired(true)
+    .setMinLength(6)
+    .setMaxLength(6)
+    .setPlaceholder('例: 5865F2');
+
+  const optionalInput = new TextInputBuilder()
+    .setCustomId('template_optional')
+    .setLabel('通知ロール（必須）＋任意項目をカンマ区切りで')
+    .setStyle(TextInputStyle.Paragraph)
+    .setRequired(true)
+    .setMaxLength(400)
+    .setPlaceholder('例: 通知=@レイド, 内容=エンジョイ, 開始=今から, 規定人数=4, 通話場所=VC1, 通話有無=あり');
+
+  modal.addComponents(
+    new ActionRowBuilder().addComponents(nameInput),
+    new ActionRowBuilder().addComponents(titleInput),
+    new ActionRowBuilder().addComponents(memberInput),
+    new ActionRowBuilder().addComponents(colorInput),
+    new ActionRowBuilder().addComponents(optionalInput)
+  );
+
+  await interaction.showModal(modal);
+}
+
 module.exports = {
   showSettingsUI,
   showSettingsCategoryUI,
@@ -444,4 +507,5 @@ module.exports = {
   showRoleSelect,
   showTitleModal,
   showColorModal,
+  showTemplateModal,
 };

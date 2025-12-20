@@ -8,6 +8,7 @@ const { saveRecruitToRedis, getRecruitFromRedis, listRecruitIdsFromRedis, listRe
 const { cleanupExpiredRecruits, runCleanupNow } = require('./cleanup');
 const { setCooldown, getCooldownRemaining } = require('./cooldown');
 const { getSupabase } = require('./supabase');
+const { upsertTemplate, listTemplates, getTemplateByName } = require('./templates');
 const { saveRecruitStatus, deleteRecruitStatus, getActiveRecruits, saveRecruitmentData, deleteRecruitmentData, updateRecruitmentStatus, updateRecruitmentData } = require('./statusApi');
 const { checkAndNotifyStartTime } = require('./startTimeNotifier');
 // const { saveFriendCode, getFriendCode, getAllFriendCodes, deleteFriendCode, searchFriendCodeByPattern } = require('./friendCode'); // 使用しない（Worker API経由に移行）
@@ -94,4 +95,8 @@ module.exports = {
   scanKeys,
   // Start time notifications
   setDiscordClient,
+  // Templates
+  upsertTemplate,
+  listTemplates,
+  getTemplateByName,
 };

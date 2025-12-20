@@ -6,7 +6,7 @@ const {
   ChannelType,
 } = require('discord.js');
 
-const { saveGuildSettingsToRedis, getGuildSettingsFromRedis, getGuildSettingsSmart, finalizeGuildSettings } = require('../../utils/db');
+const { saveGuildSettingsToRedis, getGuildSettingsFromRedis, getGuildSettingsSmart, finalizeGuildSettings, upsertTemplate } = require('../../utils/db');
 const { safeReply } = require('../../utils/safeReply');
 const { createErrorEmbed, createSuccessEmbed, createWarningEmbed } = require('../../utils/embedHelpers');
 const {
@@ -16,6 +16,7 @@ const {
   showRoleSelect,
   showTitleModal,
   showColorModal,
+  showTemplateModal,
 } = require('./ui');
 
 // 管理者判定を一元化（Administrator / ManageGuild / ギルドオーナーを許可）
@@ -110,6 +111,9 @@ async function handleButtonInteraction(interaction) {
       case 'toggle_dedicated_channel':
         await toggleDedicatedChannel(interaction);
         break;
+        case 'create_template':
+          await showTemplateModal(interaction);
+          break;
       case 'set_dedicated_category':
         await showChannelSelect(interaction, 'dedicated_channel_category_id', '📂 専用チャンネル用カテゴリを選択してください', { maxValues: 1, channelTypes: [ChannelType.GuildCategory] });
         break;
