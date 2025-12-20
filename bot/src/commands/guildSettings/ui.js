@@ -296,6 +296,7 @@ async function showSettingsCategoryUI(interaction, category, settings = {}, isAd
 
   // ボタンを配置
   if (isAdmin && config.buttons.length > 0) {
+    console.log(`[guildSettings] Adding ${config.buttons.length} buttons for category: ${category}`);
     const buttonRows = [];
     for (let i = 0; i < config.buttons.length; i += 2) {
       const row = new ActionRowBuilder();
@@ -319,9 +320,12 @@ async function showSettingsCategoryUI(interaction, category, settings = {}, isAd
     }
     buttonRows.forEach(row => container.addActionRowComponents(row));
   } else if (!isAdmin) {
+    console.log('[guildSettings] User is not admin, hiding buttons');
     container.addTextDisplayComponents(
       new TextDisplayBuilder().setContent('🔒 **変更には管理者権限が必要です**')
     );
+  } else {
+    console.log(`[guildSettings] No buttons configured for category: ${category}`);
   }
 
   container.addSeparatorComponents(

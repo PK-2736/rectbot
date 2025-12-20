@@ -71,6 +71,7 @@ async function execute(interaction) {
 
 async function handleButtonInteraction(interaction) {
   const { customId } = interaction;
+  console.log(`[guildSettings] Button pressed: ${customId}`);
   try {
     const isAdmin = await isAdminUser(interaction);
     if (!isAdmin) {
