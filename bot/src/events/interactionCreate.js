@@ -240,33 +240,9 @@ module.exports = {
         // サポート招待URLのワンタイム発行（Worker 経由で Bot 招待の一回限りURLを生成）
         if (id === 'one_time_support_invite') {
           await handleComponentSafely(interaction, async () => {
-            try {
-              const backendFetch = require('../utils/backendFetch');
-              let resp;
-              try {
-                resp = await backendFetch('/api/bot-invite/one-time', { method: 'POST' });
-              } catch (err) {
-                // 認証不足（SERVICE_TOKEN未設定や不一致）・ネットワークエラーの扱い
-                const status = err?.status;
-                console.error('[interactionCreate] backendFetch error:', { status, message: err?.message });
-                if (status === 401) {
-                  await safeRespond(interaction, { content: '❌ 招待URLを発行できません（認証エラー）。管理者に連絡してください。', flags: require('discord.js').MessageFlags.Ephemeral });
-                  return;
-                }
-                throw err;
-              }
-              if (!resp?.ok || !resp?.url) {
-                console.error('[interactionCreate] Invalid response:', resp);
-                await safeRespond(interaction, { content: '❌ 招待URLの発行に失敗しました。しばらくして再試行してください。', flags: require('discord.js').MessageFlags.Ephemeral });
-                return;
-              }
-              // ランディング（ワンタイム）URLを返す（クリック時に消費 → Discord OAuth2 へリダイレクト）
-              await safeRespond(interaction, { content: `✅ 一回限りの招待リンクを発行しました。
-<${resp.url}>`, flags: require('discord.js').MessageFlags.Ephemeral });
-            } catch (e) {
-              console.error('[interactionCreate] one-time bot invite generate failed:', e?.message || e);
-              await safeRespond(interaction, { content: '❌ 招待URLの発行中にエラーが発生しました。', flags: require('discord.js').MessageFlags.Ephemeral });
-            }
+            const inviteUrl = 'https://discord.com/oauth2/authorize?client_id=1048950201974542477';
+            await safeRespond(interaction, { content: `✅ 招待リンクはこちらです。
+<${inviteUrl}>`, flags: require('discord.js').MessageFlags.Ephemeral });
           });
           return;
         }

@@ -778,187 +778,29 @@ export default {
       return jsonResponse({ ok: true, cleaned: 0 }, 200, safeHeaders);
     }
 
+    /*
     // One-time Bot Invite: Create
     if (url.pathname === '/api/bot-invite/one-time' && request.method === 'POST') {
-      console.log('[index.js] Bot invite one-time POST received');
-      try {
-        if (!env.DISCORD_CLIENT_ID) {
-          console.error('[index.js] DISCORD_CLIENT_ID not configured');
-          return jsonResponse({ error: 'config_missing', detail: 'DISCORD_CLIENT_ID not configured' }, 500, safeHeaders);
-        }
-        
-        // Get InviteTokens Durable Object
-        if (!env.INVITE_TOKENS_DO) {
-          console.error('[index.js] INVITE_TOKENS_DO not bound');
-          return jsonResponse({ error: 'config_missing', detail: 'INVITE_TOKENS_DO not bound' }, 500, safeHeaders);
-        }
-        
-        const id = env.INVITE_TOKENS_DO.idFromName('global');
-        const stub = env.INVITE_TOKENS_DO.get(id);
-        const doRequest = new Request(new URL('/do/invite-token', 'https://example.com').toString(), { method: 'POST' });
-        const doResp = await stub.fetch(doRequest);
-        const data = await doResp.json();
-        
-        console.log('[index.js] DO response:', { ok: data?.ok, token: data?.token ? data.token.slice(0, 16) + '...' : undefined });
-        
-        if (!data?.ok || !data?.token) {
-          console.error('[index.js] Token creation failed:', data);
-          return jsonResponse({ error: 'create_failed', detail: data }, 500, safeHeaders);
-        }
-        
-        const token = data.token;
-        const wrapperUrl = new URL(`/api/bot-invite/t/${encodeURIComponent(token)}`, 'https://api.recrubo.net').toString();
-        console.log('[index.js] Generated invite URL:', wrapperUrl.slice(0, 60) + '...');
-        return jsonResponse({ ok: true, url: wrapperUrl }, 201, safeHeaders);
-      } catch (e) {
-        console.error('[index.js] Error creating invite token:', e?.message || e);
-        return jsonResponse({ error: 'internal_error', detail: e?.message }, 500, safeHeaders);
-      }
+      ...
     }
 
     // One-time Bot Invite: Landing page (GET)
     const matchInvite = url.pathname.match(/^\/api\/bot-invite\/t\/([A-Za-z0-9_\-]+)$/);
     if (matchInvite && request.method === 'GET') {
-      const token = matchInvite[1];
-      const html = `<!doctype html>
-<html lang="ja">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="robots" content="noindex,nofollow" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Recrubo | ボット招待の確認</title>
-    <style>
-      :root {
-        --bg1: #ffe4e6;
-        --bg2: #ffedd5;
-        --brand: #f97316;
-        --accent: #ec4899;
-        --text: #0f172a;
-        --muted: #475569;
-        --card: #ffffff;
-        --card-border: #fde68a;
-        --btn-shadow: rgba(249, 115, 22, 0.35);
-      }
-      * { box-sizing: border-box; }
-      html, body { height: 100%; }
-      body {
-        margin: 0; padding: 20px;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-        background: linear-gradient(135deg, var(--bg1), var(--bg2));
-        display: flex; align-items: center; justify-content: center;
-        color: var(--text);
-        min-height: 100vh;
-      }
-      .wrap { max-width: 400px; width: 100%; }
-      .card {
-        background: var(--card);
-        border-radius: 16px;
-        padding: 32px 24px;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-        border: 2px solid var(--card-border);
-        text-align: center;
-      }
-      .brand {
-        font-size: 24px; font-weight: 900;
-        background: linear-gradient(90deg, var(--brand), var(--accent));
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-        margin-bottom: 16px;
-      }
-      h1 {
-        font-size: 20px; margin: 0 0 16px;
-        font-weight: 700;
-      }
-      p {
-        font-size: 14px; color: var(--muted);
-        line-height: 1.6; margin: 0 0 24px;
-      }
-      .cta {
-        display: flex;
-        justify-content: center;
-        margin: 24px 0;
-      }
-      button {
-        appearance: none; border: 0; cursor: pointer;
-        padding: 12px 18px; border-radius: 12px; font-weight: 700;
-        color: #fff; font-size: 15px;
-        background: linear-gradient(90deg, var(--brand), var(--accent));
-        box-shadow: 0 10px 22px var(--btn-shadow);
-        transition: transform .06s ease, filter .15s ease;
-      }
-      button:hover { filter: brightness(1.05); }
-      button:active { transform: translateY(1px); }
-      .note { font-size: 12px; color: var(--muted); margin-top: 10px; }
-      .footer { margin-top: 16px; font-size: 12px; color: var(--muted); }
-      .footer a { color: var(--brand); text-decoration: none; }
-      .footer a:hover { text-decoration: underline; }
-    </style>
-  </head>
-  <body>
-    <main class="wrap">
-      <section class="card">
-        <div class="brand">Recrubo</div>
-        <h1>ボット招待へ進む前に</h1>
-        <p>このリンクは <strong>一回限り</strong> の招待リンクです。<br />
-        「続行」を押すとリンクが確定し、Discord のボット招待ページへ移動します。</p>
-        <form class="cta" method="POST" action="/api/bot-invite/t/${encodeURIComponent(token)}/go">
-          <button type="submit" aria-label="続行してボットを招待">続行してボットを招待</button>
-        </form>
-        <p class="note">プレビュー（この画面を開くだけ）ではリンクは消費されません。</p>
-        <div class="footer">
-          <a href="https://recrubo.net" rel="noopener">公式サイトに戻る</a>
-        </div>
-      </section>
-    </main>
-  </body>
-</html>`;
-      return new Response(html, { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8', ...safeHeaders } });
+      ...
     }
 
     // One-time Bot Invite: Consume and redirect
     const matchInviteGo = url.pathname.match(/^\/api\/bot-invite\/t\/([A-Za-z0-9_\-]+)\/go$/);
     if (matchInviteGo && request.method === 'POST') {
-      try {
-        const token = matchInviteGo[1];
-        console.log('[index.js] Consuming token:', token.slice(0, 16) + '...');
-        
-        if (!env.INVITE_TOKENS_DO) {
-          console.error('[index.js] INVITE_TOKENS_DO not bound');
-          return new Response('内部エラーが発生しました。', { status: 500, headers: { 'Content-Type': 'text/plain; charset=utf-8', ...safeHeaders } });
-        }
-        
-        const id = env.INVITE_TOKENS_DO.idFromName('global');
-        const stub = env.INVITE_TOKENS_DO.get(id);
-        const doResp = await stub.fetch(new Request(new URL(`/do/invite-token/${encodeURIComponent(token)}/consume`, 'https://example.com').toString(), { method: 'POST' }));
-        
-        console.log('[index.js] Consume response status:', doResp.status);
-        
-        if (doResp.status === 404) {
-          console.warn('[index.js] Token not found:', token.slice(0, 16) + '...');
-          return new Response('この招待リンクは存在しません。', { status: 404, headers: { 'Content-Type': 'text/plain; charset=utf-8', ...safeHeaders } });
-        }
-        if (doResp.status === 410) {
-          console.warn('[index.js] Token already used:', token.slice(0, 16) + '...');
-          return new Response('この招待リンクは使用済みです。', { status: 410, headers: { 'Content-Type': 'text/plain; charset=utf-8', ...safeHeaders } });
-        }
-        if (!doResp.ok) {
-          console.error('[index.js] Consume failed:', doResp.status);
-          return new Response('内部エラーが発生しました。', { status: 500, headers: { 'Content-Type': 'text/plain; charset=utf-8', ...safeHeaders } });
-        }
-        
-        const clientId = env.DISCORD_CLIENT_ID;
-        const manageChannels = 1 << 4; // Manage Channels permission bit
-        const basePerms = Number(env.BOT_INVITE_PERMISSIONS || 0) || 0;
-        const perms = encodeURIComponent(String(basePerms | manageChannels));
-        const scopes = encodeURIComponent('bot applications.commands');
-        const discordUrl = `https://discord.com/api/oauth2/authorize?client_id=${clientId}&permissions=${perms}&scope=${scopes}`;
-        console.log('[index.js] Redirecting to Discord OAuth');
-        return new Response(null, { status: 302, headers: { Location: discordUrl, ...safeHeaders } });
-      } catch (e) {
-        console.error('[index.js] Error:', e?.message || e);
-        return new Response('内部エラーが発生しました。', { status: 500, headers: { 'Content-Type': 'text/plain; charset=utf-8', ...safeHeaders } });
-      }
+      ...
+    }
+    */
+
+    // Bot Invite: static redirect (one-time flow disabled)
+    if (url.pathname.startsWith('/api/bot-invite')) {
+      const redirectUrl = 'https://discord.com/oauth2/authorize?client_id=1048950201974542477';
+      return new Response(null, { status: 302, headers: { Location: redirectUrl, ...safeHeaders } });
     }
 
     // fallback

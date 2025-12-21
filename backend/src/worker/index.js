@@ -323,10 +323,8 @@ export default {
       '/api/support',
       '/metrics',
       '/api/grafana/recruits',
-      // One-time bot invite wrapper is public (GET only)
-      '/api/bot-invite/t/',
-      // One-time bot invite token creation (public POST)
-      '/api/bot-invite/one-time'
+      // Bot invite redirect is public
+      '/api/bot-invite'
     ];
     const requiresAuth = isApiPath && !skipTokenPaths.some(path => url.pathname.startsWith(path));
     
@@ -362,7 +360,7 @@ export default {
       if (routed) return routed;
     }
 
-    // Delegate: One-Time Bot Invite endpoints
+    // Delegate: Bot Invite redirect (one-time flow disabled)
     {
       console.log('[worker] Attempting routeBotInvite for:', url.pathname);
       const routedInvite = await routeBotInvite(request, env, ctx, url, corsHeaders);

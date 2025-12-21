@@ -1,5 +1,4 @@
 const { SlashCommandBuilder, EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder, MessageFlags } = require('discord.js');
-const backendFetch = require('../utils/backendFetch');
 const { safeReply } = require('../utils/safeReply');
 
 module.exports = {
@@ -11,39 +10,18 @@ module.exports = {
     const OFFICIAL_INVITE = 'https://discord.com/oauth2/authorize?client_id=1048950201974542477';
 
     try {
-
-      // Generate one-time bot invite via backend worker
-  let resp;
-      try {
-        resp = await backendFetch('/api/bot-invite/one-time', { method: 'POST' });
-      } catch (err) {
-        const status = err?.status;
-        if (status === 401) {
-          await safeReply(interaction, { content: '❌ 招待URLを発行できません（認証エラー）。管理者に連絡してください。', flags: MessageFlags.Ephemeral });
-          return;
-        }
-        console.error('[invite] backend fetch failed:', err?.message || err);
-        await safeReply(interaction, { content: '❌ 招待URLの発行に失敗しました。しばらくして再試行してください。', flags: MessageFlags.Ephemeral });
-        return;
-      }
-
-      if (!resp?.ok || !resp?.url) {
-        await safeReply(interaction, { content: '❌ 招待URLの発行に失敗しました。しばらくして再試行してください。', flags: MessageFlags.Ephemeral });
-        return;
-      }
-
       const embed = new EmbedBuilder()
-          .setTitle('Recrubo 招待リンク')
-        .setDescription('以下のリンクから公式サーバーに参加したり、サーバーにボットを招待できます（ワンタイムリンク）。')
+        .setTitle('Recrubo 招待リンク')
+        .setDescription('以下のリンクから公式サーバーに参加したり、ボットを招待できます。')
         .addFields(
           { name: '🔗 公式サーバー', value: OFFICIAL_INVITE },
-          { name: '🤖 ワンタイム招待リンク', value: resp.url }
+          { name: '🤖 ボット招待リンク', value: OFFICIAL_INVITE }
         )
-          .setColor(0xF97316);
+        .setColor(0xF97316);
 
       const buttonRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setLabel('公式サーバーに参加').setStyle(ButtonStyle.Link).setURL(OFFICIAL_INVITE),
-        new ButtonBuilder().setLabel('ボットを招待（ワンタイム）').setStyle(ButtonStyle.Link).setURL(resp.url)
+        new ButtonBuilder().setLabel('ボットを招待').setStyle(ButtonStyle.Link).setURL(OFFICIAL_INVITE)
       );
 
       await safeReply(interaction, { embeds: [embed], components: [buttonRow], flags: MessageFlags.Ephemeral });

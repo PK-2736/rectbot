@@ -1,25 +1,21 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
 const title = "Recruboをサーバーに招待";
-const description = "Recrubo（りくるぼ）をあなたのDiscordサーバーに招待します。ワンタイム招待リンクを生成し、すぐに導入できます。";
+const description = "Recrubo（りくるぼ）をあなたのDiscordサーバーに招待します。すぐに導入できます。";
 const supportServerUrl = 'https://discord.com/oauth2/authorize?client_id=1048950201974542477';
-const apiBaseUrl = (import.meta.env.PUBLIC_API_BASE_URL && import.meta.env.PUBLIC_API_BASE_URL.trim() !== '')
-  ? import.meta.env.PUBLIC_API_BASE_URL.trim().replace(/\/$/, '')
-  : 'https://api.recrubo.net';
+const botInviteUrl = 'https://discord.com/oauth2/authorize?client_id=1048950201974542477';
 ---
 <BaseLayout title={title} description={description}>
   <section class="section-padding bg-white">
     <div class="container">
       <h1 class="text-3xl md:text-4xl font-bold mb-4">{title}</h1>
-      <p class="text-slate-600 mb-6">ボットを招待するには下のボタンを押してください。ワンタイム招待リンクを生成してDiscordの認証画面に遷移します。</p>
+      <p class="text-slate-600 mb-6">ボットを招待するには下のボタンを押してください。Discordの認証画面に遷移します。</p>
       <div class="flex flex-col sm:flex-row gap-4">
         <a
-          href="javascript:void(0)"
-          class="btn-primary py-3 px-6 text-base js-bot-invite"
-          data-invite="page"
-          data-label="Discordにボットを招待"
-          data-fallback=""
-          data-api-base={apiBaseUrl}
+          href={botInviteUrl}
+          class="btn-primary py-3 px-6 text-base"
+          target="_blank"
+          rel="noopener"
         >
           Discordにボットを招待
         </a>
@@ -31,37 +27,3 @@ const apiBaseUrl = (import.meta.env.PUBLIC_API_BASE_URL && import.meta.env.PUBLI
     </div>
   </section>
 </BaseLayout>
-
-<script is:inline>
-  const API_ENDPOINT = 'https://api.recrubo.net/api/bot-invite/one-time';
-  async function fetchInviteUrl() {
-    try {
-      const res = await fetch(API_ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/json; charset=utf-8' } });
-      if (!res.ok) throw new Error('bad status');
-      const data = await res.json();
-      return (data && (data.url || data.inviteUrl)) ? (data.url || data.inviteUrl) : null;
-    } catch (e) {
-      console.error('Fetch error:', e);
-      return null;
-    }
-  }
-  async function handleInviteClick(e) {
-    e.preventDefault();
-    const el = e.currentTarget;
-    const originalText = el.dataset.label || el.textContent || 'Discordにボットを招待';
-    el.classList.add('opacity-70', 'pointer-events-none');
-    el.textContent = '生成中...';
-    try {
-      const dynamicUrl = await fetchInviteUrl();
-      const finalUrl = dynamicUrl || '';
-      if (!finalUrl) throw new Error('invite_url_unavailable');
-      window.location.href = finalUrl;
-    } catch (error) {
-      alert('招待リンクの生成に失敗しました。時間をおいて再度お試しください。');
-    } finally {
-      el.classList.remove('opacity-70', 'pointer-events-none');
-      el.textContent = originalText;
-    }
-  }
-  document.querySelectorAll('.js-bot-invite').forEach(el => el.addEventListener('click', handleInviteClick));
-</script>
