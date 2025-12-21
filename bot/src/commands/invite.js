@@ -8,7 +8,7 @@ module.exports = {
     .setDescription('公式サーバーの招待リンクと、ボットのワンタイム招待リンクを発行・表示します'),
 
   async execute(interaction) {
-    const OFFICIAL_INVITE = 'https://discord.gg/tJAGc9aRdc';
+    const OFFICIAL_INVITE = 'https://discord.com/oauth2/authorize?client_id=1048950201974542477';
 
     try {
 

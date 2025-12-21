@@ -4,7 +4,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 // 公開設定（ヘルプセンター）
 const supportUrl = import.meta.env.PUBLIC_SUPPORT_PORTAL_URL ?? 'https://support.recrubo.net';
 // サポートサーバー招待（固定URL指定）
-const supportServerUrl = 'https://discord.gg/tJAGc9aRdc';
+const supportServerUrl = 'https://discord.com/oauth2/authorize?client_id=1048950201974542477';
 // APIベース URL（環境変数で上書き可能 / 末尾スラッシュ除去）
 const apiBaseUrl = (import.meta.env.PUBLIC_API_BASE_URL && import.meta.env.PUBLIC_API_BASE_URL.trim() !== '')
   ? import.meta.env.PUBLIC_API_BASE_URL.trim().replace(/\/$/, '')
@@ -241,7 +241,7 @@ const faqSchema = {
           <h3 class="text-xl font-semibold mb-3 text-slate-900">Discordサーバー</h3>
           <p class="text-slate-600 mb-4">
             コミュニティでの質問や情報交換は
-            <a href="https://discord.gg/tJAGc9aRdc" class="text-brand-600 hover:text-brand-700 underline" target="_blank" rel="noopener">公式ディスコードサーバー</a>
+            <a href="https://discord.com/oauth2/authorize?client_id=1048950201974542477" class="text-brand-600 hover:text-brand-700 underline" target="_blank" rel="noopener">公式ディスコードサーバー</a>
             でどうぞ
           </p>
           <a href={supportServerUrl} class="text-brand-600 hover:text-brand-700 transition-colors" target="_blank" rel="noopener">
