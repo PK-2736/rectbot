@@ -3,8 +3,23 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 
 // 公開設定（ヘルプセンター）
 const supportUrl = import.meta.env.PUBLIC_SUPPORT_PORTAL_URL ?? 'https://support.recrubo.net';
+// サポートサーバー招待（固定URL指定）
 const supportServerUrl = 'https://discord.com/oauth2/authorize?client_id=1048950201974542477';
-const botInviteUrl = supportServerUrl;
+// APIベース URL（環境変数で上書き可能 / 末尾スラッシュ除去）
+const apiBaseUrl = (import.meta.env.PUBLIC_API_BASE_URL && import.meta.env.PUBLIC_API_BASE_URL.trim() !== '')
+  ? import.meta.env.PUBLIC_API_BASE_URL.trim().replace(/\/$/, '')
+  : 'https://api.recrubo.net';
+// Astro サーバー経由のワンタイム招待生成エンドポイント
+const inviteRequestEndpoint = '/api/bot-invite.json';
+// フォールバック（固定OAuth招待URL）: 環境変数で指定可能。未設定なら null 扱い
+const fallbackInviteUrl = (import.meta.env.PUBLIC_DISCORD_INVITE_URL && import.meta.env.PUBLIC_DISCORD_INVITE_URL.trim() !== '')
+  ? import.meta.env.PUBLIC_DISCORD_INVITE_URL.trim()
+  : null;
+
+// クライアント側 script に安全に埋め込むため JSON.stringify 済み文字列を用意
+const serializedInviteEndpoint = JSON.stringify(inviteRequestEndpoint);
+const serializedFallbackUrl = JSON.stringify(fallbackInviteUrl);
+const serializedApiBaseUrl = JSON.stringify(apiBaseUrl);
 
 // FAQ構造化データ（検索スニペット強化）
 const faqSchema = {
@@ -84,10 +99,12 @@ const faqSchema = {
         </p>
         <div class="flex flex-col sm:flex-row gap-4 justify-center">
           <a
-            href={botInviteUrl}
-            class="btn-primary py-4 px-8 text-lg"
-            target="_blank"
-            rel="noopener"
+            href="javascript:void(0)"
+            class="btn-primary py-4 px-8 text-lg js-bot-invite"
+            data-invite="cta"
+            data-label="Discordにボットを招待"
+            data-fallback={fallbackInviteUrl || ''}
+            data-api-base={apiBaseUrl}
           >
             Discordにボットを招待
           </a>
@@ -144,3 +161,77 @@ const faqSchema = {
     </div>
   </section>
 </BaseLayout>
+
+<script is:inline>
+  console.log('Script loaded');
+  // ボット招待の動的取得 + フォールバック処理
+  const API_ENDPOINT = 'https://api.recrubo.net/api/bot-invite/one-time';
+  const DEFAULT_FALLBACK_URL = null;
+  const DEFAULT_API_BASE = "https://api.recrubo.net";
+
+  async function fetchInviteUrl(apiBaseOverride) {
+    try {
+      console.log('Starting fetch to', API_ENDPOINT);
+      const res = await fetch(API_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json; charset=utf-8' }
+      });
+      console.log('Response status:', res.status, 'ok:', res.ok);
+      if (!res.ok) throw new Error('bad status');
+      const data = await res.json();
+      console.log('Parsed data:', data);
+      const url = data && (data.url || data.inviteUrl) ? (data.url || data.inviteUrl) : null;
+      console.log('Returning URL:', url);
+      return url;
+    } catch (e) {
+      console.error('Fetch error:', e);
+      return null;
+    }
+  }
+
+  async function handleInviteClick(e) {
+    console.log('Invite button clicked');
+    e.preventDefault();
+    const el = e.currentTarget;
+    const originalText = el.dataset.label || el.textContent || '今すぐボットを招待';
+    const fallbackUrl = el.dataset.fallback || DEFAULT_FALLBACK_URL || '';
+    const apiBaseOverride = el.dataset.apiBase || DEFAULT_API_BASE;
+    el.classList.add('opacity-70', 'pointer-events-none');
+    el.textContent = '生成中...';
+
+    try {
+      const dynamicUrl = await fetchInviteUrl(apiBaseOverride);
+      console.log('Dynamic URL:', dynamicUrl);
+      const finalUrl = dynamicUrl || fallbackUrl;
+      console.log('Final URL:', finalUrl);
+
+      if (!finalUrl) {
+        throw new Error('invite_url_unavailable');
+      }
+
+      // スマホ対応: ポップアップがブロックされる可能性があるので、location.hrefを使用
+      window.location.href = finalUrl;
+    } catch (error) {
+      console.error('[bot-invite] failed to resolve one-time invite link:', error);
+      if (fallbackUrl) {
+        window.location.href = fallbackUrl;
+      } else {
+        // スマホ対応: ポップアップがブロックされた場合、現在のタブで開く
+        try {
+          window.open(finalUrl, '_blank', 'noopener');
+        } catch (e) {
+          window.location.href = finalUrl;
+        }
+      }
+    } finally {
+      el.classList.remove('opacity-70', 'pointer-events-none');
+      el.textContent = originalText;
+    }
+  }
+
+  document.querySelectorAll('.js-bot-invite').forEach(el => {
+    console.log('Adding event listener to', el);
+    el.addEventListener('click', handleInviteClick);
+  });
+  console.log('Event listeners added');
+</script>
