@@ -778,12 +778,19 @@ export default {
       return jsonResponse({ ok: true, cleaned: 0 }, 200, safeHeaders);
     }
 
-    /*
-    // One-time Bot Invite: Create
+    // One-time Bot Invite: Create (simplified - return static URL directly)
     if (url.pathname === '/api/bot-invite/one-time' && request.method === 'POST') {
-      ...
+      console.log('[index.js] Bot invite one-time POST received');
+      try {
+        const staticInviteUrl = 'https://discord.com/oauth2/authorize?client_id=1048950201974542477';
+        return jsonResponse({ ok: true, url: staticInviteUrl }, 201, safeHeaders);
+      } catch (e) {
+        console.error('[index.js] Error:', e?.message || e);
+        return jsonResponse({ error: 'internal_error', detail: e?.message }, 500, safeHeaders);
+      }
     }
 
+    /*
     // One-time Bot Invite: Landing page (GET)
     const matchInvite = url.pathname.match(/^\/api\/bot-invite\/t\/([A-Za-z0-9_\-]+)$/);
     if (matchInvite && request.method === 'GET') {
@@ -797,7 +804,7 @@ export default {
     }
     */
 
-    // Bot Invite: static redirect (one-time flow disabled)
+    // Bot Invite: static redirect for other paths
     if (url.pathname.startsWith('/api/bot-invite')) {
       const redirectUrl = 'https://discord.com/oauth2/authorize?client_id=1048950201974542477';
       return new Response(null, { status: 302, headers: { Location: redirectUrl, ...safeHeaders } });

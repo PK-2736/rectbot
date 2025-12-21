@@ -2,40 +2,28 @@
 
 export async function routeBotInvite(request, env, ctx, url, corsHeaders) {
   console.log('[routeBotInvite] Called with pathname:', url.pathname, 'method:', request.method);
+  
+  // One-time bot invite (simplified - return static URL directly)
+  if (url.pathname === '/api/bot-invite/one-time' && request.method === 'POST') {
+    console.log('[routeBotInvite /api/bot-invite/one-time] POST request received');
+    try {
+      const staticInviteUrl = 'https://discord.com/oauth2/authorize?client_id=1048950201974542477';
+      return new Response(JSON.stringify({ ok: true, url: staticInviteUrl }), { status: 201, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    } catch (e) {
+      console.error('[routeBotInvite] Error:', e?.message || e);
+      return new Response(JSON.stringify({ error: 'internal_error', detail: e?.message }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+  }
 
-  // Bot invite flow disabled: always redirect to static OAuth URL
+  // Bot invite redirect for other paths
   if (url.pathname.startsWith('/api/bot-invite')) {
     const redirectUrl = 'https://discord.com/oauth2/authorize?client_id=1048950201974542477';
     return new Response(null, { status: 302, headers: { Location: redirectUrl, ...corsHeaders } });
   }
 
   /*
-  // SERVICE_TOKEN 認証チェック（Bot API として安全に実行）
-  const authHeader = request.headers.get('authorization') || '';
-  const xServiceToken = request.headers.get('x-service-token') || '';
-  const serviceToken = env.SERVICE_TOKEN || '';
-  const requireAuth = !!serviceToken;
-  const hasValidAuth = !serviceToken || (
-    authHeader === `Bearer ${serviceToken}` || 
-    xServiceToken === serviceToken
-  );
-
-  // Create one-time wrapper URL
-  if (url.pathname === '/api/bot-invite/one-time' && request.method === 'POST') {
-    ...
-  }
-
-  // Landing page (GET) - does NOT consume token
-  const matchInvite = url.pathname.match(/^\/api\/bot-invite\/t\/([A-Za-z0-9_\-]+)$/);
-  if (matchInvite && request.method === 'GET') {
-    ...
-  }
-
-  // Confirm (POST) - consume and redirect
-  const matchInviteGo = url.pathname.match(/^\/api\/bot-invite\/t\/([A-Za-z0-9_\-]+)\/go$/);
-  if (matchInviteGo && request.method === 'POST') {
-    ...
-  }
+  // SERVICE_TOKEN authentication (disabled for now)
+  // Legacy one-time flow (commented out - token generation and consumption disabled)
   */
 
   return null;
