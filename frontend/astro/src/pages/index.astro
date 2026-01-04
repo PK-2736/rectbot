@@ -4,7 +4,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 // 公開設定（ヘルプセンター）
 const supportUrl = import.meta.env.PUBLIC_SUPPORT_PORTAL_URL ?? 'https://support.recrubo.net';
 // サポートサーバー招待（固定URL指定）
-const supportServerUrl = 'https://discord.com/oauth2/authorize?client_id=1048950201974542477';
+const supportServerUrl = 'https://discord.gg/tJAGc9aRdc';
 // APIベース URL（環境変数で上書き可能 / 末尾スラッシュ除去）
 const apiBaseUrl = (import.meta.env.PUBLIC_API_BASE_URL && import.meta.env.PUBLIC_API_BASE_URL.trim() !== '')
   ? import.meta.env.PUBLIC_API_BASE_URL.trim().replace(/\/$/, '')
@@ -78,8 +78,116 @@ const faqSchema = {
         <rect width="100" height="100" fill="url(#dots)"/>
       </svg>
     </div>
+    <div class="container relative z-10">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center animate-fade-in-up">
+        <div class="mb-12">
+          <h1 class="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 bg-gradient-to-r from-brand-500 to-accent-500 text-transparent bg-clip-text">
+            Recruboで募集をスムーズに
+          </h1>
+          <p class="text-lg md:text-xl text-slate-600 mb-6 leading-relaxed">
+            Recrubo は、 Discord 内の募集を円滑に行うためのボットです<br>
+            募集機能・フレンドコード管理でサーバー運営をサポートします。
+          </p>
+          <div class="mt-6">
+          <a href={supportUrl} class="text-brand-600 hover:text-brand-700 underline text-base md:text-lg transition-colors" target="_blank" rel="noopener">サポートポータル</a>で質問・お問い合わせ受付中！
+          </div>
+          
+          <div class="flex flex-col sm:flex-row gap-4 mt-8">
+          <a
+            href="javascript:void(0)"
+            class="btn-primary text-lg px-8 py-4 js-bot-invite transform hover:scale-105"
+            data-invite="primary"
+            data-label="今すぐボットを招待"
+            data-fallback={fallbackInviteUrl || ''}
+            data-api-base={apiBaseUrl}
+          >
+            今すぐボットを招待
+          </a>
+          <a href={supportServerUrl} class="btn-secondary text-lg px-8 py-4" target="_blank" rel="noopener">
+            サポートサーバーに参加
+          </a>
+          <a href="#features" class="btn-secondary text-lg px-8 py-4">
+            機能を詳しく見る
+          </a>
+          </div>
 
-  </BaseLayout>
+          <!-- Quick Commands chips -->
+          <div class="mt-6 flex flex-wrap gap-2">
+            <a href="/commands/gameRecruit" class="px-3 py-2 rounded-full bg-white border border-brand-200 text-brand-700 text-sm hover:bg-brand-50">/recruit 募集</a>
+            <a href="/commands/friendCode" class="px-3 py-2 rounded-full bg-white border border-brand-200 text-brand-700 text-sm hover:bg-brand-50">/friend フレンドコード</a>
+            <a href="/commands/fastResponse" class="px-3 py-2 rounded-full bg-white border border-brand-200 text-brand-700 text-sm hover:bg-brand-50">/help ヘルプ</a>
+            <a href="#invite" class="px-3 py-2 rounded-full bg-white border border-brand-200 text-brand-700 text-sm hover:bg-brand-50">/invite 招待</a>
+          </div>
+        </div>
+        <!-- Hero Image on right -->
+        <div class="hidden lg:block">
+          <div class="relative">
+            <img src="/logo.png" alt="Recrubo プレビュー" class="w-full max-w-lg ml-auto rounded-2xl shadow-xl border border-brand-100" loading="eager" />
+            <div class="absolute -bottom-4 -left-4 bg-white/80 backdrop-blur-sm rounded-xl shadow p-3 border border-brand-100">
+              <div class="flex items-center gap-3">
+                <span class="inline-block w-10 h-10 rounded-lg bg-brand-500"></span>
+                <div>
+                  <p class="text-sm font-semibold text-slate-900">参加者募集</p>
+                  <p class="text-xs text-slate-600">powered by Recrubo</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features Section -->
+  <section id="features" class="section-padding bg-brand-50">
+    <div class="container">
+      <div class="text-center mb-16">
+        <h2 class="text-3xl md:text-4xl font-bold mb-6 text-slate-900">
+          <span class="bg-gradient-to-r from-brand-500 to-accent-500 text-transparent bg-clip-text">豊富な機能</span>でサーバー運営を効率化
+        </h2>
+      </div>
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <a href="/commands/gameRecruit" class="card block hover:shadow-lg transition-shadow animate-fade-in-up" style="animation-delay: 0.1s">
+          <div class="w-12 h-12 bg-brand-500 rounded-lg flex items-center justify-center mb-4">
+            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+            </svg>
+          </div>
+          <h3 class="text-xl font-semibold mb-3 text-slate-900">ゲーム募集機能</h3>
+          <p class="text-slate-600">
+            埋め込み画像形式でゲーム募集を投稿。参加者管理も簡単で、コミュニティの活発化に貢献します。
+          </p>
+        </a>
+        
+        <a href="/commands/friendCode" class="card block hover:shadow-lg transition-shadow animate-fade-in-up" style="animation-delay: 0.2s">
+          <div class="w-12 h-12 bg-accent-500 rounded-lg flex items-center justify-center mb-4">
+            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V4a2 2 0 118 0v2m-4 0a2 2 0 104 0m-4 0a2 2 0 014 0z"></path>
+            </svg>
+          </div>
+          <h3 class="text-xl font-semibold mb-3 text-slate-900">フレンドコード管理</h3>
+          <p class="text-slate-600">
+            各プラットフォームのフレンドコードを一元管理。メンバー同士の繋がりをサポートします。（開発中）
+          </p>
+        </a>
+        
+        <a href="/commands/fastResponse" class="card block hover:shadow-lg transition-shadow animate-fade-in-up" style="animation-delay: 0.3s">
+          <div class="w-12 h-12 bg-gradient-to-br from-brand-500 to-accent-500 rounded-lg flex items-center justify-center mb-4">
+            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+            </svg>
+          </div>
+          <h3 class="text-xl font-semibold mb-3 text-slate-900">高速レスポンス</h3>
+          <p class="text-slate-600">
+            遅延の少ない技術スタックで構築されていてレスポンスが高速なボット。ストレスのない快適な操作を実現します。
+          </p>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA Section -->
   <section id="invite" class="section-padding bg-white relative">
     <div class="absolute top-0 left-0 w-full h-16 overflow-hidden">
       <svg viewBox="0 0 1200 120" preserveAspectRatio="none" class="absolute top-0 left-0 w-full h-full">
@@ -135,7 +243,7 @@ const faqSchema = {
           <h3 class="text-xl font-semibold mb-3 text-slate-900">Discordサーバー</h3>
           <p class="text-slate-600 mb-4">
             コミュニティでの質問や情報交換は
-            <a href="https://discord.com/oauth2/authorize?client_id=1048950201974542477" class="text-brand-600 hover:text-brand-700 underline" target="_blank" rel="noopener">公式ディスコードサーバー</a>
+            <a href="https://discord.gg/tJAGc9aRdc" class="text-brand-600 hover:text-brand-700 underline" target="_blank" rel="noopener">公式ディスコードサーバー</a>
             でどうぞ
           </p>
           <a href={supportServerUrl} class="text-brand-600 hover:text-brand-700 transition-colors" target="_blank" rel="noopener">
