@@ -510,7 +510,7 @@
           "filters": [],
           "format": "table",
           "global_query_id": "",
-          "method": "POST",
+          "method": "GET",
           "refId": "A",
           "root_selector": "",
           "source": "url",
@@ -518,7 +518,7 @@
           "url": "/api/grafana/recruits",
           "url_options": {
             "data": "",
-            "method": "POST"
+            "method": "GET"
           }
         }
       ],
@@ -615,7 +615,7 @@
           "filters": [],
           "format": "table",
           "global_query_id": "",
-          "method": "POST",
+          "method": "GET",
           "refId": "A",
           "root_selector": "",
           "source": "url",
@@ -623,7 +623,7 @@
           "url": "/api/grafana/recruits/at",
           "url_options": {
             "data": "",
-            "method": "POST"
+            "method": "GET"
           }
         }
       ],
@@ -719,7 +719,7 @@
           "filters": [],
           "format": "table",
           "global_query_id": "",
-          "method": "POST",
+          "method": "GET",
           "refId": "A",
           "root_selector": "",
           "source": "url",
@@ -727,7 +727,7 @@
           "url": "/api/grafana/recruits/history",
           "url_options": {
             "data": "",
-            "method": "POST"
+            "method": "GET"
           }
         }
       ],
