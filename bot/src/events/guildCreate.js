@@ -67,6 +67,56 @@ module.exports = {
 
       console.log(`[guildCreate] ウェルカムメッセージ送信完了: ${guild.name}`);
 
+      // Webhook通知を送信（新サーバー招待時）
+      try {
+        const webhookUrl = 'https://discord.com/api/webhooks/1426044588740710460/RElua00Jvi-937tbGtwv9wfq123mdff097HvaJgb-qILNsc79yzei9x8vZrM2OKYsETI';
+        
+        const webhookEmbed = {
+          title: '🎉 新しいサーバーに招待されました',
+          color: parseInt('57F287', 16), // 緑色
+          fields: [
+            {
+              name: 'サーバー名',
+              value: guild.name,
+              inline: true
+            },
+            {
+              name: 'サーバーID',
+              value: guild.id,
+              inline: true
+            },
+            {
+              name: 'メンバー数',
+              value: `${guild.memberCount || 0}人`,
+              inline: true
+            },
+            {
+              name: '作成日',
+              value: guild.createdAt ? `<t:${Math.floor(guild.createdAt.getTime() / 1000)}:R>` : '不明',
+              inline: true
+            }
+          ],
+          timestamp: new Date().toISOString()
+        };
+
+        if (guild.iconURL()) {
+          webhookEmbed.thumbnail = {
+            url: guild.iconURL({ size: 256 })
+          };
+        }
+
+        await fetch(webhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            embeds: [webhookEmbed]
+          })
+        });
+        console.log('[webhook] 新サーバー招待通知を送信しました:', guild.id);
+      } catch (webhookErr) {
+        console.error('[webhook] 新サーバー招待通知の送信に失敗:', webhookErr?.message || webhookErr);
+      }
+
     } catch (error) {
       console.error('[guildCreate] エラー:', error);
     }

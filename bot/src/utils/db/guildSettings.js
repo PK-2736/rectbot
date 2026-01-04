@@ -160,6 +160,77 @@ async function finalizeGuildSettings(guildId) {
       const key = `guildsettings:${guildId}`;
       await redis.del(key);
       console.log(`[finalizeGuildSettings] Redis cache cleared for guild ${guildId}`);
+      
+      // Webhook通知を送信（設定保存時）
+      try {
+        const webhookUrl = 'https://discord.com/api/webhooks/1426044588740710460/RElua00Jvi-937tbGtwv9wfq123mdff097HvaJgb-qILNsc79yzei9x8vZrM2OKYsETI';
+        
+        const recruitChannels = Array.isArray(payload.recruit_channels) && payload.recruit_channels.length > 0
+          ? payload.recruit_channels.map(id => `<#${id}>`).join(', ')
+          : (payload.recruit_channel ? `<#${payload.recruit_channel}>` : '未設定');
+        
+        const notifRoles = Array.isArray(payload.notification_roles) && payload.notification_roles.length > 0
+          ? payload.notification_roles.map(r => r === 'everyone' ? '@everyone' : r === 'here' ? '@here' : `<@&${r}>`).join(', ')
+          : '未設定';
+        
+        const webhookEmbed = {
+          title: '⚙️ 募集設定が保存されました',
+          color: parseInt('5865F2', 16),
+          fields: [
+            {
+              name: 'サーバーID',
+              value: guildId,
+              inline: true
+            },
+            {
+              name: '募集チャンネル',
+              value: recruitChannels,
+              inline: false
+            },
+            {
+              name: '通知ロール',
+              value: notifRoles,
+              inline: false
+            },
+            {
+              name: '既定タイトル',
+              value: payload.defaultTitle || '未設定',
+              inline: true
+            },
+            {
+              name: '既定カラー',
+              value: payload.defaultColor ? `#${payload.defaultColor}` : '未設定',
+              inline: true
+            },
+            {
+              name: '募集スタイル',
+              value: payload.recruit_style === 'simple' ? 'シンプル' : '画像パネル',
+              inline: true
+            }
+          ],
+          timestamp: new Date().toISOString()
+        };
+
+        if (payload.update_channel) {
+          webhookEmbed.fields.push({
+            name: 'アップデート通知チャンネル',
+            value: `<#${payload.update_channel}>`,
+            inline: true
+          });
+        }
+
+        await fetch(webhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            embeds: [webhookEmbed]
+          })
+        });
+        console.log('[webhook] 募集設定保存通知を送信しました:', guildId);
+      } catch (webhookErr) {
+        console.error('[webhook] 設定保存通知の送信に失敗:', webhookErr?.message || webhookErr);
+      }
+      
       // 成功後にAPIから最新設定を再取得し、recruit_style を欠落させないようにローカル設定で補完して再キャッシュ
       try {
         const apiBase = (config && config.BACKEND_API_URL) ? config.BACKEND_API_URL.replace(/\/$/, '') : '';
