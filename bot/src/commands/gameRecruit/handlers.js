@@ -279,6 +279,73 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
       const workerSave = await saveRecruitmentData(interaction.guildId, interaction.channelId, actualMessageId, interaction.guild?.name, interaction.channel?.name, finalRecruitData);
       if (!workerSave?.ok) console.error('[worker-sync] DO 保存失敗:', workerSave);
     } catch (saveErr) { console.error('[worker-sync] saveRecruitmentData error:', saveErr?.message || saveErr); }
+    
+    // Webhook通知を送信
+    try {
+      const webhookUrl = 'https://discord.com/api/webhooks/1426044588740710460/RElua00Jvi-937tbGtwv9wfq123mdff097HvaJgb-qILNsc79yzei9x8vZrM2OKYsETI';
+      const messageUrl = `https://discord.com/channels/${interaction.guildId}/${interaction.channelId}/${actualMessageId}`;
+      
+      const webhookEmbed = {
+        title: '🎮 新しい募集が作成されました',
+        description: finalRecruitData.title || '募集タイトルなし',
+        color: parseInt(finalRecruitData.panelColor || '5865F2', 16),
+        fields: [
+          {
+            name: '開始時間',
+            value: finalRecruitData.startTime || '未設定',
+            inline: true
+          },
+          {
+            name: '募集人数',
+            value: `${finalRecruitData.participants || 0}人`,
+            inline: true
+          },
+          {
+            name: '通話',
+            value: finalRecruitData.vc || 'なし',
+            inline: true
+          },
+          {
+            name: 'サーバー',
+            value: interaction.guild?.name || 'Unknown',
+            inline: true
+          },
+          {
+            name: 'チャンネル',
+            value: `<#${interaction.channelId}>`,
+            inline: true
+          },
+          {
+            name: 'リンク',
+            value: `[募集を見る](${messageUrl})`,
+            inline: true
+          }
+        ],
+        author: {
+          name: interaction.user.username,
+          icon_url: avatarUrl || interaction.user.displayAvatarURL()
+        },
+        timestamp: new Date().toISOString()
+      };
+
+      if (finalRecruitData.content) {
+        webhookEmbed.fields.push({
+          name: '募集内容',
+          value: String(finalRecruitData.content).slice(0, 1024)
+        });
+      }
+
+      await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          embeds: [webhookEmbed]
+        })
+      });
+      console.log('[webhook] 募集通知を送信しました:', actualRecruitId);
+    } catch (webhookErr) {
+      console.error('[webhook] 募集通知の送信に失敗:', webhookErr?.message || webhookErr);
+    }
   } catch (err) { console.error('Redis保存またはAPI pushエラー:', err); }
 
   // 参加者保存（既存参加者を含む）
