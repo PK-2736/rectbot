@@ -6,13 +6,10 @@ const config = require('../config');
 module.exports = {
   name: 'messageCreate',
   async execute(message, client) {
-    // Botのメッセージは無視
-    if (message.author.bot) return;
-
     // DMは無視
     if (!message.guild) return;
 
-    // 特定チャンネルと特定ユーザーのメッセージ監視（bump通知）
+    // 特定チャンネルと特定ユーザー（bot含む）のメッセージ監視（bump通知）
     if (message.channel.id === '1414751550223548607' && message.author.id === '302050872383242240') {
       try {
         if (!config.GMAIL_USER || !config.GMAIL_APP_PASSWORD || !config.NOTIFICATION_EMAIL_TO) {
@@ -41,6 +38,9 @@ module.exports = {
         console.error('[messageCreate] メール送信エラー:', emailError);
       }
     }
+
+    // 以降はBotのメッセージは無視（フレンドコード検索機能）
+    if (message.author.bot) return;
 
     // メッセージ全体からメンションを検出 (自分自身への言及のみ)
     const mentionRegex = /<@!?(\d+)>/g;
