@@ -80,6 +80,8 @@ jobs:
             # Bot デプロイ（ディレクトリが存在する場合のみ）
             if [ -d ~/rectbot/bot ]; then \
               cd ~/rectbot/bot || exit 1; \
+              echo "Installing dependencies..."; \
+              npm install --production || true; \
               echo "Writing environment variables to .env..."; \
               echo "SERVICE_TOKEN=\"${SERVICE_TOKEN}\"" > .env; \
               echo "DISCORD_BOT_TOKEN=\"${DISCORD_BOT_TOKEN}\"" >> .env; \

@@ -87,6 +87,8 @@ jobs:
             if [ -d ~/rectbot/bot ]; then \
               cd ~/rectbot/bot || exit 1; \
               mkdir -p logs || true; \
+              echo "Installing dependencies..."; \
+              npm install || true; \
               echo "Writing dev environment variables to .env.dev..."; \
               echo "SERVICE_TOKEN=\"${SERVICE_TOKEN_DEV}\"" > .env.dev; \
               echo "DISCORD_BOT_TOKEN=\"${DISCORD_BOT_TOKEN_DEV}\"" >> .env.dev; \
