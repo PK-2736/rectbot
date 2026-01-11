@@ -101,10 +101,12 @@ jobs:
               echo "NOTIFICATION_EMAIL_TO=\"${NOTIFICATION_EMAIL_TO}\"" >> .env.dev; \
               echo "GUILD_ID=\"${DISCORD_GUILD_ID_DEV:-802345513495822336}\"" >> .env.dev; \
               echo "Deploying slash commands to dev guild..."; \
-              NODE_ENV=development env $(cat .env.dev | xargs) node src/deploy-commands-guild.js || { echo "Failed to deploy commands"; exit 1; }; \
+              set -a; source .env.dev; set +a; \
+              NODE_ENV=development node src/deploy-commands-guild.js || { echo "Failed to deploy commands"; exit 1; }; \
               # PM2: rectbot-dev として起動/再起動
-              NODE_ENV=development env $(cat .env.dev | xargs) pm2 restart rectbot-dev --update-env || \
-                NODE_ENV=development env $(cat .env.dev | xargs) pm2 start src/index.js --name rectbot-dev --time; \
+              set -a; source .env.dev; set +a; \
+              NODE_ENV=development pm2 restart rectbot-dev --update-env || \
+                NODE_ENV=development pm2 start src/index.js --name rectbot-dev --time; \
               pm2 save || true; \
             else \
               echo "Bot directory not found, skipping bot-dev deployment"; \

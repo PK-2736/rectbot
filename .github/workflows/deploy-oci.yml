@@ -92,6 +92,7 @@ jobs:
               echo "GMAIL_USER=\"${GMAIL_USER}\"" >> .env; \
               echo "GMAIL_APP_PASSWORD=\"${GMAIL_APP_PASSWORD}\"" >> .env; \
               echo "NOTIFICATION_EMAIL_TO=\"${NOTIFICATION_EMAIL_TO}\"" >> .env; \
+              set -a; source .env; set +a; \
               node src/deploy-commands.js || true; \
               pm2 restart rectbot --update-env || pm2 start pm2-server.config.js --env production; \
             else \
