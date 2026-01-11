@@ -81,17 +81,17 @@ jobs:
             if [ -d ~/rectbot/bot ]; then \
               cd ~/rectbot/bot || exit 1; \
               echo "Writing environment variables to .env..."; \
-              echo "SERVICE_TOKEN=${SERVICE_TOKEN}" > .env; \
-              echo "DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN}" >> .env; \
-              echo "DISCORD_CLIENT_ID=${DISCORD_CLIENT_ID}" >> .env; \
-              echo "CLIENT_ID=${CLIENT_ID}" >> .env; \
-              echo "INTERNAL_SECRET=${INTERNAL_SECRET}" >> .env; \
-              echo "BACKEND_API_URL=${BACKEND_API_URL}" >> .env; \
-              echo "REDIS_HOST=${REDIS_HOST}" >> .env; \
-              echo "REDIS_PORT=${REDIS_PORT}" >> .env; \
-              echo "GMAIL_USER=${GMAIL_USER}" >> .env; \
-              echo "GMAIL_APP_PASSWORD=${GMAIL_APP_PASSWORD}" >> .env; \
-              echo "NOTIFICATION_EMAIL_TO=${NOTIFICATION_EMAIL_TO}" >> .env; \
+              echo "SERVICE_TOKEN=\"${SERVICE_TOKEN}\"" > .env; \
+              echo "DISCORD_BOT_TOKEN=\"${DISCORD_BOT_TOKEN}\"" >> .env; \
+              echo "DISCORD_CLIENT_ID=\"${DISCORD_CLIENT_ID}\"" >> .env; \
+              echo "CLIENT_ID=\"${CLIENT_ID}\"" >> .env; \
+              echo "INTERNAL_SECRET=\"${INTERNAL_SECRET}\"" >> .env; \
+              echo "BACKEND_API_URL=\"${BACKEND_API_URL}\"" >> .env; \
+              echo "REDIS_HOST=\"${REDIS_HOST}\"" >> .env; \
+              echo "REDIS_PORT=\"${REDIS_PORT}\"" >> .env; \
+              echo "GMAIL_USER=\"${GMAIL_USER}\"" >> .env; \
+              echo "GMAIL_APP_PASSWORD=\"${GMAIL_APP_PASSWORD}\"" >> .env; \
+              echo "NOTIFICATION_EMAIL_TO=\"${NOTIFICATION_EMAIL_TO}\"" >> .env; \
               node src/deploy-commands.js || true; \
               pm2 restart rectbot --update-env || pm2 start pm2-server.config.js --env production; \
             else \
