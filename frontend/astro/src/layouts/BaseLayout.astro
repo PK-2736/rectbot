@@ -13,10 +13,10 @@ const updatedDisplay = new Date(updatedISO).toLocaleString('ja-JP', { timeZone: 
 // サイトURL・画像URL（検索スニペット用）
 const siteUrl = 'https://recrubo.net';
 const currentUrl = new URL(Astro.url.pathname, siteUrl).toString();
-const logoUrl = `${siteUrl}/logo.png`;
-const faviconUrl = `${siteUrl}/favicon.ico`;
-const faviconSvgUrl = `${siteUrl}/favicon.svg`;
-const ogImageUrl = `${siteUrl}/image.png`; // OGP画像（募集スクリーンショットを優先）
+const logoUrl = '/logo.png';  // ローカルリソースを使用
+const faviconUrl = '/favicon.ico';
+const faviconSvgUrl = '/favicon.svg';
+const ogImageUrl = '/image.png'; // OGP画像（募集スクリーンショットを優先）
 ---
 <!DOCTYPE html>
 <html lang="ja">
@@ -64,7 +64,7 @@ const ogImageUrl = `${siteUrl}/image.png`; // OGP画像（募集スクリーン�
       "url": "https://recrubo.net",
       "logo": {
         "@type": "ImageObject",
-        "url": "https://recrubo.net/logo.png",
+        "url": `${siteUrl}${logoUrl}`,
         "width": "1024",
         "height": "1024"
       },
@@ -147,8 +147,8 @@ const ogImageUrl = `${siteUrl}/image.png`; // OGP画像（募集スクリーン�
         "ratingCount": "150",
         "bestRating": "5"
       },
-      "image": "https://recrubo.net/logo.png",
-      "screenshot": "https://recrubo.net/logo.png",
+      "image": `${siteUrl}${logoUrl}`,
+      "screenshot": `${siteUrl}${logoUrl}`,
       "author": {
         "@type": "Organization",
         "name": "Recrubo"
@@ -213,7 +213,7 @@ const ogImageUrl = `${siteUrl}/image.png`; // OGP画像（募集スクリーン�
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
   </head>
   <body class="font-inter antialiased bg-white text-slate-800">
     <!-- Navigation -->
