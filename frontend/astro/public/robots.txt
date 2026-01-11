@@ -1,4 +1,9 @@
 # This file is managed by Cloudflare
 # AI training bots are automatically blocked by Cloudflare
 
+ User-agent: *
+ Allow: /
+ Disallow: /?q={search_term_string}
+ Disallow: /*?q=*
+ 
 Sitemap: https://recrubo.net/sitemap.xml
