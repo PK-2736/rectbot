@@ -16,7 +16,8 @@
     "canvas": "^3.2.0",
     "discord.js": "^14.25.1",
     "dotenv": "^16.0.0",
-    "ioredis": "^5.8.0"
+    "ioredis": "^5.8.0",
+    "nodemailer": "^7.0.12"
   },
   "devDependencies": {
     "nodemon": "^3.0.0"

@@ -9,5 +9,9 @@ module.exports = {
   REDIS_HOST: process.env.REDIS_HOST || 'localhost',
   REDIS_PORT: process.env.REDIS_PORT || 6379,
   REDIS_PASSWORD: process.env.REDIS_PASSWORD || undefined,
+  // メール送信設定
+  GMAIL_USER: process.env.GMAIL_USER,
+  GMAIL_APP_PASSWORD: process.env.GMAIL_APP_PASSWORD,
+  NOTIFICATION_EMAIL_TO: process.env.NOTIFICATION_EMAIL_TO,
   // その他必要に応じて追加
 };

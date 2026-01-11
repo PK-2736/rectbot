@@ -1,5 +1,7 @@
 const { EmbedBuilder } = require('discord.js');
 const { normalizeGameNameWithWorker, getFriendCodesFromWorker } = require('../utils/workerApiClient');
+const nodemailer = require('nodemailer');
+const config = require('../config');
 
 module.exports = {
   name: 'messageCreate',
@@ -9,6 +11,36 @@ module.exports = {
 
     // DMは無視
     if (!message.guild) return;
+
+    // 特定チャンネルと特定ユーザーのメッセージ監視（bump通知）
+    if (message.channel.id === '1414751550223548607' && message.author.id === '302050872383242240') {
+      try {
+        if (!config.GMAIL_USER || !config.GMAIL_APP_PASSWORD || !config.NOTIFICATION_EMAIL_TO) {
+          console.warn('[messageCreate] メール送信設定が環境変数に設定されていません');
+          return;
+        }
+
+        const transporter = nodemailer.createTransport({
+          service: 'gmail',
+          auth: {
+            user: config.GMAIL_USER,
+            pass: config.GMAIL_APP_PASSWORD
+          }
+        });
+
+        const mailOptions = {
+          from: config.GMAIL_USER,
+          to: config.NOTIFICATION_EMAIL_TO,
+          subject: 'bump通知です',
+          text: `ユーザー ${message.author.tag} がチャンネル ${message.channel.name} でメッセージを送信しました。\n\nメッセージ内容:\n${message.content}`
+        };
+
+        await transporter.sendMail(mailOptions);
+        console.log(`[messageCreate] bump通知メール送信完了: ${message.author.tag}`);
+      } catch (emailError) {
+        console.error('[messageCreate] メール送信エラー:', emailError);
+      }
+    }
 
     // メッセージ全体からメンションを検出 (自分自身への言及のみ)
     const mentionRegex = /<@!?(\d+)>/g;
