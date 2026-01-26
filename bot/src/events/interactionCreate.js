@@ -203,7 +203,7 @@ module.exports = {
           
           await user.send({ embeds: [replyEmbed] });
           
-          await require('../utils/safeReply').safeRespond(interaction, { 
+          await safeRespond(interaction, { 
             content: '✅ ユーザーにDMを送信しました。', 
             flags: require('discord.js').MessageFlags.Ephemeral 
           }).catch(() => {});
@@ -211,7 +211,7 @@ module.exports = {
           console.log(`[report] 返信をユーザーに送信しました - ユーザーID: ${authorId}`);
         } catch (error) {
           console.error('[report] 返信送信エラー:', error);
-          await require('../utils/safeReply').safeRespond(interaction, { 
+          await safeRespond(interaction, { 
             content: `❌ 返信の送信に失敗しました: ${error.message}`, 
             flags: require('discord.js').MessageFlags.Ephemeral 
           }).catch(() => {});
