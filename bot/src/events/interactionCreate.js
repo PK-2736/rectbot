@@ -176,7 +176,63 @@ module.exports = {
         return;
       }
 
+
+      // reportコマンドの返信モーダル処理
+      if (interaction.customId && interaction.customId.startsWith('report_reply_modal_')) {
+        const authorId = interaction.customId.replace('report_reply_modal_', '');
+        const replyContent = interaction.fields.getTextInputValue('reply_content');
+        
+        try {
+          // DM送信
+          const user = await interaction.client.users.fetch(authorId).catch(() => null);
+          if (!user) {
+            await require('../utils/safeReply').safeRespond(interaction, { 
+              content: '❌ ユーザーが見つかりませんでした。', 
+              flags: require('discord.js').MessageFlags.Ephemeral 
+            }).catch(() => {});
+            return;
+          }
+          
+          const { EmbedBuilder } = require('discord.js');
+          const replyEmbed = new EmbedBuilder()
+            .setTitle('📨 Recrubo開発者からの返信')
+            .setDescription(replyContent)
+            .setColor(0x4C8DFF)
+            .setFooter({ text: 'Recrubo Bot' })
+            .setTimestamp();
+          
+          await user.send({ embeds: [replyEmbed] });
+          
+          await require('../utils/safeReply').safeRespond(interaction, { 
+            content: '✅ ユーザーにDMを送信しました。', 
+            flags: require('discord.js').MessageFlags.Ephemeral 
+          }).catch(() => {});
+          
+          console.log(`[report] 返信をユーザーに送信しました - ユーザーID: ${authorId}`);
+        } catch (error) {
+          console.error('[report] 返信送信エラー:', error);
+          await require('../utils/safeReply').safeRespond(interaction, { 
+            content: `❌ 返信の送信に失敗しました: ${error.message}`, 
+            flags: require('discord.js').MessageFlags.Ephemeral 
+          }).catch(() => {});
+        }
+        return;
+      }
       // gameRecruitコマンドのモーダルのみ処理
+
+      // reportコマンドのモーダル処理
+      if (interaction.customId && interaction.customId.startsWith('report_modal_')) {
+        const report = client.commands.get('report');
+        if (report && typeof report.handleModalSubmit === 'function') {
+          try {
+            await report.handleModalSubmit(interaction);
+          } catch (error) {
+            console.error('エラー報告モーダル処理中にエラー:', error);
+            await safeRespond(interaction, { content: `エラー報告処理でエラー: ${error.message || error}`, flags: require('discord.js').MessageFlags.Ephemeral }).catch(() => {});
+          }
+        }
+        return;
+      }
       const gameRecruit = client.commands.get('rect');
       if (gameRecruit && typeof gameRecruit.handleModalSubmit === 'function') {
         try {
@@ -194,6 +250,33 @@ module.exports = {
       // まずはシステムボタン（ロール付与・招待URL発行など）を処理
       try {
         const id = interaction.customId || '';
+        // エラー報告の返信ボタン処理
+        if (id.startsWith('report_reply_')) {
+          await handleComponentSafely(interaction, async () => {
+            const authorId = id.replace('report_reply_', '');
+            
+            // モーダルで返信内容を入力させる
+            const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
+            
+            const replyModal = new ModalBuilder()
+              .setCustomId(`report_reply_modal_${authorId}`)
+              .setTitle('報告への返信を入力してください');
+            
+            const replyInput = new TextInputBuilder()
+              .setCustomId('reply_content')
+              .setLabel('返信内容')
+              .setStyle(TextInputStyle.Paragraph)
+              .setMinLength(1)
+              .setMaxLength(4000)
+              .setRequired(true);
+            
+            const modalRow = new ActionRowBuilder().addComponents(replyInput);
+            replyModal.addComponents(modalRow);
+            
+            await interaction.showModal(replyModal);
+          });
+          return;
+        }
         // アップデート通知ロール付与/削除
         if (id.startsWith('grant_role_') || id.startsWith('remove_role_')) {
           await handleComponentSafely(interaction, async () => {
@@ -308,3 +391,34 @@ module.exports = {
   },
 };
 
+
+// report返信ボタン処理関数
+async function handleReplyButton(interaction) {
+  const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, MessageFlags } = require('discord.js');
+  const { safeReply } = require('../utils/safeReply');
+
+  try {
+    // 返信モーダルを作成
+    const modal = new ModalBuilder()
+      .setCustomId('replyReportModal')
+      .setTitle('報告への返信');
+
+    const replyInput = new TextInputBuilder()
+      .setCustomId('reply_content')
+      .setLabel('返信内容')
+      .setStyle(TextInputStyle.Paragraph)
+      .setPlaceholder('報告への返信内容を入力してください')
+      .setRequired(true)
+      .setMaxLength(2000);
+
+    modal.addComponents(new ActionRowBuilder().addComponents(replyInput));
+
+    // モーダルを表示
+    await interaction.showModal(modal);
+  } catch (error) {
+    console.error('[report reply button] error:', error);
+    try {
+      await safeReply(interaction, { content: '❌ 返信フォームの表示に失敗しました。', flags: MessageFlags.Ephemeral });
+    } catch (_) {}
+  }
+}

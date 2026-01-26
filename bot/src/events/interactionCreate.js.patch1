@@ -1,0 +1,30 @@
+--- Update /workspaces/rectbot/bot/src/events/interactionCreate.js
++++ Add report modal handler before gameRecruit modal handler
+@@ After linkAdd modal handler, add report modal handler
+      // フレンドコード登録のモーダル処理
+      if (interaction.customId === 'friend_code_add_modal') {
+        const linkAdd = client.commands.get('link-add');
+        if (linkAdd && typeof linkAdd.handleModalSubmit === 'function') {
+          try {
+            await linkAdd.handleModalSubmit(interaction);
+          } catch (error) {
+            console.error('フレンドコード登録モーダル処理中にエラー:', error);
+            await safeRespond(interaction, { content: `フレンドコード登録処理でエラー: ${error.message || error}`, flags: require('discord.js').MessageFlags.Ephemeral }).catch(() => {});
+          }
+        }
+        return;
+      }
+
++     // reportコマンドのモーダル処理
++     if (interaction.customId && interaction.customId.startsWith('report_modal_')) {
++       const report = client.commands.get('report');
++       if (report && typeof report.handleModalSubmit === 'function') {
++         try {
++           await report.handleModalSubmit(interaction);
++         } catch (error) {
++           console.error('エラー報告モーダル処理中にエラー:', error);
++           await safeRespond(interaction, { content: `エラー報告処理でエラー: ${error.message || error}`, flags: require('discord.js').MessageFlags.Ephemeral }).catch(() => {});
++         }
++       }
++       return;
++     }

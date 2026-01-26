@@ -3,7 +3,7 @@ const { normalizeGameNameWithWorker, getFriendCodesFromWorker } = require('../ut
 const nodemailer = require('nodemailer');
 const config = require('../config');
 
-// 2時間1分後のメール送信タイマーを管理
+// 2時間後のメール送信タイマーを管理
 let bumpReminderTimer = null;
 
 // メール送信関数
@@ -26,7 +26,7 @@ async function sendBumpNotification(channelName, content = '') {
       from: config.GMAIL_USER,
       to: config.NOTIFICATION_EMAIL_TO,
       subject: 'bump通知です',
-      text: content || `チャンネル ${channelName} で2時間1分が経過しました。`
+      text: content || `チャンネル ${channelName} で2時間が経過しました。`
     };
 
     await transporter.sendMail(mailOptions);
@@ -47,20 +47,20 @@ module.exports = {
       // 既存のタイマーがあればキャンセル
       if (bumpReminderTimer) {
         clearTimeout(bumpReminderTimer);
-        console.log('[messageCreate] 既存の2時間1分タイマーをキャンセルしました');
+        console.log('[messageCreate] 既存の2時間タイマーをキャンセルしました');
       }
 
-      // 2時間1分後（121分 = 7,260,000ミリ秒）にメール送信（即時送信はしない）
-      const reminderDelay = 121 * 60 * 1000; // 121分
+      // 2時間後（120分 = 7,260,000ミリ秒）にメール送信（即時送信はしない）
+      const reminderDelay = 120 * 60 * 1000; // 120分
       bumpReminderTimer = setTimeout(() => {
         sendBumpNotification(
           message.channel.name,
-          `2時間1分前にユーザー ${message.author.tag} がチャンネル ${message.channel.name} でメッセージを送信しました。\n\nメッセージ内容:\n${message.content}\n\n次のbumpの時間です！`
+          `2時間前にユーザー ${message.author.tag} がチャンネル ${message.channel.name} でメッセージを送信しました。\n\nメッセージ内容:\n${message.content}\n\n次のbumpの時間です！`
         );
         bumpReminderTimer = null;
       }, reminderDelay);
 
-      console.log('[messageCreate] 2時間1分後のリマインダーを設定しました');
+      console.log('[messageCreate] 2時間後のリマインダーを設定しました');
     }
 
     // 以降はBotのメッセージは無視（フレンドコード検索機能）
