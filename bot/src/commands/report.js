@@ -7,6 +7,7 @@ module.exports = {
   data: new SlashCommandBuilder()
     .setName('report')
     .setDescription('Recruboでエラーが発生した場合、開発者に報告できます'),
+  noDefer: true,  // モーダル表示時はdeferできないため
 
   async execute(interaction) {
     const modal = new ModalBuilder()
