@@ -92,8 +92,33 @@ module.exports = {
     try {
       const userId = message.author.id;
       
-      // 入力されたゲーム名でコードが登録されているか確認
-      const friendCodes = await getFriendCodesFromWorker(userId, message.guild.id, gameName).catch(() => []);
+      // まず入力されたゲーム名でコードが登録されているか確認
+      let friendCodes = await getFriendCodesFromWorker(userId, message.guild.id, gameName).catch(() => []);
+
+      // マッチしない場合、すべてのゲームを取得して検索
+      if (!friendCodes || friendCodes.length === 0) {
+        const allCodes = await getFriendCodesFromWorker(userId, message.guild.id).catch(() => []);
+        
+        if (allCodes && allCodes.length > 0) {
+          // 登録済みゲーム名から入力値とマッチするものを探す
+          // 大文字小文字を区別しない検索
+          const inputLower = gameName.toLowerCase();
+          const matched = allCodes.filter(code => {
+            const gameLower = (code.original_game_name || code.game_name || '').toLowerCase();
+            const normalizedLower = (code.game_name || '').toLowerCase();
+            
+            // 完全一致、部分一致、正規化後の一致をチェック
+            return gameLower === inputLower || 
+                   normalizedLower === inputLower ||
+                   gameLower.includes(inputLower) ||
+                   inputLower.includes(gameLower);
+          });
+          
+          if (matched.length > 0) {
+            friendCodes = matched;
+          }
+        }
+      }
 
       if (!friendCodes || friendCodes.length === 0) {
         await message.reply(`❌ **${gameName}** のフレンドコードが登録されていません。\n\`/link-add\` コマンドで登録してください。`);
