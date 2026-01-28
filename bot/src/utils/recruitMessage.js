@@ -238,13 +238,9 @@ async function autoCloseRecruitment(client, guildId, channelId, messageId) {
   try {
     if (!client) throw new Error('client unavailable');
 
-    const channel = await client.channels.fetch(channelId).catch(() => null);
-    if (!channel) { console.warn('[autoClose] Channel not found:', channelId); return; }
-
-    const message = await channel.messages.fetch(messageId).catch(() => null);
-    if (!message) { console.warn('[autoClose] Message not found for auto close:', messageId); return; }
-
     const recruitId = String(messageId).slice(-8);
+    
+    // 募集情報を先に取得（メッセージの有無に関わらず）
     let savedRecruitData = null;
     try { savedRecruitData = await db.getRecruitFromRedis(recruitId); } catch (e) { console.warn('[autoClose] getRecruitFromRedis failed:', e?.message || e); }
     if (!savedRecruitData) {
@@ -253,40 +249,50 @@ async function autoCloseRecruitment(client, guildId, channelId, messageId) {
     }
     if (savedRecruitData) savedRecruitData = hydrateRecruitData(savedRecruitData);
 
-    let participants = [];
-    try { const persisted = await db.getParticipantsFromRedis(messageId); if (Array.isArray(persisted)) participants = persisted; } catch (e) { console.warn('[autoClose] getParticipantsFromRedis failed:', e?.message || e); }
-
     const recruiterId = savedRecruitData?.recruiterId || savedRecruitData?.ownerId || null;
 
+    // メッセージの取得を試みる
+    const channel = await client.channels.fetch(channelId).catch(() => null);
+    let message = null;
+    if (channel) {
+      message = await channel.messages.fetch(messageId).catch(() => null);
+    }
+
+    // メッセージが存在する場合のみメッセージを編集・返信
+    if (message) {
+      try {
+        const { ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, SeparatorSpacingSize, MediaGalleryBuilder, MediaGalleryItemBuilder } = require('discord.js');
+        const disabledContainer = new ContainerBuilder();
+        const baseColor = (() => {
+          const src = (savedRecruitData && savedRecruitData.panelColor) || '808080';
+          const cleaned = typeof src === 'string' && src.startsWith('#') ? src.slice(1) : src;
+          return /^[0-9A-Fa-f]{6}$/.test(cleaned) ? parseInt(cleaned, 16) : 0x808080;
+        })();
+        disabledContainer.setAccentColor(baseColor);
+        disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent('🎮✨ **募集締め切り済み** ✨🎮'));
+        disabledContainer.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
+        const attachmentUrl = message.attachments.first()?.url || 'attachment://recruit-card.png';
+        disabledContainer.addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(attachmentUrl)));
+        disabledContainer.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
+        disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent('🔒 この募集は自動的に締め切られました。'));
+        disabledContainer.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
+        disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent(`募集ID：\`${recruitId}\` | powered by **Recrubo**`));
+        await message.edit({ components: [disabledContainer], flags: require('discord.js').MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } });
+      } catch (e) { console.warn('[autoClose] Failed to edit message during auto close:', e?.message || e); }
+
+      try { await message.reply({ content: `🔒 自動締切: この募集は有効期限切れのため締め切りました。`, allowedMentions: { roles: [], users: recruiterId ? [recruiterId] : [] } }).catch(() => null); } catch (_) {}
+    } else {
+      console.warn('[autoClose] Message not found (manual deletion or already deleted):', messageId);
+      // メッセージが存在しない場合はログするが、キャッシュは削除する
+    }
+
+    // ✅ メッセージの有無に関わらずStauts更新・キャッシュ削除を実行
     try { const statusRes = await db.updateRecruitmentStatus(messageId, 'ended', new Date().toISOString()); if (!statusRes?.ok) console.warn('[autoClose] Status update returned warning:', statusRes); } catch (e) { console.warn('[autoClose] Failed to update status:', e?.message || e); }
     try { const deleteRes = await db.deleteRecruitmentData(messageId, recruiterId); if (!deleteRes?.ok && deleteRes?.status !== 404) console.warn('[autoClose] Recruitment delete returned warning:', deleteRes); } catch (e) { console.warn('[autoClose] Failed to delete recruitment from Durable Object:', e?.message || e); }
-
-    try {
-      const { ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, SeparatorSpacingSize, MediaGalleryBuilder, MediaGalleryItemBuilder } = require('discord.js');
-      const disabledContainer = new ContainerBuilder();
-      const baseColor = (() => {
-        const src = (savedRecruitData && savedRecruitData.panelColor) || '808080';
-        const cleaned = typeof src === 'string' && src.startsWith('#') ? src.slice(1) : src;
-        return /^[0-9A-Fa-f]{6}$/.test(cleaned) ? parseInt(cleaned, 16) : 0x808080;
-      })();
-      disabledContainer.setAccentColor(baseColor);
-      disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent('🎮✨ **募集締め切り済み** ✨🎮'));
-      disabledContainer.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
-      const attachmentUrl = message.attachments.first()?.url || 'attachment://recruit-card.png';
-      disabledContainer.addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(attachmentUrl)));
-      disabledContainer.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
-      disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent('🔒 この募集は自動的に締め切られました。'));
-      disabledContainer.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
-  disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent(`募集ID：\`${recruitId}\` | powered by **Recrubo**`));
-      await message.edit({ components: [disabledContainer], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } });
-    } catch (e) { console.warn('[autoClose] Failed to edit message during auto close:', e?.message || e); }
-
-    try { await message.reply({ content: `🔒 自動締切: この募集は有効期限切れのため締め切りました。`, allowedMentions: { roles: [], users: recruiterId ? [recruiterId] : [] } }).catch(() => null); } catch (_) {}
-
     try { await db.deleteParticipantsFromRedis(messageId); } catch (e) { console.warn('[autoClose] deleteParticipantsFromRedis failed:', e?.message || e); }
     try { if (recruitId) await db.deleteRecruitFromRedis(recruitId); } catch (e) { console.warn('[autoClose] deleteRecruitFromRedis failed:', e?.message || e); }
 
-    console.log('[autoClose] Completed for message:', messageId);
+    console.log('[autoClose] Completed for message:', messageId, '- All caches cleared regardless of message existence');
   } catch (error) {
     console.error('[autoClose] Unexpected error:', error);
   }

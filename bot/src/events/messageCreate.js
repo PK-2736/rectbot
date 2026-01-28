@@ -85,52 +85,27 @@ module.exports = {
     // quiet
 
     if (!gameName) {
-      await message.reply('❌ ゲーム名を指定してください。\n例: `valorant @自分` または `ばろ @自分`');
+      await message.reply('❌ ゲーム名を指定してください。\n例: `valorant @自分` または `apex @自分`');
       return;
     }
 
     try {
-      // まず正規化前のゲーム名で検索を試みる
       const userId = message.author.id;
-      let normalized = gameName;
-      let shouldNormalize = false;
-
-      // 元の名前で登録されているか確認
-      const codes = await getFriendCodesFromWorker(userId, message.guild.id, gameName).catch(() => []);
-      if (!codes || codes.length === 0) {
-        shouldNormalize = true;
-      }
-
-      let result = null;
-      if (shouldNormalize) {
-        // Worker AI でゲーム名を正規化
-        result = await normalizeGameNameWithWorker(gameName, message.author.id, message.guild.id);
-        normalized = result.normalized;
-
-        if (!normalized) {
-          await message.reply(`❌ ゲーム名「${gameName}」を認識できませんでした。`);
-          return;
-        }
-      }
-
-      // 自分のフレンドコードを取得
-      const friendCodes = await getFriendCodesFromWorker(userId, message.guild.id, normalized);
+      
+      // 入力されたゲーム名でコードが登録されているか確認
+      const friendCodes = await getFriendCodesFromWorker(userId, message.guild.id, gameName).catch(() => []);
 
       if (!friendCodes || friendCodes.length === 0) {
-        await message.reply(`❌ **${normalized}** のフレンドコードが登録されていません。\n\`/link-add\` コマンドで登録してください。`);
+        await message.reply(`❌ **${gameName}** のフレンドコードが登録されていません。\n\`/link-add\` コマンドで登録してください。`);
         return;
       }
 
       const friendCode = friendCodes[0];
       const user = message.author;
 
-      // タイトルを作成: 正規化後の名前 (登録時の名前)
-      // データベースのgame_nameが正規化後の名前
-      const normalizedGameName = friendCode.game_name;
-      let titleGameName = `🎮 ${normalizedGameName}`;
-      if (friendCode.original_game_name && friendCode.original_game_name !== normalizedGameName) {
-        titleGameName += ` (${friendCode.original_game_name})`;
-      }
+      // タイトルを作成: 登録されたゲーム名をそのまま使用
+      const gameDisplayName = friendCode.original_game_name || friendCode.game_name;
+      const titleGameName = `🎮 ${gameDisplayName}`;
 
       // Embed を作成
       const embed = new EmbedBuilder()
@@ -140,15 +115,6 @@ module.exports = {
         .setThumbnail(user.displayAvatarURL({ dynamic: true }))
         .setTimestamp()
         .setFooter({ text: `登録日: ${new Date(friendCode.created_at * 1000).toLocaleDateString('ja-JP')}` });
-
-      // AI判定の場合は追加情報
-      if (result && result.method === 'ai' && result.confidence < 0.9) {
-        embed.addFields({
-          name: '🤖 AI判定',
-          value: `「${gameName}」→「${normalized}」\n信頼度: ${(result.confidence * 100).toFixed(0)}%`,
-          inline: false
-        });
-      }
 
       await message.reply({ embeds: [embed] });
 
