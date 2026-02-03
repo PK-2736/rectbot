@@ -148,7 +148,7 @@ async function showSettingsCategoryUI(interaction, category, settings = {}, isAd
 
   const categoryConfigs = {
     channels: {
-      title: '📍 チャンネル設定',
+      title: '### 📍 チャンネル設定',
       description: '募集チャンネルと通知チャンネルを設定します',
       buttons: [
         { customId: 'set_recruit_channels', label: '募集チャンネル', style: ButtonStyle.Primary, emoji: '📍' },
@@ -156,14 +156,14 @@ async function showSettingsCategoryUI(interaction, category, settings = {}, isAd
       ]
     },
     notifications: {
-      title: '🔔 通知設定',
+      title: '### 🔔 通知設定',
       description: 'ゲーム募集時に通知するロールを選択します。複数選択可能',
       buttons: [
         { customId: 'set_notification_role', label: 'ロール設定', style: ButtonStyle.Primary, emoji: '🔔' }
       ]
     },
     display: {
-      title: '🎨 表示設定',
+      title: '### 🎨 表示設定',
       description: '募集メッセージのタイトル、カラー、表示スタイルを設定します',
       buttons: [
         { customId: 'set_default_title', label: 'タイトル設定', style: ButtonStyle.Primary, emoji: '📝' },
@@ -172,7 +172,7 @@ async function showSettingsCategoryUI(interaction, category, settings = {}, isAd
       ]
     },
     features: {
-      title: '📂 機能設定',
+      title: '### 📂 機能設定',
       description: '専用チャンネル作成ボタンの有効化と設定',
       buttons: [
         { customId: 'toggle_dedicated_channel', label: 'オン/オフ', style: ButtonStyle.Primary, emoji: '⚡' },
@@ -180,7 +180,7 @@ async function showSettingsCategoryUI(interaction, category, settings = {}, isAd
       ]
     },
     templates: {
-      title: '📄 募集テンプレート',
+      title: '### 📄 募集テンプレート',
       description: 'タイトル・人数・色・通知ロールをテンプレ化して素早く募集を開始',
       buttons: [
         { customId: 'create_template', label: 'テンプレート作成', style: ButtonStyle.Primary, emoji: '🆕' }

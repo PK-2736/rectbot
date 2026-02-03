@@ -113,7 +113,10 @@ async function handleButtonInteraction(interaction) {
         await toggleDedicatedChannel(interaction);
         break;
       case 'create_template':
-        await showTemplateModal(interaction);
+        await safeReply(interaction, { 
+          content: '🚧 この機能は現在作成中のため使用できません。\nしばらくお待ちください。', 
+          flags: MessageFlags.Ephemeral 
+        });
         break;
       case 'set_dedicated_category':
         await showChannelSelect(interaction, 'dedicated_channel_category_id', '📂 専用チャンネル用カテゴリを選択してください', { maxValues: 1, channelTypes: [ChannelType.GuildCategory] });
