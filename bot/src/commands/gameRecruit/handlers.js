@@ -706,11 +706,30 @@ async function processClose(interaction, messageId, savedRecruitData) {
     } catch (err) { console.error('募集データの削除に失敗:', err); }
 
     // Disable UI (Components v2) — preserve info in closed view
-    const { ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, SeparatorSpacingSize, MediaGalleryBuilder, MediaGalleryItemBuilder } = require('discord.js');
+    const { ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, SeparatorSpacingSize, MediaGalleryBuilder, MediaGalleryItemBuilder, AttachmentBuilder } = require('discord.js');
+    const { generateClosedRecruitCard } = require('../../utils/canvasRecruit');
     const disabledContainer = new ContainerBuilder();
     disabledContainer.setAccentColor(0x808080);
     const originalMessage = interaction.message;
     const hasAttachment = !!originalMessage?.attachments && originalMessage.attachments.size > 0;
+    
+    // 閉鎖画像の生成（灰色化 + CLOSED オーバーレイ）
+    let closedAttachment = null;
+    if (hasAttachment) {
+      try {
+        const originalAttachmentUrl = originalMessage.attachments.first().url;
+        const response = await fetch(originalAttachmentUrl);
+        const arrayBuffer = await response.arrayBuffer();
+        const originalImageBuffer = Buffer.from(arrayBuffer);
+        
+        // 締め切り画像を生成
+        const closedImageBuffer = await generateClosedRecruitCard(originalImageBuffer);
+        closedAttachment = new AttachmentBuilder(closedImageBuffer, { name: 'recruit-card-closed.png' });
+      } catch (imgErr) {
+        console.warn('[processClose] Failed to generate closed image:', imgErr);
+      }
+    }
+    
     // Closed header
     disabledContainer.addTextDisplayComponents(
       new TextDisplayBuilder().setContent('🎮✨ **募集締め切り済み** ✨🎮')
@@ -728,7 +747,7 @@ async function processClose(interaction, messageId, savedRecruitData) {
     if (hasAttachment) {
       disabledContainer.addMediaGalleryComponents(
         new MediaGalleryBuilder().addItems(
-          new MediaGalleryItemBuilder().setURL(originalMessage.attachments.first().url)
+          new MediaGalleryItemBuilder().setURL(closedAttachment ? 'attachment://recruit-card-closed.png' : originalMessage.attachments.first().url)
         )
       );
       disabledContainer.addSeparatorComponents(
@@ -778,7 +797,18 @@ async function processClose(interaction, messageId, savedRecruitData) {
     ).addTextDisplayComponents(
   new (require('discord.js').TextDisplayBuilder)().setContent(`募集ID：\`${footerMessageId.slice(-8)}\` | powered by **Recrubo**`)
     );
-    await interaction.message.edit({ components: [disabledContainer], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } });
+    
+    const editPayload = {
+      components: [disabledContainer],
+      flags: MessageFlags.IsComponentsV2,
+      allowedMentions: { roles: [], users: [] }
+    };
+    
+    if (closedAttachment) {
+      editPayload.files = [closedAttachment];
+    }
+    
+    await interaction.message.edit(editPayload);
 
     if (data && data.recruiterId) {
       const finalParticipants = recruitParticipants.get(messageId) || [];
