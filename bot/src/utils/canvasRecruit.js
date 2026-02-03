@@ -451,12 +451,12 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
   infoItems.forEach((item, index) => {
     const itemY = startY + (index * itemSpacing);
     
-    // 背景矩形
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+    // 背景矩形（黒を濃くして白テーマでも目立つように）
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
     drawRoundedRect(rightX, itemY, infoBoxWidth, infoBoxHeight, 3, true, false);
     
-    // 枠線
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+    // 枠線（より濃く）
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
     ctx.lineWidth = 0.5;
     drawRoundedRect(rightX, itemY, infoBoxWidth, infoBoxHeight, 3, false, true);
     
