@@ -64,7 +64,12 @@ module.exports = {
         console.log('[ready.js] 既存のロール付与ボタンメッセージが見つかったため再送信をスキップしました');
       }
     } catch (e) {
-      console.error('[ready.js] ロール付与ボタンメッセージ送信エラー:', e);
+      // ロール付与ボタン送信エラーは非必須なので、ログのみして処理は続行
+      if (e.code === 50001 || e.code === 50013) {
+        console.warn('[ready.js] ロール付与ボタンメッセージ送信: 権限不足 - スキップします');
+      } else {
+        console.error('[ready.js] ロール付与ボタンメッセージ送信エラー:', e?.message || e);
+      }
     }
 
     // サポートサーバー: 1回限りの招待URLボタン設置
@@ -114,7 +119,12 @@ module.exports = {
         }
       }
     } catch (e) {
-      console.error('[ready.js] サポート招待ボタン設置でエラー:', e);
+      // サポート招待ボタン送信エラーは非必須なので、ログのみして処理は続行
+      if (e.code === 50001 || e.code === 50013) {
+        console.warn('[ready.js] サポート招待ボタン設置: 権限不足 - スキップします');
+      } else {
+        console.error('[ready.js] サポート招待ボタン設置でエラー:', e?.message || e);
+      }
     }
   },
 };

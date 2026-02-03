@@ -131,13 +131,14 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
   ctx.fillText(titleText, width / 2, 5);
   
   // タイトル周りの装飾線（左右）- 白テーマでも目立つように黒めに変更
+  // ピンと重ならないように開始/終了位置を内側に移動
   ctx.strokeStyle = 'rgba(0, 0, 0, 0.6)';
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(8, 9);
+  ctx.moveTo(14, 9);
   ctx.lineTo(titleBgX - 4, 9);
   ctx.moveTo(titleBgX + titleBgWidth + 4, 9);
-  ctx.lineTo(width - 8, 9);
+  ctx.lineTo(width - 14, 9);
   ctx.stroke();
   
   // テキストアライメントをリセット
@@ -491,4 +492,67 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
   return canvas.toBuffer('image/png', { compressionLevel: 3, filters: canvas.PNG_FILTER_NONE });
 }
 
-module.exports = { generateRecruitCard };
+/**
+ * 締め切り用の画像を生成（元の画像に「CLOSED」を斜めに表示）
+ * @param {Buffer} originalImageBuffer 元の募集画像バッファ
+ * @returns {Buffer} PNG画像バッファ
+ */
+async function generateClosedRecruitCard(originalImageBuffer) {
+  try {
+    // 元の画像を読み込む
+    const originalImage = await loadImage(originalImageBuffer);
+    
+    const width = originalImage.width;
+    const height = originalImage.height;
+    const canvas = createCanvas(width, height);
+    const ctx = canvas.getContext('2d');
+
+    // アンチエイリアシング有効化
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+
+    // 元の画像を描画
+    ctx.drawImage(originalImage, 0, 0);
+
+    // 半透明の暗いオーバーレイ
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+    ctx.fillRect(0, 0, width, height);
+
+    // 「CLOSED」テキストを斜めに表示
+    ctx.save();
+    
+    // 中心を基準に回転
+    ctx.translate(width / 2, height / 2);
+    ctx.rotate(-Math.PI / 6); // -30度回転
+    
+    // テキストスタイル
+    const fontSize = Math.floor(height / 5);
+    ctx.font = `bold ${fontSize}px CorporateRounded`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    
+    // テキストの影（強調）
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+    ctx.shadowBlur = 10;
+    ctx.shadowOffsetX = 3;
+    ctx.shadowOffsetY = 3;
+    
+    // テキストの縁取り（黒）
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.9)';
+    ctx.lineWidth = fontSize / 8;
+    ctx.strokeText('CLOSED', 0, 0);
+    
+    // テキスト本体（赤）
+    ctx.fillStyle = 'rgba(220, 38, 38, 0.95)';
+    ctx.fillText('CLOSED', 0, 0);
+    
+    ctx.restore();
+
+    return canvas.toBuffer('image/png', { compressionLevel: 3, filters: canvas.PNG_FILTER_NONE });
+  } catch (error) {
+    console.error('[generateClosedRecruitCard] Error:', error);
+    throw error;
+  }
+}
+
+module.exports = { generateRecruitCard, generateClosedRecruitCard };

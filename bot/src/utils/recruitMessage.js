@@ -261,23 +261,73 @@ async function autoCloseRecruitment(client, guildId, channelId, messageId) {
     // メッセージが存在する場合のみメッセージを編集・返信
     if (message) {
       try {
-        const { ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, SeparatorSpacingSize, MediaGalleryBuilder, MediaGalleryItemBuilder } = require('discord.js');
-        const disabledContainer = new ContainerBuilder();
+        const { ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, SeparatorSpacingSize, MediaGalleryBuilder, MediaGalleryItemBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder } = require('discord.js');
+        const { generateClosedRecruitCard } = require('./canvasRecruit');
+        
         const baseColor = (() => {
           const src = (savedRecruitData && savedRecruitData.panelColor) || '808080';
           const cleaned = typeof src === 'string' && src.startsWith('#') ? src.slice(1) : src;
           return /^[0-9A-Fa-f]{6}$/.test(cleaned) ? parseInt(cleaned, 16) : 0x808080;
         })();
+
+        // 元の画像を取得
+        const originalAttachment = message.attachments.first();
+        let closedImageBuffer = null;
+        let closedAttachment = null;
+
+        if (originalAttachment && originalAttachment.url) {
+          try {
+            // 元の画像をダウンロード
+            const response = await fetch(originalAttachment.url);
+            const arrayBuffer = await response.arrayBuffer();
+            const originalImageBuffer = Buffer.from(arrayBuffer);
+            
+            // 締め切り画像を生成
+            closedImageBuffer = await generateClosedRecruitCard(originalImageBuffer);
+            closedAttachment = new AttachmentBuilder(closedImageBuffer, { name: 'recruit-card-closed.png' });
+          } catch (imgErr) {
+            console.warn('[autoClose] Failed to generate closed image:', imgErr);
+          }
+        }
+
+        // Containerを構築
+        const disabledContainer = new ContainerBuilder();
         disabledContainer.setAccentColor(baseColor);
-        disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent('🎮✨ **募集締め切り済み** ✨🎮'));
+        disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent('🔒✨ **募集締め切り済み** ✨🔒'));
         disabledContainer.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
-        const attachmentUrl = message.attachments.first()?.url || 'attachment://recruit-card.png';
-        disabledContainer.addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(attachmentUrl)));
+        
+        // 締め切り画像または元の画像を表示
+        if (closedAttachment) {
+          disabledContainer.addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL('attachment://recruit-card-closed.png')));
+        } else {
+          const attachmentUrl = originalAttachment?.url || 'attachment://recruit-card.png';
+          disabledContainer.addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(attachmentUrl)));
+        }
+        
         disabledContainer.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
-        disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent('🔒 この募集は自動的に締め切られました。'));
+        disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent('🔒 この募集は締め切られました。'));
         disabledContainer.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
         disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent(`募集ID：\`${recruitId}\` | powered by **Recrubo**`));
-        await message.edit({ components: [disabledContainer], flags: require('discord.js').MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } });
+
+        // 無効化されたボタンを追加
+        const disabledButtons = new ActionRowBuilder()
+          .addComponents(
+            new ButtonBuilder().setCustomId('participate_disabled').setLabel('参加する').setStyle(ButtonStyle.Primary).setDisabled(true),
+            new ButtonBuilder().setCustomId('cancel_disabled').setLabel('取り消す').setStyle(ButtonStyle.Danger).setDisabled(true)
+          );
+
+        const editPayload = {
+          components: [disabledContainer, disabledButtons],
+          flags: require('discord.js').MessageFlags.IsComponentsV2,
+          allowedMentions: { roles: [], users: [] }
+        };
+
+        // 締め切り画像がある場合は添付
+        if (closedAttachment) {
+          editPayload.files = [closedAttachment];
+        }
+
+        await message.edit(editPayload);
       } catch (e) { console.warn('[autoClose] Failed to edit message during auto close:', e?.message || e); }
 
       try { await message.reply({ content: `🔒 自動締切: この募集は有効期限切れのため締め切りました。`, allowedMentions: { roles: [], users: recruiterId ? [recruiterId] : [] } }).catch(() => null); } catch (_) {}

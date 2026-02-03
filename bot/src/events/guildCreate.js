@@ -60,61 +60,43 @@ module.exports = {
             .setStyle(ButtonStyle.Link)
         );
 
-      await channel.send({
-        embeds: [embed],
-        components: [buttons]
-      });
-
-      console.log(`[guildCreate] ウェルカムメッセージ送信完了: ${guild.name}`);
-
-      // Webhook通知を送信（新サーバー招待時）
       try {
-        const webhookUrl = 'https://discord.com/api/webhooks/1426044588740710460/RElua00Jvi-937tbGtwv9wfq123mdff097HvaJgb-qILNsc79yzei9x8vZrM2OKYsETI';
-        
-        const webhookEmbed = {
-          title: '🎉 新しいサーバーに招待されました',
-          color: parseInt('57F287', 16), // 緑色
-          fields: [
-            {
-              name: 'サーバー名',
-              value: guild.name,
-              inline: true
-            },
-            {
-              name: 'サーバーID',
-              value: guild.id,
-              inline: true
-            },
-            {
-              name: 'メンバー数',
-              value: `${guild.memberCount || 0}人`,
-              inline: true
-            },
-            {
-              name: '作成日',
-              value: guild.createdAt ? `<t:${Math.floor(guild.createdAt.getTime() / 1000)}:R>` : '不明',
-              inline: true
-            }
-          ],
-          timestamp: new Date().toISOString()
-        };
-
-        if (guild.iconURL()) {
-          webhookEmbed.thumbnail = {
-            url: guild.iconURL({ size: 256 })
-          };
-        }
-
-        await fetch(webhookUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            embeds: [webhookEmbed]
-          })
+        await channel.send({
+          embeds: [embed],
+          components: [buttons]
         });
-        console.log('[webhook] 新サーバー招待通知を送信しました:', guild.id);
-      } catch (webhookErr) {
-        console.error('[webhook] 新サーバー招待通知の送信に失敗:', webhookErr?.message || webhookErr);
+        console.log(`[guildCreate] ウェルカムメッセージ送信完了: ${guild.name}`);
+      } catch (sendError) {
+        // 権限エラー時にサーバー所有者のDMにエラーメッセージを送信
+        console.error(`[guildCreate] ウェルカムメッセージ送信エラー (${channel.name}):`, sendError);
+        
+        try {
+          const owner = await guild.fetchOwner();
+          const errorEmbed = new EmbedBuilder()
+            .setColor(0xFF0000)
+            .setTitle('❌ Recrubo: チャンネル送信エラー')
+            .setDescription(`サーバー「${guild.name}」でウェルカムメッセージの送信に失敗しました。`)
+            .addFields(
+              { name: 'エラーの原因', value: (() => {
+                if (sendError.code === 50001) {
+                  return 'チャンネルへのアクセス権限がありません。ボットのロールに「メッセージを送信」と「チャンネルを見る」の権限を付与してください。';
+                } else if (sendError.code === 50013) {
+                  return 'メッセージ送信権限が不足しています。ボットのロールに必要な権限を付与してください。';
+                } else {
+                  return `エラーコード: ${sendError.code}\nエラー: ${sendError.message}`;
+                }
+              })(), inline: false },
+              { name: 'チャンネル', value: `#${channel.name}`, inline: true },
+              { name: 'サーバーID', value: guild.id, inline: true }
+            )
+            .setFooter({ text: 'サポートが必要な場合は https://recrubo.net にアクセスしてください' })
+            .setTimestamp();
+
+          await owner.send({ embeds: [errorEmbed] });
+          console.log(`[guildCreate] エラーメッセージをサーバー所有者に送信しました: ${guild.name}`);
+        } catch (dmError) {
+          console.error(`[guildCreate] サーバー所有者へのDM送信に失敗:`, dmError?.message || dmError);
+        }
       }
 
     } catch (error) {

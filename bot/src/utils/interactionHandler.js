@@ -4,6 +4,7 @@
 // - 統一エラーハンドリング
 
 const { MessageFlags } = require('discord.js');
+const { handlePermissionError } = require('./handlePermissionError');
 
 /**
  * 安全にdeferReplyを実行（既にdefer済み/返信済みの場合はスキップ）
@@ -71,9 +72,22 @@ async function handleCommandSafely(interaction, handler, options = { defer: true
   } catch (error) {
     console.error(`[interactionHandler] Error in command ${interaction.commandName}:`, error);
     
+    // 権限エラーの場合はDMに通知
+    if (error.code === 50001 || error.code === 50013) {
+      try {
+        await handlePermissionError(interaction.user, error, {
+          commandName: interaction.commandName
+        });
+      } catch (dmErr) {
+        console.error('[interactionHandler] Failed to send permission error DM:', dmErr?.message || dmErr);
+      }
+    }
+    
     // エラーメッセージを安全に返信
     const errorMessage = process.env.NODE_ENV === 'production'
-      ? 'コマンド実行中にエラーが発生しました。'
+      ? error.code === 50001 || error.code === 50013
+        ? '⚠️ 権限エラーが発生しました。詳細はDMをご確認ください。'
+        : 'コマンド実行中にエラーが発生しました。'
       : `エラー: ${error?.message || error}`;
     
     try {
@@ -98,8 +112,19 @@ async function handleComponentSafely(interaction, handler) {
   } catch (error) {
     console.error(`[interactionHandler] Error in component ${interaction.customId}:`, error);
     
+    // 権限エラーの場合はDMに通知
+    if (error.code === 50001 || error.code === 50013) {
+      try {
+        await handlePermissionError(interaction.user, error);
+      } catch (dmErr) {
+        console.error('[interactionHandler] Failed to send permission error DM:', dmErr?.message || dmErr);
+      }
+    }
+    
     const errorMessage = process.env.NODE_ENV === 'production'
-      ? '処理中にエラーが発生しました。'
+      ? error.code === 50001 || error.code === 50013
+        ? '⚠️ 権限エラーが発生しました。詳細はDMをご確認ください。'
+        : '処理中にエラーが発生しました。'
       : `エラー: ${error?.message || error}`;
     
     try {
