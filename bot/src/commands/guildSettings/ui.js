@@ -183,7 +183,7 @@ async function showSettingsCategoryUI(interaction, category, settings = {}, isAd
       title: '### 📄 募集テンプレート',
       description: 'タイトル・人数・色・通知ロールをテンプレ化して素早く募集を開始',
       buttons: [
-        { customId: 'create_template', label: 'テンプレート作成', style: ButtonStyle.Primary, emoji: '🆕' }
+        { customId: 'create_template', label: 'テンプレート作成', style: ButtonStyle.Primary, emoji: '📄' }
       ]
     }
   };
