@@ -130,8 +130,8 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
   ctx.fillStyle = '#fff';
   ctx.fillText(titleText, width / 2, 5);
   
-  // タイトル周りの装飾線（左右）
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+  // タイトル周りの装飾線（左右）- 白テーマでも目立つように黒めに変更
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.6)';
   ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.moveTo(8, 9);
@@ -172,8 +172,8 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
   const boxHeight = height * 0.50; // 45%から50%に拡張（下のスペースを増加）
   
   // 上側のピンのみ配置（上端の適切な位置に配置）
-  drawPin(8, 8, 'rgba(255, 71, 87, 0.7)');   // 左上 - 淡い赤（端っこに配置）
-  drawPin(width - 8, 8, 'rgba(46, 213, 115, 0.7)');   // 右上 - 淡い緑（端っこに配置）
+  drawPin(8, 8, 'rgba(46, 213, 115, 0.7)');   // 左上 - 淡い緑（端っこに配置）
+  drawPin(width - 8, 8, 'rgba(255, 71, 87, 0.7)');   // 右上 - 淡いピンク（端っこに配置）
   
   // 角丸矩形を描画する関数
   function drawRoundedRect(x, y, width, height, radius, fill = true, stroke = false) {
@@ -193,12 +193,12 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
     if (stroke) ctx.stroke();
   }
   
-  // 背景と馴染む半透明ボックス（角丸）
-  ctx.fillStyle = 'rgba(20, 20, 26, 0.78)';
+  // 背景と馴染む半透明ボックス（角丸）- 人数枠と同じ濃さに統一
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
   drawRoundedRect(boxX, boxY, boxWidth, boxHeight, 6, true, false);
   
-  // 白い枠線のみ（角丸）
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+  // 白い枠線のみ（角丸）- 人数枠と同じ濃さに統一
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
   ctx.lineWidth = 1;
   drawRoundedRect(boxX, boxY, boxWidth, boxHeight, 6, false, true);
   
