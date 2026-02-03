@@ -707,7 +707,7 @@ async function processClose(interaction, messageId, savedRecruitData) {
 
     // Disable UI (Components v2) — preserve info in closed view
     const { ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, SeparatorSpacingSize, MediaGalleryBuilder, MediaGalleryItemBuilder, AttachmentBuilder } = require('discord.js');
-    const { generateClosedRecruitCard } = require('../../utils/canvasRecruit');
+    const { generateClosedRecruitCard, generateRecruitCard } = require('../../utils/canvasRecruit');
     const disabledContainer = new ContainerBuilder();
     disabledContainer.setAccentColor(0x808080);
     const originalMessage = interaction.message;
@@ -715,15 +715,31 @@ async function processClose(interaction, messageId, savedRecruitData) {
     
     // 閉鎖画像の生成（灰色化 + CLOSED オーバーレイ）
     let closedAttachment = null;
+    let baseImageBuffer = null;
     if (hasAttachment) {
       try {
         const originalAttachmentUrl = originalMessage.attachments.first().url;
         const response = await fetch(originalAttachmentUrl);
         const arrayBuffer = await response.arrayBuffer();
-        const originalImageBuffer = Buffer.from(arrayBuffer);
-        
-        // 締め切り画像を生成
-        const closedImageBuffer = await generateClosedRecruitCard(originalImageBuffer);
+        baseImageBuffer = Buffer.from(arrayBuffer);
+      } catch (imgErr) {
+        console.warn('[processClose] Failed to fetch original image:', imgErr);
+      }
+    }
+    if (!baseImageBuffer) {
+      try {
+        let useColor = data?.panelColor || '808080';
+        if (typeof useColor === 'string' && useColor.startsWith('#')) useColor = useColor.slice(1);
+        if (!/^[0-9A-Fa-f]{6}$/.test(useColor)) useColor = '808080';
+        const currentParticipants = recruitParticipants.get(messageId) || [];
+        baseImageBuffer = await generateRecruitCard(data, currentParticipants, interaction.client, useColor);
+      } catch (imgErr) {
+        console.warn('[processClose] Failed to generate base recruit image:', imgErr);
+      }
+    }
+    if (baseImageBuffer) {
+      try {
+        const closedImageBuffer = await generateClosedRecruitCard(baseImageBuffer);
         closedAttachment = new AttachmentBuilder(closedImageBuffer, { name: 'recruit-card-closed.png' });
       } catch (imgErr) {
         console.warn('[processClose] Failed to generate closed image:', imgErr);
@@ -744,7 +760,7 @@ async function processClose(interaction, messageId, savedRecruitData) {
       new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
     );
     // Image section if original had attachment (image style)
-    if (hasAttachment) {
+    if (hasAttachment || closedAttachment) {
       disabledContainer.addMediaGalleryComponents(
         new MediaGalleryBuilder().addItems(
           new MediaGalleryItemBuilder().setURL(closedAttachment ? 'attachment://recruit-card-closed.png' : originalMessage.attachments.first().url)
