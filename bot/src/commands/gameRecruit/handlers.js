@@ -7,6 +7,7 @@ const { buildContainer } = require('../../utils/recruitHelpers');
 const { generateRecruitCard } = require('../../utils/canvasRecruit');
 const { updateParticipantList, autoCloseRecruitment } = require('../../utils/recruitMessage');
 const { EXEMPT_GUILD_IDS } = require('./constants');
+const { handlePermissionError } = require('../../utils/handlePermissionError');
 
 // ------------------------------
 // Helper utilities (behavior-preserving refactor)
@@ -1067,6 +1068,18 @@ async function handleModalSubmit(interaction) {
       secondaryMessage = announceRes.secondaryMessage;
     } catch (e) {
       console.warn('[handleModalSubmit] sendAnnouncements failed:', e?.message || e);
+      
+      // 権限エラーの場合はDMに通知
+      if (e.code === 50001 || e.code === 50013) {
+        try {
+          await handlePermissionError(user, e, {
+            commandName: 'rect',
+            channelName: interaction.channel.name
+          });
+        } catch (dmErr) {
+          console.error('[handleModalSubmit] Failed to send permission error DM:', dmErr?.message || dmErr);
+        }
+      }
     }
 
     const msgId = followUpMessage?.id;

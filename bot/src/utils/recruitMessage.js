@@ -261,7 +261,7 @@ async function autoCloseRecruitment(client, guildId, channelId, messageId) {
     // メッセージが存在する場合のみメッセージを編集・返信
     if (message) {
       try {
-        const { ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, SeparatorSpacingSize, MediaGalleryBuilder, MediaGalleryItemBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder } = require('discord.js');
+        const { AttachmentBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder, EmbedBuilder } = require('discord.js');
         const { generateClosedRecruitCard } = require('./canvasRecruit');
         
         const baseColor = (() => {
@@ -274,6 +274,7 @@ async function autoCloseRecruitment(client, guildId, channelId, messageId) {
         const originalAttachment = message.attachments.first();
         let closedImageBuffer = null;
         let closedAttachment = null;
+        let imageUrl = null;
 
         if (originalAttachment && originalAttachment.url) {
           try {
@@ -285,29 +286,12 @@ async function autoCloseRecruitment(client, guildId, channelId, messageId) {
             // 締め切り画像を生成
             closedImageBuffer = await generateClosedRecruitCard(originalImageBuffer);
             closedAttachment = new AttachmentBuilder(closedImageBuffer, { name: 'recruit-card-closed.png' });
+            imageUrl = 'attachment://recruit-card-closed.png';
           } catch (imgErr) {
             console.warn('[autoClose] Failed to generate closed image:', imgErr);
+            imageUrl = originalAttachment.url; // フォールバック: 元の画像をそのまま使用
           }
         }
-
-        // Containerを構築
-        const disabledContainer = new ContainerBuilder();
-        disabledContainer.setAccentColor(baseColor);
-        disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent('🔒✨ **募集締め切り済み** ✨🔒'));
-        disabledContainer.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
-        
-        // 締め切り画像または元の画像を表示
-        if (closedAttachment) {
-          disabledContainer.addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL('attachment://recruit-card-closed.png')));
-        } else {
-          const attachmentUrl = originalAttachment?.url || 'attachment://recruit-card.png';
-          disabledContainer.addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(attachmentUrl)));
-        }
-        
-        disabledContainer.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
-        disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent('🔒 この募集は締め切られました。'));
-        disabledContainer.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
-        disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent(`募集ID：\`${recruitId}\` | powered by **Recrubo**`));
 
         // 無効化されたボタンを追加
         const disabledButtons = new ActionRowBuilder()
@@ -316,13 +300,24 @@ async function autoCloseRecruitment(client, guildId, channelId, messageId) {
             new ButtonBuilder().setCustomId('cancel_disabled').setLabel('取り消す').setStyle(ButtonStyle.Danger).setDisabled(true)
           );
 
+        // EmbedBuilder で表示
+        const closedEmbed = new EmbedBuilder()
+          .setColor(baseColor)
+          .setTitle('🔒 募集締め切り済み 🔒')
+          .setDescription('🔒 この募集は締め切られました。')
+          .setFooter({ text: `募集ID: ${recruitId} | powered by Recrubo` });
+
+        if (imageUrl) {
+          closedEmbed.setImage(imageUrl);
+        }
+
         const editPayload = {
-          components: [disabledContainer, disabledButtons],
-          flags: require('discord.js').MessageFlags.IsComponentsV2,
+          embeds: [closedEmbed],
+          components: [disabledButtons],
           allowedMentions: { roles: [], users: [] }
         };
 
-        // 締め切り画像がある場合は添付
+        // 締め切り画像ファイルを添付
         if (closedAttachment) {
           editPayload.files = [closedAttachment];
         }
