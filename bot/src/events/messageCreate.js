@@ -121,7 +121,7 @@ module.exports = {
       }
 
       if (!friendCodes || friendCodes.length === 0) {
-        await message.reply(`❌ **${gameName}** のフレンドコードが登録されていません。\n\`/link-add\` コマンドで登録してください。`);
+        await message.reply(`❌ **${gameName}** のフレンドコードが登録されていません。\n\`/id_add\` コマンドで登録してください。`);
         return;
       }
 

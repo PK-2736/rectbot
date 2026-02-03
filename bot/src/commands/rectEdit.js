@@ -45,7 +45,7 @@ async function fetchRecruitById(recruitId) {
 module.exports = {
   noDefer: true,
   data: new SlashCommandBuilder()
-    .setName('rect-edit')
+    .setName('rect_edit')
     .setDescription('募集を編集します')
     .addStringOption(o =>
       o.setName('id')

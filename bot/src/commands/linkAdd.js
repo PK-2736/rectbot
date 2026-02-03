@@ -3,7 +3,7 @@ const { normalizeGameNameWithWorker, validateFriendCodeWithWorker, addFriendCode
 
 module.exports = {
   data: new SlashCommandBuilder()
-    .setName('link-add')
+    .setName('id_add')
     .setDescription('フレンドコードを登録します'),
 
   noDefer: true, // モーダル表示のためdeferReplyを行わない

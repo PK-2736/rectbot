@@ -3,7 +3,7 @@ const { getFriendCodesFromWorker, deleteFriendCodeFromWorker, normalizeGameNameW
 
 module.exports = {
   data: new SlashCommandBuilder()
-    .setName('link-delete')
+    .setName('id_delete')
     .setDescription('登録したフレンドコードを削除します')
     .addStringOption(option =>
       option.setName('game')

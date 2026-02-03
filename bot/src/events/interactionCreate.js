@@ -150,7 +150,7 @@ module.exports = {
 
       // editRecruitコマンドのモーダル処理
       if (interaction.customId && interaction.customId.startsWith('editRecruitModal_')) {
-        const editRecruit = client.commands.get('rect-edit');
+        const editRecruit = client.commands.get('rect_edit');
         if (editRecruit && typeof editRecruit.handleModalSubmit === 'function') {
           try {
             await editRecruit.handleModalSubmit(interaction);
@@ -164,7 +164,7 @@ module.exports = {
 
       // フレンドコード登録のモーダル処理
       if (interaction.customId === 'friend_code_add_modal') {
-        const linkAdd = client.commands.get('link-add');
+        const linkAdd = client.commands.get('id_add');
         if (linkAdd && typeof linkAdd.handleModalSubmit === 'function') {
           try {
             await linkAdd.handleModalSubmit(interaction);

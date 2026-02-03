@@ -3,7 +3,7 @@ const { getFriendCodesFromWorker } = require('../utils/workerApiClient');
 
 module.exports = {
   data: new SlashCommandBuilder()
-    .setName('link-show')
+    .setName('id_show')
     .setDescription('登録されているフレンドコードを表示します')
     .addUserOption(option =>
       option.setName('user')
@@ -23,7 +23,7 @@ module.exports = {
       if (!friendCodes || friendCodes.length === 0) {
         return interaction.editReply({
           content: targetUser.id === interaction.user.id
-            ? '❌ 登録されているフレンドコードがありません。\n`/link-add` で登録してください。'
+            ? '❌ 登録されているフレンドコードがありません。\n`/id_add` で登録してください。'
             : `❌ ${targetUser.username} さんは登録されているフレンドコードがありません。`
         });
       }

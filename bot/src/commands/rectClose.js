@@ -5,7 +5,7 @@ const { safeReply } = require('../utils/safeReply');
 
 module.exports = {
   data: new SlashCommandBuilder()
-    .setName('rect-close')
+    .setName('rect_close')
     .setDescription('既存の募集を参加者が締める（〆）')
     .addStringOption(option =>
       option.setName('募集')
