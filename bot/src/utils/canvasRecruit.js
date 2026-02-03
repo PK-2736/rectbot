@@ -514,8 +514,30 @@ async function generateClosedRecruitCard(originalImageBuffer) {
     // 元の画像を描画
     ctx.drawImage(originalImage, 0, 0);
 
-    // 半透明の暗いオーバーレイ
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+    // グレースケールフィルター（灰色統一）
+    // ImageData を取得
+    const imageData = ctx.getImageData(0, 0, width, height);
+    const data = imageData.data;
+    
+    for (let i = 0; i < data.length; i += 4) {
+      // RGB の平均値を計算
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+      const gray = Math.round((r + g + b) / 3);
+      
+      // グレースケールに変換
+      data[i] = gray;         // R
+      data[i + 1] = gray;     // G
+      data[i + 2] = gray;     // B
+      // data[i + 3] はアルファ値（透明度）なので変更しない
+    }
+    
+    // 変更したImageDataを戻す
+    ctx.putImageData(imageData, 0, 0);
+
+    // 半透明のダークオーバーレイ（さらに暗くする）
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
     ctx.fillRect(0, 0, width, height);
 
     // 「CLOSED」テキストを斜めに表示
