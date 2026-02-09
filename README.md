@@ -43,6 +43,7 @@
 **参考ドキュメント：**
 - 詳しくは `docs/SETUP_SUPPORT.md` の「環境変数とセキュリティ」セクションを参照
 - Supabase RLS（Row Level Security）の設定も必ず行ってください
+- HTTPS接続とセキュリティヘッダーについては `docs/SECURITY_HEADERS.md` を参照してください
 
 ---
 
