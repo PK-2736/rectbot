@@ -705,6 +705,15 @@ async function processClose(interaction, messageId, savedRecruitData) {
       }
     } catch (err) { console.error('募集データの削除に失敗:', err); }
 
+    // ギルド設定を取得してrecruit_styleを確認
+    let recruitStyle = 'image'; // デフォルトは画像版
+    try {
+      const guildSettings = await getGuildSettings(interaction.guildId);
+      recruitStyle = (guildSettings?.recruit_style === 'simple') ? 'simple' : 'image';
+    } catch (e) {
+      console.warn('[processClose] Failed to get guild settings, defaulting to image style:', e?.message || e);
+    }
+
     // Disable UI (Components v2) — preserve info in closed view
     const { ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, SeparatorSpacingSize, MediaGalleryBuilder, MediaGalleryItemBuilder, AttachmentBuilder } = require('discord.js');
     const { generateClosedRecruitCard, generateRecruitCard } = require('../../utils/canvasRecruit');
@@ -713,106 +722,124 @@ async function processClose(interaction, messageId, savedRecruitData) {
     const originalMessage = interaction.message;
     const hasAttachment = !!originalMessage?.attachments && originalMessage.attachments.size > 0;
     
-    // 閉鎖画像の生成（灰色化 + CLOSED オーバーレイ）
+    // 参加者情報を事前に取得（両方の分岐で使用）
+    const finalParticipants = recruitParticipants.get(messageId) || [];
+    const totalMembers = (typeof data?.participants === 'number') ? data.participants : (typeof data?.participant_count === 'number' ? data.participant_count : null);
+    const totalSlots = totalMembers || finalParticipants.length;
+    const finalParticipantText = `📋 参加リスト (最終 ${finalParticipants.length}/${totalSlots}人)\n${finalParticipants.map(id => `<@${id}>`).join(' • ')}`;
+    const footerMessageId = interaction.message.interaction?.id || interaction.message.id;
+    const footerText = `募集ID：\`${footerMessageId.slice(-8)}\` | powered by **Recrubo**`;
+    
+    // 閉鎖画像の生成（画像版の場合のみ）
     let closedAttachment = null;
-    let baseImageBuffer = null;
-    if (hasAttachment) {
-      try {
-        const originalAttachmentUrl = originalMessage.attachments.first().url;
-        const response = await fetch(originalAttachmentUrl);
-        const arrayBuffer = await response.arrayBuffer();
-        baseImageBuffer = Buffer.from(arrayBuffer);
-      } catch (imgErr) {
-        console.warn('[processClose] Failed to fetch original image:', imgErr);
+    if (recruitStyle === 'image') {
+      let baseImageBuffer = null;
+      if (hasAttachment) {
+        try {
+          const originalAttachmentUrl = originalMessage.attachments.first().url;
+          const response = await fetch(originalAttachmentUrl);
+          const arrayBuffer = await response.arrayBuffer();
+          baseImageBuffer = Buffer.from(arrayBuffer);
+        } catch (imgErr) {
+          console.warn('[processClose] Failed to fetch original image:', imgErr);
+        }
       }
-    }
-    if (!baseImageBuffer) {
-      try {
-        let useColor = data?.panelColor || '808080';
-        if (typeof useColor === 'string' && useColor.startsWith('#')) useColor = useColor.slice(1);
-        if (!/^[0-9A-Fa-f]{6}$/.test(useColor)) useColor = '808080';
-        const currentParticipants = recruitParticipants.get(messageId) || [];
-        baseImageBuffer = await generateRecruitCard(data, currentParticipants, interaction.client, useColor);
-      } catch (imgErr) {
-        console.warn('[processClose] Failed to generate base recruit image:', imgErr);
+      if (!baseImageBuffer) {
+        try {
+          let useColor = data?.panelColor || '808080';
+          if (typeof useColor === 'string' && useColor.startsWith('#')) useColor = useColor.slice(1);
+          if (!/^[0-9A-Fa-f]{6}$/.test(useColor)) useColor = '808080';
+          const currentParticipants = recruitParticipants.get(messageId) || [];
+          baseImageBuffer = await generateRecruitCard(data, currentParticipants, interaction.client, useColor);
+        } catch (imgErr) {
+          console.warn('[processClose] Failed to generate base recruit image:', imgErr);
+        }
       }
-    }
-    if (baseImageBuffer) {
-      try {
-        const closedImageBuffer = await generateClosedRecruitCard(baseImageBuffer);
-        closedAttachment = new AttachmentBuilder(closedImageBuffer, { name: 'recruit-card-closed.png' });
-      } catch (imgErr) {
-        console.warn('[processClose] Failed to generate closed image:', imgErr);
+      if (baseImageBuffer) {
+        try {
+          const closedImageBuffer = await generateClosedRecruitCard(baseImageBuffer);
+          closedAttachment = new AttachmentBuilder(closedImageBuffer, { name: 'recruit-card-closed.png' });
+        } catch (imgErr) {
+          console.warn('[processClose] Failed to generate closed image:', imgErr);
+        }
       }
     }
     
-    // Closed header
-    disabledContainer.addTextDisplayComponents(
-      new TextDisplayBuilder().setContent('🎮✨ **募集締め切り済み** ✨🎮')
-    );
-    // Title inside component
-    if (data?.title) {
+    if (recruitStyle === 'image') {
+      // 画像版：画像のみ表示（テキストなし）
+      if (closedAttachment) {
+        disabledContainer.addMediaGalleryComponents(
+          new MediaGalleryBuilder().addItems(
+            new MediaGalleryItemBuilder().setURL('attachment://recruit-card-closed.png')
+          )
+        );
+        disabledContainer.addSeparatorComponents(
+          new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+        );
+      }
+      
+      // 最終参加者リスト
+      disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent(finalParticipantText));
+      disabledContainer.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
+      
+      // フッター
       disabledContainer.addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(`📌 タイトル\n${String(data.title).slice(0,200)}`)
+        new TextDisplayBuilder().setContent(footerText)
       );
-    }
-    disabledContainer.addSeparatorComponents(
-      new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
-    );
-    // Image section if original had attachment (image style)
-    if (hasAttachment || closedAttachment) {
-      disabledContainer.addMediaGalleryComponents(
-        new MediaGalleryBuilder().addItems(
-          new MediaGalleryItemBuilder().setURL(closedAttachment ? 'attachment://recruit-card-closed.png' : originalMessage.attachments.first().url)
-        )
+    } else {
+      // シンプル版：テキストのみ表示（画像なし）
+      disabledContainer.addTextDisplayComponents(
+        new TextDisplayBuilder().setContent('🔒 **募集締め切り済み**')
       );
+      // Title inside component
+      if (data?.title) {
+        disabledContainer.addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(`📌 タイトル\n${String(data.title).slice(0,200)}`)
+        );
+      }
       disabledContainer.addSeparatorComponents(
         new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
       );
-    }
-    // Details（募集中と同じく横一列・コンパクト表記）
-    const startLabel = data?.startTime ? `🕒 ${data.startTime}` : null;
-    const totalMembers = (typeof data?.participants === 'number') ? data.participants : (typeof data?.participant_count === 'number' ? data.participant_count : null);
-    const membersLabel = (typeof totalMembers === 'number') ? `👥 ${totalMembers}人` : null;
-    let voiceLabel = null;
-    if (typeof data?.vc === 'string') {
-      if (data.vc === 'あり(聞き専)') {
-        voiceLabel = data?.voicePlace ? `🎙 聞き専/${data.voicePlace}` : '🎙 聞き専';
-      } else if (data.vc === 'あり') {
+      
+      // Details（募集中と同じく横一列・コンパクト表記）
+      const startLabel = data?.startTime ? `🕒 ${data.startTime}` : null;
+      const membersLabel = (typeof totalMembers === 'number') ? `👥 ${totalMembers}人` : null;
+      let voiceLabel = null;
+      if (typeof data?.vc === 'string') {
+        if (data.vc === 'あり(聞き専)') {
+          voiceLabel = data?.voicePlace ? `🎙 聞き専/${data.voicePlace}` : '🎙 聞き専';
+        } else if (data.vc === 'あり') {
+          voiceLabel = data?.voicePlace ? `🎙 あり/${data.voicePlace}` : '🎙 あり';
+        } else if (data.vc === 'なし') {
+          voiceLabel = '🎙 なし';
+        }
+      } else if (data?.voice === true) {
         voiceLabel = data?.voicePlace ? `🎙 あり/${data.voicePlace}` : '🎙 あり';
-      } else if (data.vc === 'なし') {
+      } else if (data?.voice === false) {
         voiceLabel = '🎙 なし';
       }
-    } else if (data?.voice === true) {
-      voiceLabel = data?.voicePlace ? `🎙 あり/${data.voicePlace}` : '🎙 あり';
-    } else if (data?.voice === false) {
-      voiceLabel = '🎙 なし';
+      const detailsText = [startLabel, membersLabel, voiceLabel].filter(Boolean).join(' | ');
+      if (detailsText) {
+        disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent(detailsText));
+      }
+      // Content (no divider between details and content)
+      const contentText = data?.content ? `📝 募集内容\n${String(data.content).slice(0,1500)}` : '';
+      if (contentText) {
+        disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent(contentText));
+      }
+      // Separator before participants
+      disabledContainer.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
+      // Final participants list
+      disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent(finalParticipantText));
+      // Closed note
+      disabledContainer.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
+      disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent('この募集は締め切られました。'));
+      disabledContainer.addSeparatorComponents(
+        new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+      ).addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(footerText)
+      );
     }
-    const detailsText = [startLabel, membersLabel, voiceLabel].filter(Boolean).join(' | ');
-    if (detailsText) {
-      disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent(detailsText));
-    }
-    // Content (no divider between details and content)
-    const contentText = data?.content ? `📝 募集内容\n${String(data.content).slice(0,1500)}` : '';
-    if (contentText) {
-      disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent(contentText));
-    }
-    // Separator before participants
-    disabledContainer.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
-    // Final participants list
-    const finalParticipants = recruitParticipants.get(messageId) || [];
-    const totalSlots = totalMembers || finalParticipants.length;
-    const finalParticipantText = `📋 参加リスト (最終 ${finalParticipants.length}/${totalSlots}人)\n${finalParticipants.map(id => `<@${id}>`).join(' • ')}`;
-    disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent(finalParticipantText));
-    // Closed note
-    disabledContainer.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
-    disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent('🔒 **この募集は締め切られました** 🔒'));
-    const footerMessageId = interaction.message.interaction?.id || interaction.message.id;
-    disabledContainer.addSeparatorComponents(
-      new (require('discord.js').SeparatorBuilder)().setSpacing(require('discord.js').SeparatorSpacingSize.Small).setDivider(true)
-    ).addTextDisplayComponents(
-  new (require('discord.js').TextDisplayBuilder)().setContent(`募集ID：\`${footerMessageId.slice(-8)}\` | powered by **Recrubo**`)
-    );
     
     const editPayload = {
       components: [disabledContainer],
@@ -820,7 +847,8 @@ async function processClose(interaction, messageId, savedRecruitData) {
       allowedMentions: { roles: [], users: [] }
     };
     
-    if (closedAttachment) {
+    // 画像版の場合のみ締め切り画像を添付
+    if (recruitStyle === 'image' && closedAttachment) {
       editPayload.files = [closedAttachment];
     }
     
