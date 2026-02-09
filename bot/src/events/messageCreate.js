@@ -44,13 +44,19 @@ module.exports = {
 
     // 特定チャンネルと特定ユーザー（bot含む）のメッセージ監視（bump通知）
     if (message.channel.id === '1414751550223548607' && message.author.id === '302050872383242240') {
+      // 即座にbump通知メールを送信
+      await sendBumpNotification(
+        message.channel.name,
+        `bump通知です\n\nユーザー ${message.author.tag} がチャンネル ${message.channel.name} でメッセージを送信しました。\n\nメッセージ内容:\n${message.content}`
+      );
+
       // 既存のタイマーがあればキャンセル
       if (bumpReminderTimer) {
         clearTimeout(bumpReminderTimer);
         console.log('[messageCreate] 既存の2時間タイマーをキャンセルしました');
       }
 
-      // 2時間後（120分 = 7,260,000ミリ秒）にメール送信（即時送信はしない）
+      // 2時間後（120分 = 7,260,000ミリ秒）にメール送信
       const reminderDelay = 120 * 60 * 1000; // 120分
       bumpReminderTimer = setTimeout(() => {
         sendBumpNotification(
@@ -60,7 +66,7 @@ module.exports = {
         bumpReminderTimer = null;
       }, reminderDelay);
 
-      console.log('[messageCreate] 2時間後のリマインダーを設定しました');
+      console.log('[messageCreate] bump通知メール送信完了、2時間後のリマインダーを設定しました');
     }
 
     // 以降はBotのメッセージは無視（フレンドコード検索機能）
