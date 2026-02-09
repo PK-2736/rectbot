@@ -47,7 +47,7 @@ function scheduleBumpNotification(userTag, channelName, content = '') {
   bumpReminderTimer = setTimeout(() => {
     sendBumpNotification(
       channelName,
-      `2時間30秒前にユーザー ${userTag} がチャンネル ${channelName} でスラッシュコマンドを実行しました。${content ? `\n\n${content}` : ''}\n\n次のbumpの時間です！`
+      `ユーザー ${userTag} がチャンネル ${channelName} でスラッシュコマンドを実行してから2時間30秒が経過しました。${content ? `\n\n${content}` : ''}\n\n次のbumpの時間です！`
     );
     bumpReminderTimer = null;
   }, reminderDelay);
