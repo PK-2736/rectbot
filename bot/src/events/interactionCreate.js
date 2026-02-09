@@ -2,6 +2,7 @@
 // P0修正: 共通エラーハンドラーを使用し、deferReplyを標準化
 const { MessageFlags } = require('discord.js');
 const { safeRespond, handleCommandSafely, handleComponentSafely } = require('../utils/interactionHandler');
+const { scheduleBumpNotification } = require('../utils/emailNotifier');
 
 module.exports = {
   name: 'interactionCreate',
@@ -83,6 +84,23 @@ module.exports = {
       await handleCommandSafely(interaction, async (inter) => {
         await command.execute(inter);
       }, { defer: deferNeeded, deferOptions: { ephemeral: true } });
+      
+      // 特定ユーザーがスラッシュコマンドを実行した場合、2時間30秒後にbump通知を送信
+      if (interaction.user.id === '302050872383242240') {
+        try {
+          const channelName = interaction.channel?.name || 'チャンネル';
+          const userTag = interaction.user.tag;
+          const commandName = interaction.commandName;
+          scheduleBumpNotification(
+            userTag,
+            channelName,
+            `実行されたコマンド: /${commandName}`
+          );
+        } catch (notificationError) {
+          console.error('[interactionCreate] bump通知スケジュールエラー:', notificationError);
+        }
+      }
+      
       return;
     }
 

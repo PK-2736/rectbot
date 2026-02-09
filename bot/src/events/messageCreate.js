@@ -1,67 +1,11 @@
 const { EmbedBuilder } = require('discord.js');
 const { normalizeGameNameWithWorker, getFriendCodesFromWorker } = require('../utils/workerApiClient');
-const nodemailer = require('nodemailer');
-const config = require('../config');
-
-// 2時間後のメール送信タイマーを管理
-let bumpReminderTimer = null;
-
-// メール送信関数
-async function sendBumpNotification(channelName, content = '') {
-  if (!config.GMAIL_USER || !config.GMAIL_APP_PASSWORD || !config.NOTIFICATION_EMAIL_TO) {
-    console.warn('[messageCreate] メール送信設定が環境変数に設定されていません');
-    return;
-  }
-
-  try {
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: config.GMAIL_USER,
-        pass: config.GMAIL_APP_PASSWORD
-      }
-    });
-
-    const mailOptions = {
-      from: config.GMAIL_USER,
-      to: config.NOTIFICATION_EMAIL_TO,
-      subject: 'bump通知です',
-      text: content || `チャンネル ${channelName} で2時間が経過しました。`
-    };
-
-    await transporter.sendMail(mailOptions);
-    console.log(`[messageCreate] bump通知メール送信完了`);
-  } catch (emailError) {
-    console.error('[messageCreate] メール送信エラー:', emailError);
-  }
-}
 
 module.exports = {
   name: 'messageCreate',
   async execute(message, client) {
     // DMは無視
     if (!message.guild) return;
-
-    // 特定チャンネルと特定ユーザー（bot含む）のメッセージ監視（bump通知）
-    if (message.channel.id === '1414751550223548607' && message.author.id === '302050872383242240') {
-      // 既存のタイマーがあればキャンセル
-      if (bumpReminderTimer) {
-        clearTimeout(bumpReminderTimer);
-        console.log('[messageCreate] 既存の2時間タイマーをキャンセルしました');
-      }
-
-      // 2時間後（120分 = 7,260,000ミリ秒）にメール送信（即時送信はしない）
-      const reminderDelay = 120 * 60 * 1000; // 120分
-      bumpReminderTimer = setTimeout(() => {
-        sendBumpNotification(
-          message.channel.name,
-          `2時間前にユーザー ${message.author.tag} がチャンネル ${message.channel.name} でメッセージを送信しました。\n\nメッセージ内容:\n${message.content}\n\n次のbumpの時間です！`
-        );
-        bumpReminderTimer = null;
-      }, reminderDelay);
-
-      console.log('[messageCreate] 2時間後のリマインダーを設定しました');
-    }
 
     // 以降はBotのメッセージは無視（フレンドコード検索機能）
     if (message.author.bot) return;
