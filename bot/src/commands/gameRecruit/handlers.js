@@ -706,8 +706,13 @@ async function processClose(interaction, messageId, savedRecruitData) {
     } catch (err) { console.error('募集データの削除に失敗:', err); }
 
     // ギルド設定を取得してrecruit_styleを確認
-    const guildSettings = await getGuildSettings(interaction.guildId);
-    const recruitStyle = (guildSettings?.recruit_style === 'simple') ? 'simple' : 'image';
+    let recruitStyle = 'image'; // デフォルトは画像版
+    try {
+      const guildSettings = await getGuildSettings(interaction.guildId);
+      recruitStyle = (guildSettings?.recruit_style === 'simple') ? 'simple' : 'image';
+    } catch (e) {
+      console.warn('[processClose] Failed to get guild settings, defaulting to image style:', e?.message || e);
+    }
 
     // Disable UI (Components v2) — preserve info in closed view
     const { ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, SeparatorSpacingSize, MediaGalleryBuilder, MediaGalleryItemBuilder, AttachmentBuilder } = require('discord.js');
@@ -716,6 +721,11 @@ async function processClose(interaction, messageId, savedRecruitData) {
     disabledContainer.setAccentColor(0x808080);
     const originalMessage = interaction.message;
     const hasAttachment = !!originalMessage?.attachments && originalMessage.attachments.size > 0;
+    
+    // 参加者情報を事前に取得（両方の分岐で使用）
+    const finalParticipants = recruitParticipants.get(messageId) || [];
+    const totalMembers = (typeof data?.participants === 'number') ? data.participants : (typeof data?.participant_count === 'number' ? data.participant_count : null);
+    const totalSlots = totalMembers || finalParticipants.length;
     
     // 閉鎖画像の生成（画像版の場合のみ）
     let closedAttachment = null;
@@ -766,8 +776,6 @@ async function processClose(interaction, messageId, savedRecruitData) {
       }
       
       // 最終参加者リスト
-      const finalParticipants = recruitParticipants.get(messageId) || [];
-      const totalSlots = (typeof data?.participants === 'number') ? data.participants : (typeof data?.participant_count === 'number' ? data.participant_count : finalParticipants.length);
       const finalParticipantText = `📋 参加リスト (最終 ${finalParticipants.length}/${totalSlots}人)\n${finalParticipants.map(id => `<@${id}>`).join(' • ')}`;
       disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent(finalParticipantText));
       disabledContainer.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
@@ -794,7 +802,6 @@ async function processClose(interaction, messageId, savedRecruitData) {
       
       // Details（募集中と同じく横一列・コンパクト表記）
       const startLabel = data?.startTime ? `🕒 ${data.startTime}` : null;
-      const totalMembers = (typeof data?.participants === 'number') ? data.participants : (typeof data?.participant_count === 'number' ? data.participant_count : null);
       const membersLabel = (typeof totalMembers === 'number') ? `👥 ${totalMembers}人` : null;
       let voiceLabel = null;
       if (typeof data?.vc === 'string') {
@@ -822,8 +829,6 @@ async function processClose(interaction, messageId, savedRecruitData) {
       // Separator before participants
       disabledContainer.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
       // Final participants list
-      const finalParticipants = recruitParticipants.get(messageId) || [];
-      const totalSlots = totalMembers || finalParticipants.length;
       const finalParticipantText = `📋 参加リスト (最終 ${finalParticipants.length}/${totalSlots}人)\n${finalParticipants.map(id => `<@${id}>`).join(' • ')}`;
       disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent(finalParticipantText));
       // Closed note

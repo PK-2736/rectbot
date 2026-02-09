@@ -252,8 +252,13 @@ async function autoCloseRecruitment(client, guildId, channelId, messageId) {
     const recruiterId = savedRecruitData?.recruiterId || savedRecruitData?.ownerId || null;
 
     // ギルド設定を取得してrecruit_styleを確認
-    const guildSettings = await db.getGuildSettings(guildId);
-    const recruitStyle = (guildSettings?.recruit_style === 'simple') ? 'simple' : 'image';
+    let recruitStyle = 'image'; // デフォルトは画像版
+    try {
+      const guildSettings = await db.getGuildSettings(guildId);
+      recruitStyle = (guildSettings?.recruit_style === 'simple') ? 'simple' : 'image';
+    } catch (e) {
+      console.warn('[autoClose] Failed to get guild settings, defaulting to image style:', e?.message || e);
+    }
 
     // メッセージの取得を試みる
     const channel = await client.channels.fetch(channelId).catch(() => null);
