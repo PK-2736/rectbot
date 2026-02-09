@@ -33,10 +33,15 @@ Content-Security-Policy: upgrade-insecure-requests; ...
 - **upgrade-insecure-requests**: Automatically upgrades all HTTP requests to HTTPS
 - **default-src**: Restricts default sources to self and HTTPS only
 - **script-src**: Allows scripts from trusted sources (Google reCAPTCHA, CDNs)
+  - ⚠️ **Note on `unsafe-inline` and `unsafe-eval`**: Currently required for:
+    - Google reCAPTCHA v3 dynamic script loading
+    - Astro inline scripts for bot invite functionality
+    - Some third-party libraries that may use eval()
+  - 🔒 **Future Improvement**: Consider migrating to CSP nonces or hashes for inline scripts to eliminate `unsafe-inline`
 - **connect-src**: Allows API connections to api.recrubo.net, Google, Discord
 - **img-src**: Allows images from HTTPS sources and data URIs
-- **frame-src**: Restricts iframe embeds to trusted sources
-- **object-src**: Blocks plugins
+- **frame-src**: Restricts iframe embeds to trusted sources (Google reCAPTCHA)
+- **object-src**: Blocks all plugins (Flash, Java, etc.)
 - **form-action**: Restricts form submissions to self and API
 
 #### 3. Additional Security Headers
@@ -121,6 +126,47 @@ You should see headers like:
 - Any changes to security policies should be made in `frontend/astro/public/_headers`
 - Test changes locally before deploying to production
 - Monitor browser console for CSP violations after updating policies
+
+## Future Improvements
+
+### CSP Hardening
+Currently, the Content Security Policy includes `unsafe-inline` and `unsafe-eval` directives which reduce protection against XSS attacks. Consider these improvements:
+
+1. **Implement CSP Nonces**
+   - Generate unique nonces for each page request
+   - Add nonce attributes to inline scripts
+   - Replace `'unsafe-inline'` with `'nonce-{random}'` in CSP
+   - Requires migration to Astro SSR or Cloudflare Pages Functions
+
+2. **Extract Inline Scripts**
+   - Move inline scripts to external .js files
+   - Update reCAPTCHA integration to use external script files
+   - Remove dependency on `unsafe-inline`
+
+3. **Eliminate eval() Usage**
+   - Audit third-party dependencies for eval() usage
+   - Replace or configure libraries to avoid eval()
+   - Remove `unsafe-eval` from CSP
+
+4. **CSP Reporting**
+   - Add `report-uri` or `report-to` directive to CSP
+   - Monitor CSP violations in production
+   - Use collected data to refine and tighten policies
+
+### Additional Security Enhancements
+
+1. **Subresource Integrity (SRI)**
+   - Add integrity attributes to external scripts and stylesheets
+   - Protect against compromised CDNs
+
+2. **HSTS Preloading**
+   - Submit domain to HSTS preload list
+   - Provides protection on first visit
+
+3. **Security Monitoring**
+   - Set up automated security header testing in CI/CD
+   - Regular audits using security scanners
+   - Monitor for new security best practices
 
 ## References
 
