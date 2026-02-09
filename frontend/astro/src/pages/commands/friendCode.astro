@@ -2,7 +2,7 @@
 import CommandLayout from "./CommandLayout.astro";
 
 const title = "フレンドコード管理コマンド";
-const description = "Recruboのフレンドコード管理コマンド（/link-add, /link-show, /link-delete）の使い方。複数のゲームのフレンドコードを一元管理する方法を解説。";
+const description = "Recruboのフレンドコード管理コマンド（/id_add, /id_show, /id_delete）の使い方。複数のゲームのフレンドコードを一元管理する方法を解説。";
 ---
 <CommandLayout title={title} description={description}>
   <p class="text-lg text-slate-600 mb-8 text-center">フレンドコードを登録・管理するためのコマンド一覧と使い方を紹介します。</p>
@@ -10,27 +10,27 @@ const description = "Recruboのフレンドコード管理コマンド（/link-a
   <!-- コマンド一覧 -->
   <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-12">
     <div class="bg-gradient-to-br from-green-50 to-white p-6 rounded-xl border border-green-200 shadow-sm hover:shadow-md transition-shadow">
-      <h3 class="text-xl font-bold mb-2 text-green-600">➕ /link-add</h3>
+      <h3 class="text-xl font-bold mb-2 text-green-600">➕ /id_add</h3>
       <p class="text-slate-700">フレンドコードを登録</p>
     </div>
     <div class="bg-gradient-to-br from-blue-50 to-white p-6 rounded-xl border border-blue-200 shadow-sm hover:shadow-md transition-shadow">
-      <h3 class="text-xl font-bold mb-2 text-blue-600">👁️ /link-show</h3>
+      <h3 class="text-xl font-bold mb-2 text-blue-600">👁️ /id_show</h3>
       <p class="text-slate-700">登録済みコードを表示</p>
     </div>
     <div class="bg-gradient-to-br from-red-50 to-white p-6 rounded-xl border border-red-200 shadow-sm hover:shadow-md transition-shadow">
-      <h3 class="text-xl font-bold mb-2 text-red-600">🗑️ /link-delete</h3>
+      <h3 class="text-xl font-bold mb-2 text-red-600">🗑️ /id_delete</h3>
       <p class="text-slate-700">コードを削除</p>
     </div>
   </div>
 
-  <!-- /link-add コマンド詳細 -->
+  <!-- /id_add コマンド詳細 -->
   <div class="mb-12">
-    <h2 class="text-2xl font-bold mb-6 text-slate-900 border-b-2 border-green-200 pb-2">➕ /link-add - フレンドコードを登録する</h2>
+    <h2 class="text-2xl font-bold mb-6 text-slate-900 border-b-2 border-green-200 pb-2">➕ /id_add - フレンドコードを登録する</h2>
     
     <div class="mb-6">
       <h3 class="text-lg font-semibold mb-3 text-slate-800">📝 登録手順</h3>
       <ol class="list-decimal list-inside space-y-3 text-slate-700 bg-slate-50 p-5 rounded-lg">
-        <li><code class="bg-white px-2 py-1 rounded border">/link-add</code> と入力</li>
+        <li><code class="bg-white px-2 py-1 rounded border">/id_add</code> と入力</li>
         <li>モーダルが開くので、以下を入力：
           <ul class="list-disc list-inside ml-6 mt-2 space-y-1">
             <li><strong>ゲーム名</strong>: 例）Valorant、スプラ、フォトナ など</li>
@@ -77,21 +77,21 @@ const description = "Recruboのフレンドコード管理コマンド（/link-a
     </div>
   </div>
 
-  <!-- /link-show コマンド詳細 -->
+  <!-- /id_show コマンド詳細 -->
   <div class="mb-12">
-    <h2 class="text-2xl font-bold mb-6 text-slate-900 border-b-2 border-blue-200 pb-2">👁️ /link-show - フレンドコードを表示する</h2>
+    <h2 class="text-2xl font-bold mb-6 text-slate-900 border-b-2 border-blue-200 pb-2">👁️ /id_show - フレンドコードを表示する</h2>
     
     <div class="mb-6">
       <h3 class="text-lg font-semibold mb-3 text-slate-800">📋 表示方法</h3>
       <div class="space-y-4">
         <div class="bg-slate-50 p-5 rounded-lg border border-slate-200">
           <h4 class="font-bold text-slate-800 mb-2">🙋 自分のコードを表示</h4>
-          <code class="bg-white px-3 py-2 rounded border block">/link-show</code>
+          <code class="bg-white px-3 py-2 rounded border block">/id_show</code>
           <p class="text-slate-600 text-sm mt-2">自分が登録したすべてのフレンドコードを表示</p>
         </div>
         <div class="bg-slate-50 p-5 rounded-lg border border-slate-200">
           <h4 class="font-bold text-slate-800 mb-2">👥 他のユーザーのコードを表示</h4>
-          <code class="bg-white px-3 py-2 rounded border block">/link-show user:@ユーザー名</code>
+          <code class="bg-white px-3 py-2 rounded border block">/id_show user:@ユーザー名</code>
           <p class="text-slate-600 text-sm mt-2">指定したユーザーの公開フレンドコードを表示</p>
         </div>
       </div>
@@ -115,14 +115,14 @@ const description = "Recruboのフレンドコード管理コマンド（/link-a
     </div>
   </div>
 
-  <!-- /link-delete コマンド詳細 -->
+  <!-- /id_delete コマンド詳細 -->
   <div class="mb-12">
-    <h2 class="text-2xl font-bold mb-6 text-slate-900 border-b-2 border-red-200 pb-2">🗑️ /link-delete - フレンドコードを削除する</h2>
+    <h2 class="text-2xl font-bold mb-6 text-slate-900 border-b-2 border-red-200 pb-2">🗑️ /id_delete - フレンドコードを削除する</h2>
     
     <div class="mb-6">
       <h3 class="text-lg font-semibold mb-3 text-slate-800">🎯 削除手順</h3>
       <ol class="list-decimal list-inside space-y-3 text-slate-700 bg-slate-50 p-5 rounded-lg">
-        <li><code class="bg-white px-2 py-1 rounded border">/link-delete</code> と入力</li>
+        <li><code class="bg-white px-2 py-1 rounded border">/id_delete</code> と入力</li>
         <li>セレクトメニューが表示され、登録済みゲーム一覧が表示されます</li>
         <li>削除したいゲームを選択</li>
         <li>確認メッセージが表示されます</li>
@@ -154,7 +154,7 @@ const description = "Recruboのフレンドコード管理コマンド（/link-a
       <li class="flex items-start">
         <span class="text-2xl mr-3">🔄</span>
         <div>
-          <strong>名前変更時も安心:</strong> ゲーム内で名前を変更したら、すぐに /link-add で更新（上書き保存）
+          <strong>名前変更時も安心:</strong> ゲーム内で名前を変更したら、すぐに /id_add で更新（上書き保存）
         </div>
       </li>
       <li class="flex items-start">
