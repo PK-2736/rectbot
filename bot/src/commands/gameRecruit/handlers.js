@@ -726,6 +726,9 @@ async function processClose(interaction, messageId, savedRecruitData) {
     const finalParticipants = recruitParticipants.get(messageId) || [];
     const totalMembers = (typeof data?.participants === 'number') ? data.participants : (typeof data?.participant_count === 'number' ? data.participant_count : null);
     const totalSlots = totalMembers || finalParticipants.length;
+    const finalParticipantText = `📋 参加リスト (最終 ${finalParticipants.length}/${totalSlots}人)\n${finalParticipants.map(id => `<@${id}>`).join(' • ')}`;
+    const footerMessageId = interaction.message.interaction?.id || interaction.message.id;
+    const footerText = `募集ID：\`${footerMessageId.slice(-8)}\` | powered by **Recrubo**`;
     
     // 閉鎖画像の生成（画像版の場合のみ）
     let closedAttachment = null;
@@ -776,14 +779,12 @@ async function processClose(interaction, messageId, savedRecruitData) {
       }
       
       // 最終参加者リスト
-      const finalParticipantText = `📋 参加リスト (最終 ${finalParticipants.length}/${totalSlots}人)\n${finalParticipants.map(id => `<@${id}>`).join(' • ')}`;
       disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent(finalParticipantText));
       disabledContainer.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
       
       // フッター
-      const footerMessageId = interaction.message.interaction?.id || interaction.message.id;
       disabledContainer.addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(`募集ID：\`${footerMessageId.slice(-8)}\` | powered by **Recrubo**`)
+        new TextDisplayBuilder().setContent(footerText)
       );
     } else {
       // シンプル版：テキストのみ表示（画像なし）
@@ -829,16 +830,14 @@ async function processClose(interaction, messageId, savedRecruitData) {
       // Separator before participants
       disabledContainer.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
       // Final participants list
-      const finalParticipantText = `📋 参加リスト (最終 ${finalParticipants.length}/${totalSlots}人)\n${finalParticipants.map(id => `<@${id}>`).join(' • ')}`;
       disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent(finalParticipantText));
       // Closed note
       disabledContainer.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
       disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent('この募集は締め切られました。'));
-      const footerMessageId = interaction.message.interaction?.id || interaction.message.id;
       disabledContainer.addSeparatorComponents(
         new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
       ).addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(`募集ID：\`${footerMessageId.slice(-8)}\` | powered by **Recrubo**`)
+        new TextDisplayBuilder().setContent(footerText)
       );
     }
     
