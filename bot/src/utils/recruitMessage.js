@@ -251,6 +251,10 @@ async function autoCloseRecruitment(client, guildId, channelId, messageId) {
 
     const recruiterId = savedRecruitData?.recruiterId || savedRecruitData?.ownerId || null;
 
+    // ギルド設定を取得してrecruit_styleを確認
+    const guildSettings = await db.getGuildSettings(guildId);
+    const recruitStyle = (guildSettings?.recruit_style === 'simple') ? 'simple' : 'image';
+
     // メッセージの取得を試みる
     const channel = await client.channels.fetch(channelId).catch(() => null);
     let message = null;
@@ -270,22 +274,23 @@ async function autoCloseRecruitment(client, guildId, channelId, messageId) {
           return /^[0-9A-Fa-f]{6}$/.test(cleaned) ? parseInt(cleaned, 16) : 0x808080;
         })();
 
-        // 元の画像を取得
-        const originalAttachment = message.attachments.first();
+        // 画像版の場合のみ画像を生成
         let closedAttachment = null;
-
-        if (originalAttachment && originalAttachment.url) {
-          try {
-            // 元の画像をダウンロード
-            const response = await fetch(originalAttachment.url);
-            const arrayBuffer = await response.arrayBuffer();
-            const originalImageBuffer = Buffer.from(arrayBuffer);
-            
-            // 締め切り画像を生成（灰色化 + CLOSED オーバーレイ）
-            const closedImageBuffer = await generateClosedRecruitCard(originalImageBuffer);
-            closedAttachment = new AttachmentBuilder(closedImageBuffer, { name: 'recruit-card-closed.png' });
-          } catch (imgErr) {
-            console.warn('[autoClose] Failed to generate closed image:', imgErr);
+        if (recruitStyle === 'image') {
+          const originalAttachment = message.attachments.first();
+          if (originalAttachment && originalAttachment.url) {
+            try {
+              // 元の画像をダウンロード
+              const response = await fetch(originalAttachment.url);
+              const arrayBuffer = await response.arrayBuffer();
+              const originalImageBuffer = Buffer.from(arrayBuffer);
+              
+              // 締め切り画像を生成（灰色化 + CLOSED オーバーレイ）
+              const closedImageBuffer = await generateClosedRecruitCard(originalImageBuffer);
+              closedAttachment = new AttachmentBuilder(closedImageBuffer, { name: 'recruit-card-closed.png' });
+            } catch (imgErr) {
+              console.warn('[autoClose] Failed to generate closed image:', imgErr);
+            }
           }
         }
 
@@ -293,37 +298,44 @@ async function autoCloseRecruitment(client, guildId, channelId, messageId) {
         const disabledContainer = new ContainerBuilder();
         disabledContainer.setAccentColor(baseColor);
         
-        // ヘッダー
-        disabledContainer.addTextDisplayComponents(
-          new TextDisplayBuilder().setContent('🔒✨ **募集締め切り済み** ✨🔒')
-        );
-        disabledContainer.addSeparatorComponents(
-          new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
-        );
-        
-        // 画像を表示
-        disabledContainer.addMediaGalleryComponents(
-          new MediaGalleryBuilder().addItems(
-            new MediaGalleryItemBuilder().setURL('attachment://recruit-card-closed.png')
-          )
-        );
-        
-        disabledContainer.addSeparatorComponents(
-          new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
-        );
-        
-        // 締め切り状態メッセージ
-        disabledContainer.addTextDisplayComponents(
-          new TextDisplayBuilder().setContent('🔒 この募集は締め切られました。')
-        );
-        disabledContainer.addSeparatorComponents(
-          new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
-        );
-        
-        // フッター
-        disabledContainer.addTextDisplayComponents(
-          new TextDisplayBuilder().setContent(`募集ID：\`${recruitId}\` | powered by **Recrubo**`)
-        );
+        if (recruitStyle === 'image') {
+          // 画像版：画像のみ表示（テキストなし）
+          if (closedAttachment) {
+            disabledContainer.addMediaGalleryComponents(
+              new MediaGalleryBuilder().addItems(
+                new MediaGalleryItemBuilder().setURL('attachment://recruit-card-closed.png')
+              )
+            );
+            disabledContainer.addSeparatorComponents(
+              new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+            );
+          }
+          
+          // フッター
+          disabledContainer.addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(`募集ID：\`${recruitId}\` | powered by **Recrubo**`)
+          );
+        } else {
+          // シンプル版：テキストのみ表示（画像なし）
+          disabledContainer.addTextDisplayComponents(
+            new TextDisplayBuilder().setContent('🔒 **募集締め切り済み**')
+          );
+          disabledContainer.addSeparatorComponents(
+            new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+          );
+          
+          disabledContainer.addTextDisplayComponents(
+            new TextDisplayBuilder().setContent('この募集は締め切られました。')
+          );
+          disabledContainer.addSeparatorComponents(
+            new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+          );
+          
+          // フッター
+          disabledContainer.addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(`募集ID：\`${recruitId}\` | powered by **Recrubo**`)
+          );
+        }
 
         // 無効化されたボタンを追加
         const disabledButtons = new ActionRowBuilder()
@@ -347,8 +359,8 @@ async function autoCloseRecruitment(client, guildId, channelId, messageId) {
           allowedMentions: { roles: [], users: [] }
         };
 
-        // 締め切り画像ファイルを添付
-        if (closedAttachment) {
+        // 画像版の場合のみ締め切り画像ファイルを添付
+        if (recruitStyle === 'image' && closedAttachment) {
           editPayload.files = [closedAttachment];
         }
 
