@@ -1,0 +1,36 @@
+/*
+  # Security Headers for recrubo.net
+  
+  # HTTP Strict Transport Security (HSTS)
+  # Forces browsers to always use HTTPS for this domain
+  Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
+  
+  # Content Security Policy (CSP)
+  # Key directives:
+  # - upgrade-insecure-requests: Automatically upgrades HTTP requests to HTTPS (prevents mixed content warnings)
+  # - default-src 'self' https:: Only allow HTTPS resources
+  # - script-src: Allows inline scripts (required for reCAPTCHA v3 dynamic loading and bot invite functionality)
+  #   Note: 'unsafe-inline' is needed for Astro inline scripts and Google reCAPTCHA
+  #   Note: 'unsafe-eval' may be required by some third-party libraries
+  # - style-src: Allows inline styles (required for Tailwind CSS and component styling)
+  # - connect-src: API endpoints (api.recrubo.net), Google services, Discord OAuth
+  # - img-src: All HTTPS images plus data URIs (for embedded images)
+  # - frame-src: Only Google reCAPTCHA frames
+  # - object-src 'none': Block all plugins (Flash, etc.)
+  # - form-action: Restrict form submissions to self and trusted APIs
+  Content-Security-Policy: upgrade-insecure-requests; default-src 'self' https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.google.com https://www.gstatic.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://api.recrubo.net https://www.google.com https://discord.com; frame-src 'self' https://www.google.com; object-src 'none'; base-uri 'self'; form-action 'self' https://api.recrubo.net https://www.google.com;
+  
+  # Prevent browsers from MIME-sniffing
+  X-Content-Type-Options: nosniff
+  
+  # Clickjacking protection
+  X-Frame-Options: SAMEORIGIN
+  
+  # XSS Protection (legacy, but still useful for older browsers)
+  X-XSS-Protection: 1; mode=block
+  
+  # Referrer Policy
+  Referrer-Policy: strict-origin-when-cross-origin
+  
+  # Permissions Policy (formerly Feature Policy)
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), interest-cohort=()
