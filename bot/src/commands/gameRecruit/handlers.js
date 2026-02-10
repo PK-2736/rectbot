@@ -1106,18 +1106,43 @@ async function processClose(interaction, messageId, savedRecruitData) {
   }
 }
 
-async function handleModalSubmit(interaction) {
-  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-  // quiet
+// ------------------------------
+// Modal Type Predicates (Decompose Conditional)
+// ------------------------------
 
-  if (interaction.customId !== 'recruitModal') {
-    // ignore other modals
-    return;
+/**
+ * 募集作成モーダルかどうかを判定
+ */
+function isRecruitModal(interaction) {
+  return interaction.customId === 'recruitModal';
+}
+
+// ------------------------------
+// Modal Handler Resolver
+// ------------------------------
+
+/**
+ * モーダル種別に応じた handler を返す
+ */
+function resolveModalHandler(interaction) {
+  if (isRecruitModal(interaction)) {
+    return handleRecruitCreateModal;
   }
+  // 他のモーダルタイプに対応する場合は、ここに追加
+  return null;
+}
 
+// ------------------------------
+// Recruitment Creation Modal Handler
+// ------------------------------
+
+/**
+ * 募集作成モーダルの処理
+ */
+async function handleRecruitCreateModal(interaction) {
   try {
-      // 前処理: クールダウン + 同時募集制限(最大3件)
-      // enforce guild concurrent limit to 3 via ensureNoActiveRecruit
+    // 前処理: クールダウン + 同時募集制限(最大3件)
+    // enforce guild concurrent limit to 3 via ensureNoActiveRecruit
     if (!(await enforceCooldown(interaction))) return;
     if (!(await ensureNoActiveRecruit(interaction))) return;
 
@@ -1326,7 +1351,7 @@ async function handleModalSubmit(interaction) {
       followUpMessage = announceRes.mainMessage;
       secondaryMessage = announceRes.secondaryMessage;
     } catch (e) {
-      console.warn('[handleModalSubmit] sendAnnouncements failed:', e?.message || e);
+      console.warn('[handleRecruitCreateModal] sendAnnouncements failed:', e?.message || e);
       
       // 権限エラーの場合はDMに通知
       if (e.code === 50001 || e.code === 50013) {
@@ -1336,7 +1361,7 @@ async function handleModalSubmit(interaction) {
             channelName: interaction.channel.name
           });
         } catch (dmErr) {
-          console.error('[handleModalSubmit] Failed to send permission error DM:', dmErr?.message || dmErr);
+          console.error('[handleRecruitCreateModal] Failed to send permission error DM:', dmErr?.message || dmErr);
         }
       }
     }
@@ -1439,7 +1464,7 @@ async function handleModalSubmit(interaction) {
       }
       // updated initial message
     } catch (e) {
-      console.warn('[handleModalSubmit] Initial message edit failed:', e?.message || e);
+      console.warn('[handleRecruitCreateModal] Initial message edit failed:', e?.message || e);
     }
 
     // 送信後の保存とUI更新（確定画像/ID/ボタン）
@@ -1451,10 +1476,10 @@ async function handleModalSubmit(interaction) {
     try {
       await interaction.deleteReply();
     } catch (e) {
-      console.warn('[handleModalSubmit] Failed to delete deferred reply:', e?.message || e);
+      console.warn('[handleRecruitCreateModal] Failed to delete deferred reply:', e?.message || e);
     }
   } catch (error) {
-    console.error('handleModalSubmit error:', error);
+    console.error('[handleRecruitCreateModal] error:', error);
     if (error && error.code === 10062) return; // Unknown interaction
     if (!interaction.replied && !interaction.deferred) {
       try { await safeReply(interaction, { content: `モーダル送信エラー: ${error.message || error}`, flags: MessageFlags.Ephemeral, allowedMentions: { roles: [], users: [] } }); } catch (e) { console.error('二重応答防止: safeReply failed', e); }
@@ -1462,6 +1487,26 @@ async function handleModalSubmit(interaction) {
       try { await interaction.editReply({ content: `❌ モーダル送信エラー: ${error.message || error}` }); } catch (e) { console.error('editReply failed', e); }
     }
   }
+}
+
+// ------------------------------
+// Main Modal Submit Dispatcher (Refactored)
+// ------------------------------
+
+/**
+ * モーダル送信のメインディスパッチャー
+ * 分岐ロジックを持たず、適切な handler に委譲する
+ */
+async function handleModalSubmit(interaction) {
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+  const handler = resolveModalHandler(interaction);
+  if (!handler) {
+    // 未知のモーダルタイプは無視
+    return;
+  }
+
+  await handler(interaction);
 }
 
 /**
