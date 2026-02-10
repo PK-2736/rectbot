@@ -8,6 +8,7 @@ const { generateRecruitCard } = require('../../utils/canvasRecruit');
 const { updateParticipantList, autoCloseRecruitment } = require('../../utils/recruitMessage');
 const { EXEMPT_GUILD_IDS } = require('./constants');
 const { handlePermissionError } = require('../../utils/handlePermissionError');
+const { sendNotificationAsync, formatVoiceLabel, fetchUserAvatarUrl, formatParticipantList, runInBackground } = require('./handlerUtils');
 
 // ------------------------------
 // Helper utilities (behavior-preserving refactor)
@@ -180,33 +181,58 @@ async function selectNotificationRole(interaction, configuredIds) {
   }
 }
 
+/**
+ * Sends notification to a channel (primary or recruitment channel)
+ */
+async function sendChannelNotification(channel, notificationRole, shouldUseDefaultNotification, logContext) {
+  const roleToUse = notificationRole || (shouldUseDefaultNotification ? '1416797165769986161' : null);
+  if (roleToUse) {
+    runInBackground(
+      () => sendNotificationAsync(channel, roleToUse, '新しい募集が作成されました。', logContext),
+      `通知送信 ${logContext}`
+    );
+  }
+}
+
+/**
+ * Posts recruitment message to a channel with components
+ */
+async function postRecruitmentMessage(channel, container, image, extraComponents) {
+  const options = { 
+    components: [container], 
+    flags: MessageFlags.IsComponentsV2, 
+    allowedMentions: { roles: [], users: [] }
+  };
+  
+  if (image) options.files = [image];
+  if (Array.isArray(extraComponents) && extraComponents.length > 0) {
+    options.components.push(...extraComponents);
+  }
+  
+  return await channel.send(options);
+}
+
 async function sendAnnouncements(interaction, selectedNotificationRole, configuredIds, image, container, guildSettings, user, extraComponents = []) {
   const shouldUseDefaultNotification = !selectedNotificationRole && configuredIds.length === 0;
   
-  // メンション用の通知メッセージを送信
-  if (selectedNotificationRole) {
-    if (selectedNotificationRole === 'everyone') {
-      (async () => { try { await interaction.channel.send({ content: '新しい募集が作成されました。@everyone', allowedMentions: { parse: ['everyone'] } }); } catch (e) { console.warn('通知送信失敗 (@everyone)', e?.message || e); } })();
-    } else if (selectedNotificationRole === 'here') {
-      (async () => { try { await interaction.channel.send({ content: '新しい募集が作成されました。@here', allowedMentions: { parse: ['everyone'] } }); } catch (e) { console.warn('通知送信失敗 (@here)', e?.message || e); } })();
-    } else {
-      (async () => { try { await interaction.channel.send({ content: `新しい募集が作成されました。<@&${selectedNotificationRole}>`, allowedMentions: { roles: [selectedNotificationRole] } }); } catch (e) { console.warn('通知送信失敗 (selected)', e?.message || e); } })();
-    }
-  } else if (shouldUseDefaultNotification) {
-    (async () => { try { await interaction.channel.send({ content: '新しい募集が作成されました。<@&1416797165769986161>', allowedMentions: { roles: ['1416797165769986161'] } }); } catch (e) { console.warn('通知送信失敗 (default)', e?.message || e); } })();
-  }
+  // Send notification to primary channel
+  await sendChannelNotification(
+    interaction.channel, 
+    selectedNotificationRole, 
+    shouldUseDefaultNotification,
+    '(primary channel)'
+  );
 
-  // 画像とUIの投稿 (Components V2使用、通知ロール情報はcontainer内に含まれる)
-  const baseOptions = { components: [container], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } };
-  // 送信時点で追加したいアクション行を同梱
-  if (Array.isArray(extraComponents) && extraComponents.length > 0) {
-    baseOptions.components.push(...extraComponents);
-  }
-  if (image) baseOptions.files = [image];
-  const followUpMessage = await interaction.channel.send(baseOptions);
+  // Post recruitment message to primary channel
+  const followUpMessage = await postRecruitmentMessage(
+    interaction.channel, 
+    container, 
+    image, 
+    extraComponents
+  );
   let secondaryMessage = null;
 
-  // 別チャンネルにも投稿（募集専用チャンネルの最初のもののみ）
+  // Post to recruitment channel if different from primary
   const primaryRecruitChannelId = Array.isArray(guildSettings.recruit_channels) && guildSettings.recruit_channels.length > 0
     ? guildSettings.recruit_channels[0]
     : guildSettings.recruit_channel;
@@ -215,43 +241,46 @@ async function sendAnnouncements(interaction, selectedNotificationRole, configur
     try {
       const recruitChannel = await interaction.guild.channels.fetch(primaryRecruitChannelId);
       if (recruitChannel && recruitChannel.isTextBased()) {
-        if (selectedNotificationRole) {
-          if (selectedNotificationRole === 'everyone') {
-            (async () => { try { await recruitChannel.send({ content: '新しい募集が作成されました。@everyone', allowedMentions: { parse: ['everyone'] } }); } catch (e) { console.warn('通知送信失敗 (指定ch, @everyone):', e?.message || e); } })();
-          } else if (selectedNotificationRole === 'here') {
-            (async () => { try { await recruitChannel.send({ content: '新しい募集が作成されました。@here', allowedMentions: { parse: ['everyone'] } }); } catch (e) { console.warn('通知送信失敗 (指定ch, @here):', e?.message || e); } })();
-          } else {
-            (async () => { try { await recruitChannel.send({ content: `新しい募集が作成されました。<@&${selectedNotificationRole}>`, allowedMentions: { roles: [selectedNotificationRole] } }); } catch (e) { console.warn('通知送信失敗 (指定ch, selected):', e?.message || e); } })();
-          }
-        } else if (shouldUseDefaultNotification) {
-          (async () => { try { await recruitChannel.send({ content: '新しい募集が作成されました。<@&1416797165769986161>', allowedMentions: { roles: ['1416797165769986161'] } }); } catch (e) { console.warn('通知送信失敗 (指定ch, default):', e?.message || e); } })();
-        }
+        // Send notification to recruitment channel
+        await sendChannelNotification(
+          recruitChannel, 
+          selectedNotificationRole, 
+          shouldUseDefaultNotification,
+          '(recruit channel)'
+        );
         
-        // 募集メッセージ投稿 (通知ロール情報はcontainer内に含まれる)
+        // Post recruitment message to recruitment channel
         try {
-          const secondaryOptions = { 
-            components: [container], 
-            flags: MessageFlags.IsComponentsV2, 
-            allowedMentions: { roles: [], users: [] }
-          };
-          if (image) secondaryOptions.files = [image];
-          if (Array.isArray(extraComponents) && extraComponents.length > 0) {
-            secondaryOptions.components.push(...extraComponents);
-          }
-          secondaryMessage = await recruitChannel.send(secondaryOptions);
-        } catch (e) { console.warn('募集メッセージ送信失敗(指定ch):', e?.message || e); }
+          secondaryMessage = await postRecruitmentMessage(
+            recruitChannel, 
+            container, 
+            image, 
+            extraComponents
+          );
+        } catch (e) { 
+          console.warn('募集メッセージ送信失敗(指定ch):', e?.message || e); 
+        }
       }
-    } catch (channelError) { console.error('指定チャンネルへの送信でエラー:', channelError); }
+    } catch (channelError) { 
+      console.error('指定チャンネルへの送信でエラー:', channelError); 
+    }
   }
 
   return { mainMessage: followUpMessage, secondaryMessage };
 }
 
-async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettings, user, participantText, subHeaderText, followUpMessage, currentParticipants }) {
-  const actualMessage = followUpMessage;
-  const actualMessageId = actualMessage.id;
-  const actualRecruitId = actualMessageId.slice(-8);
-  const finalRecruitData = { 
+/**
+ * Generates a unique recruitment ID from message ID
+ */
+function generateRecruitId(messageId) {
+  return messageId.slice(-8);
+}
+
+/**
+ * Prepares final recruitment data with all required fields
+ */
+function prepareFinalRecruitData(recruitDataObj, actualRecruitId, interaction, actualMessageId) {
+  return { 
     ...recruitDataObj,
     recruitId: actualRecruitId,
     ownerId: recruitDataObj.recruiterId || interaction.user.id,
@@ -260,276 +289,330 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
     message_id: actualMessageId, 
     status: 'recruiting', 
     start_time: new Date().toISOString(),
-    startTimeNotified: false // 開始時間通知フラグを初期化
+    startTimeNotified: false
   };
+}
 
-  // 右上サムネイル用アバターURL（client経由で確実に取得）
-  let avatarUrl = null;
-  try {
-    const fetched = await interaction.client.users.fetch(interaction.user.id).catch(() => null);
-    if (fetched && typeof fetched.displayAvatarURL === 'function') {
-      avatarUrl = fetched.displayAvatarURL({ size: 128, extension: 'png' });
-    }
-  } catch (_) {}
-
+/**
+ * Persists recruitment data to Redis and Web API
+ */
+async function persistRecruitmentData(finalRecruitData, interaction, actualMessageId, actualRecruitId) {
   try {
     await saveRecruitToRedis(actualRecruitId, finalRecruitData);
     const pushRes = await pushRecruitToWebAPI(finalRecruitData);
     if (!pushRes || !pushRes.ok) console.error('Worker API push failed:', pushRes);
-    try {
-      const workerSave = await saveRecruitmentData(interaction.guildId, interaction.channelId, actualMessageId, interaction.guild?.name, interaction.channel?.name, finalRecruitData);
-      if (!workerSave?.ok) console.error('[worker-sync] DO 保存失敗:', workerSave);
-    } catch (saveErr) { console.error('[worker-sync] saveRecruitmentData error:', saveErr?.message || saveErr); }
     
-    // Webhook通知を送信
     try {
-      const webhookUrl = 'https://discord.com/api/webhooks/1426044588740710460/RElua00Jvi-937tbGtwv9wfq123mdff097HvaJgb-qILNsc79yzei9x8vZrM2OKYsETI';
-      const messageUrl = `https://discord.com/channels/${interaction.guildId}/${interaction.channelId}/${actualMessageId}`;
-      
-      const webhookEmbed = {
-        title: '🎮 新しい募集が作成されました',
-        description: finalRecruitData.title || '募集タイトルなし',
-        color: parseInt(finalRecruitData.panelColor || '5865F2', 16),
-        fields: [
-          {
-            name: '開始時間',
-            value: finalRecruitData.startTime || '未設定',
-            inline: true
-          },
-          {
-            name: '募集人数',
-            value: `${finalRecruitData.participants || 0}人`,
-            inline: true
-          },
-          {
-            name: '通話',
-            value: finalRecruitData.vc || 'なし',
-            inline: true
-          },
-          {
-            name: 'サーバー',
-            value: interaction.guild?.name || 'Unknown',
-            inline: true
-          },
-          {
-            name: 'チャンネル',
-            value: `<#${interaction.channelId}>`,
-            inline: true
-          },
-          {
-            name: 'リンク',
-            value: `[募集を見る](${messageUrl})`,
-            inline: true
-          }
-        ],
-        author: {
-          name: interaction.user.username,
-          icon_url: avatarUrl || interaction.user.displayAvatarURL()
-        },
-        timestamp: new Date().toISOString()
-      };
+      const workerSave = await saveRecruitmentData(
+        interaction.guildId, 
+        interaction.channelId, 
+        actualMessageId, 
+        interaction.guild?.name, 
+        interaction.channel?.name, 
+        finalRecruitData
+      );
+      if (!workerSave?.ok) console.error('[worker-sync] DO 保存失敗:', workerSave);
+    } catch (saveErr) { 
+      console.error('[worker-sync] saveRecruitmentData error:', saveErr?.message || saveErr); 
+    }
+  } catch (err) { 
+    console.error('Redis保存またはAPI pushエラー:', err); 
+  }
+}
 
-      if (finalRecruitData.content) {
-        webhookEmbed.fields.push({
-          name: '募集内容',
-          value: String(finalRecruitData.content).slice(0, 1024)
-        });
-      }
+/**
+ * Sends webhook notification for new recruitment
+ */
+async function sendWebhookNotification(finalRecruitData, interaction, actualMessageId, avatarUrl) {
+  try {
+    const webhookUrl = 'https://discord.com/api/webhooks/1426044588740710460/RElua00Jvi-937tbGtwv9wfq123mdff097HvaJgb-qILNsc79yzei9x8vZrM2OKYsETI';
+    const messageUrl = `https://discord.com/channels/${interaction.guildId}/${interaction.channelId}/${actualMessageId}`;
+    
+    const webhookEmbed = {
+      title: '🎮 新しい募集が作成されました',
+      description: finalRecruitData.title || '募集タイトルなし',
+      color: parseInt(finalRecruitData.panelColor || '5865F2', 16),
+      fields: [
+        { name: '開始時間', value: finalRecruitData.startTime || '未設定', inline: true },
+        { name: '募集人数', value: `${finalRecruitData.participants || 0}人`, inline: true },
+        { name: '通話', value: finalRecruitData.vc || 'なし', inline: true },
+        { name: 'サーバー', value: interaction.guild?.name || 'Unknown', inline: true },
+        { name: 'チャンネル', value: `<#${interaction.channelId}>`, inline: true },
+        { name: 'リンク', value: `[募集を見る](${messageUrl})`, inline: true }
+      ],
+      author: {
+        name: interaction.user.username,
+        icon_url: avatarUrl || interaction.user.displayAvatarURL()
+      },
+      timestamp: new Date().toISOString()
+    };
 
-      await fetch(webhookUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          embeds: [webhookEmbed]
-        })
+    if (finalRecruitData.content) {
+      webhookEmbed.fields.push({
+        name: '募集内容',
+        value: String(finalRecruitData.content).slice(0, 1024)
       });
-      console.log('[webhook] 募集通知を送信しました:', actualRecruitId);
-    } catch (webhookErr) {
-      console.error('[webhook] 募集通知の送信に失敗:', webhookErr?.message || webhookErr);
     }
-  } catch (err) { console.error('Redis保存またはAPI pushエラー:', err); }
 
-  // 参加者保存（既存参加者を含む）
-  recruitParticipants.set(actualMessageId, currentParticipants);
-  try { await saveParticipantsToRedis(actualMessageId, currentParticipants); } catch (e) { console.warn('初期参加者のRedis保存に失敗:', e?.message || e); }
+    await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ embeds: [webhookEmbed] })
+    });
+    
+    console.log('[webhook] 募集通知を送信しました:', finalRecruitData.recruitId);
+  } catch (webhookErr) {
+    console.error('[webhook] 募集通知の送信に失敗:', webhookErr?.message || webhookErr);
+  }
+}
 
-  // 画像とUIの更新（確定ID入り）
-  let finalUseColor = finalRecruitData.panelColor ? finalRecruitData.panelColor : (guildSettings.defaultColor ? guildSettings.defaultColor : '000000');
+
+/**
+ * Updates recruitment message with final ID and generated image
+ */
+async function updateRecruitmentMessage({ 
+  actualMessage, 
+  finalRecruitData, 
+  currentParticipants, 
+  interaction, 
+  guildSettings, 
+  user, 
+  participantText, 
+  subHeaderText, 
+  avatarUrl,
+  actualRecruitId 
+}) {
+  let finalUseColor = finalRecruitData.panelColor || guildSettings.defaultColor || '000000';
   finalUseColor = normalizeHex(finalUseColor, '000000');
-    // スタイルに応じて画像生成を切り替え
-    const styleForEdit = (guildSettings?.recruit_style === 'simple') ? 'simple' : 'image';
-    let updatedImage = null;
-    if (styleForEdit === 'image') {
-      const updatedImageBuffer = await generateRecruitCard(finalRecruitData, currentParticipants, interaction.client, finalUseColor);
-      updatedImage = new AttachmentBuilder(updatedImageBuffer, { name: 'recruit-card.png' });
-    }
+  
+  const styleForEdit = (guildSettings?.recruit_style === 'simple') ? 'simple' : 'image';
+  let updatedImage = null;
+  
+  if (styleForEdit === 'image') {
+    const updatedImageBuffer = await generateRecruitCard(
+      finalRecruitData, 
+      currentParticipants, 
+      interaction.client, 
+      finalUseColor
+    );
+    updatedImage = new AttachmentBuilder(updatedImageBuffer, { name: 'recruit-card.png' });
+  }
+  
   const finalAccentColor = /^[0-9A-Fa-f]{6}$/.test(finalUseColor) ? parseInt(finalUseColor, 16) : 0x000000;
   let updatedContainer;
+  
   if (styleForEdit === 'simple') {
     const { buildContainerSimple } = require('../../utils/recruitHelpers');
-      const labelsLine = '**🕒 開始時間 | 👥 募集人数 | 🎙 通話有無**';
-      const startVal = finalRecruitData?.startTime ? String(finalRecruitData.startTime) : null;
-      const membersVal = typeof finalRecruitData?.participants === 'number' ? `${finalRecruitData.participants}人` : null;
-      let voiceVal = null;
-      if (typeof finalRecruitData?.vc === 'string') {
-        if (finalRecruitData.vc === 'あり(聞き専)') {
-          voiceVal = finalRecruitData?.voicePlace ? `聞き専/${finalRecruitData.voicePlace}` : '聞き専';
-        } else if (finalRecruitData.vc === 'あり') {
-          voiceVal = finalRecruitData?.voicePlace ? `あり/${finalRecruitData.voicePlace}` : 'あり';
-        } else if (finalRecruitData.vc === 'なし') {
-          voiceVal = 'なし';
-        }
-      }
-      const valuesLine = [startVal, membersVal, voiceVal].filter(Boolean).join(' | ');
-      const detailsText = `${labelsLine}\n${valuesLine}`;
-    // 募集内容を取得して、ラベルを付ける
+    const labelsLine = '**🕒 開始時間 | 👥 募集人数 | 🎙 通話有無**';
+    const startVal = finalRecruitData?.startTime ? String(finalRecruitData.startTime) : null;
+    const membersVal = typeof finalRecruitData?.participants === 'number' ? `${finalRecruitData.participants}人` : null;
+    const voiceVal = formatVoiceLabel(finalRecruitData?.vc, finalRecruitData?.voicePlace);
+    const valuesLine = [startVal, membersVal, voiceVal].filter(Boolean).join(' | ');
+    const detailsText = `${labelsLine}\n${valuesLine}`;
+    
     const contentTextValue = finalRecruitData?.content || finalRecruitData?.note || finalRecruitData?.description || '';
     const contentText = contentTextValue && String(contentTextValue).trim().length > 0 
       ? `**📝 募集内容**\n${String(contentTextValue).slice(0, 1500)}` 
       : '';
-      const extraButtonsFinalSimple = [];
-      if (finalRecruitData?.startTime === '今から') {
-        const { ButtonBuilder, ButtonStyle } = require('discord.js');
-        extraButtonsFinalSimple.push(
-          new ButtonBuilder().setCustomId(`create_vc_${actualRecruitId}`).setLabel('専用チャンネル作成').setEmoji('📢').setStyle(ButtonStyle.Primary)
-        );
-      }
-      updatedContainer = buildContainerSimple({
-        headerTitle: `${user.username}さんの募集`,
-        detailsText,
-        contentText,
-        titleText: finalRecruitData?.title ? `## ${String(finalRecruitData.title).slice(0,200)}` : '',
+    
+    const extraButtonsFinalSimple = [];
+    if (finalRecruitData?.startTime === '今から') {
+      const { ButtonBuilder, ButtonStyle } = require('discord.js');
+      extraButtonsFinalSimple.push(
+        new ButtonBuilder()
+          .setCustomId(`create_vc_${actualRecruitId}`)
+          .setLabel('専用チャンネル作成')
+          .setEmoji('📢')
+          .setStyle(ButtonStyle.Primary)
+      );
+    }
+    
+    updatedContainer = buildContainerSimple({
+      headerTitle: `${user.username}さんの募集`,
+      detailsText,
+      contentText,
+      titleText: finalRecruitData?.title ? `## ${String(finalRecruitData.title).slice(0,200)}` : '',
       participantText,
       recruitIdText: actualRecruitId,
       accentColor: finalAccentColor,
-        subHeaderText,
-        avatarUrl,
-        extraActionButtons: extraButtonsFinalSimple
+      subHeaderText,
+      avatarUrl,
+      extraActionButtons: extraButtonsFinalSimple
     });
   } else {
     const { buildContainer } = require('../../utils/recruitHelpers');
-    // 募集内容を取得して、ラベルを付ける
     const contentTextValue = finalRecruitData?.content || finalRecruitData?.note || finalRecruitData?.description || '';
     const contentText = contentTextValue && String(contentTextValue).trim().length > 0 
       ? `**📝 募集内容**\n${String(contentTextValue).slice(0, 1500)}` 
       : '';
-    /* quiet: avoid verbose content logging */
-      const extraButtonsFinalImg = [];
-      if (finalRecruitData?.startTime === '今から') {
-        const { ButtonBuilder, ButtonStyle } = require('discord.js');
-        extraButtonsFinalImg.push(
-          new ButtonBuilder().setCustomId(`create_vc_${actualRecruitId}`).setLabel('専用チャンネル作成').setEmoji('📢').setStyle(ButtonStyle.Primary)
-        );
-      }
-      updatedContainer = buildContainer({
-        headerTitle: `${user.username}さんの募集`,
-        subHeaderText,
-        contentText,
-        titleText: '',
-        participantText,
-        recruitIdText: actualRecruitId,
-        accentColor: finalAccentColor,
-        imageAttachmentName: 'attachment://recruit-card.png',
-        recruiterId: interaction.user.id,
-        requesterId: interaction.user.id,
-        extraActionButtons: extraButtonsFinalImg
-      });
+    
+    const extraButtonsFinalImg = [];
+    if (finalRecruitData?.startTime === '今から') {
+      const { ButtonBuilder, ButtonStyle } = require('discord.js');
+      extraButtonsFinalImg.push(
+        new ButtonBuilder()
+          .setCustomId(`create_vc_${actualRecruitId}`)
+          .setLabel('専用チャンネル作成')
+          .setEmoji('📢')
+          .setStyle(ButtonStyle.Primary)
+      );
+    }
+    
+    updatedContainer = buildContainer({
+      headerTitle: `${user.username}さんの募集`,
+      subHeaderText,
+      contentText,
+      titleText: '',
+      participantText,
+      recruitIdText: actualRecruitId,
+      accentColor: finalAccentColor,
+      imageAttachmentName: 'attachment://recruit-card.png',
+      recruiterId: interaction.user.id,
+      requesterId: interaction.user.id,
+      extraActionButtons: extraButtonsFinalImg
+    });
   }
-    try {
-      const editPayload = { components: [updatedContainer], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } };
+  
+  try {
+    const editPayload = { 
+      components: [updatedContainer], 
+      flags: MessageFlags.IsComponentsV2, 
+      allowedMentions: { roles: [], users: [] } 
+    };
+    if (updatedImage) editPayload.files = [updatedImage];
+    await actualMessage.edit(editPayload);
+  } catch (editError) { 
+    console.error('メッセージ更新エラー:', editError?.message || editError); 
+  }
+}
 
-      if (updatedImage) editPayload.files = [updatedImage];
-      const editedMsg = await actualMessage.edit(editPayload);
-    } catch (editError) { console.error('メッセージ更新エラー:', editError?.message || editError); }
+async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettings, user, participantText, subHeaderText, followUpMessage, currentParticipants }) {
+  const actualMessage = followUpMessage;
+  const actualMessageId = actualMessage.id;
+  const actualRecruitId = generateRecruitId(actualMessageId);
+  
+  // Prepare final recruitment data
+  const finalRecruitData = prepareFinalRecruitData(recruitDataObj, actualRecruitId, interaction, actualMessageId);
 
-  // 自動締切タイマー（8h）— 一時的に無効化
-  // setTimeout(async () => {
-  //   try {
-  //     if (recruitParticipants.has(actualMessageId)) {
-  //       console.log('8時間経過による自動締切実行:', actualMessageId);
-  //       try { await autoCloseRecruitment(interaction.client, interaction.guildId, interaction.channelId, actualMessageId); } catch (e) { console.error('autoCloseRecruitment failed:', e); }
-  //     }
-  //   } catch (error) { console.error('自動締切処理でエラー:', error); }
-  // }, eightHoursMs);
+  // Fetch avatar URL for display
+  const avatarUrl = await fetchUserAvatarUrl(interaction.client, interaction.user.id);
 
-  // 開始時刻メンション（任意）- 重複防止のため1回のみ実行
-  // 「今から」の場合は通知を出さない
+  // Persist data to Redis and Web API
+  await persistRecruitmentData(finalRecruitData, interaction, actualMessageId, actualRecruitId);
+  
+  // Send webhook notification
+  await sendWebhookNotification(finalRecruitData, interaction, actualMessageId, avatarUrl);
+
+  // Save participants
+  recruitParticipants.set(actualMessageId, currentParticipants);
+  try { 
+    await saveParticipantsToRedis(actualMessageId, currentParticipants); 
+  } catch (e) { 
+    console.warn('初期参加者のRedis保存に失敗:', e?.message || e); 
+  }
+
+  // Update message with final ID and image
+  await updateRecruitmentMessage({
+    actualMessage,
+    finalRecruitData,
+    currentParticipants,
+    interaction,
+    guildSettings,
+    user,
+    participantText,
+    subHeaderText,
+    avatarUrl,
+    actualRecruitId
+  });
+
+  // Schedule start time notification
+  scheduleStartTimeNotification(finalRecruitData, interaction, actualMessageId, actualRecruitId, guildSettings);
+
+  // Set cooldown
+  try { 
+    if (!isGuildExempt(interaction.guildId)) {
+      await setCooldown(`rect:${interaction.guildId}`, 60); 
+    }
+  } catch (e) { 
+    console.warn('[rect cooldown set at submit] failed:', e?.message || e); 
+  }
+}
+
+/**
+ * Schedules a notification for recruitment start time
+ */
+function scheduleStartTimeNotification(finalRecruitData, interaction, actualMessageId, actualRecruitId, guildSettings) {
   const startDelay = computeDelayMs(finalRecruitData.startAt, null);
-  if (finalRecruitData.startTime !== '今から' && startDelay !== null && startDelay >= 0 && startDelay <= (36 * 60 * 60 * 1000)) { // 36h上限
-    setTimeout(async () => {
-      try {
-        // 重複送信チェック
-        if (startNotifySent.has(actualRecruitId)) { return; }
-        startNotifySent.add(actualRecruitId);
+  
+  if (finalRecruitData.startTime === '今から') return;
+  if (!startDelay || startDelay < 0 || startDelay > (36 * 60 * 60 * 1000)) return;
+  
+  setTimeout(async () => {
+    try {
+      // Prevent duplicate notifications
+      if (startNotifySent.has(actualRecruitId)) return;
+      startNotifySent.add(actualRecruitId);
+      
+      if (!recruitParticipants.has(actualMessageId)) return; // Already closed
+      
+      const ids = await getParticipantsFromRedis(actualMessageId).catch(() => null) 
+        || recruitParticipants.get(actualMessageId) 
+        || [];
         
-        if (!recruitParticipants.has(actualMessageId)) return; // 既に終了
-        const ids = await getParticipantsFromRedis(actualMessageId).catch(() => null) || recruitParticipants.get(actualMessageId) || [];
-        if (!Array.isArray(ids) || ids.length === 0) return;
-        
-        const mentions = ids.map(id => `<@${id}>`).join(' ');
-        
-        // Embed作成
-        const notifyColor = hexToIntColor(finalRecruitData?.panelColor || '00FF00', 0x00FF00);
-        const notifyEmbed = new EmbedBuilder()
-          .setColor(notifyColor)
-          .setTitle('⏰ 開始時刻になりました！')
-          .setDescription(`**${finalRecruitData.title}** の募集開始時刻です。`)
-          .addFields(
-            { name: '📋 参加者', value: mentions, inline: false }
-          )
-          .setTimestamp();
-        
-        // ボイスチャット情報
-        if (finalRecruitData.voice === true) {
-          if (finalRecruitData.voicePlace) {
-            notifyEmbed.addFields({ name: '🔊 ボイスチャット', value: `あり (${finalRecruitData.voicePlace})`, inline: false });
-          } else {
-            notifyEmbed.addFields({ name: '🔊 ボイスチャット', value: 'あり', inline: false });
-          }
-        } else if (finalRecruitData.voice === false) {
-          notifyEmbed.addFields({ name: '🔇 ボイスチャット', value: 'なし', inline: false });
-        }
-        
-        // ボイスチャンネルURLをembedに追加
-        if (finalRecruitData.voiceChannelId) {
-          const voiceUrl = `https://discord.com/channels/${interaction.guildId}/${finalRecruitData.voiceChannelId}`;
-          notifyEmbed.addFields({ name: '🔗 ボイスチャンネル', value: `[参加する](${voiceUrl})`, inline: false });
-        }
-        
-        // 募集メッセージへのリンクを追加
-        const recruitUrl = `https://discord.com/channels/${interaction.guildId}/${interaction.channelId}/${actualMessageId}`;
-        notifyEmbed.addFields({ name: '📋 募集の詳細', value: `[メッセージを確認](${recruitUrl})`, inline: false });
-        
-        // 専用チャンネル作成ボタンを追加
-        const components = [];
-        if (guildSettings?.enable_dedicated_channel) {
-          const { ButtonBuilder, ButtonStyle } = require('discord.js');
-          const button = new ButtonBuilder()
-            .setCustomId(`create_vc_${actualRecruitId}`)
-            .setLabel('専用チャンネル作成')
-            .setEmoji('📢')
-            .setStyle(ButtonStyle.Primary);
-          const row = new ActionRowBuilder().addComponents(button);
-          components.push(row);
-        }
-        
-        // メッセージ送信（1回のみ）
-        const sendOptions = { 
-          content: mentions, 
-          embeds: [notifyEmbed], 
-          components,
-          allowedMentions: { users: ids } 
-        };
-        
-        await interaction.channel.send(sendOptions).catch(() => {});
-      } catch (e) {
-        console.warn('開始通知送信失敗:', e?.message || e);
+      if (!Array.isArray(ids) || ids.length === 0) return;
+      
+      const mentions = ids.map(id => `<@${id}>`).join(' ');
+      const notifyColor = hexToIntColor(finalRecruitData?.panelColor || '00FF00', 0x00FF00);
+      const notifyEmbed = new EmbedBuilder()
+        .setColor(notifyColor)
+        .setTitle('⏰ 開始時刻になりました！')
+        .setDescription(`**${finalRecruitData.title}** の募集開始時刻です。`)
+        .addFields({ name: '📋 参加者', value: mentions, inline: false })
+        .setTimestamp();
+      
+      // Add voice chat information
+      if (finalRecruitData.voice === true) {
+        const voiceText = finalRecruitData.voicePlace ? `あり (${finalRecruitData.voicePlace})` : 'あり';
+        notifyEmbed.addFields({ name: '🔊 ボイスチャット', value: voiceText, inline: false });
+      } else if (finalRecruitData.voice === false) {
+        notifyEmbed.addFields({ name: '🔇 ボイスチャット', value: 'なし', inline: false });
       }
-    }, startDelay);
-  }
-
-  // クールダウン設定
-  try { if (!isGuildExempt(interaction.guildId)) await setCooldown(`rect:${interaction.guildId}`, 60); } catch (e) { console.warn('[rect cooldown set at submit] failed:', e?.message || e); }
+      
+      // Add voice channel URL
+      if (finalRecruitData.voiceChannelId) {
+        const voiceUrl = `https://discord.com/channels/${interaction.guildId}/${finalRecruitData.voiceChannelId}`;
+        notifyEmbed.addFields({ name: '🔗 ボイスチャンネル', value: `[参加する](${voiceUrl})`, inline: false });
+      }
+      
+      // Add recruitment message link
+      const recruitUrl = `https://discord.com/channels/${interaction.guildId}/${interaction.channelId}/${actualMessageId}`;
+      notifyEmbed.addFields({ name: '📋 募集の詳細', value: `[メッセージを確認](${recruitUrl})`, inline: false });
+      
+      // Add dedicated channel creation button
+      const components = [];
+      if (guildSettings?.enable_dedicated_channel) {
+        const { ButtonBuilder, ButtonStyle } = require('discord.js');
+        const button = new ButtonBuilder()
+          .setCustomId(`create_vc_${actualRecruitId}`)
+          .setLabel('専用チャンネル作成')
+          .setEmoji('📢')
+          .setStyle(ButtonStyle.Primary);
+        const row = new ActionRowBuilder().addComponents(button);
+        components.push(row);
+      }
+      
+      const sendOptions = { 
+        content: mentions, 
+        embeds: [notifyEmbed], 
+        components,
+        allowedMentions: { users: ids } 
+      };
+      
+      await interaction.channel.send(sendOptions).catch(() => {});
+    } catch (e) {
+      console.warn('開始通知送信失敗:', e?.message || e);
+    }
+  }, startDelay);
 }
 
 // ------------------------------
@@ -577,68 +660,102 @@ function hexToIntColor(hex, fallbackInt) {
   return /^[0-9A-Fa-f]{6}$/.test(cleaned) ? parseInt(cleaned, 16) : fallbackInt;
 }
 
+/**
+ * Sends a notification to the recruitment channel about a new participant
+ */
+async function sendJoinNotificationToChannel(interaction, messageId, savedRecruitData) {
+  if (!savedRecruitData?.recruiterId || !savedRecruitData?.channelId) return;
+  
+  runInBackground(async () => {
+    const { getDedicatedChannel } = require('../../utils/db/dedicatedChannels');
+    const recruitId = savedRecruitData.recruitId || messageId.slice(-8);
+    const dedicatedChannelId = await getDedicatedChannel(recruitId).catch(() => null);
+    
+    const channel = await interaction.client.channels.fetch(savedRecruitData.channelId).catch(() => null);
+    if (!channel || !channel.isTextBased()) return;
+    
+    let notificationContent = `🎉 <@${interaction.user.id}> が参加しました！`;
+    if (dedicatedChannelId) {
+      notificationContent += `\n🔗 専用チャンネル: <#${dedicatedChannelId}>`;
+    }
+    
+    const notificationMsg = await channel.send({
+      content: notificationContent,
+      allowedMentions: { users: [] }
+    });
+    
+    // Auto-delete after 5 minutes
+    setTimeout(() => {
+      notificationMsg.delete().catch(() => null);
+    }, 5 * 60 * 1000);
+  }, 'Join notification to channel');
+}
+
+/**
+ * Sends a DM to the recruiter about a new participant
+ */
+async function notifyRecruiterOfJoin(interaction, participants, savedRecruitData) {
+  if (!savedRecruitData?.recruiterId) return;
+  
+  runInBackground(async () => {
+    const joinColor = hexToIntColor(savedRecruitData?.panelColor || '00FF00', 0x00FF00);
+    const joinEmbed = new EmbedBuilder()
+      .setColor(joinColor)
+      .setTitle('🎮 新しい参加者がいます！')
+      .setDescription(`<@${interaction.user.id}> が募集に参加しました！`)
+      .addFields(
+        { name: '募集タイトル', value: savedRecruitData.title, inline: false },
+        { name: '現在の参加者数', value: `${participants.length}/${savedRecruitData.participants}人`, inline: true }
+      )
+      .setTimestamp();
+    
+    const recruiterUser = await interaction.client.users.fetch(savedRecruitData.recruiterId).catch(() => null);
+    if (recruiterUser && recruiterUser.send) {
+      await recruiterUser.send({ 
+        content: `あなたの募集に参加者が増えました: ${savedRecruitData.title || ''}`, 
+        embeds: [joinEmbed] 
+      }).catch(() => null);
+    }
+  }, 'Recruiter DM notification');
+}
+
 async function processJoin(interaction, messageId, participants, savedRecruitData) {
-  if (!participants.includes(interaction.user.id)) {
-    participants.push(interaction.user.id);
-    recruitParticipants.set(messageId, participants);
-    saveParticipantsToRedis(messageId, participants).catch(e => console.warn('参加者保存失敗 (async):', e?.message || e));
-    try {
-      await safeReply(interaction, { content: '✅ 参加しました！', flags: MessageFlags.Ephemeral, allowedMentions: { roles: [], users: [] } });
-    } catch (e) {
-      console.warn('quick reply failed:', e?.message || e);
-    }
-    
-    // 参加通知を募集チャンネルに送信（専用チャンネルリンク付き）
-    if (savedRecruitData && savedRecruitData.recruiterId && savedRecruitData.channelId) {
-      (async () => {
-        try {
-          const { getDedicatedChannel } = require('../../utils/db/dedicatedChannels');
-          const recruitId = savedRecruitData.recruitId || messageId.slice(-8);
-          const dedicatedChannelId = await getDedicatedChannel(recruitId).catch(() => null);
-          
-          const channel = await interaction.client.channels.fetch(savedRecruitData.channelId).catch(() => null);
-          if (channel && channel.isTextBased()) {
-            let notificationContent = `🎉 <@${interaction.user.id}> が参加しました！`;
-            if (dedicatedChannelId) {
-              notificationContent += `\n🔗 専用チャンネル: <#${dedicatedChannelId}>`;
-            }
-            
-            const notificationMsg = await channel.send({
-              content: notificationContent,
-              allowedMentions: { users: [] }
-            });
-            
-            // 5分後に自動削除
-            setTimeout(() => {
-              notificationMsg.delete().catch(() => null);
-            }, 5 * 60 * 1000);
-          }
-        } catch (e) { console.warn('notification message failed:', e?.message || e); }
-      })();
-    }
-    
-    if (savedRecruitData && savedRecruitData.recruiterId) {
-      (async () => {
-        try {
-          const joinColor = hexToIntColor(savedRecruitData?.panelColor || '00FF00', 0x00FF00);
-          const joinEmbed = new EmbedBuilder()
-            .setColor(joinColor)
-            .setTitle('🎮 新しい参加者がいます！')
-            .setDescription(`<@${interaction.user.id}> が募集に参加しました！`)
-            .addFields(
-              { name: '募集タイトル', value: savedRecruitData.title, inline: false },
-              { name: '現在の参加者数', value: `${participants.length}/${savedRecruitData.participants}人`, inline: true }
-            )
-            .setTimestamp();
-          const recruiterUser = await interaction.client.users.fetch(savedRecruitData.recruiterId).catch(() => null);
-          if (recruiterUser && recruiterUser.send) await recruiterUser.send({ content: `あなたの募集に参加者が増えました: ${savedRecruitData.title || ''}`, embeds: [joinEmbed] }).catch(() => null);
-        } catch (e) { console.warn('background recruiter notify failed:', e?.message || e); }
-      })();
-    }
-  } else {
-    await safeReply(interaction, { embeds: [createErrorEmbed('既に参加済みです。')], flags: MessageFlags.Ephemeral, allowedMentions: { roles: [], users: [] } });
+  // Guard: Check if already joined
+  if (participants.includes(interaction.user.id)) {
+    await safeReply(interaction, { 
+      embeds: [createErrorEmbed('既に参加済みです。')], 
+      flags: MessageFlags.Ephemeral, 
+      allowedMentions: { roles: [], users: [] } 
+    });
+    return;
   }
-  updateParticipantList(interaction, participants, savedRecruitData).catch(e => console.warn('updateParticipantList failed (async):', e?.message || e));
+  
+  // Add participant
+  participants.push(interaction.user.id);
+  recruitParticipants.set(messageId, participants);
+  saveParticipantsToRedis(messageId, participants).catch(e => 
+    console.warn('参加者保存失敗 (async):', e?.message || e)
+  );
+  
+  // Send confirmation to user
+  try {
+    await safeReply(interaction, { 
+      content: '✅ 参加しました！', 
+      flags: MessageFlags.Ephemeral, 
+      allowedMentions: { roles: [], users: [] } 
+    });
+  } catch (e) {
+    console.warn('quick reply failed:', e?.message || e);
+  }
+  
+  // Send notifications in background
+  await sendJoinNotificationToChannel(interaction, messageId, savedRecruitData);
+  await notifyRecruiterOfJoin(interaction, participants, savedRecruitData);
+  
+  // Update participant list
+  updateParticipantList(interaction, participants, savedRecruitData).catch(e => 
+    console.warn('updateParticipantList failed (async):', e?.message || e)
+  );
 }
 
 async function processCancel(interaction, messageId, participants, savedRecruitData) {
@@ -677,183 +794,285 @@ async function processCancel(interaction, messageId, participants, savedRecruitD
   return updated;
 }
 
+/**
+ * Validates if the user is the recruiter
+ */
+function validateRecruiterPermission(interaction, data) {
+  if (!data) {
+    return { valid: false, error: '募集データが見つからないため締め切れません。' };
+  }
+  if (data.recruiterId !== interaction.user.id) {
+    return { valid: false, error: '締め切りを実行できるのは募集主のみです。' };
+  }
+  return { valid: true };
+}
+
+/**
+ * Updates recruitment status to ended
+ */
+async function updateRecruitmentStatusToEnded(messageId) {
+  try {
+    const statusResult = await updateRecruitmentStatus(messageId, 'ended', new Date().toISOString());
+    if (statusResult?.ok) {
+      return true;
+    } else {
+      console.warn('管理ページの募集ステータス更新が警告:', statusResult);
+      return false;
+    }
+  } catch (error) {
+    console.error('管理ページの募集ステータス更新に失敗:', error);
+    return false;
+  }
+}
+
+/**
+ * Deletes recruitment data from various sources
+ */
+async function cleanupRecruitmentData(messageId, userId, data) {
+  try {
+    const delRes = await deleteRecruitmentData(messageId, userId);
+    if (!delRes?.ok && delRes?.status !== 404) {
+      console.warn('管理API: 募集データ削除の結果が不正です:', delRes);
+    }
+  } catch (err) {
+    console.error('募集データの削除に失敗:', err);
+  }
+  
+  // Clean up in-memory and Redis
+  recruitParticipants.delete(messageId);
+  try {
+    await deleteParticipantsFromRedis(messageId);
+  } catch (e) {
+    console.warn('Redis参加者削除失敗:', e?.message || e);
+  }
+  
+  try {
+    const rid = data?.recruitId || String(messageId).slice(-8);
+    if (rid) {
+      const { deleteRecruitFromRedis } = require('../../utils/db');
+      await deleteRecruitFromRedis(rid);
+    }
+  } catch (e) {
+    console.warn('Redis recruit削除失敗:', e?.message || e);
+  }
+}
+
+/**
+ * Builds the closed recruitment card based on style
+ */
+async function buildClosedRecruitmentCard(recruitStyle, data, messageId, interaction, originalMessage) {
+  const { ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, SeparatorSpacingSize, MediaGalleryBuilder, MediaGalleryItemBuilder, AttachmentBuilder } = require('discord.js');
+  const { generateClosedRecruitCard, generateRecruitCard } = require('../../utils/canvasRecruit');
+  
+  const disabledContainer = new ContainerBuilder();
+  disabledContainer.setAccentColor(0x808080);
+  const hasAttachment = !!originalMessage?.attachments && originalMessage.attachments.size > 0;
+  
+  // Get participant info
+  const finalParticipants = recruitParticipants.get(messageId) || [];
+  const totalMembers = (typeof data?.participants === 'number') ? data.participants : (typeof data?.participant_count === 'number' ? data.participant_count : null);
+  const totalSlots = totalMembers || finalParticipants.length;
+  const finalParticipantText = `📋 参加リスト (最終 ${finalParticipants.length}/${totalSlots}人)\n${finalParticipants.map(id => `<@${id}>`).join(' • ')}`;
+  const footerMessageId = interaction.message.interaction?.id || interaction.message.id;
+  const footerText = `募集ID：\`${footerMessageId.slice(-8)}\` | powered by **Recrubo**`;
+  
+  let closedAttachment = null;
+  
+  if (recruitStyle === 'image') {
+    // Generate closed image
+    let baseImageBuffer = null;
+    if (hasAttachment) {
+      try {
+        const originalAttachmentUrl = originalMessage.attachments.first().url;
+        const response = await fetch(originalAttachmentUrl);
+        const arrayBuffer = await response.arrayBuffer();
+        baseImageBuffer = Buffer.from(arrayBuffer);
+      } catch (imgErr) {
+        console.warn('[processClose] Failed to fetch original image:', imgErr);
+      }
+    }
+    
+    if (!baseImageBuffer) {
+      try {
+        let useColor = data?.panelColor || '808080';
+        if (typeof useColor === 'string' && useColor.startsWith('#')) useColor = useColor.slice(1);
+        if (!/^[0-9A-Fa-f]{6}$/.test(useColor)) useColor = '808080';
+        const currentParticipants = recruitParticipants.get(messageId) || [];
+        baseImageBuffer = await generateRecruitCard(data, currentParticipants, interaction.client, useColor);
+      } catch (imgErr) {
+        console.warn('[processClose] Failed to generate base recruit image:', imgErr);
+      }
+    }
+    
+    if (baseImageBuffer) {
+      try {
+        const closedImageBuffer = await generateClosedRecruitCard(baseImageBuffer);
+        closedAttachment = new AttachmentBuilder(closedImageBuffer, { name: 'recruit-card-closed.png' });
+      } catch (imgErr) {
+        console.warn('[processClose] Failed to generate closed image:', imgErr);
+      }
+    }
+    
+    // Build image-style container
+    if (closedAttachment) {
+      disabledContainer.addMediaGalleryComponents(
+        new MediaGalleryBuilder().addItems(
+          new MediaGalleryItemBuilder().setURL('attachment://recruit-card-closed.png')
+        )
+      );
+      disabledContainer.addSeparatorComponents(
+        new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+      );
+    }
+    
+    disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent(finalParticipantText));
+    disabledContainer.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
+    disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent(footerText));
+  } else {
+    // Simple text-only style
+    disabledContainer.addTextDisplayComponents(
+      new TextDisplayBuilder().setContent('🔒 **募集締め切り済み**')
+    );
+    
+    if (data?.title) {
+      disabledContainer.addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(`📌 タイトル\n${String(data.title).slice(0,200)}`)
+      );
+    }
+    
+    disabledContainer.addSeparatorComponents(
+      new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+    );
+    
+    // Build details line
+    const startLabel = data?.startTime ? `🕒 ${data.startTime}` : null;
+    const membersLabel = (typeof totalMembers === 'number') ? `👥 ${totalMembers}人` : null;
+    const voiceLabel = formatVoiceLabel(data?.vc || (data?.voice === true ? 'あり' : data?.voice === false ? 'なし' : null), data?.voicePlace);
+    const detailsText = [startLabel, membersLabel, voiceLabel].filter(Boolean).join(' | ');
+    
+    if (detailsText) {
+      disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent(detailsText));
+    }
+    
+    const contentText = data?.content ? `📝 募集内容\n${String(data.content).slice(0,1500)}` : '';
+    if (contentText) {
+      disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent(contentText));
+    }
+    
+    disabledContainer.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
+    disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent(finalParticipantText));
+    disabledContainer.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
+    disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent('この募集は締め切られました。'));
+    disabledContainer.addSeparatorComponents(
+      new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+    ).addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(footerText)
+    );
+  }
+  
+  return { container: disabledContainer, attachment: closedAttachment };
+}
+
+/**
+ * Schedules deletion of dedicated channel
+ */
+function scheduleDedicatedChannelCleanup(interaction, data, messageId) {
+  runInBackground(async () => {
+    const { getDedicatedChannel, deleteDedicatedChannel } = require('../../utils/db/dedicatedChannels');
+    const recruitId = data?.recruitId || String(messageId).slice(-8);
+    const dedicatedChannelId = await getDedicatedChannel(recruitId).catch(() => null);
+    
+    if (!dedicatedChannelId) return;
+    
+    // Send deletion notice
+    try {
+      const channel = await interaction.guild.channels.fetch(dedicatedChannelId).catch(() => null);
+      if (channel && typeof channel.send === 'function') {
+        await channel.send({
+          content: '⏰ **募集が締められたので5分後に専用チャンネルを削除します**',
+          allowedMentions: { roles: [], users: [] }
+        });
+      }
+    } catch (e) {
+      console.warn('[processClose] Failed to send deletion notice:', e?.message || e);
+    }
+    
+    // Schedule deletion after 5 minutes
+    setTimeout(async () => {
+      try {
+        const channel = await interaction.guild.channels.fetch(dedicatedChannelId).catch(() => null);
+        if (channel) {
+          await channel.delete();
+        }
+        await deleteDedicatedChannel(recruitId);
+      } catch (e) {
+        console.warn(`[processClose] Failed to delete channel ${dedicatedChannelId}:`, e?.message || e);
+      }
+    }, 5 * 60 * 1000);
+  }, 'Dedicated channel cleanup');
+}
+
 async function processClose(interaction, messageId, savedRecruitData) {
   try {
+    // Load recruitment data
     let data = savedRecruitData;
     if (!data) {
-      try { const fromRedis = await getRecruitFromRedis(String(messageId).slice(-8)); if (fromRedis) data = fromRedis; } catch (e) { console.warn('close: getRecruitFromRedis failed:', e?.message || e); }
-    }
-    if (!data) {
-      await safeReply(interaction, { embeds: [createErrorEmbed('募集データが見つからないため締め切れません。')], flags: MessageFlags.Ephemeral });
-      return;
-    }
-    if (data.recruiterId !== interaction.user.id) {
-      await safeReply(interaction, { embeds: [createErrorEmbed('締め切りを実行できるのは募集主のみです。', '権限エラー')], flags: MessageFlags.Ephemeral });
-      return;
-    }
-
-    let statusUpdateSuccess = false;
-    try {
-      const statusResult = await updateRecruitmentStatus(messageId, 'ended', new Date().toISOString());
-      if (statusResult?.ok) statusUpdateSuccess = true; else console.warn('管理ページの募集ステータス更新が警告:', statusResult);
-    } catch (error) { console.error('管理ページの募集ステータス更新に失敗:', error); }
-
-    try {
-      if (statusUpdateSuccess) {
-        const delRes = await deleteRecruitmentData(messageId, interaction.user.id);
-        if (!delRes?.ok && delRes?.status !== 404) console.warn('管理API: 募集データ削除の結果が不正です:', delRes);
+      try {
+        const fromRedis = await getRecruitFromRedis(String(messageId).slice(-8));
+        if (fromRedis) data = fromRedis;
+      } catch (e) {
+        console.warn('close: getRecruitFromRedis failed:', e?.message || e);
       }
-    } catch (err) { console.error('募集データの削除に失敗:', err); }
-
-    // ギルド設定を取得してrecruit_styleを確認
-    let recruitStyle = 'image'; // デフォルトは画像版
+    }
+    
+    // Validate permissions
+    const validation = validateRecruiterPermission(interaction, data);
+    if (!validation.valid) {
+      await safeReply(interaction, { 
+        embeds: [createErrorEmbed(validation.error, '権限エラー')], 
+        flags: MessageFlags.Ephemeral 
+      });
+      return;
+    }
+    
+    // Update status and cleanup
+    const statusUpdateSuccess = await updateRecruitmentStatusToEnded(messageId);
+    if (statusUpdateSuccess) {
+      await cleanupRecruitmentData(messageId, interaction.user.id, data);
+    }
+    
+    // Get guild settings for style
+    let recruitStyle = 'image';
     try {
       const guildSettings = await getGuildSettings(interaction.guildId);
       recruitStyle = (guildSettings?.recruit_style === 'simple') ? 'simple' : 'image';
     } catch (e) {
       console.warn('[processClose] Failed to get guild settings, defaulting to image style:', e?.message || e);
     }
-
-    // Disable UI (Components v2) — preserve info in closed view
-    const { ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, SeparatorSpacingSize, MediaGalleryBuilder, MediaGalleryItemBuilder, AttachmentBuilder } = require('discord.js');
-    const { generateClosedRecruitCard, generateRecruitCard } = require('../../utils/canvasRecruit');
-    const disabledContainer = new ContainerBuilder();
-    disabledContainer.setAccentColor(0x808080);
-    const originalMessage = interaction.message;
-    const hasAttachment = !!originalMessage?.attachments && originalMessage.attachments.size > 0;
     
-    // 参加者情報を事前に取得（両方の分岐で使用）
-    const finalParticipants = recruitParticipants.get(messageId) || [];
-    const totalMembers = (typeof data?.participants === 'number') ? data.participants : (typeof data?.participant_count === 'number' ? data.participant_count : null);
-    const totalSlots = totalMembers || finalParticipants.length;
-    const finalParticipantText = `📋 参加リスト (最終 ${finalParticipants.length}/${totalSlots}人)\n${finalParticipants.map(id => `<@${id}>`).join(' • ')}`;
-    const footerMessageId = interaction.message.interaction?.id || interaction.message.id;
-    const footerText = `募集ID：\`${footerMessageId.slice(-8)}\` | powered by **Recrubo**`;
+    // Build closed card
+    const { container, attachment } = await buildClosedRecruitmentCard(
+      recruitStyle, 
+      data, 
+      messageId, 
+      interaction, 
+      interaction.message
+    );
     
-    // 閉鎖画像の生成（画像版の場合のみ）
-    let closedAttachment = null;
-    if (recruitStyle === 'image') {
-      let baseImageBuffer = null;
-      if (hasAttachment) {
-        try {
-          const originalAttachmentUrl = originalMessage.attachments.first().url;
-          const response = await fetch(originalAttachmentUrl);
-          const arrayBuffer = await response.arrayBuffer();
-          baseImageBuffer = Buffer.from(arrayBuffer);
-        } catch (imgErr) {
-          console.warn('[processClose] Failed to fetch original image:', imgErr);
-        }
-      }
-      if (!baseImageBuffer) {
-        try {
-          let useColor = data?.panelColor || '808080';
-          if (typeof useColor === 'string' && useColor.startsWith('#')) useColor = useColor.slice(1);
-          if (!/^[0-9A-Fa-f]{6}$/.test(useColor)) useColor = '808080';
-          const currentParticipants = recruitParticipants.get(messageId) || [];
-          baseImageBuffer = await generateRecruitCard(data, currentParticipants, interaction.client, useColor);
-        } catch (imgErr) {
-          console.warn('[processClose] Failed to generate base recruit image:', imgErr);
-        }
-      }
-      if (baseImageBuffer) {
-        try {
-          const closedImageBuffer = await generateClosedRecruitCard(baseImageBuffer);
-          closedAttachment = new AttachmentBuilder(closedImageBuffer, { name: 'recruit-card-closed.png' });
-        } catch (imgErr) {
-          console.warn('[processClose] Failed to generate closed image:', imgErr);
-        }
-      }
-    }
-    
-    if (recruitStyle === 'image') {
-      // 画像版：画像のみ表示（テキストなし）
-      if (closedAttachment) {
-        disabledContainer.addMediaGalleryComponents(
-          new MediaGalleryBuilder().addItems(
-            new MediaGalleryItemBuilder().setURL('attachment://recruit-card-closed.png')
-          )
-        );
-        disabledContainer.addSeparatorComponents(
-          new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
-        );
-      }
-      
-      // 最終参加者リスト
-      disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent(finalParticipantText));
-      disabledContainer.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
-      
-      // フッター
-      disabledContainer.addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(footerText)
-      );
-    } else {
-      // シンプル版：テキストのみ表示（画像なし）
-      disabledContainer.addTextDisplayComponents(
-        new TextDisplayBuilder().setContent('🔒 **募集締め切り済み**')
-      );
-      // Title inside component
-      if (data?.title) {
-        disabledContainer.addTextDisplayComponents(
-          new TextDisplayBuilder().setContent(`📌 タイトル\n${String(data.title).slice(0,200)}`)
-        );
-      }
-      disabledContainer.addSeparatorComponents(
-        new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
-      );
-      
-      // Details（募集中と同じく横一列・コンパクト表記）
-      const startLabel = data?.startTime ? `🕒 ${data.startTime}` : null;
-      const membersLabel = (typeof totalMembers === 'number') ? `👥 ${totalMembers}人` : null;
-      let voiceLabel = null;
-      if (typeof data?.vc === 'string') {
-        if (data.vc === 'あり(聞き専)') {
-          voiceLabel = data?.voicePlace ? `🎙 聞き専/${data.voicePlace}` : '🎙 聞き専';
-        } else if (data.vc === 'あり') {
-          voiceLabel = data?.voicePlace ? `🎙 あり/${data.voicePlace}` : '🎙 あり';
-        } else if (data.vc === 'なし') {
-          voiceLabel = '🎙 なし';
-        }
-      } else if (data?.voice === true) {
-        voiceLabel = data?.voicePlace ? `🎙 あり/${data.voicePlace}` : '🎙 あり';
-      } else if (data?.voice === false) {
-        voiceLabel = '🎙 なし';
-      }
-      const detailsText = [startLabel, membersLabel, voiceLabel].filter(Boolean).join(' | ');
-      if (detailsText) {
-        disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent(detailsText));
-      }
-      // Content (no divider between details and content)
-      const contentText = data?.content ? `📝 募集内容\n${String(data.content).slice(0,1500)}` : '';
-      if (contentText) {
-        disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent(contentText));
-      }
-      // Separator before participants
-      disabledContainer.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
-      // Final participants list
-      disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent(finalParticipantText));
-      // Closed note
-      disabledContainer.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
-      disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent('この募集は締め切られました。'));
-      disabledContainer.addSeparatorComponents(
-        new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
-      ).addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(footerText)
-      );
-    }
-    
+    // Update message
     const editPayload = {
-      components: [disabledContainer],
+      components: [container],
       flags: MessageFlags.IsComponentsV2,
       allowedMentions: { roles: [], users: [] }
     };
     
-    // 画像版の場合のみ締め切り画像を添付
-    if (recruitStyle === 'image' && closedAttachment) {
-      editPayload.files = [closedAttachment];
+    if (recruitStyle === 'image' && attachment) {
+      editPayload.files = [attachment];
     }
     
     await interaction.message.edit(editPayload);
-
+    
+    // Send notification
     if (data && data.recruiterId) {
       const finalParticipants = recruitParticipants.get(messageId) || [];
       const closeColor = hexToIntColor(data?.panelColor || '808080', 0x808080);
@@ -862,51 +1081,25 @@ async function processClose(interaction, messageId, savedRecruitData) {
         .setTitle('🔒 募集締切')
         .setDescription(`**${data.title}** の募集を締め切りました。`)
         .addFields({ name: '最終参加者数', value: `${finalParticipants.length}/${data.participants}人`, inline: false });
-      try { await safeReply(interaction, { content: `<@${data.recruiterId}>`, embeds: [closeEmbed], allowedMentions: { users: [data.recruiterId] } }); } catch (e) { console.warn('safeReply failed during close handling:', e?.message || e); }
-      recruitParticipants.delete(messageId);
-      try { await deleteParticipantsFromRedis(messageId); } catch (e) { console.warn('Redis参加者削除失敗:', e?.message || e); }
-      try { const rid = data?.recruitId || String(messageId).slice(-8); if (rid) { const { deleteRecruitFromRedis } = require('../../utils/db'); await deleteRecruitFromRedis(rid); } } catch (e) { console.warn('Redis recruit削除失敗:', e?.message || e); }
       
-      // 専用チャンネルを5分後に削除
-      (async () => {
-        try {
-          const { getDedicatedChannel, deleteDedicatedChannel } = require('../../utils/db/dedicatedChannels');
-          const recruitId = data?.recruitId || String(messageId).slice(-8);
-          const dedicatedChannelId = await getDedicatedChannel(recruitId).catch(() => null);
-          
-          if (dedicatedChannelId) {
-            // 専用チャンネルに削除予告メッセージを送信
-            try {
-              const channel = await interaction.guild.channels.fetch(dedicatedChannelId).catch(() => null);
-              if (channel && typeof channel.send === 'function') {
-                await channel.send({
-                  content: '⏰ **募集が締められたので5分後に専用チャンネルを削除します**',
-                  allowedMentions: { roles: [], users: [] }
-                });
-              }
-            } catch (e) {
-              console.warn('[processClose] Failed to send deletion notice:', e?.message || e);
-            }
-            
-            // 5分後に削除
-            setTimeout(async () => {
-              try {
-                const channel = await interaction.guild.channels.fetch(dedicatedChannelId).catch(() => null);
-                if (channel) {
-                  await channel.delete();
-                }
-                await deleteDedicatedChannel(recruitId);
-              } catch (e) {
-                console.warn(`[processClose] Failed to delete channel ${dedicatedChannelId}:`, e?.message || e);
-              }
-            }, 5 * 60 * 1000); // 5分後
-          }
-        } catch (e) {
-          console.warn('[processClose] Error managing dedicated channel:', e?.message || e);
-        }
-      })();
+      try {
+        await safeReply(interaction, { 
+          content: `<@${data.recruiterId}>`, 
+          embeds: [closeEmbed], 
+          allowedMentions: { users: [data.recruiterId] } 
+        });
+      } catch (e) {
+        console.warn('safeReply failed during close handling:', e?.message || e);
+      }
+      
+      // Schedule dedicated channel cleanup
+      scheduleDedicatedChannelCleanup(interaction, data, messageId);
     } else {
-      await safeReply(interaction, { content: '🔒 募集を締め切りました。', flags: MessageFlags.Ephemeral, allowedMentions: { roles: [], users: [] } });
+      await safeReply(interaction, { 
+        content: '🔒 募集を締め切りました。', 
+        flags: MessageFlags.Ephemeral, 
+        allowedMentions: { roles: [], users: [] } 
+      });
     }
   } catch (e) {
     console.error('close button handler error:', e);
@@ -1060,16 +1253,8 @@ async function handleModalSubmit(interaction) {
       const { buildContainerSimple } = require('../../utils/recruitHelpers');
       const startLabel = recruitDataObj?.startTime ? `🕒 ${recruitDataObj.startTime}` : null;
       const membersLabel = typeof recruitDataObj?.participants === 'number' ? `👥 ${recruitDataObj.participants}人` : null;
-      const voiceLabel = (() => {
-        if (recruitDataObj?.vc === 'あり(聞き専)') {
-          return recruitDataObj?.voicePlace ? `🎙 聞き専/${recruitDataObj.voicePlace}` : '🎙 聞き専';
-        } else if (recruitDataObj?.vc === 'あり') {
-          return recruitDataObj?.voicePlace ? `🎙 あり/${recruitDataObj.voicePlace}` : '🎙 あり';
-        } else if (recruitDataObj?.vc === 'なし') {
-          return '🎙 なし';
-        }
-        return null;
-      })();
+      const voiceLabelBase = formatVoiceLabel(recruitDataObj?.vc, recruitDataObj?.voicePlace);
+      const voiceLabel = voiceLabelBase ? `🎙 ${voiceLabelBase}` : null;
       const valuesLine = [startLabel, membersLabel, voiceLabel].filter(Boolean).join(' | ');
       const labelsLine = '**🕒 開始時間 | 👥 募集人数 | 🎙 通話有無**';
       const detailsText = [labelsLine, valuesLine].filter(Boolean).join('\n');
@@ -1170,16 +1355,8 @@ async function handleModalSubmit(interaction) {
       if (styleForInit === 'simple') {
         const startLabel = recruitDataObj?.startTime ? `🕒 ${recruitDataObj.startTime}` : null;
         const membersLabel = typeof recruitDataObj?.participants === 'number' ? `👥 ${recruitDataObj.participants}人` : null;
-        const voiceLabel = (() => {
-          if (recruitDataObj?.vc === 'あり(聞き専)') {
-            return recruitDataObj?.voicePlace ? `🎙 聞き専/${recruitDataObj.voicePlace}` : '🎙 聞き専';
-          } else if (recruitDataObj?.vc === 'あり') {
-            return recruitDataObj?.voicePlace ? `🎙 あり/${recruitDataObj.voicePlace}` : '🎙 あり';
-          } else if (recruitDataObj?.vc === 'なし') {
-            return '🎙 なし';
-          }
-          return null;
-        })();
+        const voiceLabelBase = formatVoiceLabel(recruitDataObj?.vc, recruitDataObj?.voicePlace);
+        const voiceLabel = voiceLabelBase ? `🎙 ${voiceLabelBase}` : null;
         const valuesLine = [startLabel, membersLabel, voiceLabel].filter(Boolean).join(' | ');
         const labelsLine = '**🕒 開始時間 | 👥 募集人数 | 🎙 通話有無**';
         const detailsText = [labelsLine, valuesLine].filter(Boolean).join('\n');
@@ -1287,118 +1464,185 @@ async function handleModalSubmit(interaction) {
   }
 }
 
+/**
+ * Validates if dedicated channel feature is enabled
+ */
+async function validateDedicatedChannelFeature(interaction, guildSettings) {
+  if (!guildSettings?.enable_dedicated_channel) {
+    await safeReply(interaction, {
+      content: '⚠️ 専用チャンネル作成は現在オフになっています。設定画面からオンにしてください。',
+      flags: MessageFlags.Ephemeral,
+      allowedMentions: { roles: [], users: [] }
+    });
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Checks if dedicated channel already exists for recruitment
+ */
+async function checkExistingDedicatedChannel(interaction, recruitId) {
+  const { getDedicatedChannel } = require('../../utils/db/dedicatedChannels');
+  const existingChannelId = await getDedicatedChannel(recruitId).catch(() => null);
+  
+  if (existingChannelId) {
+    const existingChannel = await interaction.guild.channels.fetch(existingChannelId).catch(() => null);
+    if (existingChannel) {
+      await safeReply(interaction, { 
+        content: `✨ 専用チャンネルは既に作成されています: <#${existingChannelId}>`,
+        flags: MessageFlags.Ephemeral,
+        allowedMentions: { roles: [], users: [] }
+      });
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Loads participants for recruitment
+ */
+async function loadRecruitmentParticipants(recruitId) {
+  const recruit = await getRecruitFromRedis(recruitId).catch(() => null);
+  const messageId = recruit?.message_id || recruit?.messageId;
+  let participants = [];
+  
+  try {
+    if (messageId) {
+      const persisted = await getParticipantsFromRedis(messageId);
+      if (Array.isArray(persisted)) participants = persisted;
+    }
+    
+    // Fallback to recruit data
+    if (participants.length === 0 && recruit?.currentMembers) {
+      participants = Array.isArray(recruit.currentMembers) ? recruit.currentMembers : [];
+    }
+  } catch (e) {
+    console.warn('Failed to get participants:', e?.message || e);
+  }
+  
+  return { participants, recruit };
+}
+
+/**
+ * Validates user is a participant
+ */
+async function validateUserIsParticipant(interaction, participants) {
+  if (!participants.includes(interaction.user.id)) {
+    await safeReply(interaction, {
+      content: '❌ この募集の参加者のみが専用チャンネルを作成できます。',
+      flags: MessageFlags.Ephemeral,
+      allowedMentions: { roles: [], users: [] }
+    });
+    return false;
+  }
+  
+  if (participants.length === 0) {
+    await safeReply(interaction, { 
+      content: '❌ 参加者がいないため、チャンネルを作成できません。',
+      flags: MessageFlags.Ephemeral,
+      allowedMentions: { roles: [], users: [] }
+    });
+    return false;
+  }
+  
+  return true;
+}
+
+/**
+ * Validates bot has required permissions
+ */
+async function validateBotPermissions(interaction) {
+  const me = interaction.guild.members.me || await interaction.guild.members.fetch(interaction.client.user.id).catch(() => null);
+  const missingPerms = [];
+  
+  if (!me?.permissions?.has(PermissionsBitField.Flags.ManageChannels)) {
+    missingPerms.push('チャンネル管理');
+  }
+  
+  if (missingPerms.length > 0) {
+    await safeReply(interaction, {
+      content: `❌ 専用チャンネルを作成できませんでした。BOTに次の権限を付与してください: ${missingPerms.join(', ')}`,
+      flags: MessageFlags.Ephemeral,
+      allowedMentions: { roles: [], users: [] }
+    });
+    return false;
+  }
+  
+  return true;
+}
+
+/**
+ * Creates permission overwrites for dedicated channel
+ */
+function buildDedicatedChannelPermissions(interaction, participants) {
+  return [
+    {
+      id: interaction.guild.id,
+      deny: [PermissionsBitField.Flags.ViewChannel]
+    },
+    {
+      id: interaction.client.user.id,
+      allow: [
+        PermissionsBitField.Flags.ViewChannel,
+        PermissionsBitField.Flags.SendMessages,
+        PermissionsBitField.Flags.EmbedLinks
+      ]
+    },
+    ...participants.map(userId => ({
+      id: userId,
+      allow: [PermissionsBitField.Flags.ViewChannel]
+    }))
+  ];
+}
+
+/**
+ * Sends welcome message to dedicated channel
+ */
+async function sendDedicatedChannelWelcome(channel, recruit, participants) {
+  try {
+    const welcomeEmbed = new EmbedBuilder()
+      .setTitle('🎮 専用チャンネルへようこそ')
+      .setDescription(`**${recruit?.title || '募集'}** の専用チャンネルです。`)
+      .setColor('#5865F2')
+      .addFields(
+        { name: '参加者', value: participants.map(id => `<@${id}>`).join(', ') || 'なし', inline: false }
+      )
+      .setFooter({ text: 'Recrubo' })
+      .setTimestamp();
+    
+    await channel.send({ embeds: [welcomeEmbed] });
+  } catch (error) {
+    console.warn('[processCreateDedicatedChannel] welcome message failed:', error);
+  }
+}
+
 async function processCreateDedicatedChannel(interaction, recruitId) {
   try {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    
+    // Validate feature enabled
     const guildSettings = await getGuildSettings(interaction.guildId).catch(() => ({}));
-    if (!guildSettings?.enable_dedicated_channel) {
-      await safeReply(interaction, {
-        content: '⚠️ 専用チャンネル作成は現在オフになっています。設定画面からオンにしてください。',
-        flags: MessageFlags.Ephemeral,
-        allowedMentions: { roles: [], users: [] }
-      });
-      return;
-    }
-
-    const { saveDedicatedChannel, getDedicatedChannel } = require('../../utils/db/dedicatedChannels');
+    if (!(await validateDedicatedChannelFeature(interaction, guildSettings))) return;
     
-    // 既に専用チャンネルが作成されているか確認
-    const existingChannelId = await getDedicatedChannel(recruitId).catch(() => null);
-    if (existingChannelId) {
-      const existingChannel = await interaction.guild.channels.fetch(existingChannelId).catch(() => null);
-      if (existingChannel) {
-        await safeReply(interaction, { 
-          content: `✨ 専用チャンネルは既に作成されています: <#${existingChannelId}>`,
-          flags: MessageFlags.Ephemeral,
-          allowedMentions: { roles: [], users: [] }
-        });
-        return;
-      }
-    }
+    // Check for existing channel
+    if (await checkExistingDedicatedChannel(interaction, recruitId)) return;
     
-    // 募集データを取得して参加者リストを確認
-    const recruit = await getRecruitFromRedis(recruitId).catch(() => null);
-    const messageId = recruit?.message_id || recruit?.messageId || interaction?.message?.id;
-    let participants = [];
-    try {
-      if (messageId) {
-        const persisted = await getParticipantsFromRedis(messageId);
-        if (Array.isArray(persisted)) participants = persisted;
-      }
-      // messageIdがない場合やRedisにない場合、募集データから取得を試みる
-      if (participants.length === 0 && recruit?.currentMembers) {
-        participants = Array.isArray(recruit.currentMembers) ? recruit.currentMembers : [];
-      }
-    } catch (e) {
-      console.warn('Failed to get participants:', e?.message || e);
-    }
+    // Load participants
+    const { participants, recruit } = await loadRecruitmentParticipants(recruitId);
     
-    // 参加者限定: 押下ユーザーが参加者に含まれているかチェック
-    if (!participants.includes(interaction.user.id)) {
-      await safeReply(interaction, {
-        content: '❌ この募集の参加者のみが専用チャンネルを作成できます。',
-        flags: MessageFlags.Ephemeral,
-        allowedMentions: { roles: [], users: [] }
-      });
-      return;
-    }
-
-    if (participants.length === 0) {
-      await safeReply(interaction, { 
-        content: '❌ 参加者がいないため、チャンネルを作成できません。',
-        flags: MessageFlags.Ephemeral,
-        allowedMentions: { roles: [], users: [] }
-      });
-      return;
-    }
-
-    // 必要権限チェック（チャンネル作成/権限上書き）
-    const me = interaction.guild.members.me || await interaction.guild.members.fetch(interaction.client.user.id).catch(() => null);
-    const missingPerms = [];
-    if (!me?.permissions?.has(PermissionsBitField.Flags.ManageChannels)) missingPerms.push('チャンネル管理');
-    if (missingPerms.length > 0) {
-      await safeReply(interaction, {
-        content: `❌ 専用チャンネルを作成できませんでした。BOTに次の権限を付与してください: ${missingPerms.join(', ')}`,
-        flags: MessageFlags.Ephemeral,
-        allowedMentions: { roles: [], users: [] }
-      });
-      return;
-    }
+    // Validate user is participant
+    if (!(await validateUserIsParticipant(interaction, participants))) return;
     
-    // 専用チャンネルを作成（参加者のみが見える）
+    // Validate bot permissions
+    if (!(await validateBotPermissions(interaction))) return;
+    
+    // Create dedicated channel
     const channelName = recruit?.title ? `${recruit.title}`.slice(0, 100) : `recruit-${recruitId}`;
-    
-    const permissionOverwrites = [
-      {
-        id: interaction.guild.id,
-        deny: [PermissionsBitField.Flags.ViewChannel]
-      },
-      {
-        id: interaction.client.user.id,
-        allow: [
-          PermissionsBitField.Flags.ViewChannel,
-          PermissionsBitField.Flags.SendMessages,
-          PermissionsBitField.Flags.EmbedLinks
-        ]
-      },
-      ...participants.map(userId => ({
-        id: userId,
-        allow: [PermissionsBitField.Flags.ViewChannel]
-      }))
-    ];
+    const permissionOverwrites = buildDedicatedChannelPermissions(interaction, participants);
     
     try {
-      console.log('[processCreateDedicatedChannel] Creating channel:', {
-        name: channelName,
-        botId: interaction.client.user.id,
-        participantsCount: participants.length,
-        permissionOverwrites: JSON.stringify(permissionOverwrites.map(p => ({
-          id: p.id,
-          allow: Array.isArray(p.allow) ? p.allow.length : 0,
-          deny: Array.isArray(p.deny) ? p.deny.length : 0
-        })))
-      });
-
       const dedicatedChannel = await interaction.guild.channels.create({
         name: channelName,
         type: 0, // Text Channel
@@ -1406,34 +1650,20 @@ async function processCreateDedicatedChannel(interaction, recruitId) {
         topic: `🎮 ${recruit?.title || '募集'} の専用チャンネル`,
         parent: guildSettings?.dedicated_channel_category_id || undefined,
       });
-
+      
       console.log('[processCreateDedicatedChannel] Channel created:', dedicatedChannel.id);
-
-      // ここから先は「作成済み」を前提にベストエフォート。失敗しても作成結果は返す。
+      
+      // Save to Redis (best effort)
       try {
-        // Redis に保存（86400秒 = 24時間のTTL）
-        await saveDedicatedChannel(recruitId, dedicatedChannel.id, 86400);
+        const { saveDedicatedChannel } = require('../../utils/db/dedicatedChannels');
+        await saveDedicatedChannel(recruitId, dedicatedChannel.id, 86400); // 24 hour TTL
       } catch (error) {
         console.warn('[processCreateDedicatedChannel] saveDedicatedChannel failed:', error);
       }
-
-      try {
-        // ウェルカムメッセージを送信
-        const welcomeEmbed = new EmbedBuilder()
-          .setTitle('🎮 専用チャンネルへようこそ')
-          .setDescription(`**${recruit?.title || '募集'}** の専用チャンネルです。`)
-          .setColor('#5865F2')
-          .addFields(
-            { name: '参加者', value: participants.map(id => `<@${id}>`).join(', ') || 'なし', inline: false }
-          )
-          .setFooter({ text: 'Recrubo' })
-          .setTimestamp();
-
-        await dedicatedChannel.send({ embeds: [welcomeEmbed] });
-      } catch (error) {
-        console.warn('[processCreateDedicatedChannel] welcome message failed:', error);
-      }
-
+      
+      // Send welcome message
+      await sendDedicatedChannelWelcome(dedicatedChannel, recruit, participants);
+      
       await safeReply(interaction, { 
         content: `✨ 専用チャンネルを作成しました: <#${dedicatedChannel.id}>`,
         flags: MessageFlags.Ephemeral,
@@ -1441,12 +1671,6 @@ async function processCreateDedicatedChannel(interaction, recruitId) {
       });
     } catch (error) {
       console.error('[processCreateDedicatedChannel] Channel creation failed:', error);
-      console.error('[processCreateDedicatedChannel] Error details:', {
-        message: error?.message,
-        code: error?.code,
-        status: error?.status,
-        stack: error?.stack
-      });
       await safeReply(interaction, {
         content: `❌ チャンネル作成に失敗しました。\n詳細: ${error?.message || '不明なエラー'}`,
         flags: MessageFlags.Ephemeral,
