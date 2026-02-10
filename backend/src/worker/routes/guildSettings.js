@@ -1,30 +1,76 @@
 import { resolveSupabaseRestUrl, buildSupabaseHeaders, pingSupabase } from '../supabase.js';
 
+// Helper: Check if HTTP status code should trigger a retry
+function isRetryableStatus(response, retryOn) {
+  return retryOn.has(response.status);
+}
+
+// Helper: Check if we should retry based on current attempt
+function shouldRetryAttempt(attempt, maxRetries) {
+  return attempt < maxRetries;
+}
+
+// Helper: Calculate exponential backoff delay
+function calculateBackoff(backoffMs, attempt) {
+  return backoffMs * Math.pow(2, attempt);
+}
+
+// Helper: Sleep for specified milliseconds
+function delay(ms) {
+  return new Promise(r => setTimeout(r, ms));
+}
+
+// Helper: Handle retryable HTTP response with delay
+async function handleRetryableResponse(attempt, retries, backoffMs) {
+  if (!shouldRetryAttempt(attempt, retries)) {
+    return false; // No more retries
+  }
+  const delayMs = calculateBackoff(backoffMs, attempt);
+  await delay(delayMs);
+  return true; // Continue retrying
+}
+
+// Helper: Handle network error with retry logic
+async function handleNetworkError(error, attempt, retries, backoffMs) {
+  // If no more retries, rethrow immediately
+  if (!shouldRetryAttempt(attempt, retries)) {
+    throw error;
+  }
+  // Otherwise, delay and signal to continue
+  const delayMs = calculateBackoff(backoffMs, attempt);
+  await delay(delayMs);
+}
+
 // Lightweight fetch with retry for transient errors from Supabase/edge
 async function fetchWithRetry(url, options, { retries = 2, backoffMs = 300, retryOn = new Set([429, 500, 502, 503, 504, 520, 522, 523, 524, 530]) } = {}) {
   let lastErr;
+  
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
       const res = await fetch(url, options);
-      if (retryOn.has(res.status)) {
-        if (attempt < retries) {
-          const delay = backoffMs * Math.pow(2, attempt);
-          await new Promise(r => setTimeout(r, delay));
-          continue;
-        }
+      
+      // Guard: If response status is not retryable, return immediately
+      if (!isRetryableStatus(res, retryOn)) {
+        return res;
       }
-      return res;
+      
+      // Guard: If this is the last attempt, return the response even if retryable
+      if (!shouldRetryAttempt(attempt, retries)) {
+        return res;
+      }
+      
+      // Retry with backoff
+      await handleRetryableResponse(attempt, retries, backoffMs);
+      
     } catch (e) {
       lastErr = e;
-      if (attempt < retries) {
-        const delay = backoffMs * Math.pow(2, attempt);
-        await new Promise(r => setTimeout(r, delay));
-        continue;
-      }
-      throw e;
+      
+      // Guard: Handle network error (will throw if last attempt)
+      await handleNetworkError(e, attempt, retries, backoffMs);
     }
   }
-  // Should not reach here; throw last error just in case
+  
+  // Fallback: should not reach here
   throw lastErr || new Error('fetchWithRetry: unknown error');
 }
 
