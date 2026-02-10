@@ -76,23 +76,77 @@ function buildContainer({ headerTitle = '募集', participantText = '', recruitI
   return container;
 }
 
-// Simple text-first container (no image gallery, but with header section that can have avatar)
-function buildContainerSimple({ headerTitle = '募集', detailsText = '', participantText = '', recruitIdText = '(unknown)', accentColor = 0x000000, footerExtra = null, subHeaderText = null, contentText = '', titleText = '', avatarUrl = null, extraActionButtons = [] }) {
-  const container = new ContainerBuilder();
-  container.setAccentColor(typeof accentColor === 'number' ? accentColor : parseInt(String(accentColor), 16) || 0x000000);
+/**
+ * Apply thumbnail accessory to section with error handling
+ */
+function applyThumbnailAccessory(headerSection, avatarUrl) {
+  if (!avatarUrl || typeof avatarUrl !== 'string') return false;
   
-  // ヘッダーセクション（アバター付き）
+  try {
+    const thumb = new ThumbnailBuilder({ media: { url: avatarUrl } });
+    headerSection.setThumbnailAccessory(thumb);
+    return true;
+  } catch (thumbErr) {
+    console.warn('[applyThumbnailAccessory] ThumbnailBuilder failed:', thumbErr.message);
+    return false;
+  }
+}
+
+/**
+ * Clean up undefined properties from section builder
+ */
+function cleanupSectionBuilder(headerSection) {
+  if (Object.prototype.hasOwnProperty.call(headerSection, 'accessory') && headerSection.accessory === undefined) {
+    delete headerSection.accessory;
+  }
+  if (Object.prototype.hasOwnProperty.call(headerSection, 'thumbnail') && headerSection.thumbnail === undefined) {
+    delete headerSection.thumbnail;
+  }
+}
+
+/**
+ * Add header section to container with fallback
+ */
+function addHeaderSectionToContainer(container, headerSection, titleText, headerTitle, subHeaderText) {
+  try {
+    // 未定義のプロパティを削除してバリデーション
+    cleanupSectionBuilder(headerSection);
+    // toJSON()をテストしてバリデーション
+    headerSection.toJSON();
+    container.addSectionComponents(headerSection);
+    return true;
+  } catch (sectionErr) {
+    console.warn('[addHeaderSectionToContainer] SectionBuilder validation failed, falling back to text-only:', sectionErr.message);
+    // フォールバック: テキストのみ追加
+    if (titleText && String(titleText).trim().length > 0) {
+      container.addTextDisplayComponents(new TextDisplayBuilder().setContent(String(titleText)));
+    }
+    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`🎮 **${headerTitle}**`));
+    if (subHeaderText && String(subHeaderText).trim().length > 0) {
+      container.addTextDisplayComponents(new TextDisplayBuilder().setContent(String(subHeaderText)));
+    }
+    return false;
+  }
+}
+
+/**
+ * Add text lines to container
+ */
+function addTextLinesToContainer(container, text) {
+  const lines = String(text).split('\n').filter(Boolean);
+  lines.forEach(line => {
+    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(String(line)));
+  });
+}
+
+/**
+ * Build header section with avatar
+ */
+function buildHeaderSection(titleText, headerTitle, subHeaderText, avatarUrl) {
   const headerSection = new SectionBuilder();
   
   // アバター（ThumbnailAccessory）を設定
-  if (avatarUrl && typeof avatarUrl === 'string') {
-    try {
-      const thumb = new ThumbnailBuilder({ media: { url: avatarUrl } });
-      headerSection.setThumbnailAccessory(thumb);
-    } catch (thumbErr) {
-      console.warn('[buildContainerSimple] ThumbnailBuilder failed:', thumbErr.message);
-    }
-  }
+  applyThumbnailAccessory(headerSection, avatarUrl);
   
   // ヘッダーテキスト追加
   if (titleText && String(titleText).trim().length > 0) {
@@ -103,67 +157,53 @@ function buildContainerSimple({ headerTitle = '募集', detailsText = '', partic
     headerSection.addTextDisplayComponents(new TextDisplayBuilder().setContent(String(subHeaderText)));
   }
   
-  // SectionBuilder をコンテナに追加する前に未定義プロパティをクリーンアップ
-  try {
-    // 未定義のプロパティを削除してバリデーション
-    if (Object.prototype.hasOwnProperty.call(headerSection, 'accessory') && headerSection.accessory === undefined) {
-      delete headerSection.accessory;
-    }
-    if (Object.prototype.hasOwnProperty.call(headerSection, 'thumbnail') && headerSection.thumbnail === undefined) {
-      delete headerSection.thumbnail;
-    }
-    // toJSON()をテストしてバリデーション
-    headerSection.toJSON();
-    container.addSectionComponents(headerSection);
-  } catch (sectionErr) {
-    console.warn('[buildContainerSimple] SectionBuilder validation failed, falling back to text-only:', sectionErr.message);
-    // フォールバック: テキストのみ追加
-    if (titleText && String(titleText).trim().length > 0) {
-      container.addTextDisplayComponents(new TextDisplayBuilder().setContent(String(titleText)));
-    }
-    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`🎮 **${headerTitle}**`));
-    if (subHeaderText && String(subHeaderText).trim().length > 0) {
-      container.addTextDisplayComponents(new TextDisplayBuilder().setContent(String(subHeaderText)));
-    }
-  }
+  return headerSection;
+}
+
+// Simple text-first container (no image gallery, but with header section that can have avatar)
+function buildContainerSimple({ headerTitle = '募集', detailsText = '', participantText = '', recruitIdText = '(unknown)', accentColor = 0x000000, footerExtra = null, subHeaderText = null, contentText = '', titleText = '', avatarUrl = null, extraActionButtons = [] }) {
+  const container = new ContainerBuilder();
+  container.setAccentColor(typeof accentColor === 'number' ? accentColor : parseInt(String(accentColor), 16) || 0x000000);
+  
+  // ヘッダーセクション（アバター付き）
+  const headerSection = buildHeaderSection(titleText, headerTitle, subHeaderText, avatarUrl);
+  
+  // SectionBuilder をコンテナに追加（フォールバック処理含む）
+  addHeaderSectionToContainer(container, headerSection, titleText, headerTitle, subHeaderText);
   
   container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
+  
   if (detailsText) {
     // detailsText を各行に分割して個別に追加（マークダウンを正しく処理）
-    const detailsLines = String(detailsText).split('\n').filter(Boolean);
-    console.log('[buildContainerSimple] detailsLines:', detailsLines);
-    detailsLines.forEach(line => {
-      container.addTextDisplayComponents(new TextDisplayBuilder().setContent(String(line)));
-    });
+    console.log('[buildContainerSimple] detailsLines:', String(detailsText).split('\n').filter(Boolean));
+    addTextLinesToContainer(container, detailsText);
     // ユーザー要望: 「通話情報」と「募集内容」の間に区切り線は入れない
     // contentText が存在しない場合にのみ、ここで区切り線を入れる
     if (!contentText || String(contentText).trim().length === 0) {
       container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
     }
   }
+  
   if (contentText && String(contentText).trim().length > 0) {
     // contentText も各行に分割して個別に追加
-    const contentLines = String(contentText).split('\n').filter(Boolean);
-    console.log('[buildContainerSimple] contentText:', contentText, 'contentLines:', contentLines);
-    contentLines.forEach(line => {
-      container.addTextDisplayComponents(new TextDisplayBuilder().setContent(String(line)));
-    });
+    console.log('[buildContainerSimple] contentText:', contentText, 'contentLines:', String(contentText).split('\n').filter(Boolean));
+    addTextLinesToContainer(container, contentText);
     container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
   }
+  
   if (participantText) {
     // participantText も各行に分割して個別に追加（マークダウンを正しく処理）
-    const participantLines = String(participantText).split('\n').filter(Boolean);
-    console.log('[buildContainerSimple] participantLines:', participantLines);
-    participantLines.forEach(line => {
-      container.addTextDisplayComponents(new TextDisplayBuilder().setContent(String(line)));
-    });
+    console.log('[buildContainerSimple] participantLines:', String(participantText).split('\n').filter(Boolean));
+    addTextLinesToContainer(container, participantText);
   }
+  
   const isRequesterRecruiter = true;
   const actionRow = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('join').setLabel('参加').setEmoji('✅').setStyle(ButtonStyle.Success),
     new ButtonBuilder().setCustomId('cancel').setLabel('取り消し').setEmoji('✖️').setStyle(ButtonStyle.Danger),
     new ButtonBuilder().setCustomId('close').setLabel('締め').setStyle(ButtonStyle.Secondary).setDisabled(false)
   );
+  
   if (Array.isArray(extraActionButtons) && extraActionButtons.length > 0) {
     try {
       const safeButtons = extraActionButtons.slice(0, Math.max(0, 5 - 3));
@@ -172,12 +212,15 @@ function buildContainerSimple({ headerTitle = '募集', detailsText = '', partic
       console.warn('[buildContainerSimple] failed to add extraActionButtons:', e?.message || e);
     }
   }
+  
   container.addActionRowComponents(actionRow);
   container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
+  
   const footerParts = [`募集ID：\`${recruitIdText}\``];
   if (footerExtra) footerParts.push(footerExtra);
   footerParts.push('powered by Recrubo');
   container.addTextDisplayComponents(new TextDisplayBuilder().setContent(footerParts.join(' | ')));
+  
   return container;
 }
 
