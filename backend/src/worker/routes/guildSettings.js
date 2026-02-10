@@ -20,14 +20,10 @@ function delay(ms) {
   return new Promise(r => setTimeout(r, ms));
 }
 
-// Helper: Handle retryable HTTP response with delay
-async function handleRetryableResponse(attempt, retries, backoffMs) {
-  if (!shouldRetryAttempt(attempt, retries)) {
-    return false; // No more retries
-  }
+// Helper: Apply delay before retry
+async function applyRetryDelay(backoffMs, attempt) {
   const delayMs = calculateBackoff(backoffMs, attempt);
   await delay(delayMs);
-  return true; // Continue retrying
 }
 
 // Helper: Handle network error with retry logic
@@ -36,9 +32,8 @@ async function handleNetworkError(error, attempt, retries, backoffMs) {
   if (!shouldRetryAttempt(attempt, retries)) {
     throw error;
   }
-  // Otherwise, delay and signal to continue
-  const delayMs = calculateBackoff(backoffMs, attempt);
-  await delay(delayMs);
+  // Otherwise, delay before retry
+  await applyRetryDelay(backoffMs, attempt);
 }
 
 // Lightweight fetch with retry for transient errors from Supabase/edge
@@ -60,7 +55,7 @@ async function fetchWithRetry(url, options, { retries = 2, backoffMs = 300, retr
       }
       
       // Retry with backoff
-      await handleRetryableResponse(attempt, retries, backoffMs);
+      await applyRetryDelay(backoffMs, attempt);
       
     } catch (e) {
       lastErr = e;
