@@ -18,14 +18,14 @@ async function sendNotificationAsync(channel, notificationRole, messageText, log
     let allowedMentions = { roles: [], users: [] };
 
     if (notificationRole === 'everyone') {
-      content = `${messageText}@everyone`;
+      content = `${messageText} @everyone`;
       allowedMentions = { parse: ['everyone'] };
     } else if (notificationRole === 'here') {
-      content = `${messageText}@here`;
+      content = `${messageText} @here`;
       allowedMentions = { parse: ['everyone'] };
     } else {
       // Specific role ID
-      content = `${messageText}<@&${notificationRole}>`;
+      content = `${messageText} <@&${notificationRole}>`;
       allowedMentions = { roles: [notificationRole] };
     }
 
@@ -37,19 +37,20 @@ async function sendNotificationAsync(channel, notificationRole, messageText, log
 
 /**
  * Formats voice channel information into a display label
+ * Used for simple text display without emojis (emojis are added in container building)
  * @param {string} vcType - Voice channel type ('あり', 'あり(聞き専)', 'なし', etc.)
  * @param {string} voicePlace - Voice channel location/name
- * @returns {string} Formatted voice label
+ * @returns {string} Formatted voice label without emoji prefix
  */
 function formatVoiceLabel(vcType, voicePlace) {
-  if (!vcType) return '';
+  if (!vcType) return null;
   
   if (vcType === 'あり(聞き専)') {
-    return voicePlace ? `🎧 ${voicePlace}` : '🎧 あり(聞き専)';
+    return voicePlace ? `聞き専/${voicePlace}` : '聞き専';
   } else if (vcType === 'あり') {
-    return voicePlace ? `🔊 ${voicePlace}` : '🔊 あり';
+    return voicePlace ? `あり/${voicePlace}` : 'あり';
   } else if (vcType === 'なし') {
-    return '🔇 なし';
+    return 'なし';
   }
   
   return vcType;

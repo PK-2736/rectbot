@@ -366,22 +366,6 @@ async function sendWebhookNotification(finalRecruitData, interaction, actualMess
   }
 }
 
-/**
- * Builds voice label for display
- */
-function buildVoiceLabel(vc, voicePlace) {
-  if (!vc) return null;
-  
-  if (vc === 'あり(聞き専)') {
-    return voicePlace ? `聞き専/${voicePlace}` : '聞き専';
-  } else if (vc === 'あり') {
-    return voicePlace ? `あり/${voicePlace}` : 'あり';
-  } else if (vc === 'なし') {
-    return 'なし';
-  }
-  
-  return null;
-}
 
 /**
  * Updates recruitment message with final ID and generated image
@@ -422,7 +406,7 @@ async function updateRecruitmentMessage({
     const labelsLine = '**🕒 開始時間 | 👥 募集人数 | 🎙 通話有無**';
     const startVal = finalRecruitData?.startTime ? String(finalRecruitData.startTime) : null;
     const membersVal = typeof finalRecruitData?.participants === 'number' ? `${finalRecruitData.participants}人` : null;
-    const voiceVal = buildVoiceLabel(finalRecruitData?.vc, finalRecruitData?.voicePlace);
+    const voiceVal = formatVoiceLabel(finalRecruitData?.vc, finalRecruitData?.voicePlace);
     const valuesLine = [startVal, membersVal, voiceVal].filter(Boolean).join(' | ');
     const detailsText = `${labelsLine}\n${valuesLine}`;
     
@@ -1269,16 +1253,8 @@ async function handleModalSubmit(interaction) {
       const { buildContainerSimple } = require('../../utils/recruitHelpers');
       const startLabel = recruitDataObj?.startTime ? `🕒 ${recruitDataObj.startTime}` : null;
       const membersLabel = typeof recruitDataObj?.participants === 'number' ? `👥 ${recruitDataObj.participants}人` : null;
-      const voiceLabel = (() => {
-        if (recruitDataObj?.vc === 'あり(聞き専)') {
-          return recruitDataObj?.voicePlace ? `🎙 聞き専/${recruitDataObj.voicePlace}` : '🎙 聞き専';
-        } else if (recruitDataObj?.vc === 'あり') {
-          return recruitDataObj?.voicePlace ? `🎙 あり/${recruitDataObj.voicePlace}` : '🎙 あり';
-        } else if (recruitDataObj?.vc === 'なし') {
-          return '🎙 なし';
-        }
-        return null;
-      })();
+      const voiceLabelBase = formatVoiceLabel(recruitDataObj?.vc, recruitDataObj?.voicePlace);
+      const voiceLabel = voiceLabelBase ? `🎙 ${voiceLabelBase}` : null;
       const valuesLine = [startLabel, membersLabel, voiceLabel].filter(Boolean).join(' | ');
       const labelsLine = '**🕒 開始時間 | 👥 募集人数 | 🎙 通話有無**';
       const detailsText = [labelsLine, valuesLine].filter(Boolean).join('\n');
@@ -1379,16 +1355,8 @@ async function handleModalSubmit(interaction) {
       if (styleForInit === 'simple') {
         const startLabel = recruitDataObj?.startTime ? `🕒 ${recruitDataObj.startTime}` : null;
         const membersLabel = typeof recruitDataObj?.participants === 'number' ? `👥 ${recruitDataObj.participants}人` : null;
-        const voiceLabel = (() => {
-          if (recruitDataObj?.vc === 'あり(聞き専)') {
-            return recruitDataObj?.voicePlace ? `🎙 聞き専/${recruitDataObj.voicePlace}` : '🎙 聞き専';
-          } else if (recruitDataObj?.vc === 'あり') {
-            return recruitDataObj?.voicePlace ? `🎙 あり/${recruitDataObj.voicePlace}` : '🎙 あり';
-          } else if (recruitDataObj?.vc === 'なし') {
-            return '🎙 なし';
-          }
-          return null;
-        })();
+        const voiceLabelBase = formatVoiceLabel(recruitDataObj?.vc, recruitDataObj?.voicePlace);
+        const voiceLabel = voiceLabelBase ? `🎙 ${voiceLabelBase}` : null;
         const valuesLine = [startLabel, membersLabel, voiceLabel].filter(Boolean).join(' | ');
         const labelsLine = '**🕒 開始時間 | 👥 募集人数 | 🎙 通話有無**';
         const detailsText = [labelsLine, valuesLine].filter(Boolean).join('\n');
