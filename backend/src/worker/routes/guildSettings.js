@@ -39,32 +39,32 @@ async function handleNetworkError(error, attempt, retries, backoffMs) {
 // Lightweight fetch with retry for transient errors from Supabase/edge
 async function fetchWithRetry(url, options, { retries = 2, backoffMs = 300, retryOn = new Set([429, 500, 502, 503, 504, 520, 522, 523, 524, 530]) } = {}) {
   let lastErr;
-  
+
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
       const res = await fetch(url, options);
-      
+
       // Guard: If response status is not retryable, return immediately
       if (!isRetryableStatus(res, retryOn)) {
         return res;
       }
-      
+
       // Guard: If this is the last attempt, return the response even if retryable
       if (!shouldRetryAttempt(attempt, retries)) {
         return res;
       }
-      
+
       // Retry with backoff
       await applyRetryDelay(backoffMs, attempt);
-      
+
     } catch (e) {
       lastErr = e;
-      
+
       // Guard: Handle network error (will throw if last attempt)
       await handleNetworkError(e, attempt, retries, backoffMs);
     }
   }
-  
+
   // Fallback: should not reach here
   throw lastErr || new Error('fetchWithRetry: unknown error');
 }
