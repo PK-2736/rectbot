@@ -83,7 +83,6 @@ function applyThumbnailAccessory(headerSection, avatarUrl) {
   if (!avatarUrl || typeof avatarUrl !== 'string') return false;
   
   try {
-    const { ThumbnailBuilder } = require('discord.js');
     const thumb = new ThumbnailBuilder({ media: { url: avatarUrl } });
     headerSection.setThumbnailAccessory(thumb);
     return true;
@@ -109,8 +108,6 @@ function cleanupSectionBuilder(headerSection) {
  * Add header section to container with fallback
  */
 function addHeaderSectionToContainer(container, headerSection, titleText, headerTitle, subHeaderText) {
-  const { TextDisplayBuilder } = require('discord.js');
-  
   try {
     // 未定義のプロパティを削除してバリデーション
     cleanupSectionBuilder(headerSection);
@@ -136,7 +133,6 @@ function addHeaderSectionToContainer(container, headerSection, titleText, header
  * Add text lines to container
  */
 function addTextLinesToContainer(container, text) {
-  const { TextDisplayBuilder } = require('discord.js');
   const lines = String(text).split('\n').filter(Boolean);
   lines.forEach(line => {
     container.addTextDisplayComponents(new TextDisplayBuilder().setContent(String(line)));
@@ -147,7 +143,6 @@ function addTextLinesToContainer(container, text) {
  * Build header section with avatar
  */
 function buildHeaderSection(titleText, headerTitle, subHeaderText, avatarUrl) {
-  const { SectionBuilder, TextDisplayBuilder } = require('discord.js');
   const headerSection = new SectionBuilder();
   
   // アバター（ThumbnailAccessory）を設定
@@ -167,8 +162,6 @@ function buildHeaderSection(titleText, headerTitle, subHeaderText, avatarUrl) {
 
 // Simple text-first container (no image gallery, but with header section that can have avatar)
 function buildContainerSimple({ headerTitle = '募集', detailsText = '', participantText = '', recruitIdText = '(unknown)', accentColor = 0x000000, footerExtra = null, subHeaderText = null, contentText = '', titleText = '', avatarUrl = null, extraActionButtons = [] }) {
-  const { ContainerBuilder, SeparatorBuilder, SeparatorSpacingSize, ActionRowBuilder, ButtonBuilder, ButtonStyle, TextDisplayBuilder } = require('discord.js');
-  
   const container = new ContainerBuilder();
   container.setAccentColor(typeof accentColor === 'number' ? accentColor : parseInt(String(accentColor), 16) || 0x000000);
   

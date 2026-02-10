@@ -1,4 +1,4 @@
-const { MessageFlags, EmbedBuilder, ComponentType, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, ActionRowBuilder, AttachmentBuilder, UserSelectMenuBuilder, PermissionsBitField } = require('discord.js');
+const { MessageFlags, EmbedBuilder, ComponentType, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, ActionRowBuilder, AttachmentBuilder, UserSelectMenuBuilder, PermissionsBitField, ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, SeparatorSpacingSize, MediaGalleryBuilder, MediaGalleryItemBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { recruitParticipants, pendingModalOptions } = require('./state');
 const { safeReply } = require('../../utils/safeReply');
 const { createErrorEmbed, createSuccessEmbed, createWarningEmbed } = require('../../utils/embedHelpers');
@@ -898,7 +898,6 @@ function prepareClosedRecruitmentContext(data, messageId, interaction, originalM
  * Generates closed recruitment image attachment
  */
 async function generateClosedImageAttachment(context) {
-  const { AttachmentBuilder } = require('discord.js');
   const { generateClosedRecruitCard, generateRecruitCard } = require('../../utils/canvasRecruit');
   
   let baseImageBuffer = null;
@@ -1006,7 +1005,6 @@ function buildSimpleStyleLayout(context) {
  * Build text component from layout component definition
  */
 function buildTextComponent(component) {
-  const { TextDisplayBuilder } = require('discord.js');
   return new TextDisplayBuilder().setContent(component.content);
 }
 
@@ -1014,7 +1012,6 @@ function buildTextComponent(component) {
  * Build separator component from layout component definition
  */
 function buildSeparatorComponent(component) {
-  const { SeparatorBuilder, SeparatorSpacingSize } = require('discord.js');
   const separator = new SeparatorBuilder().setSpacing(SeparatorSpacingSize[component.spacing]);
   if (component.divider) {
     separator.setDivider(true);
@@ -1026,7 +1023,6 @@ function buildSeparatorComponent(component) {
  * Build media gallery component from layout component definition
  */
 function buildMediaGalleryComponent(component) {
-  const { MediaGalleryBuilder, MediaGalleryItemBuilder } = require('discord.js');
   return new MediaGalleryBuilder().addItems(
     new MediaGalleryItemBuilder().setURL(component.url)
   );
@@ -1049,8 +1045,6 @@ function addComponentToContainer(container, component) {
  * Builds Discord container from layout definition
  */
 function buildContainerFromLayout(layout) {
-  const { ContainerBuilder } = require('discord.js');
-  
   const container = new ContainerBuilder();
   container.setAccentColor(0x808080);
   
@@ -1322,7 +1316,6 @@ function buildSubHeaderText(selectedNotificationRole) {
 function buildExtraButtonsIfNeeded(recruitDataObj) {
   const extraButtons = [];
   if (recruitDataObj?.startTime === '今から') {
-    const { ButtonBuilder, ButtonStyle } = require('discord.js');
     extraButtons.push(
       new ButtonBuilder().setCustomId('create_vc_pending').setLabel('専用チャンネル作成').setEmoji('📢').setStyle(ButtonStyle.Primary)
     );
@@ -1336,7 +1329,6 @@ function buildExtraButtonsIfNeeded(recruitDataObj) {
 function buildExtraButtonsWithRecruitId(recruitDataObj, recruitId) {
   const extraButtons = [];
   if (recruitDataObj?.startTime === '今から') {
-    const { ButtonBuilder, ButtonStyle } = require('discord.js');
     extraButtons.push(
       new ButtonBuilder().setCustomId(`create_vc_${recruitId}`).setLabel('専用チャンネル作成').setEmoji('📢').setStyle(ButtonStyle.Primary)
     );
