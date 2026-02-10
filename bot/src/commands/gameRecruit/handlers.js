@@ -918,8 +918,7 @@ async function generateClosedImageAttachment(context) {
       let useColor = context.data?.panelColor || '808080';
       if (typeof useColor === 'string' && useColor.startsWith('#')) useColor = useColor.slice(1);
       if (!/^[0-9A-Fa-f]{6}$/.test(useColor)) useColor = '808080';
-      const currentParticipants = recruitParticipants.get(context.messageId) || [];
-      baseImageBuffer = await generateRecruitCard(context.data, currentParticipants, context.interaction.client, useColor);
+      baseImageBuffer = await generateRecruitCard(context.data, context.finalParticipants, context.interaction.client, useColor);
     } catch (imgErr) {
       console.warn('[processClose] Failed to generate base recruit image:', imgErr);
     }
