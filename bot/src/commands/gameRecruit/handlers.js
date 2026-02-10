@@ -154,12 +154,14 @@ async function selectNotificationRole(interaction, configuredIds) {
         pendingModalOptions.delete(interaction.user.id);
         return { roleId: preSelected, aborted: false };
       } else {
-        await safeReply(interaction, { content: '❌ 指定された通知ロールは使用できません（設定に含まれていません）。', flags: MessageFlags.Ephemeral, allowedMentions: { roles: [], users: [] } });
+        await replyEphemeral(interaction, { 
+          content: '❌ 指定された通知ロールは使用できません（設定に含まれていません）。' 
+        });
         return { roleId: null, aborted: true };
       }
     }
   } catch (e) {
-    console.warn('pendingModalOptions (notificationRoleId) read failed:', e?.message || e);
+    logError('pendingModalOptions (notificationRoleId) read failed', e);
   }
 
   const valid = await fetchValidNotificationRoles(interaction, configuredIds);
@@ -183,7 +185,7 @@ async function selectNotificationRole(interaction, configuredIds) {
     await selectInteraction.update({ content: confirmationText, components: [], allowedMentions: { roles: [], users: [] } });
     return { roleId: selected, aborted: false };
   } catch (collectorError) {
-    console.warn('[handleModalSubmit] Notification role selection timed out:', collectorError?.message || collectorError);
+    logError('[handleModalSubmit] Notification role selection timed out', collectorError);
     await promptMessage.edit({ content: '⏱ 通知ロールの選択がタイムアウトしました。募集は作成されませんでした。', components: [] }).catch(() => {});
     return { roleId: null, aborted: true };
   }
@@ -308,7 +310,7 @@ async function persistRecruitmentData(finalRecruitData, interaction, actualMessa
   try {
     await saveRecruitToRedis(actualRecruitId, finalRecruitData);
     const pushRes = await pushRecruitToWebAPI(finalRecruitData);
-    if (!pushRes || !pushRes.ok) console.error('Worker API push failed:', pushRes);
+    if (!pushRes || !pushRes.ok) logCriticalError('Worker API push failed', pushRes);
     
     try {
       const workerSave = await saveRecruitmentData(
@@ -319,12 +321,12 @@ async function persistRecruitmentData(finalRecruitData, interaction, actualMessa
         interaction.channel?.name, 
         finalRecruitData
       );
-      if (!workerSave?.ok) console.error('[worker-sync] DO 保存失敗:', workerSave);
+      if (!workerSave?.ok) logCriticalError('[worker-sync] DO 保存失敗', workerSave);
     } catch (saveErr) { 
-      console.error('[worker-sync] saveRecruitmentData error:', saveErr?.message || saveErr); 
+      logCriticalError('[worker-sync] saveRecruitmentData error', saveErr); 
     }
   } catch (err) { 
-    console.error('Redis保存またはAPI pushエラー:', err); 
+    logCriticalError('Redis保存またはAPI pushエラー', err); 
   }
 }
 
@@ -1388,6 +1390,155 @@ function buildImageStyleContainer({ user, participantText, subHeaderText, intera
   });
 }
 
+async function sendAnnouncementsWithErrorHandling(interaction, selectedNotificationRole, configuredNotificationRoleIds, image, container, guildSettings, user) {
+  try {
+    const announceRes = await sendAnnouncements(interaction, selectedNotificationRole, configuredNotificationRoleIds, image, container, guildSettings, user);
+    return {
+      followUpMessage: announceRes.mainMessage,
+      secondaryMessage: announceRes.secondaryMessage
+    };
+  } catch (e) {
+    logError('[handleRecruitCreateModal] sendAnnouncements failed', e);
+    
+    // 権限エラーの場合はDMに通知
+    if (isPermissionError(e)) {
+      try {
+        await handlePermissionError(user, e, {
+          commandName: 'rect',
+          channelName: interaction.channel.name
+        });
+      } catch (dmErr) {
+        logCriticalError('[handleRecruitCreateModal] Failed to send permission error DM', dmErr);
+      }
+    }
+    throw e;
+  }
+}
+
+function buildSimpleStyleLabels(recruitDataObj) {
+  const startLabel = recruitDataObj?.startTime ? `🕒 ${recruitDataObj.startTime}` : null;
+  const membersLabel = typeof recruitDataObj?.participants === 'number' ? `👥 ${recruitDataObj.participants}人` : null;
+  const voiceLabelBase = formatVoiceLabel(recruitDataObj?.vc, recruitDataObj?.voicePlace);
+  const voiceLabel = voiceLabelBase ? `🎙 ${voiceLabelBase}` : null;
+  
+  const valuesLine = [startLabel, membersLabel, voiceLabel].filter(Boolean).join(' | ');
+  const labelsLine = '**🕒 開始時間 | 👥 募集人数 | 🎙 通話有無**';
+  
+  return [labelsLine, valuesLine].filter(Boolean).join('\n');
+}
+
+function buildSimpleStyleContent(recruitDataObj) {
+  if (!recruitDataObj?.content || String(recruitDataObj.content).trim().length === 0) {
+    return '';
+  }
+  return `**📝 募集内容**\n${String(recruitDataObj.content).slice(0,1500)}`;
+}
+
+function buildSimpleStyleTitle(recruitDataObj) {
+  return recruitDataObj?.title ? `## ${String(recruitDataObj.title).slice(0,200)}` : '';
+}
+
+async function fetchUserAvatar(interaction) {
+  try {
+    const fetchedUser = await interaction.client.users.fetch(interaction.user.id).catch(() => null);
+    if (fetchedUser && typeof fetchedUser.displayAvatarURL === 'function') {
+      return fetchedUser.displayAvatarURL({ size: 128, extension: 'png' });
+    }
+  } catch (_) {}
+  return null;
+}
+
+async function buildSimpleStyleImmediateContainer(recruitDataObj, user, participantText, subHeaderText, recruitId, accentColorInit, interaction) {
+  const { buildContainerSimple } = require('../../utils/recruitHelpers');
+  const detailsText = buildSimpleStyleLabels(recruitDataObj);
+  const contentText = buildSimpleStyleContent(recruitDataObj);
+  const titleText = buildSimpleStyleTitle(recruitDataObj);
+  const avatarUrl = await fetchUserAvatar(interaction);
+  const extraButtonsImmediate = buildExtraButtonsWithRecruitId(recruitDataObj, recruitId);
+  
+  return buildContainerSimple({
+    headerTitle: `${user.username}さんの募集`,
+    detailsText,
+    contentText,
+    titleText,
+    participantText,
+    recruitIdText: recruitId,
+    accentColor: accentColorInit,
+    subHeaderText,
+    avatarUrl,
+    extraActionButtons: extraButtonsImmediate
+  });
+}
+
+function buildImageStyleImmediateContainer(user, participantText, subHeaderText, recruitId, accentColorInit, interaction, recruitDataObj) {
+  const extraButtonsImmediate = buildExtraButtonsWithRecruitId(recruitDataObj, recruitId);
+  return buildContainer({
+    headerTitle: `${user.username}さんの募集`,
+    subHeaderText,
+    contentText: '',
+    titleText: '',
+    participantText,
+    recruitIdText: recruitId,
+    accentColor: accentColorInit,
+    imageAttachmentName: 'attachment://recruit-card.png',
+    recruiterId: interaction.user.id,
+    requesterId: interaction.user.id,
+    extraActionButtons: extraButtonsImmediate
+  });
+}
+
+async function buildImmediateContainer(style, recruitDataObj, user, participantText, subHeaderText, recruitId, accentColorInit, interaction) {
+  if (style === 'simple') {
+    return await buildSimpleStyleImmediateContainer(recruitDataObj, user, participantText, subHeaderText, recruitId, accentColorInit, interaction);
+  } else {
+    return buildImageStyleImmediateContainer(user, participantText, subHeaderText, recruitId, accentColorInit, interaction, recruitDataObj);
+  }
+}
+
+function prepareEditPayload(immediateContainer, container, style, image) {
+  const editPayload = { 
+    components: [immediateContainer], 
+    flags: MessageFlags.IsComponentsV2, 
+    allowedMentions: { roles: [], users: [] } 
+  };
+  
+  // 送信直後に保留ボタンが設定されている場合は、それも追加
+  if (container.__addPendingButton && container.__pendingButtonRow) {
+    editPayload.components.push(container.__pendingButtonRow);
+  }
+  
+  // 画像スタイルでは添付ファイルを維持
+  if (style === 'image' && image) {
+    editPayload.files = [image];
+  }
+  
+  return editPayload;
+}
+
+function prepareSecondaryPayload(immediateContainer, container, editPayload) {
+  const secondaryPayload = { ...editPayload };
+  secondaryPayload.components = [immediateContainer];
+  
+  // 送信直後の保留ボタン対応
+  if (container.__addPendingButton && container.__pendingButtonRow) {
+    secondaryPayload.components.push(container.__pendingButtonRow);
+  }
+  
+  return secondaryPayload;
+}
+
+async function updateMessagesWithRecruitId(followUpMessage, secondaryMessage, immediateContainer, container, style, image) {
+  const editPayload = prepareEditPayload(immediateContainer, container, style, image);
+  
+  await followUpMessage.edit(editPayload);
+  
+  // もう一つの投稿がある場合も同様に編集
+  if (secondaryMessage && secondaryMessage.id) {
+    const secondaryPayload = prepareSecondaryPayload(immediateContainer, container, editPayload);
+    await secondaryMessage.edit(secondaryPayload);
+  }
+}
+
 /**
  * メッセージ送信と初期編集
  */
@@ -1397,27 +1548,10 @@ async function sendAndUpdateInitialMessage({
   participantText, subHeaderText, currentParticipants 
 }) {
   // アナウンス送信
-  let followUpMessage, secondaryMessage;
-  try {
-    const announceRes = await sendAnnouncements(interaction, selectedNotificationRole, configuredNotificationRoleIds, image, container, guildSettings, user);
-    followUpMessage = announceRes.mainMessage;
-    secondaryMessage = announceRes.secondaryMessage;
-  } catch (e) {
-    console.warn('[handleRecruitCreateModal] sendAnnouncements failed:', e?.message || e);
-    
-    // 権限エラーの場合はDMに通知
-    if (e.code === 50001 || e.code === 50013) {
-      try {
-        await handlePermissionError(user, e, {
-          commandName: 'rect',
-          channelName: interaction.channel.name
-        });
-      } catch (dmErr) {
-        console.error('[handleRecruitCreateModal] Failed to send permission error DM:', dmErr?.message || dmErr);
-      }
-    }
-    throw e;
-  }
+  const { followUpMessage, secondaryMessage } = await sendAnnouncementsWithErrorHandling(
+    interaction, selectedNotificationRole, configuredNotificationRoleIds, 
+    image, container, guildSettings, user
+  );
 
   const msgId = followUpMessage?.id;
   if (!msgId) return null;
@@ -1427,79 +1561,17 @@ async function sendAndUpdateInitialMessage({
   const accentColorInit = /^[0-9A-Fa-f]{6}$/.test(useColorInit) ? parseInt(useColorInit, 16) : 0x000000;
 
   try {
-    let immediateContainer;
-    if (style === 'simple') {
-      const { buildContainerSimple } = require('../../utils/recruitHelpers');
-      const startLabel = recruitDataObj?.startTime ? `🕒 ${recruitDataObj.startTime}` : null;
-      const membersLabel = typeof recruitDataObj?.participants === 'number' ? `👥 ${recruitDataObj.participants}人` : null;
-      const voiceLabelBase = formatVoiceLabel(recruitDataObj?.vc, recruitDataObj?.voicePlace);
-      const voiceLabel = voiceLabelBase ? `🎙 ${voiceLabelBase}` : null;
-      const valuesLine = [startLabel, membersLabel, voiceLabel].filter(Boolean).join(' | ');
-      const labelsLine = '**🕒 開始時間 | 👥 募集人数 | 🎙 通話有無**';
-      const detailsText = [labelsLine, valuesLine].filter(Boolean).join('\n');
-      const contentText = recruitDataObj?.content && String(recruitDataObj.content).trim().length > 0
-        ? `**📝 募集内容**\n${String(recruitDataObj.content).slice(0,1500)}`
-        : '';
-      let avatarUrl = null;
-      try {
-        const fetchedUser = await interaction.client.users.fetch(interaction.user.id).catch(() => null);
-        if (fetchedUser && typeof fetchedUser.displayAvatarURL === 'function') {
-          avatarUrl = fetchedUser.displayAvatarURL({ size: 128, extension: 'png' });
-        }
-      } catch (_) {}
-      const extraButtonsImmediate = buildExtraButtonsWithRecruitId(recruitDataObj, recruitId);
-      immediateContainer = buildContainerSimple({
-        headerTitle: `${user.username}さんの募集`,
-        detailsText,
-        contentText,
-        titleText: recruitDataObj?.title ? `## ${String(recruitDataObj.title).slice(0,200)}` : '',
-        participantText,
-        recruitIdText: recruitId,
-        accentColor: accentColorInit,
-        subHeaderText,
-        avatarUrl,
-        extraActionButtons: extraButtonsImmediate
-      });
-    } else {
-      const extraButtonsImmediate = buildExtraButtonsWithRecruitId(recruitDataObj, recruitId);
-      immediateContainer = buildContainer({
-        headerTitle: `${user.username}さんの募集`,
-        subHeaderText,
-        contentText: '',
-        titleText: '',
-        participantText,
-        recruitIdText: recruitId,
-        accentColor: accentColorInit,
-        imageAttachmentName: 'attachment://recruit-card.png',
-        recruiterId: interaction.user.id,
-        requesterId: interaction.user.id,
-        extraActionButtons: extraButtonsImmediate
-      });
-    }
-
-    const editPayload = { components: [immediateContainer], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } };
-    // 送信直後に保留ボタンが設定されている場合は、それも追加
-    if (container.__addPendingButton && container.__pendingButtonRow) {
-      editPayload.components.push(container.__pendingButtonRow);
-    }
-    // 画像スタイルでは添付ファイルを維持
-    if (style === 'image' && image) {
-      editPayload.files = [image];
-    }
-
-    await followUpMessage.edit(editPayload);
-    // もう一つの投稿がある場合も同様に編集
-    if (secondaryMessage && secondaryMessage.id) {
-      const secondaryPayload = { ...editPayload };
-      secondaryPayload.components = [immediateContainer];
-      // 送信直後の保留ボタン対応
-      if (container.__addPendingButton && container.__pendingButtonRow) {
-        secondaryPayload.components.push(container.__pendingButtonRow);
-      }
-      await secondaryMessage.edit(secondaryPayload);
-    }
+    const immediateContainer = await buildImmediateContainer(
+      style, recruitDataObj, user, participantText, subHeaderText, 
+      recruitId, accentColorInit, interaction
+    );
+    
+    await updateMessagesWithRecruitId(
+      followUpMessage, secondaryMessage, immediateContainer, 
+      container, style, image
+    );
   } catch (e) {
-    console.warn('[handleRecruitCreateModal] Initial message edit failed:', e?.message || e);
+    logError('[handleRecruitCreateModal] Initial message edit failed', e);
   }
   
   return { followUpMessage, secondaryMessage };
