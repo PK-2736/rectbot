@@ -860,117 +860,192 @@ async function cleanupRecruitmentData(messageId, userId, data) {
 /**
  * Builds the closed recruitment card based on style
  */
-async function buildClosedRecruitmentCard(recruitStyle, data, messageId, interaction, originalMessage) {
-  const { ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, SeparatorSpacingSize, MediaGalleryBuilder, MediaGalleryItemBuilder, AttachmentBuilder } = require('discord.js');
-  const { generateClosedRecruitCard, generateRecruitCard } = require('../../utils/canvasRecruit');
-  
-  const disabledContainer = new ContainerBuilder();
-  disabledContainer.setAccentColor(0x808080);
-  const hasAttachment = !!originalMessage?.attachments && originalMessage.attachments.size > 0;
-  
-  // Get participant info
+/**
+ * Determines which layout type to use for closed recruitment
+ */
+function resolveClosedRecruitmentLayout(recruitStyle) {
+  return recruitStyle === 'image' ? 'image' : 'simple';
+}
+
+/**
+ * Prepares context data for closed recruitment card building
+ */
+function prepareClosedRecruitmentContext(data, messageId, interaction, originalMessage) {
   const finalParticipants = recruitParticipants.get(messageId) || [];
   const totalMembers = (typeof data?.participants === 'number') ? data.participants : (typeof data?.participant_count === 'number' ? data.participant_count : null);
   const totalSlots = totalMembers || finalParticipants.length;
   const finalParticipantText = `📋 参加リスト (最終 ${finalParticipants.length}/${totalSlots}人)\n${finalParticipants.map(id => `<@${id}>`).join(' • ')}`;
   const footerMessageId = interaction.message.interaction?.id || interaction.message.id;
   const footerText = `募集ID：\`${footerMessageId.slice(-8)}\` | powered by **Recrubo**`;
+  const hasAttachment = !!originalMessage?.attachments && originalMessage.attachments.size > 0;
   
-  let closedAttachment = null;
+  return {
+    data,
+    messageId,
+    interaction,
+    originalMessage,
+    finalParticipants,
+    totalMembers,
+    totalSlots,
+    finalParticipantText,
+    footerText,
+    hasAttachment
+  };
+}
+
+/**
+ * Generates closed recruitment image attachment
+ */
+async function generateClosedImageAttachment(ctx) {
+  const { AttachmentBuilder } = require('discord.js');
+  const { generateClosedRecruitCard, generateRecruitCard } = require('../../utils/canvasRecruit');
   
-  if (recruitStyle === 'image') {
-    // Generate closed image
-    let baseImageBuffer = null;
-    if (hasAttachment) {
-      try {
-        const originalAttachmentUrl = originalMessage.attachments.first().url;
-        const response = await fetch(originalAttachmentUrl);
-        const arrayBuffer = await response.arrayBuffer();
-        baseImageBuffer = Buffer.from(arrayBuffer);
-      } catch (imgErr) {
-        console.warn('[processClose] Failed to fetch original image:', imgErr);
-      }
+  let baseImageBuffer = null;
+  
+  if (ctx.hasAttachment) {
+    try {
+      const originalAttachmentUrl = ctx.originalMessage.attachments.first().url;
+      const response = await fetch(originalAttachmentUrl);
+      const arrayBuffer = await response.arrayBuffer();
+      baseImageBuffer = Buffer.from(arrayBuffer);
+    } catch (imgErr) {
+      console.warn('[processClose] Failed to fetch original image:', imgErr);
     }
-    
-    if (!baseImageBuffer) {
-      try {
-        let useColor = data?.panelColor || '808080';
-        if (typeof useColor === 'string' && useColor.startsWith('#')) useColor = useColor.slice(1);
-        if (!/^[0-9A-Fa-f]{6}$/.test(useColor)) useColor = '808080';
-        const currentParticipants = recruitParticipants.get(messageId) || [];
-        baseImageBuffer = await generateRecruitCard(data, currentParticipants, interaction.client, useColor);
-      } catch (imgErr) {
-        console.warn('[processClose] Failed to generate base recruit image:', imgErr);
-      }
-    }
-    
-    if (baseImageBuffer) {
-      try {
-        const closedImageBuffer = await generateClosedRecruitCard(baseImageBuffer);
-        closedAttachment = new AttachmentBuilder(closedImageBuffer, { name: 'recruit-card-closed.png' });
-      } catch (imgErr) {
-        console.warn('[processClose] Failed to generate closed image:', imgErr);
-      }
-    }
-    
-    // Build image-style container
-    if (closedAttachment) {
-      disabledContainer.addMediaGalleryComponents(
-        new MediaGalleryBuilder().addItems(
-          new MediaGalleryItemBuilder().setURL('attachment://recruit-card-closed.png')
-        )
-      );
-      disabledContainer.addSeparatorComponents(
-        new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
-      );
-    }
-    
-    disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent(finalParticipantText));
-    disabledContainer.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
-    disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent(footerText));
-  } else {
-    // Simple text-only style
-    disabledContainer.addTextDisplayComponents(
-      new TextDisplayBuilder().setContent('🔒 **募集締め切り済み**')
-    );
-    
-    if (data?.title) {
-      disabledContainer.addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(`📌 タイトル\n${String(data.title).slice(0,200)}`)
-      );
-    }
-    
-    disabledContainer.addSeparatorComponents(
-      new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
-    );
-    
-    // Build details line
-    const startLabel = data?.startTime ? `🕒 ${data.startTime}` : null;
-    const membersLabel = (typeof totalMembers === 'number') ? `👥 ${totalMembers}人` : null;
-    const voiceLabel = formatVoiceLabel(data?.vc || (data?.voice === true ? 'あり' : data?.voice === false ? 'なし' : null), data?.voicePlace);
-    const detailsText = [startLabel, membersLabel, voiceLabel].filter(Boolean).join(' | ');
-    
-    if (detailsText) {
-      disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent(detailsText));
-    }
-    
-    const contentText = data?.content ? `📝 募集内容\n${String(data.content).slice(0,1500)}` : '';
-    if (contentText) {
-      disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent(contentText));
-    }
-    
-    disabledContainer.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
-    disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent(finalParticipantText));
-    disabledContainer.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
-    disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent('この募集は締め切られました。'));
-    disabledContainer.addSeparatorComponents(
-      new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
-    ).addTextDisplayComponents(
-      new TextDisplayBuilder().setContent(footerText)
-    );
   }
   
-  return { container: disabledContainer, attachment: closedAttachment };
+  if (!baseImageBuffer) {
+    try {
+      let useColor = ctx.data?.panelColor || '808080';
+      if (typeof useColor === 'string' && useColor.startsWith('#')) useColor = useColor.slice(1);
+      if (!/^[0-9A-Fa-f]{6}$/.test(useColor)) useColor = '808080';
+      const currentParticipants = recruitParticipants.get(ctx.messageId) || [];
+      baseImageBuffer = await generateRecruitCard(ctx.data, currentParticipants, ctx.interaction.client, useColor);
+    } catch (imgErr) {
+      console.warn('[processClose] Failed to generate base recruit image:', imgErr);
+    }
+  }
+  
+  if (baseImageBuffer) {
+    try {
+      const closedImageBuffer = await generateClosedRecruitCard(baseImageBuffer);
+      return new AttachmentBuilder(closedImageBuffer, { name: 'recruit-card-closed.png' });
+    } catch (imgErr) {
+      console.warn('[processClose] Failed to generate closed image:', imgErr);
+    }
+  }
+  
+  return null;
+}
+
+/**
+ * Builds image-style layout for closed recruitment
+ */
+async function buildImageStyleLayout(ctx) {
+  const closedAttachment = await generateClosedImageAttachment(ctx);
+  
+  return {
+    attachment: closedAttachment,
+    components: closedAttachment ? [
+      { type: 'mediaGallery', url: 'attachment://recruit-card-closed.png' },
+      { type: 'separator', spacing: 'Small', divider: true },
+      { type: 'text', content: ctx.finalParticipantText },
+      { type: 'separator', spacing: 'Small', divider: true },
+      { type: 'text', content: ctx.footerText }
+    ] : [
+      { type: 'text', content: ctx.finalParticipantText },
+      { type: 'separator', spacing: 'Small', divider: true },
+      { type: 'text', content: ctx.footerText }
+    ]
+  };
+}
+
+/**
+ * Builds simple text-style layout for closed recruitment
+ */
+function buildSimpleStyleLayout(ctx) {
+  const components = [
+    { type: 'text', content: '🔒 **募集締め切り済み**' }
+  ];
+  
+  if (ctx.data?.title) {
+    components.push({ type: 'text', content: `📌 タイトル\n${String(ctx.data.title).slice(0,200)}` });
+  }
+  
+  components.push({ type: 'separator', spacing: 'Small', divider: true });
+  
+  const startLabel = ctx.data?.startTime ? `🕒 ${ctx.data.startTime}` : null;
+  const membersLabel = (typeof ctx.totalMembers === 'number') ? `👥 ${ctx.totalMembers}人` : null;
+  const voiceLabel = formatVoiceLabel(ctx.data?.vc || (ctx.data?.voice === true ? 'あり' : ctx.data?.voice === false ? 'なし' : null), ctx.data?.voicePlace);
+  const detailsText = [startLabel, membersLabel, voiceLabel].filter(Boolean).join(' | ');
+  
+  if (detailsText) {
+    components.push({ type: 'text', content: detailsText });
+  }
+  
+  const contentText = ctx.data?.content ? `📝 募集内容\n${String(ctx.data.content).slice(0,1500)}` : '';
+  if (contentText) {
+    components.push({ type: 'text', content: contentText });
+  }
+  
+  components.push(
+    { type: 'separator', spacing: 'Small', divider: true },
+    { type: 'text', content: ctx.finalParticipantText },
+    { type: 'separator', spacing: 'Small', divider: true },
+    { type: 'text', content: 'この募集は締め切られました。' },
+    { type: 'separator', spacing: 'Small', divider: true },
+    { type: 'text', content: ctx.footerText }
+  );
+  
+  return {
+    attachment: null,
+    components
+  };
+}
+
+/**
+ * Builds Discord container from layout definition
+ */
+function buildContainerFromLayout(layout) {
+  const { ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, SeparatorSpacingSize, MediaGalleryBuilder, MediaGalleryItemBuilder } = require('discord.js');
+  
+  const container = new ContainerBuilder();
+  container.setAccentColor(0x808080);
+  
+  for (const component of layout.components) {
+    if (component.type === 'text') {
+      container.addTextDisplayComponents(new TextDisplayBuilder().setContent(component.content));
+    } else if (component.type === 'separator') {
+      const separator = new SeparatorBuilder().setSpacing(SeparatorSpacingSize[component.spacing]);
+      if (component.divider) {
+        separator.setDivider(true);
+      }
+      container.addSeparatorComponents(separator);
+    } else if (component.type === 'mediaGallery') {
+      container.addMediaGalleryComponents(
+        new MediaGalleryBuilder().addItems(
+          new MediaGalleryItemBuilder().setURL(component.url)
+        )
+      );
+    }
+  }
+  
+  return container;
+}
+
+/**
+ * Main function: builds closed recruitment card with separated concerns
+ */
+async function buildClosedRecruitmentCard(recruitStyle, data, messageId, interaction, originalMessage) {
+  const ctx = prepareClosedRecruitmentContext(data, messageId, interaction, originalMessage);
+  const layoutType = resolveClosedRecruitmentLayout(recruitStyle);
+  
+  const layout = layoutType === 'image' 
+    ? await buildImageStyleLayout(ctx)
+    : buildSimpleStyleLayout(ctx);
+  
+  const container = buildContainerFromLayout(layout);
+  
+  return { container, attachment: layout.attachment };
 }
 
 /**
