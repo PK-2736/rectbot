@@ -862,6 +862,7 @@ async function cleanupRecruitmentData(messageId, userId, data) {
  */
 /**
  * Determines which layout type to use for closed recruitment
+ * Note: This provides an extension point for future states (e.g., canceled, full)
  */
 function resolveClosedRecruitmentLayout(recruitStyle) {
   return recruitStyle === 'image' ? 'image' : 'simple';
