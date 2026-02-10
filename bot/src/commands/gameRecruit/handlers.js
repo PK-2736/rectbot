@@ -896,15 +896,15 @@ function prepareClosedRecruitmentContext(data, messageId, interaction, originalM
 /**
  * Generates closed recruitment image attachment
  */
-async function generateClosedImageAttachment(ctx) {
+async function generateClosedImageAttachment(context) {
   const { AttachmentBuilder } = require('discord.js');
   const { generateClosedRecruitCard, generateRecruitCard } = require('../../utils/canvasRecruit');
   
   let baseImageBuffer = null;
   
-  if (ctx.hasAttachment) {
+  if (context.hasAttachment) {
     try {
-      const originalAttachmentUrl = ctx.originalMessage.attachments.first().url;
+      const originalAttachmentUrl = context.originalMessage.attachments.first().url;
       const response = await fetch(originalAttachmentUrl);
       const arrayBuffer = await response.arrayBuffer();
       baseImageBuffer = Buffer.from(arrayBuffer);
@@ -915,11 +915,11 @@ async function generateClosedImageAttachment(ctx) {
   
   if (!baseImageBuffer) {
     try {
-      let useColor = ctx.data?.panelColor || '808080';
+      let useColor = context.data?.panelColor || '808080';
       if (typeof useColor === 'string' && useColor.startsWith('#')) useColor = useColor.slice(1);
       if (!/^[0-9A-Fa-f]{6}$/.test(useColor)) useColor = '808080';
-      const currentParticipants = recruitParticipants.get(ctx.messageId) || [];
-      baseImageBuffer = await generateRecruitCard(ctx.data, currentParticipants, ctx.interaction.client, useColor);
+      const currentParticipants = recruitParticipants.get(context.messageId) || [];
+      baseImageBuffer = await generateRecruitCard(context.data, currentParticipants, context.interaction.client, useColor);
     } catch (imgErr) {
       console.warn('[processClose] Failed to generate base recruit image:', imgErr);
     }
@@ -940,21 +940,21 @@ async function generateClosedImageAttachment(ctx) {
 /**
  * Builds image-style layout for closed recruitment
  */
-async function buildImageStyleLayout(ctx) {
-  const closedAttachment = await generateClosedImageAttachment(ctx);
+async function buildImageStyleLayout(context) {
+  const closedAttachment = await generateClosedImageAttachment(context);
   
   return {
     attachment: closedAttachment,
     components: closedAttachment ? [
       { type: 'mediaGallery', url: 'attachment://recruit-card-closed.png' },
       { type: 'separator', spacing: 'Small', divider: true },
-      { type: 'text', content: ctx.finalParticipantText },
+      { type: 'text', content: context.finalParticipantText },
       { type: 'separator', spacing: 'Small', divider: true },
-      { type: 'text', content: ctx.footerText }
+      { type: 'text', content: context.footerText }
     ] : [
-      { type: 'text', content: ctx.finalParticipantText },
+      { type: 'text', content: context.finalParticipantText },
       { type: 'separator', spacing: 'Small', divider: true },
-      { type: 'text', content: ctx.footerText }
+      { type: 'text', content: context.footerText }
     ]
   };
 }
@@ -962,38 +962,38 @@ async function buildImageStyleLayout(ctx) {
 /**
  * Builds simple text-style layout for closed recruitment
  */
-function buildSimpleStyleLayout(ctx) {
+function buildSimpleStyleLayout(context) {
   const components = [
     { type: 'text', content: '🔒 **募集締め切り済み**' }
   ];
   
-  if (ctx.data?.title) {
-    components.push({ type: 'text', content: `📌 タイトル\n${String(ctx.data.title).slice(0,200)}` });
+  if (context.data?.title) {
+    components.push({ type: 'text', content: `📌 タイトル\n${String(context.data.title).slice(0,200)}` });
   }
   
   components.push({ type: 'separator', spacing: 'Small', divider: true });
   
-  const startLabel = ctx.data?.startTime ? `🕒 ${ctx.data.startTime}` : null;
-  const membersLabel = (typeof ctx.totalMembers === 'number') ? `👥 ${ctx.totalMembers}人` : null;
-  const voiceLabel = formatVoiceLabel(ctx.data?.vc || (ctx.data?.voice === true ? 'あり' : ctx.data?.voice === false ? 'なし' : null), ctx.data?.voicePlace);
+  const startLabel = context.data?.startTime ? `🕒 ${context.data.startTime}` : null;
+  const membersLabel = (typeof context.totalMembers === 'number') ? `👥 ${context.totalMembers}人` : null;
+  const voiceLabel = formatVoiceLabel(context.data?.vc || (context.data?.voice === true ? 'あり' : context.data?.voice === false ? 'なし' : null), context.data?.voicePlace);
   const detailsText = [startLabel, membersLabel, voiceLabel].filter(Boolean).join(' | ');
   
   if (detailsText) {
     components.push({ type: 'text', content: detailsText });
   }
   
-  const contentText = ctx.data?.content ? `📝 募集内容\n${String(ctx.data.content).slice(0,1500)}` : '';
+  const contentText = context.data?.content ? `📝 募集内容\n${String(context.data.content).slice(0,1500)}` : '';
   if (contentText) {
     components.push({ type: 'text', content: contentText });
   }
   
   components.push(
     { type: 'separator', spacing: 'Small', divider: true },
-    { type: 'text', content: ctx.finalParticipantText },
+    { type: 'text', content: context.finalParticipantText },
     { type: 'separator', spacing: 'Small', divider: true },
     { type: 'text', content: 'この募集は締め切られました。' },
     { type: 'separator', spacing: 'Small', divider: true },
-    { type: 'text', content: ctx.footerText }
+    { type: 'text', content: context.footerText }
   );
   
   return {
@@ -1036,12 +1036,12 @@ function buildContainerFromLayout(layout) {
  * Main function: builds closed recruitment card with separated concerns
  */
 async function buildClosedRecruitmentCard(recruitStyle, data, messageId, interaction, originalMessage) {
-  const ctx = prepareClosedRecruitmentContext(data, messageId, interaction, originalMessage);
+  const context = prepareClosedRecruitmentContext(data, messageId, interaction, originalMessage);
   const layoutType = resolveClosedRecruitmentLayout(recruitStyle);
   
   const layout = layoutType === 'image' 
-    ? await buildImageStyleLayout(ctx)
-    : buildSimpleStyleLayout(ctx);
+    ? await buildImageStyleLayout(context)
+    : buildSimpleStyleLayout(context);
   
   const container = buildContainerFromLayout(layout);
   
