@@ -1,11 +1,11 @@
 // Supabase utilities extracted from index.js for reuse across routes
 
-export function resolveSupabaseRestUrl(env) {
-  const derivedFromRef = env.SUPABASE_PROJECT_REF
-    ? `https://${String(env.SUPABASE_PROJECT_REF).trim()}.supabase.co`
-    : null;
+function isSupabaseHost(value) {
+  try { return new URL(value).host.endsWith('.supabase.co'); } catch { return false; }
+}
 
-  const rawCandidates = [
+function collectRawCandidates(env) {
+  return [
     env.SUPABASE_URL,
     env.SUPABASE_REST_URL,
     env.PUBLIC_SUPABASE_URL,
@@ -13,27 +13,45 @@ export function resolveSupabaseRestUrl(env) {
     env.VITE_SUPABASE_URL,
     env.SUPABASE_PROJECT_URL,
   ].filter(v => typeof v === 'string' && v.trim() !== '');
+}
 
-  const isSupabaseHost = (u) => {
-    try { return new URL(u).host.endsWith('.supabase.co'); } catch { return false; }
-  };
+function deriveFromProjectRef(env) {
+  return env.SUPABASE_PROJECT_REF
+    ? `https://${String(env.SUPABASE_PROJECT_REF).trim()}.supabase.co`
+    : null;
+}
 
+function buildCandidates(env) {
+  const derived = deriveFromProjectRef(env);
+  const rawCandidates = collectRawCandidates(env);
   const candidates = [];
-  if (derivedFromRef) candidates.push(derivedFromRef);
-  for (const v of rawCandidates) if (isSupabaseHost(v)) candidates.push(v);
+  if (derived) candidates.push(derived);
+
+  for (const value of rawCandidates) {
+    if (isSupabaseHost(value)) candidates.push(value);
+  }
 
   const allowNonSupabase = String(env.ALLOW_NON_SUPABASE_URL || '').toLowerCase() === 'true';
   if (allowNonSupabase) {
-    for (const v of rawCandidates) if (!isSupabaseHost(v)) candidates.push(v);
+    for (const value of rawCandidates) {
+      if (!isSupabaseHost(value)) candidates.push(value);
+    }
   }
 
+  return candidates;
+}
+
+function pickFirstCandidate(candidates) {
   for (const value of candidates) {
     if (typeof value === 'string' && value.trim() !== '') {
       return value.replace(/\/+$/, '');
     }
   }
-
   return null;
+}
+
+export function resolveSupabaseRestUrl(env) {
+  return pickFirstCandidate(buildCandidates(env));
 }
 
 export function buildSupabaseHeaders(env) {

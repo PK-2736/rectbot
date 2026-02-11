@@ -3,28 +3,41 @@
  */
 
 import { addFriendCode } from '../../db/friendCodes';
-
-function jsonResponse(data, status = 200, headers = {}) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { 'content-type': 'application/json; charset=utf-8', ...headers }
-  });
-}
+import { jsonResponse } from '../../worker/http.js';
 
 function errorResponse(message, status = 500, headers = {}) {
   return jsonResponse({ success: false, error: message }, status, headers);
+}
+
+function getMissingFields(payload, requiredFields) {
+  const missing = [];
+  for (const field of requiredFields) {
+    if (!payload?.[field]) missing.push(field);
+  }
+  return missing;
+}
+
+function validateRequiredFields(payload, requiredFields, corsHeaders) {
+  const missing = getMissingFields(payload, requiredFields);
+  if (missing.length === 0) return null;
+  return errorResponse(`Missing required fields: ${missing.join(', ')}`, 400, corsHeaders);
 }
 
 export async function handleAddFriendCode(request, env, corsHeaders = {}) {
   try {
     const body = await request.json();
     const { userId, guildId, gameName, friendCode, originalGameName } = body;
+    const validation = validateRequiredFields(body, ['userId', 'guildId', 'gameName', 'friendCode'], corsHeaders);
+    if (validation) return validation;
 
-    if (!userId || !guildId || !gameName || !friendCode) {
-      return errorResponse('Missing required fields', 400, corsHeaders);
-    }
-
-    await addFriendCode(env.FRIEND_CODE_DB, userId, guildId, gameName, friendCode, originalGameName);
+    await addFriendCode({
+      db: env.FRIEND_CODE_DB,
+      userId,
+      guildId,
+      gameName,
+      friendCode,
+      originalGameName
+    });
 
     return jsonResponse({
       success: true,

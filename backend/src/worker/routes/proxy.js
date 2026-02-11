@@ -1,5 +1,6 @@
 // routes/proxy.js
-export async function routeProxy(request, env, ctx, url, corsHeaders) {
+export async function routeProxy(context) {
+  const { request, url, corsHeaders } = context;
   if (url.pathname.startsWith('/images/')) {
     const targetURL = 'https://api.recrubo.net' + url.pathname + url.search;
     const resp = await fetch(targetURL, {

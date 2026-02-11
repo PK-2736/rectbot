@@ -326,13 +326,13 @@ export default {
 
     // Delegate: Auth and debug endpoints (except env-lite which remains gated below)
     if (url.pathname !== '/api/debug/env-lite') {
-      const routedAuth = await routeAuth(request, env, ctx, url, corsHeaders);
+      const routedAuth = await routeAuth({ request, env, ctx, url, corsHeaders });
       if (routedAuth) return routedAuth;
     }
 
     // Delegate: Admin endpoints (JWT cookie-based)
     {
-      const routedAdmin = await routeAdmin(request, env, ctx, url, corsHeaders);
+      const routedAdmin = await routeAdmin({ request, env, ctx, url, corsHeaders });
       if (routedAdmin) return routedAdmin;
     }
 
@@ -374,20 +374,20 @@ export default {
 
     // Guild settings routes (split)
     {
-      const routed = await routeGuildSettings(request, env, ctx, url, corsHeaders);
+      const routed = await routeGuildSettings({ request, env, ctx, url, corsHeaders });
       if (routed) return routed;
     }
 
     // Recruitment, DO proxy, Grafana routes (split)
     {
-      const routed = await routeRecruitment(request, env, ctx, url, corsHeaders, sendToSentry);
+      const routed = await routeRecruitment({ request, env, ctx, url, corsHeaders, sendToSentry });
       if (routed) return routed;
     }
 
     // Delegate: Bot Invite redirect (one-time flow disabled)
     {
       console.log('[worker] Attempting routeBotInvite for:', url.pathname);
-      const routedInvite = await routeBotInvite(request, env, ctx, url, corsHeaders);
+      const routedInvite = await routeBotInvite({ request, env, ctx, url, corsHeaders });
       if (routedInvite) {
         console.log('[worker] routeBotInvite returned response');
         return routedInvite;
@@ -438,14 +438,14 @@ export default {
 
     // Delegate: Proxy (images)
     {
-      const routedProxy = await routeProxy(request, env, ctx, url, corsHeaders);
+      const routedProxy = await routeProxy({ request, env, ctx, url, corsHeaders });
       if (routedProxy) return routedProxy;
     }
 
 
     // Delegate: Logs (Cloudflare -> Loki)
     {
-      const routedLogs = await routeLogs(request, env, ctx, url, corsHeaders);
+      const routedLogs = await routeLogs({ request, env, ctx, url, corsHeaders });
       if (routedLogs) return routedLogs;
     }
 

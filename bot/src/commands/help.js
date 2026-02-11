@@ -1,6 +1,110 @@
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, ButtonBuilder, ButtonStyle, MessageFlags } = require('discord.js');
 const { safeReply, safeUpdate } = require('../utils/safeReply');
 
+const HELP_MENU_OPTIONS = [
+  { label: '🎮 rect', description: 'ゲーム募集を作成する', value: 'rect', emoji: '🎮' },
+  { label: '✒️ rect_edit', description: '既存の募集を編集する', value: 'rect_edit', emoji: '✏️' },
+  { label: '🔒 rect_close', description: '既存の募集を締め切る', value: 'rect_close', emoji: '🔒' },
+  { label: '➕ id_add', description: 'フレンドコードを登録する', value: 'id_add', emoji: '➕' },
+  { label: '👁️ id_show', description: 'フレンドコードを表示する', value: 'id_show', emoji: '👁️' },
+  { label: '🗑️ id_delete', description: 'フレンドコードを削除する', value: 'id_delete', emoji: '🗑️' },
+  { label: '⚙️ setting', description: 'ギルドの募集設定を管理する（管理者）', value: 'setting', emoji: '⚙️' },
+  { label: '❓ help', description: 'このヘルプを表示する', value: 'help', emoji: '❓' },
+  { label: '🔗 invite', description: '公式サーバーとボット招待リンクを表示', value: 'invite', emoji: '🔗' }
+];
+
+const COMMAND_DETAILS = {
+  rect: {
+    title: '🎮 rect コマンド',
+    description: 'ゲーム募集を作成し、参加者を管理できるコマンドです。',
+    usage: '`/rect [color]`',
+    examples: '`/rect` → モーダルが開き、募集内容を入力',
+    fields: [
+      { name: '📝 入力項目', value: '• **タイトル**\n• **募集内容**\n• **参加人数**: 1-16人\n• **開始時間**\n• **VC有無**', inline: false },
+      { name: '🎯 機能', value: '• 募集カード生成\n• 参加/取り消しボタン\n• 参加者表示の自動更新\n• 自動締切（8時間）', inline: false }
+    ]
+  },
+  setting: {
+    title: '⚙️ setting コマンド',
+    description: 'ギルド毎の募集設定を管理できるコマンドです（管理者権限が必要）。',
+    usage: '`/setting`',
+    examples: '`/setting` → 設定UIを表示',
+    fields: [
+      { name: '🔧 設定項目', value: '• 募集チャンネル\n• 通知ロール\n• 既定タイトル\n• 既定カラー\n• アップデート通知チャンネル', inline: false },
+      { name: '👤 権限', value: 'このコマンドは管理者のみ実行できます', inline: false }
+    ]
+  },
+  help: {
+    title: '❓ help コマンド',
+    description: 'Recruboの使い方とコマンド一覧を表示するコマンドです。',
+    usage: '`/help [command]`',
+    examples: '`/help` → 全体ヘルプ\n`/help rect` → rectコマンドの詳細',
+    fields: [
+      { name: '📖 オプション', value: '• **command**: 特定のコマンドの詳細を表示（省略可）', inline: false },
+      { name: '💡 使い方', value: '• `/help` で全体のヘルプ表示\n• `/help [コマンド名]` で個別詳細表示\n• セレクトメニューからも選択可能', inline: false }
+    ]
+  },
+  invite: {
+    title: '🔗 invite コマンド',
+    description: '公式サーバーへの参加リンクと、ボットのワンタイム招待リンクを発行して表示します。',
+    usage: '`/invite`',
+    examples: '`/invite` → 招待リンクを表示（ワンタイム生成）',
+    fields: [
+      { name: '🔒 ワンタイム招待', value: 'ワンタイムで発行されるボット招待リンクです。一度のみ有効になります。', inline: false }
+    ]
+  },
+  'rect_edit': {
+    title: '✒️ rect_edit コマンド',
+    description: '既存の募集内容を編集できるコマンドです。',
+    usage: '`/rect_edit id:[募集ID]`',
+    examples: '`/rect_edit id:abc123` → 募集IDを指定して編集\nIDはオートコンプリートで選択可能',
+    fields: [
+      { name: '📝 編集可能項目', value: '• タイトル\n• 募集内容\n• 参加人数\n• 開始時間\n• VC有無\n• 色', inline: false },
+      { name: '👤 権限', value: '募集を作成した本人のみ編集可能です', inline: false }
+    ]
+  },
+  'rect_close': {
+    title: '🔒 rect_close コマンド',
+    description: '既存の募集を締め切るコマンドです。',
+    usage: '`/rect_close 募集:[選択]`',
+    examples: '`/rect_close` → 参加中の募集から選択して締切',
+    fields: [
+      { name: '🎯 機能', value: '• 参加中の募集をオートコンプリートで選択\n• 募集メッセージを締切状態に更新\n• 参加者への通知', inline: false },
+      { name: '👤 権限', value: '募集を作成した本人のみ締切可能です', inline: false }
+    ]
+  },
+  'id_add': {
+    title: '➕ id_add コマンド',
+    description: 'ゲームのフレンドコードやゲーマータグを登録するコマンドです。',
+    usage: '`/id_add`',
+    examples: '`/id_add` → モーダルでゲーム名とコードを入力',
+    fields: [
+      { name: '📝 登録方法', value: '1. コマンド実行でモーダルが開きます\n2. ゲーム名を入力（AIが自動認識）\n3. フレンドコード/IDを入力\n4. 登録完了', inline: false },
+      { name: '🤖 AI認識', value: 'ゲーム名は略称でもOK（例: ばろ→Valorant）', inline: false }
+    ]
+  },
+  'id_show': {
+    title: '👁️ id_show コマンド',
+    description: '登録済みのフレンドコードを表示するコマンドです。',
+    usage: '`/id_show [user]`',
+    examples: '`/id_show` → 自分のフレンドコード一覧\n`/id_show user:@ユーザー` → 指定ユーザーのコード',
+    fields: [
+      { name: '📋 表示内容', value: '• 登録済みゲーム一覧\n• 各ゲームのフレンドコード\n• 登録日時', inline: false },
+      { name: '💡 便利機能', value: 'メンションでフレンドコードを呼び出すこともできます\n例: `valorant @自分`', inline: false }
+    ]
+  },
+  'id_delete': {
+    title: '🗑️ id_delete コマンド',
+    description: '登録済みのフレンドコードを削除するコマンドです。',
+    usage: '`/id_delete game:[ゲーム名]`',
+    examples: '`/id_delete` → セレクトメニューから選択して削除',
+    fields: [
+      { name: '🎯 削除方法', value: '1. コマンド実行\n2. 登録済みゲームから選択\n3. 確認して削除', inline: false },
+      { name: '⚠️ 注意', value: '削除したコードは復元できません', inline: false }
+    ]
+  }
+};
+
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('help')
@@ -71,53 +175,13 @@ async function showGeneralHelp(interaction) {
   const selectMenu = new StringSelectMenuBuilder()
     .setCustomId('help_command_select')
     .setPlaceholder('コマンドを選んで詳細を確認')
-    .addOptions([
+    .addOptions(HELP_MENU_OPTIONS.map(option => (
       new StringSelectMenuOptionBuilder()
-        .setLabel('🎮 rect')
-        .setDescription('ゲーム募集を作成する')
-        .setValue('rect')
-        .setEmoji('🎮'),
-      new StringSelectMenuOptionBuilder()
-        .setLabel('✒️ rect_edit')
-        .setDescription('既存の募集を編集する')
-        .setValue('rect_edit')
-        .setEmoji('✏️'),
-      new StringSelectMenuOptionBuilder()
-        .setLabel('🔒 rect_close')
-        .setDescription('既存の募集を締め切る')
-        .setValue('rect_close')
-        .setEmoji('🔒'),
-      new StringSelectMenuOptionBuilder()
-        .setLabel('➕ id_add')
-        .setDescription('フレンドコードを登録する')
-        .setValue('id_add')
-        .setEmoji('➕'),
-      new StringSelectMenuOptionBuilder()
-        .setLabel('👁️ id_show')
-        .setDescription('フレンドコードを表示する')
-        .setValue('id_show')
-        .setEmoji('👁️'),
-      new StringSelectMenuOptionBuilder()
-        .setLabel('🗑️ id_delete')
-        .setDescription('フレンドコードを削除する')
-        .setValue('id_delete')
-        .setEmoji('🗑️'),
-      new StringSelectMenuOptionBuilder()
-        .setLabel('⚙️ setting')
-        .setDescription('ギルドの募集設定を管理する（管理者）')
-        .setValue('setting')
-        .setEmoji('⚙️'),
-      new StringSelectMenuOptionBuilder()
-        .setLabel('❓ help')
-        .setDescription('このヘルプを表示する')
-        .setValue('help')
-        .setEmoji('❓'),
-      new StringSelectMenuOptionBuilder()
-        .setLabel('🔗 invite')
-        .setDescription('公式サーバーとボット招待リンクを表示')
-        .setValue('invite')
-        .setEmoji('🔗')
-    ]);
+        .setLabel(option.label)
+        .setDescription(option.description)
+        .setValue(option.value)
+        .setEmoji(option.emoji)
+    )));
 
   // ホームページへのボタン
   const homeButton = new ButtonBuilder()
@@ -147,100 +211,7 @@ async function showGeneralHelp(interaction) {
 
 // 特定のコマンドの詳細を表示
 async function showCommandDetails(interaction, commandName) {
-  const commandDetails = {
-    rect: {
-      title: '🎮 rect コマンド',
-      description: 'ゲーム募集を作成し、参加者を管理できるコマンドです。',
-      usage: '`/rect [color]`',
-      examples: '`/rect` → モーダルが開き、募集内容を入力',
-      fields: [
-        { name: '📝 入力項目', value: '• **タイトル**\n• **募集内容**\n• **参加人数**: 1-16人\n• **開始時間**\n• **VC有無**', inline: false },
-        { name: '🎯 機能', value: '• 募集カード生成\n• 参加/取り消しボタン\n• 参加者表示の自動更新\n• 自動締切（8時間）', inline: false }
-      ]
-    },
-    setting: {
-      title: '⚙️ setting コマンド',
-      description: 'ギルド毎の募集設定を管理できるコマンドです（管理者権限が必要）。',
-      usage: '`/setting`',
-      examples: '`/setting` → 設定UIを表示',
-      fields: [
-        { name: '🔧 設定項目', value: '• 募集チャンネル\n• 通知ロール\n• 既定タイトル\n• 既定カラー\n• アップデート通知チャンネル', inline: false },
-        { name: '👤 権限', value: 'このコマンドは管理者のみ実行できます', inline: false }
-      ]
-    },
-    help: {
-      title: '❓ help コマンド',
-      description: 'Recruboの使い方とコマンド一覧を表示するコマンドです。',
-      usage: '`/help [command]`',
-      examples: '`/help` → 全体ヘルプ\n`/help rect` → rectコマンドの詳細',
-      fields: [
-        { name: '📖 オプション', value: '• **command**: 特定のコマンドの詳細を表示（省略可）', inline: false },
-        { name: '💡 使い方', value: '• `/help` で全体のヘルプ表示\n• `/help [コマンド名]` で個別詳細表示\n• セレクトメニューからも選択可能', inline: false }
-      ]
-    }
-    ,
-    invite: {
-      title: '🔗 invite コマンド',
-      description: '公式サーバーへの参加リンクと、ボットのワンタイム招待リンクを発行して表示します。',
-      usage: '`/invite`',
-      examples: '`/invite` → 招待リンクを表示（ワンタイム生成）',
-      fields: [
-        { name: '🔒 ワンタイム招待', value: 'ワンタイムで発行されるボット招待リンクです。一度のみ有効になります。', inline: false }
-      ]
-    },
-    'rect_edit': {
-      title: '✒️ rect_edit コマンド',
-      description: '既存の募集内容を編集できるコマンドです。',
-      usage: '`/rect_edit id:[募集ID]`',
-      examples: '`/rect_edit id:abc123` → 募集IDを指定して編集\nIDはオートコンプリートで選択可能',
-      fields: [
-        { name: '📝 編集可能項目', value: '• タイトル\n• 募集内容\n• 参加人数\n• 開始時間\n• VC有無\n• 色', inline: false },
-        { name: '👤 権限', value: '募集を作成した本人のみ編集可能です', inline: false }
-      ]
-    },
-    'rect_close': {
-      title: '🔒 rect_close コマンド',
-      description: '既存の募集を締め切るコマンドです。',
-      usage: '`/rect_close 募集:[選択]`',
-      examples: '`/rect_close` → 参加中の募集から選択して締切',
-      fields: [
-        { name: '🎯 機能', value: '• 参加中の募集をオートコンプリートで選択\n• 募集メッセージを締切状態に更新\n• 参加者への通知', inline: false },
-        { name: '👤 権限', value: '募集を作成した本人のみ締切可能です', inline: false }
-      ]
-    },
-    'id_add': {
-      title: '➕ id_add コマンド',
-      description: 'ゲームのフレンドコードやゲーマータグを登録するコマンドです。',
-      usage: '`/id_add`',
-      examples: '`/id_add` → モーダルでゲーム名とコードを入力',
-      fields: [
-        { name: '📝 登録方法', value: '1. コマンド実行でモーダルが開きます\n2. ゲーム名を入力（AIが自動認識）\n3. フレンドコード/IDを入力\n4. 登録完了', inline: false },
-        { name: '🤖 AI認識', value: 'ゲーム名は略称でもOK（例: ばろ→Valorant）', inline: false }
-      ]
-    },
-    'id_show': {
-      title: '👁️ id_show コマンド',
-      description: '登録済みのフレンドコードを表示するコマンドです。',
-      usage: '`/id_show [user]`',
-      examples: '`/id_show` → 自分のフレンドコード一覧\n`/id_show user:@ユーザー` → 指定ユーザーのコード',
-      fields: [
-        { name: '📋 表示内容', value: '• 登録済みゲーム一覧\n• 各ゲームのフレンドコード\n• 登録日時', inline: false },
-        { name: '💡 便利機能', value: 'メンションでフレンドコードを呼び出すこともできます\n例: `valorant @自分`', inline: false }
-      ]
-    },
-    'id_delete': {
-      title: '🗑️ id_delete コマンド',
-      description: '登録済みのフレンドコードを削除するコマンドです。',
-      usage: '`/id_delete game:[ゲーム名]`',
-      examples: '`/id_delete` → セレクトメニューから選択して削除',
-      fields: [
-        { name: '🎯 削除方法', value: '1. コマンド実行\n2. 登録済みゲームから選択\n3. 確認して削除', inline: false },
-        { name: '⚠️ 注意', value: '削除したコードは復元できません', inline: false }
-      ]
-    }
-  };
-
-  const command = commandDetails[commandName];
+  const command = COMMAND_DETAILS[commandName];
   if (!command) {
     await interaction.reply({
       content: '❌ 指定されたコマンドが見つかりません。',

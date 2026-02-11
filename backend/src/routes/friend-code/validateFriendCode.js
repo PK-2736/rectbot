@@ -3,21 +3,10 @@
  * Workers AI を使用してフレンドコードの妥当性を検証
  */
 
-export async function validateFriendCode(request, env) {
-  try {
-    const { gameName, friendCode } = await request.json();
+import { jsonResponse } from '../../worker/http.js';
 
-    if (!gameName || !friendCode) {
-      return new Response(JSON.stringify({
-        error: 'gameName and friendCode are required'
-      }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
-
-    // Workers AI でフレンドコードを検証
-    const prompt = `あなたはゲームのフレンドコード/ID検証の専門家です。
+function buildValidationPrompt(gameName, friendCode) {
+  return `あなたはゲームのフレンドコード/ID検証の専門家です。
 
 ゲーム名: ${gameName}
 入力されたフレンドコード/ID: ${friendCode}
@@ -52,64 +41,83 @@ export async function validateFriendCode(request, env) {
 - 意味不明な文字列
 
 JSON以外は出力しないでください。`;
+}
 
-    const response = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
-      messages: [
-        { role: 'system', content: 'You are a helpful assistant that validates game friend codes and IDs. Always respond in valid JSON format.' },
-        { role: 'user', content: prompt }
-      ],
-      temperature: 0.3,
-      max_tokens: 500
-    });
+function parseAiResult(response) {
+  const content = response.response || response.result?.response || '';
+  const jsonMatch = content.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) {
+    throw new Error('No JSON found in AI response');
+  }
+  return JSON.parse(jsonMatch[0]);
+}
 
-    let result;
-    try {
-      // レスポンスをパース
-      const content = response.response || response.result?.response || '';
-      
-      // JSONブロックを抽出（```json ... ```の場合に対応）
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) {
-        throw new Error('No JSON found in AI response');
-      }
-      
-      result = JSON.parse(jsonMatch[0]);
-    } catch (parseError) {
-      console.error('[validateFriendCode] AI response parse error:', parseError);
-      console.error('[validateFriendCode] AI raw response:', response);
-      
-      // パース失敗時はデフォルトで許可（保守的な動作）
-      result = {
-        isValid: true,
-        confidence: 0.5,
-        message: 'AI判定に失敗しました。手動で確認してください。',
-        suggestions: []
-      };
+function fallbackResult(message) {
+  return {
+    isValid: true,
+    confidence: 0.5,
+    message,
+    suggestions: []
+  };
+}
+
+function normalizeLowConfidence(result) {
+  if (result.confidence < 0.7) {
+    return {
+      ...result,
+      isValid: true,
+      message: `⚠️ ${result.message}\n（信頼度が低いため警告のみ）`
+    };
+  }
+  return result;
+}
+
+async function readValidationInput(request) {
+  try {
+    const payload = await request.json();
+    const gameName = payload?.gameName;
+    const friendCode = payload?.friendCode;
+    if (!gameName || !friendCode) {
+      return { error: jsonResponse({ error: 'gameName and friendCode are required' }, 400, { 'Content-Type': 'application/json' }) };
     }
+    return { gameName, friendCode };
+  } catch (_error) {
+    return { error: jsonResponse({ error: 'invalid_json' }, 400, { 'Content-Type': 'application/json' }) };
+  }
+}
 
-    // 信頼度が低い場合は警告のみ（完全にブロックしない）
-    if (result.confidence < 0.7) {
-      result.isValid = true; // 低信頼度でも一応許可
-      result.message = `⚠️ ${result.message}\n（信頼度が低いため警告のみ）`;
-    }
+async function runAiValidation(env, gameName, friendCode) {
+  const prompt = buildValidationPrompt(gameName, friendCode);
+  const response = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
+    messages: [
+      { role: 'system', content: 'You are a helpful assistant that validates game friend codes and IDs. Always respond in valid JSON format.' },
+      { role: 'user', content: prompt }
+    ],
+    temperature: 0.3,
+    max_tokens: 500
+  });
 
-    return new Response(JSON.stringify(result), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' }
-    });
+  try {
+    const parsed = parseAiResult(response);
+    return normalizeLowConfidence(parsed);
+  } catch (parseError) {
+    console.error('[validateFriendCode] AI response parse error:', parseError);
+    console.error('[validateFriendCode] AI raw response:', response);
+    return fallbackResult('AI判定に失敗しました。手動で確認してください。');
+  }
+}
 
+export async function validateFriendCode(request, env) {
+  try {
+    const { gameName, friendCode, error } = await readValidationInput(request);
+    if (error) return error;
+
+    const normalized = await runAiValidation(env, gameName, friendCode);
+    return jsonResponse(normalized, 200, { 'Content-Type': 'application/json' });
   } catch (error) {
     console.error('[validateFriendCode] Error:', error);
-    
-    // エラー時は許可（保守的な動作）
-    return new Response(JSON.stringify({
-      isValid: true,
-      confidence: 0.5,
-      message: 'エラーが発生しましたが、登録は可能です。',
-      suggestions: []
-    }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' }
+    return jsonResponse(fallbackResult('エラーが発生しましたが、登録は可能です。'), 200, {
+      'Content-Type': 'application/json'
     });
   }
 }

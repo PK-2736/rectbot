@@ -134,43 +134,59 @@ async function sendDedicatedChannelWelcome(channel, recruit, participants) {
   }
 }
 
+async function prepareDedicatedChannelContext(interaction, recruitId) {
+  const guildSettings = await getGuildSettings(interaction.guildId).catch(() => ({}));
+  if (!(await validateDedicatedChannelFeature(interaction, guildSettings))) return null;
+
+  if (await checkExistingDedicatedChannel(interaction, recruitId)) return null;
+
+  const { participants, recruit } = await loadRecruitmentParticipants(recruitId);
+
+  if (!(await validateUserIsParticipant(interaction, participants))) return null;
+  if (!(await validateBotPermissions(interaction))) return null;
+
+  return { guildSettings, participants, recruit };
+}
+
+function buildChannelName(recruit, recruitId) {
+  return recruit?.title ? `${recruit.title}`.slice(0, 100) : `recruit-${recruitId}`;
+}
+
+async function createDedicatedChannel(interaction, { guildSettings, participants, recruit }, recruitId) {
+  const channelName = buildChannelName(recruit, recruitId);
+  const permissionOverwrites = buildDedicatedChannelPermissions(interaction, participants);
+
+  return interaction.guild.channels.create({
+    name: channelName,
+    type: 0,
+    permissionOverwrites,
+    topic: `🎮 ${recruit?.title || '募集'} の専用チャンネル`,
+    parent: guildSettings?.dedicated_channel_category_id || undefined,
+  });
+}
+
+async function persistDedicatedChannel(recruitId, channelId) {
+  try {
+    const { saveDedicatedChannel } = require('../../utils/db/dedicatedChannels');
+    await saveDedicatedChannel(recruitId, channelId, 86400);
+  } catch (error) {
+    console.warn('[processCreateDedicatedChannel] saveDedicatedChannel failed:', error);
+  }
+}
+
 async function processCreateDedicatedChannel(interaction, recruitId) {
   try {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-    const guildSettings = await getGuildSettings(interaction.guildId).catch(() => ({}));
-    if (!(await validateDedicatedChannelFeature(interaction, guildSettings))) return;
-
-    if (await checkExistingDedicatedChannel(interaction, recruitId)) return;
-
-    const { participants, recruit } = await loadRecruitmentParticipants(recruitId);
-
-    if (!(await validateUserIsParticipant(interaction, participants))) return;
-
-    if (!(await validateBotPermissions(interaction))) return;
-
-    const channelName = recruit?.title ? `${recruit.title}`.slice(0, 100) : `recruit-${recruitId}`;
-    const permissionOverwrites = buildDedicatedChannelPermissions(interaction, participants);
+    const context = await prepareDedicatedChannelContext(interaction, recruitId);
+    if (!context) return;
 
     try {
-      const dedicatedChannel = await interaction.guild.channels.create({
-        name: channelName,
-        type: 0,
-        permissionOverwrites,
-        topic: `🎮 ${recruit?.title || '募集'} の専用チャンネル`,
-        parent: guildSettings?.dedicated_channel_category_id || undefined,
-      });
-
+      const dedicatedChannel = await createDedicatedChannel(interaction, context, recruitId);
       console.log('[processCreateDedicatedChannel] Channel created:', dedicatedChannel.id);
 
-      try {
-        const { saveDedicatedChannel } = require('../../utils/db/dedicatedChannels');
-        await saveDedicatedChannel(recruitId, dedicatedChannel.id, 86400);
-      } catch (error) {
-        console.warn('[processCreateDedicatedChannel] saveDedicatedChannel failed:', error);
-      }
-
-      await sendDedicatedChannelWelcome(dedicatedChannel, recruit, participants);
+      await persistDedicatedChannel(recruitId, dedicatedChannel.id);
+      await sendDedicatedChannelWelcome(dedicatedChannel, context.recruit, context.participants);
 
       await safeReply(interaction, {
         content: `✨ 専用チャンネルを作成しました: <#${dedicatedChannel.id}>`,

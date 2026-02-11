@@ -8,6 +8,15 @@ const { replyEphemeral, logError } = require('./reply-helpers');
 const { isRecruiter } = require('./validation-helpers');
 const { hexToIntColor } = require('./ui-builders');
 
+async function sendRecruiterMessage(interaction, savedRecruitData, payload) {
+  if (!savedRecruitData?.recruiterId) return;
+
+  const recruiterUser = await interaction.client.users.fetch(savedRecruitData.recruiterId).catch(() => null);
+  if (recruiterUser && recruiterUser.send) {
+    await recruiterUser.send(payload).catch(() => null);
+  }
+}
+
 async function hydrateParticipants(_interaction, messageId) {
   let participants = recruitParticipants.get(messageId) || [];
   try {
@@ -86,13 +95,10 @@ async function notifyRecruiterOfJoin(interaction, participants, savedRecruitData
       )
       .setTimestamp();
 
-    const recruiterUser = await interaction.client.users.fetch(savedRecruitData.recruiterId).catch(() => null);
-    if (recruiterUser && recruiterUser.send) {
-      await recruiterUser.send({
-        content: `あなたの募集に参加者が増えました: ${savedRecruitData.title || ''}`,
-        embeds: [joinEmbed]
-      }).catch(() => null);
-    }
+    await sendRecruiterMessage(interaction, savedRecruitData, {
+      content: `あなたの募集に参加者が増えました: ${savedRecruitData.title || ''}`,
+      embeds: [joinEmbed]
+    });
   }, 'Recruiter DM notification');
 }
 
@@ -138,13 +144,10 @@ async function sendCancelNotificationToRecruiter(interaction, savedRecruitData, 
         { name: '現在の参加者数', value: `${updated.length}/${savedRecruitData.participants}人`, inline: true }
       )
       .setTimestamp();
-    const recruiterUser = await interaction.client.users.fetch(savedRecruitData.recruiterId).catch(() => null);
-    if (recruiterUser && recruiterUser.send) {
-      await recruiterUser.send({
-        content: `あなたの募集から参加者が離脱しました: ${savedRecruitData.title || ''}`,
-        embeds: [cancelEmbed]
-      }).catch(() => null);
-    }
+    await sendRecruiterMessage(interaction, savedRecruitData, {
+      content: `あなたの募集から参加者が離脱しました: ${savedRecruitData.title || ''}`,
+      embeds: [cancelEmbed]
+    });
   } catch (e) {
     logError('background cancel notify failed', e);
   }

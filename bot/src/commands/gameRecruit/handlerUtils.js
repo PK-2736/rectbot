@@ -44,16 +44,16 @@ async function sendNotificationAsync(channel, notificationRole, messageText, log
  */
 function formatVoiceLabel(vcType, voicePlace) {
   if (!vcType) return null;
-  
-  if (vcType === 'あり(聞き専)') {
-    return voicePlace ? `聞き専/${voicePlace}` : '聞き専';
-  } else if (vcType === 'あり') {
-    return voicePlace ? `あり/${voicePlace}` : 'あり';
-  } else if (vcType === 'なし') {
-    return 'なし';
-  }
-  
-  return vcType;
+
+  const labelConfig = {
+    'あり(聞き専)': { label: '聞き専', allowPlace: true },
+    'あり': { label: 'あり', allowPlace: true },
+    'なし': { label: 'なし', allowPlace: false }
+  };
+  const config = labelConfig[vcType];
+  if (!config) return vcType;
+  if (!config.allowPlace || !voicePlace) return config.label;
+  return `${config.label}/${voicePlace}`;
 }
 
 /**

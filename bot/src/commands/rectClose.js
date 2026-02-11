@@ -18,33 +18,8 @@ module.exports = {
   async autocomplete(interaction) {
     try {
       const all = await listRecruitsFromRedis().catch(() => []);
-      const guildId = interaction.guildId;
-      
-      // 現在のユーザーが参加している募集のみをフィルタ
-      const userRecruits = [];
-      for (const r of all || []) {
-        try {
-          const gid = String(r?.guildId ?? r?.guild_id ?? r?.metadata?.guildId ?? '');
-          const status = String(r?.status ?? '').toLowerCase();
-          if (gid !== String(guildId)) continue;
-          if (status && !(status === 'recruiting' || status === 'active')) continue;
-          
-          const messageId = String(r?.message_id || r?.messageId || r?.metadata?.messageId || '');
-          if (!messageId) continue;
-          
-          // 参加者チェック
-          const participants = await getParticipantsFromRedis(messageId).catch(() => []);
-          if (!Array.isArray(participants) || !participants.includes(interaction.user.id)) continue;
-          
-          const label = (r?.title ? String(r.title).slice(0, 80) : '募集') + ` (ID: ${String(r?.recruitId || '').slice(0,8)})`;
-          userRecruits.push({
-            name: label,
-            value: messageId
-          });
-        } catch (_) {}
-      }
-      
-      await interaction.respond(userRecruits.slice(0, 25));
+      const options = await buildUserRecruitOptions(all, interaction.guildId, interaction.user.id);
+      await interaction.respond(options.slice(0, 25));
     } catch (err) {
       console.error('[rect-close autocomplete]', err);
       await interaction.respond([]).catch(() => {});
@@ -59,48 +34,21 @@ module.exports = {
     }
 
     try {
-      // 参加者取得
-      let participants = await getParticipantsFromRedis(messageId).catch(() => null);
-      if (!Array.isArray(participants)) participants = [];
-
-      const isParticipant = participants.includes(interaction.user.id);
-      if (!isParticipant) {
+      const participants = await fetchParticipants(messageId);
+      if (!participants.includes(interaction.user.id)) {
         await safeReply(interaction, { content: '❌ この募集の参加者のみが〆できます。', flags: MessageFlags.Ephemeral });
         return;
       }
 
-      // 募集情報取得（タイトル表示用）
-      let recruitTitle = '募集';
-      try {
-        const all = await listRecruitsFromRedis().catch(() => []);
-        const target = (all || []).find(r => 
-          String(r?.message_id || r?.messageId || '') === messageId || 
-          String(r?.recruitId || '') === messageId.slice(-8)
-        );
-        if (target && target.title) {
-          recruitTitle = String(target.title).slice(0, 100);
-        }
-      } catch (_) {}
+      const all = await listRecruitsFromRedis().catch(() => []);
+      const target = findRecruitByMessageId(all, messageId);
+      const recruitTitle = getRecruitTitle(target);
+      const channelId = getRecruitChannelId(target, interaction.channelId);
 
-      // 対象募集のチャンネルIDを取得
-      let channelId = interaction.channelId;
-      try {
-        const all = await listRecruitsFromRedis().catch(() => []);
-        const target = (all || []).find(r => 
-          String(r?.message_id || r?.messageId || '') === messageId || 
-          String(r?.recruitId || '') === messageId.slice(-8)
-        );
-        if (target && (target.channelId || target.metadata?.channelId)) {
-          channelId = String(target.channelId || target.metadata.channelId);
-        }
-      } catch (_) {}
-
-      // クローズ実行
       await autoCloseRecruitment(interaction.client, interaction.guildId, channelId, messageId);
-      
-      await safeReply(interaction, { 
-        content: `🔒 **${recruitTitle}** の募集を締めました。`, 
-        flags: MessageFlags.Ephemeral 
+      await safeReply(interaction, {
+        content: `🔒 **${recruitTitle}** の募集を締めました。`,
+        flags: MessageFlags.Ephemeral
       });
     } catch (err) {
       console.error('[rect-close execute]', err);
@@ -111,3 +59,59 @@ module.exports = {
     }
   }
 };
+
+async function fetchParticipants(messageId) {
+  const participants = await getParticipantsFromRedis(messageId).catch(() => null);
+  return Array.isArray(participants) ? participants : [];
+}
+
+function findRecruitByMessageId(all, messageId) {
+  return (all || []).find(r =>
+    String(r?.message_id || r?.messageId || '') === messageId ||
+    String(r?.recruitId || '') === messageId.slice(-8)
+  );
+}
+
+function getRecruitTitle(target) {
+  if (target?.title) {
+    return String(target.title).slice(0, 100);
+  }
+  return '募集';
+}
+
+function getRecruitChannelId(target, fallbackChannelId) {
+  if (target && (target.channelId || target.metadata?.channelId)) {
+    return String(target.channelId || target.metadata.channelId);
+  }
+  return fallbackChannelId;
+}
+
+function buildRecruitLabel(recruit) {
+  const title = recruit?.title ? String(recruit.title).slice(0, 80) : '募集';
+  const id = String(recruit?.recruitId || '').slice(0, 8);
+  return `${title} (ID: ${id})`;
+}
+
+async function buildUserRecruitOptions(all, guildId, userId) {
+  const userRecruits = [];
+  for (const r of all || []) {
+    try {
+      const gid = String(r?.guildId ?? r?.guild_id ?? r?.metadata?.guildId ?? '');
+      const status = String(r?.status ?? '').toLowerCase();
+      if (gid !== String(guildId)) continue;
+      if (status && !(status === 'recruiting' || status === 'active')) continue;
+
+      const messageId = String(r?.message_id || r?.messageId || r?.metadata?.messageId || '');
+      if (!messageId) continue;
+
+      const participants = await fetchParticipants(messageId);
+      if (!participants.includes(userId)) continue;
+
+      userRecruits.push({
+        name: buildRecruitLabel(r),
+        value: messageId
+      });
+    } catch (_) {}
+  }
+  return userRecruits;
+}

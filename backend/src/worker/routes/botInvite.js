@@ -1,6 +1,7 @@
 // routes/botInvite.js
 
-export async function routeBotInvite(request, env, ctx, url, corsHeaders) {
+export async function routeBotInvite(context) {
+  const { request, url, corsHeaders } = context;
   console.log('[routeBotInvite] Called with pathname:', url.pathname, 'method:', request.method);
   
   // One-time bot invite (simplified - return static URL directly)

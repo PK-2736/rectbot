@@ -3,6 +3,158 @@ import { jsonResponse, notFoundResponse, safeReadJson } from "../utils/http.js";
 const DEFAULT_STATE = () => ({ items: {}, list: [], history: {} });
 const HISTORY_LIMIT = 200;
 
+function normalizeRecruitId(data) {
+  return (data?.recruitId || data?.id || "").toString();
+}
+
+function normalizeOwnerId(data) {
+  return (data?.ownerId || data?.owner_id || "").toString();
+}
+
+function ensureRecruitExists(store, id) {
+  const record = store.items[id];
+  if (!record) {
+    return { response: jsonResponse({ error: "not_found" }, 404) };
+  }
+  return { record };
+}
+
+function isRecruitOwner(requester, existing) {
+  return requester && String(requester) === String(existing.ownerId);
+}
+
+function getJoinUserId(body) {
+  return body?.userId || body?.user_id || null;
+}
+
+function resolveRecruitRouteHandler(method, action, handlers) {
+  const handler = handlers[`${method}:${action}`];
+  return typeof handler === "function" ? handler : null;
+}
+
+function readRange(params, defaultFrom = 0, defaultTo = Date.now()) {
+  const fromMs = params.get("from") ? Date.parse(params.get("from")) : defaultFrom;
+  const toMs = params.get("to") ? Date.parse(params.get("to")) : defaultTo;
+  return { fromMs, toMs };
+}
+
+function parseSnapshotTimestamp(params) {
+  return params.get("ts") ? Date.parse(params.get("ts")) : Date.now();
+}
+
+function validateCreatePayload(data) {
+  const recruitId = normalizeRecruitId(data);
+  const ownerId = normalizeOwnerId(data);
+  if (!recruitId || !ownerId) {
+    return { error: jsonResponse({ error: "recruitId_and_ownerId_required" }, 400) };
+  }
+  return { recruitId, ownerId };
+}
+
+function tryAddParticipant(record, userId) {
+  record.participants = Array.isArray(record.participants) ? record.participants : [];
+  if (record.participants.includes(userId)) {
+    return { ok: true };
+  }
+  if (record.maxMembers && record.participants.length >= Number(record.maxMembers)) {
+    return { ok: false, response: jsonResponse({ error: "full" }, 409) };
+  }
+  record.participants.push(userId);
+  return { ok: true };
+}
+
+function applyUpdateField(next, original, key, value) {
+  if (key === "maxMembers") {
+    next[key] = Number(value);
+    return;
+  }
+  if (key === "metadata") {
+    next[key] = { ...(original?.metadata || {}), ...value };
+    return;
+  }
+  next[key] = value;
+}
+
+function collectExpiredRecruitIds(store, now) {
+  const ids = [];
+  for (const id of Object.keys(store.items || {})) {
+    const record = store.items[id];
+    const exp = record?.expiresAt ? Date.parse(record.expiresAt) : 0;
+    if (exp && exp <= now) ids.push(id);
+  }
+  return ids;
+}
+
+function removeRecruitById(store, id) {
+  delete store.items[id];
+  const idx = (store.list || []).indexOf(id);
+  if (idx >= 0) {
+    store.list.splice(idx, 1);
+  }
+}
+
+function filterHistoryEvents(events, now, recruitingWindowMs, closedWindowMs) {
+  const list = Array.isArray(events) ? events : [];
+  return list.filter((event) => {
+    const snapshot = event?.snapshot || null;
+    const status = String(snapshot?.status || "recruiting");
+    const keepWindow = status === "recruiting" ? recruitingWindowMs : closedWindowMs;
+    return event.ts && now - event.ts <= keepWindow;
+  });
+}
+
+function resolveFetchHandlers({ request, method, url, store, recruitMatch, handler }) {
+  return [
+    {
+      when: () => method === "GET" && url.pathname === "/api/recruits",
+      handle: () => listRecruits(store)
+    },
+    {
+      when: () => !!recruitMatch,
+      handle: () => handler.handleRecruitRoute({ request, method, store, match: recruitMatch })
+    },
+    {
+      when: () => method === "POST" && url.pathname === "/api/recruits",
+      handle: () => handler.handleCreateRecruit(request, store)
+    },
+    {
+      when: () => method === "GET" && url.pathname === "/api/recruits-history",
+      handle: () => handleGlobalHistory(url, store)
+    },
+    {
+      when: () => method === "GET" && url.pathname === "/api/recruits-at",
+      handle: () => handleSnapshotAt(url, store)
+    }
+  ];
+}
+
+function collectHistoryIds(store, idFilter) {
+  return idFilter ? [idFilter] : Object.keys(store.history || {});
+}
+
+function collectHistoryEvents(store, ids, fromMs, toMs) {
+  const events = [];
+  for (const id of ids) {
+    const arr = (store.history?.[id] || []).filter((ev) => ev.ts >= fromMs && ev.ts <= toMs);
+    for (const ev of arr) {
+      events.push({ id, ...ev });
+    }
+  }
+  events.sort((a, b) => a.ts - b.ts);
+  return events;
+}
+
+function collectSnapshotIds(store) {
+  return Array.from(new Set([...(store.list || []), ...Object.keys(store.history || {})]));
+}
+
+function findSnapshotAt(store, id, ts) {
+  const arr = (store.history?.[id] || []).filter((ev) => ev.ts <= ts);
+  if (!arr.length) return null;
+  const last = arr[arr.length - 1];
+  return last?.snapshot || null;
+}
+
 export class RecruitsDO {
   constructor(state, env) {
     this.state = state;
@@ -43,25 +195,12 @@ export class RecruitsDO {
     const store = await this.loadStore();
     this.cleanup(store);
 
-    if (method === "GET" && url.pathname === "/api/recruits") {
-      return listRecruits(store);
-    }
-
     const recruitMatch = matchRecruitPath(url.pathname);
-    if (recruitMatch) {
-      return await this.handleRecruitRoute({ request, method, store, match: recruitMatch });
-    }
-
-    if (method === "POST" && url.pathname === "/api/recruits") {
-      return await this.handleCreateRecruit(request, store);
-    }
-
-    if (method === "GET" && url.pathname === "/api/recruits-history") {
-      return handleGlobalHistory(url, store);
-    }
-
-    if (method === "GET" && url.pathname === "/api/recruits-at") {
-      return handleSnapshotAt(url, store);
+    const handlers = resolveFetchHandlers({ request, method, url, store, recruitMatch, handler: this });
+    for (const entry of handlers) {
+      if (entry.when()) {
+        return await entry.handle();
+      }
     }
 
     return notFoundResponse();
@@ -71,37 +210,22 @@ export class RecruitsDO {
     const { method, match, request, store } = context;
     const { id, action } = match;
 
-    if (method === "GET" && action === "base") {
-      return getRecruit(store, id);
-    }
+    const handler = resolveRecruitRouteHandler(method, action, {
+      "GET:base": () => getRecruit(store, id),
+      "GET:history": () => historyForRecruit(new URL(request.url), store, id),
+      "PATCH:base": () => this.handleUpdateRecruit(request, store, id),
+      "DELETE:base": () => this.handleDeleteRecruit(request, store, id),
+      "POST:join": () => this.handleJoinRecruit(request, store, id)
+    });
 
-    if (method === "GET" && action === "history") {
-      return historyForRecruit(new URL(request.url), store, id);
-    }
-
-    if (method === "PATCH" && action === "base") {
-      return await this.handleUpdateRecruit(request, store, id);
-    }
-
-    if (method === "DELETE" && action === "base") {
-      return await this.handleDeleteRecruit(request, store, id);
-    }
-
-    if (method === "POST" && action === "join") {
-      return await this.handleJoinRecruit(request, store, id);
-    }
-
-    return notFoundResponse();
+    return handler ? await handler() : notFoundResponse();
   }
 
   async handleCreateRecruit(request, store) {
     const data = await safeReadJson(request);
-    const recruitId = (data?.recruitId || data?.id || "").toString();
-    const ownerId = (data?.ownerId || data?.owner_id || "").toString();
-
-    if (!recruitId || !ownerId) {
-      return jsonResponse({ error: "recruitId_and_ownerId_required" }, 400);
-    }
+    const validation = validateCreatePayload(data);
+    if (validation.error) return validation.error;
+    const { recruitId } = validation;
 
     const record = buildRecruitRecord(data, this.env);
     store.items[recruitId] = record;
@@ -116,10 +240,8 @@ export class RecruitsDO {
 
   async handleUpdateRecruit(request, store, id) {
     const update = await safeReadJson(request);
-    const existing = store.items[id];
-    if (!existing) {
-      return jsonResponse({ error: "not_found" }, 404);
-    }
+    const { record: existing, response } = ensureRecruitExists(store, id);
+    if (response) return response;
 
     const updated = applyRecruitUpdate(existing, update, this.env);
     store.items[id] = updated;
@@ -132,14 +254,10 @@ export class RecruitsDO {
   async handleDeleteRecruit(request, store, id) {
     const payload = await safeReadJson(request);
     const requester = payload?.userId || payload?.ownerId;
-    const existing = store.items[id];
+    const { record: existing, response } = ensureRecruitExists(store, id);
+    if (response) return response;
 
-    if (!existing) {
-      return jsonResponse({ error: "not_found" }, 404);
-    }
-
-    const isOwner = requester && String(requester) === String(existing.ownerId);
-    if (!isOwner) {
+    if (!isRecruitOwner(requester, existing)) {
       return jsonResponse({ error: "forbidden" }, 403);
     }
 
@@ -156,23 +274,15 @@ export class RecruitsDO {
 
   async handleJoinRecruit(request, store, id) {
     const body = await safeReadJson(request);
-    const userId = body?.userId || body?.user_id;
+    const userId = getJoinUserId(body);
     if (!userId) {
       return jsonResponse({ error: "user_id_required" }, 400);
     }
+    const { record: existing, response } = ensureRecruitExists(store, id);
+    if (response) return response;
 
-    const existing = store.items[id];
-    if (!existing) {
-      return jsonResponse({ error: "not_found" }, 404);
-    }
-
-    existing.participants = Array.isArray(existing.participants) ? existing.participants : [];
-    if (!existing.participants.includes(userId)) {
-      if (existing.maxMembers && existing.participants.length >= Number(existing.maxMembers)) {
-        return jsonResponse({ error: "full" }, 409);
-      }
-      existing.participants.push(userId);
-    }
+    const addResult = tryAddParticipant(existing, userId);
+    if (addResult.response) return addResult.response;
 
     store.items[id] = existing;
     await this.saveStore(store);
@@ -196,42 +306,29 @@ function getRecruit(store, id) {
 
 function historyForRecruit(url, store, id) {
   const params = url.searchParams;
-  const fromMs = params.get("from") ? Date.parse(params.get("from")) : 0;
-  const toMs = params.get("to") ? Date.parse(params.get("to")) : Date.now();
+  const { fromMs, toMs } = readRange(params, 0, Date.now());
   const events = (store.history?.[id] || []).filter((ev) => ev.ts >= fromMs && ev.ts <= toMs);
   return jsonResponse({ id, events });
 }
 
 function handleGlobalHistory(url, store) {
   const params = url.searchParams;
-  const fromMs = params.get("from") ? Date.parse(params.get("from")) : 0;
-  const toMs = params.get("to") ? Date.parse(params.get("to")) : Date.now();
+  const { fromMs, toMs } = readRange(params, 0, Date.now());
   const idFilter = params.get("id");
 
-  const events = [];
-  const ids = idFilter ? [idFilter] : Object.keys(store.history || {});
-  for (const id of ids) {
-    const arr = (store.history?.[id] || []).filter((ev) => ev.ts >= fromMs && ev.ts <= toMs);
-    for (const ev of arr) {
-      events.push({ id, ...ev });
-    }
-  }
-  events.sort((a, b) => a.ts - b.ts);
+  const ids = collectHistoryIds(store, idFilter);
+  const events = collectHistoryEvents(store, ids, fromMs, toMs);
   return jsonResponse({ events });
 }
 
 function handleSnapshotAt(url, store) {
-  const ts = url.searchParams.get("ts") ? Date.parse(url.searchParams.get("ts")) : Date.now();
-  const ids = Array.from(new Set([...(store.list || []), ...Object.keys(store.history || {})]));
-  const items = [];
+  const ts = parseSnapshotTimestamp(url.searchParams);
 
+  const ids = collectSnapshotIds(store);
+  const items = [];
   for (const id of ids) {
-    const arr = (store.history?.[id] || []).filter((ev) => ev.ts <= ts);
-    if (!arr.length) continue;
-    const last = arr[arr.length - 1];
-    if (last?.snapshot) {
-      items.push(last.snapshot);
-    }
+    const snapshot = findSnapshotAt(store, id, ts);
+    if (snapshot) items.push(snapshot);
   }
 
   return jsonResponse({ items });
@@ -278,14 +375,7 @@ function applyRecruitUpdate(original, update, env) {
 
   for (const key of allowedFields) {
     if (Object.prototype.hasOwnProperty.call(update, key)) {
-      if (key === "maxMembers") {
-        next[key] = Number(update[key]);
-      } else if (key === "metadata") {
-        // Merge metadata instead of replacing
-        next[key] = { ...(original?.metadata || {}), ...update[key] };
-      } else {
-        next[key] = update[key];
-      }
+      applyUpdateField(next, original, key, update[key]);
     }
   }
 
@@ -313,21 +403,9 @@ function markRecruitClosed(record, env) {
 }
 
 function removeExpiredRecruits(store, now) {
-  const toDelete = [];
-  for (const id of Object.keys(store.items || {})) {
-    const record = store.items[id];
-    const exp = record?.expiresAt ? Date.parse(record.expiresAt) : 0;
-    if (exp && exp <= now) {
-      toDelete.push(id);
-    }
-  }
-
+  const toDelete = collectExpiredRecruitIds(store, now);
   for (const id of toDelete) {
-    delete store.items[id];
-    const idx = (store.list || []).indexOf(id);
-    if (idx >= 0) {
-      store.list.splice(idx, 1);
-    }
+    removeRecruitById(store, id);
   }
 }
 
@@ -336,13 +414,7 @@ function pruneHistory(store, now, recruitingWindowMs, closedWindowMs) {
   const entries = Object.entries(store.history);
 
   for (const [id, events] of entries) {
-    const list = Array.isArray(events) ? events : [];
-    const pruned = list.filter((event) => {
-      const snapshot = event?.snapshot || null;
-      const status = String(snapshot?.status || "recruiting");
-      const keepWindow = status === "recruiting" ? recruitingWindowMs : closedWindowMs;
-      return event.ts && now - event.ts <= keepWindow;
-    });
+    const pruned = filterHistoryEvents(events, now, recruitingWindowMs, closedWindowMs);
 
     if (pruned.length) {
       store.history[id] = pruned;

@@ -41,6 +41,104 @@ async function fetchRecruitById(recruitId) {
   }
 }
 
+function buildArgUpdates(interaction) {
+  const updates = {};
+  const titleArg = interaction.options.getString('タイトル');
+  const peopleArg = interaction.options.getInteger('人数');
+  const startArg = interaction.options.getString('開始時間');
+  const vcArg = interaction.options.getString('通話有無');
+  const placeArg = interaction.options.getChannel('通話場所');
+  const colorArg = interaction.options.getString('色');
+
+  if (titleArg) updates.title = titleArg;
+  if (peopleArg) updates.participants = peopleArg;
+  if (startArg) updates.startTime = startArg;
+  if (vcArg !== null) updates.vc = vcArg;
+  if (placeArg) updates.voiceChannel = { id: placeArg.id, name: placeArg.name };
+  if (colorArg) updates.panelColor = colorArg;
+
+  return updates;
+}
+
+function cacheArgUpdates(client, argUpdates) {
+  if (!client.rectEditArgCache) {
+    client.rectEditArgCache = new Map();
+  }
+  const cacheKey = Math.random().toString(36).slice(2, 10);
+  client.rectEditArgCache.set(cacheKey, argUpdates);
+  setTimeout(() => client.rectEditArgCache.delete(cacheKey), 5 * 60 * 1000);
+  return cacheKey;
+}
+
+function buildEditModal(customId, recruit) {
+  const modal = new ModalBuilder()
+    .setCustomId(customId)
+    .setTitle('募集内容編集');
+
+  const contentInput = new TextInputBuilder()
+    .setCustomId('content')
+    .setLabel('募集内容')
+    .setStyle(TextInputStyle.Paragraph)
+    .setRequired(false)
+    .setMaxLength(1000)
+    .setValue(recruit.description || recruit.content || '');
+
+  modal.addComponents(new ActionRowBuilder().addComponents(contentInput));
+  return modal;
+}
+
+function buildUpdatePayload(content, argUpdates) {
+  const update = {
+    description: content !== null ? content : undefined,
+    content: content !== null ? content : undefined,
+  };
+
+  if (argUpdates.title) update.title = argUpdates.title;
+  if (argUpdates.participants) update.participants = argUpdates.participants;
+  if (argUpdates.startTime) update.startTime = argUpdates.startTime;
+  if (argUpdates.vc !== undefined) update.vc = argUpdates.vc;
+  if (argUpdates.voiceChannel?.name) update.note = argUpdates.voiceChannel.name;
+  if (argUpdates.panelColor) update.panelColor = argUpdates.panelColor;
+
+  return update;
+}
+
+function normalizeParticipants(recruitData) {
+  let participants = Array.isArray(recruitData.participants) ? recruitData.participants : [];
+  if (!participants.length && recruitData.ownerId) participants = [recruitData.ownerId];
+  participants = Array.from(new Set(participants));
+  const maxMembersCap = Number(recruitData.maxMembers) || null;
+  if (maxMembersCap && participants.length > maxMembersCap) {
+    participants = participants.slice(0, maxMembersCap);
+  }
+  return participants;
+}
+
+async function resolveRecruitStyle(guildId) {
+  const guildSettings = await getGuildSettingsFromRedis(guildId).catch(() => ({}));
+  return guildSettings?.recruit_style === 'simple' ? 'simple' : 'image';
+}
+
+function resolveAccentColor(recruitData) {
+  const useColor = recruitData.panelColor || recruitData.metadata?.panelColor || '000000';
+  const accentColor = /^[0-9A-Fa-f]{6}$/.test(useColor) ? parseInt(useColor, 16) : 0x000000;
+  return { useColor, accentColor };
+}
+
+function buildParticipantText(recruitData, participants) {
+  const currentMembers = participants.length;
+  const maxMembers = Number(recruitData.maxMembers) || currentMembers;
+  const remainingSlots = maxMembers - currentMembers;
+  return `📋 参加リスト (**あと${remainingSlots}人**)\n${participants.map(id => `<@${id}>`).join(' • ')}`;
+}
+
+function buildSimpleParticipantText(recruitData, participants) {
+  const currentMembers = participants.length;
+  const maxMembers = Number(recruitData.maxMembers) || currentMembers;
+  const remainingSlots = maxMembers - currentMembers;
+  return `**📋 参加リスト** \`(あと${remainingSlots}人)\`\n${participants.map(id => `<@${id}>`).join(' • ')}`;
+}
+
 module.exports = {
   noDefer: true,
   data: new SlashCommandBuilder()
@@ -104,22 +202,7 @@ module.exports = {
       return;
     }
 
-    // Get all options from arguments
-    const argUpdates = {};
-    const titleArg = interaction.options.getString('タイトル');
-    const peopleArg = interaction.options.getInteger('人数');
-    const startArg = interaction.options.getString('開始時間');
-    const vcArg = interaction.options.getString('通話有無');
-    const placeArg = interaction.options.getChannel('通話場所');
-    const colorArg = interaction.options.getString('色');
-
-    if (titleArg) argUpdates.title = titleArg;
-    if (peopleArg) argUpdates.participants = peopleArg;
-    if (startArg) argUpdates.startTime = startArg;
-    if (vcArg !== null) argUpdates.vc = vcArg;
-    if (placeArg) argUpdates.voiceChannel = { id: placeArg.id, name: placeArg.name };
-    if (colorArg) argUpdates.panelColor = colorArg;
-
+    const argUpdates = buildArgUpdates(interaction);
     console.log(`[rect-edit] argUpdates:`, argUpdates);
 
     try {
@@ -137,31 +220,11 @@ module.exports = {
         return;
       }
 
-      // Cache arguments to avoid exceeding customId length limit (<= 100)
-      if (!interaction.client.rectEditArgCache) {
-        interaction.client.rectEditArgCache = new Map();
-      }
-      const cacheKey = Math.random().toString(36).slice(2, 10);
-      interaction.client.rectEditArgCache.set(cacheKey, argUpdates);
-      // Auto-expire cache entry after 5 minutes
-      setTimeout(() => interaction.client.rectEditArgCache.delete(cacheKey), 5 * 60 * 1000);
+      const cacheKey = cacheArgUpdates(interaction.client, argUpdates);
 
       // Show modal with short customId
       const cid = `editRecruitModal_${messageId}_${cacheKey}`.slice(0, 100);
-      const modal = new ModalBuilder()
-        .setCustomId(cid)
-        .setTitle('募集内容編集');
-      
-      const contentInput = new TextInputBuilder()
-        .setCustomId('content')
-        .setLabel('募集内容')
-        .setStyle(TextInputStyle.Paragraph)
-        .setRequired(false)
-        .setMaxLength(1000)
-        .setValue(recruit.description || recruit.content || '');
-
-      modal.addComponents(new ActionRowBuilder().addComponents(contentInput));
-      await interaction.showModal(modal);
+      await interaction.showModal(buildEditModal(cid, recruit));
     } catch (error) {
       console.error('[rect-edit] fetch or modal error', error);
       // Only respond if we haven't shown the modal yet
@@ -256,202 +319,7 @@ module.exports = {
     try {
       await interaction.deferReply({ ephemeral: true });
       await interaction.editReply({ content: '⏳ 募集を更新中...' });
-
-      // Run update process in background without awaiting
-      (async () => {
-        try {
-          const content = interaction.fields.getTextInputValue('content') || null;
-          console.log('[rect-edit] Background update started - content:', content);
-
-          const update = {
-            // Always include content/description field
-            description: content !== null ? content : undefined,
-            content: content !== null ? content : undefined,
-          };
-          
-          // Add argument-based updates if they exist
-          if (argUpdates.title) update.title = argUpdates.title;
-          if (argUpdates.participants) update.participants = argUpdates.participants;
-          if (argUpdates.startTime) update.startTime = argUpdates.startTime;
-          if (argUpdates.vc !== undefined) update.vc = argUpdates.vc;
-          if (argUpdates.voiceChannel?.name) update.note = argUpdates.voiceChannel.name;
-          if (argUpdates.panelColor) update.panelColor = argUpdates.panelColor;
-
-          console.log('[rect-edit] handleModalSubmit - messageId:', messageId);
-          console.log('[rect-edit] Updating recruit with:', update);
-          
-          // updateRecruitmentData expects messageId as first parameter
-          const result = await updateRecruitmentData(messageId, update);
-          console.log('[rect-edit] updateRecruitmentData result:', { ok: result.ok, status: result.status });
-
-          if (!result.ok || !result.body?.recruit) {
-            console.error('[rect-edit] Update failed or no recruit data returned');
-            await interaction.editReply({ content: '⚠️ 募集の更新に失敗しました。' });
-            return;
-          }
-
-          // Use the updated recruit data directly from the BACKEND response
-          const recruitData = result.body.recruit;
-          const actualMessageId = recruitData.metadata?.messageId || messageId;
-          const recruitId = recruitData.recruitId;
-          
-          console.log('[rect-edit] Updated recruit from backend:', { 
-            recruitId, 
-            title: recruitData.title, 
-            description: recruitData.description,
-            actualMessageId 
-          });
-
-          // Fetch the Discord message using the actual messageId
-          const msg = await interaction.channel.messages.fetch(actualMessageId).catch((err) => {
-            console.error('[rect-edit] Failed to fetch message:', err.message);
-            return null;
-          });
-          
-          if (!msg) {
-            console.warn('[rect-edit] Message not found:', actualMessageId);
-            await interaction.editReply({ content: '✅ 募集を更新しました（メッセージが見つかりません）。' });
-            return;
-          }
-
-          // Get participants using recruitId from backend response
-          let participants = Array.isArray(recruitData.participants) ? recruitData.participants : [];
-          if (!participants.length && recruitData.ownerId) participants = [recruitData.ownerId];
-          // 重複除去＆最大人数で切り詰め
-          participants = Array.from(new Set(participants));
-          const maxMembersCap = Number(recruitData.maxMembers) || null;
-          if (maxMembersCap && participants.length > maxMembersCap) {
-            participants = participants.slice(0, maxMembersCap);
-          }
-          console.log('[rect-edit] Participants:', participants);
-          
-          // Determine recruit style: check guild settings
-          const guildSettings = await getGuildSettingsFromRedis(recruitData.metadata?.guildId || interaction.guildId).catch(() => ({}));
-          const recruitStyle = (guildSettings?.recruit_style === 'simple') ? 'simple' : 'image';
-          console.log('[rect-edit] Recruit style:', recruitStyle);
-          
-          // 色の決定
-          const useColor = recruitData.panelColor || recruitData.metadata?.panelColor || '000000';
-          const accentColor = /^[0-9A-Fa-f]{6}$/.test(useColor) ? parseInt(useColor, 16) : 0x000000;
-          
-          const participantText = (() => {
-            const currentMembers = participants.length;
-            const maxMembers = Number(recruitData.maxMembers) || currentMembers;
-            const remainingSlots = maxMembers - currentMembers;
-            return `📋 参加リスト (**あと${remainingSlots}人**)\n${participants.map(id => `<@${id}>`).join(' • ')}`;
-          })();
-
-          let container;
-          let files = [];
-
-          if (recruitStyle === 'simple') {
-            // シンプル募集スタイル: テキストベース、画像なし
-            console.log('[rect-edit] Using simple style (no image)');
-            const titleLine = recruitData.title ? `## ${recruitData.title}` : '';
-            const currentMembers = participants.length;
-            const maxMembers = Number(recruitData.maxMembers) || currentMembers;
-            
-            // 値に絵文字を付与（作成時と同じフォーマット）
-            const startVal = recruitData.metadata?.startLabel || recruitData.startTime 
-              ? `🕒 ${String(recruitData.metadata?.startLabel || recruitData.startTime)}` 
-              : null;
-            const membersVal = `👥 ${currentMembers}/${maxMembers}人`;
-            const vcVal = (() => {
-              const hasVoice = recruitData.vc === 'あり' || recruitData.vc === true || recruitData.voice === true;
-              const noVoice = recruitData.vc === 'なし' || recruitData.vc === false || recruitData.voice === false;
-              if (hasVoice) {
-                const place = recruitData.metadata?.note || recruitData.voiceChannelName || recruitData.voicePlace;
-                return place ? `🎙 あり(${place})` : '🎙 あり';
-              } else if (noVoice) {
-                return '🎙 なし';
-              }
-              return null;
-            })();
-            
-            const labelsLine = '**🕒 開始時間 | 👥 募集人数 | 🎙 通話有無**';
-            const valuesLine = [startVal, membersVal, vcVal].filter(Boolean).join(' | ');
-            const detailsText = [labelsLine, valuesLine].filter(Boolean).join('\n');
-            
-            // 募集内容を確実に取得し、マークダウンを保持して表示（ラベルは太字で強調）
-            const recruitContent = recruitData.description || recruitData.content || recruitData.note || recruitData.metadata?.raw?.content || '';
-            const contentText = recruitContent && String(recruitContent).trim().length > 0 
-              ? `**📝 募集内容**\n${String(recruitContent).slice(0, 1500)}` 
-              : '';
-
-            // 通知ロール情報: 作成時に指定されたロールを使用（metadata から取得）
-            let subHeaderText = null;
-            const notificationRoleId = recruitData.metadata?.notificationRoleId || recruitData.notificationRoleId;
-            if (notificationRoleId) {
-              if (notificationRoleId === 'everyone') {
-                subHeaderText = '🔔 通知ロール: @everyone';
-              } else if (notificationRoleId === 'here') {
-                subHeaderText = '🔔 通知ロール: @here';
-              } else {
-                subHeaderText = `🔔 通知ロール: <@&${notificationRoleId}>`;
-              }
-            }
-
-            // 募集主のアバターURL を取得
-            let avatarUrl = null;
-            try {
-              const fetchedUser = await interaction.client.users.fetch(recruitData.ownerId).catch(() => null);
-              if (fetchedUser && typeof fetchedUser.displayAvatarURL === 'function') {
-                avatarUrl = fetchedUser.displayAvatarURL({ size: 128, extension: 'png' });
-              }
-            } catch (_) {}
-
-            // 参加リストテキストを作成時と同じ形式に変更
-            const remainingSlots = maxMembers - currentMembers;
-            const simpleParticipantText = `**📋 参加リスト** \`(あと${remainingSlots}人)\`\n${participants.map(id => `<@${id}>`).join(' • ')}`;
-
-            container = buildContainerSimple({
-              headerTitle: `${interaction.user.username}さんの募集`,
-              titleText: titleLine,
-              subHeaderText,
-              detailsText,
-              contentText,
-              participantText: simpleParticipantText,
-              recruitIdText: recruitId,
-              accentColor,
-              avatarUrl
-            });
-          } else {
-            // 画像パネルスタイル: 既存の処理
-            console.log('[rect-edit] Generating recruit card image...');
-            const imageBuffer = await generateRecruitCard(recruitData, participants, interaction.client, useColor);
-            const image = new AttachmentBuilder(imageBuffer, { name: 'recruit-card.png' });
-            files = [image];
-
-            console.log('[rect-edit] Building container...');
-            container = buildContainer({
-              headerTitle: `${interaction.user.username}さんの募集`,
-              subHeaderText: null,
-              contentText: recruitData.description || recruitData.content || '',
-              titleText: '',
-              participantText,
-              recruitIdText: recruitId,
-              accentColor,
-              imageAttachmentName: 'attachment://recruit-card.png',
-              recruiterId: recruitData.ownerId,
-              requesterId: interaction.user.id
-            });
-          }
-
-          console.log('[rect-edit] Updating message:', actualMessageId);
-          await msg.edit({
-            files,
-            components: [container],
-            flags: require('discord.js').MessageFlags.IsComponentsV2,
-            allowedMentions: { roles: [], users: [] }
-          });
-
-          console.log('[rect-edit] Update completed successfully');
-          await interaction.editReply({ content: '✅ 募集を更新しました。' });
-        } catch (error) {
-          console.error('[rect-edit] Background update error', error);
-          await interaction.editReply({ content: '❌ 更新に失敗しました。' }).catch(() => {});
-        }
-      })();
+      runUpdateFlow(interaction, messageId, argUpdates);
     } catch (error) {
       console.error('[rect-edit] Modal submit error', error);
       if (!interaction.replied && !interaction.deferred) {
@@ -462,3 +330,173 @@ module.exports = {
     }
   }
 };
+
+async function runUpdateFlow(interaction, messageId, argUpdates) {
+  (async () => {
+    try {
+      const content = interaction.fields.getTextInputValue('content') || null;
+      console.log('[rect-edit] Background update started - content:', content);
+
+      const update = buildUpdatePayload(content, argUpdates);
+      console.log('[rect-edit] handleModalSubmit - messageId:', messageId);
+      console.log('[rect-edit] Updating recruit with:', update);
+
+      const result = await updateRecruitmentData(messageId, update);
+      console.log('[rect-edit] updateRecruitmentData result:', { ok: result.ok, status: result.status });
+
+      if (!result.ok || !result.body?.recruit) {
+        console.error('[rect-edit] Update failed or no recruit data returned');
+        await interaction.editReply({ content: '⚠️ 募集の更新に失敗しました。' });
+        return;
+      }
+
+      const recruitData = result.body.recruit;
+      const actualMessageId = recruitData.metadata?.messageId || messageId;
+      const recruitId = recruitData.recruitId;
+
+      console.log('[rect-edit] Updated recruit from backend:', {
+        recruitId,
+        title: recruitData.title,
+        description: recruitData.description,
+        actualMessageId
+      });
+
+      const msg = await interaction.channel.messages.fetch(actualMessageId).catch((err) => {
+        console.error('[rect-edit] Failed to fetch message:', err.message);
+        return null;
+      });
+
+      if (!msg) {
+        console.warn('[rect-edit] Message not found:', actualMessageId);
+        await interaction.editReply({ content: '✅ 募集を更新しました（メッセージが見つかりません）。' });
+        return;
+      }
+
+      const participants = normalizeParticipants(recruitData);
+      console.log('[rect-edit] Participants:', participants);
+
+      const recruitStyle = await resolveRecruitStyle(recruitData.metadata?.guildId || interaction.guildId);
+      console.log('[rect-edit] Recruit style:', recruitStyle);
+
+      const { useColor, accentColor } = resolveAccentColor(recruitData);
+      const participantText = buildParticipantText(recruitData, participants);
+
+      const { container, files } = await buildRecruitContainer({
+        recruitStyle,
+        recruitData,
+        participants,
+        interaction,
+        useColor,
+        accentColor,
+        participantText,
+        recruitId
+      });
+
+      console.log('[rect-edit] Updating message:', actualMessageId);
+      await msg.edit({
+        files,
+        components: [container],
+        flags: require('discord.js').MessageFlags.IsComponentsV2,
+        allowedMentions: { roles: [], users: [] }
+      });
+
+      console.log('[rect-edit] Update completed successfully');
+      await interaction.editReply({ content: '✅ 募集を更新しました。' });
+    } catch (error) {
+      console.error('[rect-edit] Background update error', error);
+      await interaction.editReply({ content: '❌ 更新に失敗しました。' }).catch(() => {});
+    }
+  })();
+}
+
+async function buildRecruitContainer({ recruitStyle, recruitData, participants, interaction, useColor, accentColor, participantText, recruitId }) {
+  if (recruitStyle === 'simple') {
+    console.log('[rect-edit] Using simple style (no image)');
+    const titleLine = recruitData.title ? `## ${recruitData.title}` : '';
+    const currentMembers = participants.length;
+    const maxMembers = Number(recruitData.maxMembers) || currentMembers;
+
+    const startVal = recruitData.metadata?.startLabel || recruitData.startTime
+      ? `🕒 ${String(recruitData.metadata?.startLabel || recruitData.startTime)}`
+      : null;
+    const membersVal = `👥 ${currentMembers}/${maxMembers}人`;
+    const vcVal = (() => {
+      const hasVoice = recruitData.vc === 'あり' || recruitData.vc === true || recruitData.voice === true;
+      const noVoice = recruitData.vc === 'なし' || recruitData.vc === false || recruitData.voice === false;
+      if (hasVoice) {
+        const place = recruitData.metadata?.note || recruitData.voiceChannelName || recruitData.voicePlace;
+        return place ? `🎙 あり(${place})` : '🎙 あり';
+      } else if (noVoice) {
+        return '🎙 なし';
+      }
+      return null;
+    })();
+
+    const labelsLine = '**🕒 開始時間 | 👥 募集人数 | 🎙 通話有無**';
+    const valuesLine = [startVal, membersVal, vcVal].filter(Boolean).join(' | ');
+    const detailsText = [labelsLine, valuesLine].filter(Boolean).join('\n');
+
+    const recruitContent = recruitData.description || recruitData.content || recruitData.note || recruitData.metadata?.raw?.content || '';
+    const contentText = recruitContent && String(recruitContent).trim().length > 0
+      ? `**📝 募集内容**\n${String(recruitContent).slice(0, 1500)}`
+      : '';
+
+    let subHeaderText = null;
+    const notificationRoleId = recruitData.metadata?.notificationRoleId || recruitData.notificationRoleId;
+    if (notificationRoleId) {
+      if (notificationRoleId === 'everyone') {
+        subHeaderText = '🔔 通知ロール: @everyone';
+      } else if (notificationRoleId === 'here') {
+        subHeaderText = '🔔 通知ロール: @here';
+      } else {
+        subHeaderText = `🔔 通知ロール: <@&${notificationRoleId}>`;
+      }
+    }
+
+    let avatarUrl = null;
+    try {
+      const fetchedUser = await interaction.client.users.fetch(recruitData.ownerId).catch(() => null);
+      if (fetchedUser && typeof fetchedUser.displayAvatarURL === 'function') {
+        avatarUrl = fetchedUser.displayAvatarURL({ size: 128, extension: 'png' });
+      }
+    } catch (_) {}
+
+    const simpleParticipantText = buildSimpleParticipantText(recruitData, participants);
+
+    return {
+      files: [],
+      container: buildContainerSimple({
+        headerTitle: `${interaction.user.username}さんの募集`,
+        titleText: titleLine,
+        subHeaderText,
+        detailsText,
+        contentText,
+        participantText: simpleParticipantText,
+        recruitIdText: recruitId,
+        accentColor,
+        avatarUrl
+      })
+    };
+  }
+
+  console.log('[rect-edit] Generating recruit card image...');
+  const imageBuffer = await generateRecruitCard(recruitData, participants, interaction.client, useColor);
+  const image = new AttachmentBuilder(imageBuffer, { name: 'recruit-card.png' });
+
+  console.log('[rect-edit] Building container...');
+  return {
+    files: [image],
+    container: buildContainer({
+      headerTitle: `${interaction.user.username}さんの募集`,
+      subHeaderText: null,
+      contentText: recruitData.description || recruitData.content || '',
+      titleText: '',
+      participantText,
+      recruitIdText: recruitId,
+      accentColor,
+      imageAttachmentName: 'attachment://recruit-card.png',
+      recruiterId: recruitData.ownerId,
+      requesterId: interaction.user.id
+    })
+  };
+}

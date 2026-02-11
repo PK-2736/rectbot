@@ -336,7 +336,13 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
     actualRecruitId
   });
 
-  scheduleStartTimeNotification(finalRecruitData, interaction, actualMessageId, actualRecruitId, guildSettings);
+  scheduleStartTimeNotification({
+    finalRecruitData,
+    interaction,
+    actualMessageId,
+    actualRecruitId,
+    guildSettings
+  });
 
   try {
     if (!isGuildExempt(interaction.guildId)) {
@@ -546,7 +552,7 @@ async function fetchUserAvatar(interaction) {
   return null;
 }
 
-async function buildSimpleStyleImmediateContainer(recruitDataObj, user, participantText, subHeaderText, recruitId, accentColorInit, interaction) {
+async function buildSimpleStyleImmediateContainer({ recruitDataObj, user, participantText, subHeaderText, recruitId, accentColorInit, interaction }) {
   const detailsText = buildSimpleStyleLabels(recruitDataObj);
   const contentText = buildSimpleStyleContent(recruitDataObj);
   const titleText = buildSimpleStyleTitle(recruitDataObj);
@@ -567,7 +573,7 @@ async function buildSimpleStyleImmediateContainer(recruitDataObj, user, particip
   });
 }
 
-function buildImageStyleImmediateContainer(user, participantText, subHeaderText, recruitId, accentColorInit, interaction, recruitDataObj) {
+function buildImageStyleImmediateContainer({ user, participantText, subHeaderText, recruitId, accentColorInit, interaction, recruitDataObj }) {
   const extraButtonsImmediate = buildExtraButtonsWithRecruitId(recruitDataObj, recruitId);
   return buildContainer({
     headerTitle: `${user.username}さんの募集`,
@@ -584,12 +590,11 @@ function buildImageStyleImmediateContainer(user, participantText, subHeaderText,
   });
 }
 
-async function buildImmediateContainer(style, recruitDataObj, user, participantText, subHeaderText, recruitId, accentColorInit, interaction) {
+async function buildImmediateContainer({ style, recruitDataObj, user, participantText, subHeaderText, recruitId, accentColorInit, interaction }) {
   if (style === 'simple') {
-    return await buildSimpleStyleImmediateContainer(recruitDataObj, user, participantText, subHeaderText, recruitId, accentColorInit, interaction);
-  } else {
-    return buildImageStyleImmediateContainer(user, participantText, subHeaderText, recruitId, accentColorInit, interaction, recruitDataObj);
+    return await buildSimpleStyleImmediateContainer({ recruitDataObj, user, participantText, subHeaderText, recruitId, accentColorInit, interaction });
   }
+  return buildImageStyleImmediateContainer({ user, participantText, subHeaderText, recruitId, accentColorInit, interaction, recruitDataObj });
 }
 
 function prepareEditPayload(immediateContainer, container, style, image) {
@@ -621,7 +626,7 @@ function prepareSecondaryPayload(immediateContainer, container, editPayload) {
   return secondaryPayload;
 }
 
-async function updateMessagesWithRecruitId(followUpMessage, secondaryMessage, immediateContainer, container, style, image) {
+async function updateMessagesWithRecruitId({ followUpMessage, secondaryMessage, immediateContainer, container, style, image }) {
   const editPayload = prepareEditPayload(immediateContainer, container, style, image);
 
   await followUpMessage.edit(editPayload);
@@ -650,15 +655,25 @@ async function sendAndUpdateInitialMessage({
   const accentColorInit = /^[0-9A-Fa-f]{6}$/.test(useColorInit) ? parseInt(useColorInit, 16) : 0x000000;
 
   try {
-    const immediateContainer = await buildImmediateContainer(
-      style, recruitDataObj, user, participantText, subHeaderText,
-      recruitId, accentColorInit, interaction
-    );
+    const immediateContainer = await buildImmediateContainer({
+      style,
+      recruitDataObj,
+      user,
+      participantText,
+      subHeaderText,
+      recruitId,
+      accentColorInit,
+      interaction
+    });
 
-    await updateMessagesWithRecruitId(
-      followUpMessage, secondaryMessage, immediateContainer,
-      container, style, image
-    );
+    await updateMessagesWithRecruitId({
+      followUpMessage,
+      secondaryMessage,
+      immediateContainer,
+      container,
+      style,
+      image
+    });
   } catch (e) {
     logError('[handleRecruitCreateModal] Initial message edit failed', e);
   }
@@ -666,7 +681,7 @@ async function sendAndUpdateInitialMessage({
   return { followUpMessage, secondaryMessage };
 }
 
-function buildRecruitDataObject(interaction, pendingData, participantsNum, panelColor, selectedNotificationRole, voiceChannelName) {
+function buildRecruitDataObject({ interaction, pendingData, participantsNum, panelColor, selectedNotificationRole, voiceChannelName }) {
   return {
     title: (pendingData?.title && pendingData.title.trim().length > 0) ? pendingData.title : '参加者募集',
     content: interaction.fields.getTextInputValue('content'),
@@ -816,14 +831,14 @@ async function handleRecruitCreateModal(interaction) {
     const inputs = await gatherRecruitmentInputs(interaction, guildSettings);
     const { panelColor, existingMembers, selectedNotificationRole, pendingData, voiceChannelName } = inputs;
 
-    const recruitDataObj = buildRecruitDataObject(
+    const recruitDataObj = buildRecruitDataObject({
       interaction,
       pendingData,
       participantsNum,
       panelColor,
       selectedNotificationRole,
       voiceChannelName
-    );
+    });
 
     if (interaction.user && interaction.user.id) {
       pendingModalOptions.delete(interaction.user.id);

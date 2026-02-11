@@ -48,7 +48,7 @@ async function tryGetParticipants(actualMessageId) {
   return [];
 }
 
-function scheduleStartTimeNotification(finalRecruitData, interaction, actualMessageId, actualRecruitId, guildSettings) {
+function scheduleStartTimeNotification({ finalRecruitData, interaction, actualMessageId, actualRecruitId, guildSettings }) {
   if (isImmediateStartTime(finalRecruitData.startTime)) return;
 
   const startDelay = computeDelayMs(finalRecruitData.startAt, null);

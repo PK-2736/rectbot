@@ -310,7 +310,7 @@ async function sendCloseNotification(interaction, data, messageId) {
   scheduleDedicatedChannelCleanup(interaction, data, messageId);
 }
 
-async function updateMessageWithClosedCard(interaction, messageId, recruitStyle, data) {
+async function updateMessageWithClosedCard({ interaction, messageId, recruitStyle, data }) {
   const { container, attachment } = await buildClosedRecruitmentCard(
     recruitStyle,
     data,
@@ -351,7 +351,7 @@ async function processClose(interaction, messageId, savedRecruitData) {
 
     const recruitStyle = await getRecruitStyle(interaction.guildId);
 
-    await updateMessageWithClosedCard(interaction, messageId, recruitStyle, data);
+    await updateMessageWithClosedCard({ interaction, messageId, recruitStyle, data });
 
     await sendCloseNotification(interaction, data, messageId);
   } catch (e) {

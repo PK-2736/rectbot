@@ -2,7 +2,7 @@
  * D1 Friend Code CRUD
  */
 
-export async function addFriendCode(db, userId, guildId, gameName, friendCode, originalGameName = null) {
+export async function addFriendCode({ db, userId, guildId, gameName, friendCode, originalGameName = null }) {
   try {
     await db.prepare(
       `INSERT INTO friend_codes (user_id, guild_id, game_name, friend_code, original_game_name)

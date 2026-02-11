@@ -3,38 +3,43 @@ const { hydrateParticipants, loadSavedRecruitData, processJoin, processCancel } 
 const { processClose } = require('./recruit-close');
 const { processCreateDedicatedChannel } = require('./dedicated-channel');
 
+function resolveDedicatedChannelRecruitId(interaction) {
+  if (!interaction.customId.startsWith('create_vc_') && interaction.customId !== 'create_vc_pending') {
+    return null;
+  }
+
+  let recruitId = interaction.customId.replace('create_vc_', '');
+  if (!recruitId || recruitId === 'pending') {
+    try {
+      recruitId = String(interaction.message.id).slice(-8);
+    } catch (_) {
+      recruitId = null;
+    }
+  }
+
+  return recruitId || null;
+}
+
 async function handleButton(interaction) {
   const messageId = interaction.message.id;
-
-  if (interaction.customId.startsWith('create_vc_') || interaction.customId === 'create_vc_pending') {
-    let recruitId = interaction.customId.replace('create_vc_', '');
-    if (!recruitId || recruitId === 'pending') {
-      try {
-        recruitId = String(interaction.message.id).slice(-8);
-      } catch (_) {
-        recruitId = null;
-      }
-    }
-    if (recruitId) {
-      await processCreateDedicatedChannel(interaction, recruitId);
-      return;
-    }
+  const recruitId = resolveDedicatedChannelRecruitId(interaction);
+  if (recruitId) {
+    await processCreateDedicatedChannel(interaction, recruitId);
+    return;
   }
 
   const participants = await hydrateParticipants(interaction, messageId);
   const savedRecruitData = await loadSavedRecruitData(interaction, messageId);
 
-  const action = interaction.customId;
-  if (action === 'join') {
-    await processJoin(interaction, messageId, participants, savedRecruitData);
-    return;
-  }
-  if (action === 'cancel') {
-    await processCancel(interaction, messageId, participants, savedRecruitData);
-    return;
-  }
-  if (action === 'close') {
-    await processClose(interaction, messageId, savedRecruitData);
+  const actionHandlers = {
+    join: () => processJoin(interaction, messageId, participants, savedRecruitData),
+    cancel: () => processCancel(interaction, messageId, participants, savedRecruitData),
+    close: () => processClose(interaction, messageId, savedRecruitData)
+  };
+
+  const handler = actionHandlers[interaction.customId];
+  if (handler) {
+    await handler();
   }
 }
 

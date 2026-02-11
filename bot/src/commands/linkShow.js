@@ -28,26 +28,7 @@ module.exports = {
         });
       }
 
-      const embed = new EmbedBuilder()
-        .setTitle(`🎮 ${targetUser.username} のフレンドコード`)
-        .setColor('#00ff00')
-        .setThumbnail(targetUser.displayAvatarURL({ size: 128 }))
-        .setTimestamp();
-
-      for (const fc of friendCodes) {
-        const displayName = fc.original_game_name && fc.original_game_name !== fc.game_name
-          ? `${fc.game_name} (登録名: ${fc.original_game_name})`
-          : fc.game_name;
-        
-        embed.addFields({
-          name: `📌 ${displayName}`,
-          value: `\`\`\`${fc.friend_code}\`\`\``,
-          inline: false
-        });
-      }
-
-      embed.setFooter({ text: `登録数: ${friendCodes.length} | データソース: Cloudflare D1` });
-
+      const embed = buildFriendCodeEmbed(targetUser, friendCodes);
       await interaction.editReply({ embeds: [embed] });
     } catch (error) {
       console.error('[link-show] Error:', error);
@@ -57,3 +38,26 @@ module.exports = {
     }
   }
 };
+
+function buildFriendCodeEmbed(targetUser, friendCodes) {
+  const embed = new EmbedBuilder()
+    .setTitle(`🎮 ${targetUser.username} のフレンドコード`)
+    .setColor('#00ff00')
+    .setThumbnail(targetUser.displayAvatarURL({ size: 128 }))
+    .setTimestamp();
+
+  for (const fc of friendCodes) {
+    const displayName = fc.original_game_name && fc.original_game_name !== fc.game_name
+      ? `${fc.game_name} (登録名: ${fc.original_game_name})`
+      : fc.game_name;
+
+    embed.addFields({
+      name: `📌 ${displayName}`,
+      value: `\`\`\`${fc.friend_code}\`\`\``,
+      inline: false
+    });
+  }
+
+  embed.setFooter({ text: `登録数: ${friendCodes.length} | データソース: Cloudflare D1` });
+  return embed;
+}
