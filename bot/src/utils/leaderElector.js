@@ -1,5 +1,5 @@
 const Redis = require('ioredis');
-const crypto = require('crypto');
+const nodeCrypto = require('crypto');
 
 const LOCK_KEY = process.env.LEADER_LOCK_KEY || 'rectbot:leader';
 const HB_PREFIX = process.env.HB_PREFIX || 'rectbot:hb:';
@@ -9,7 +9,7 @@ const HB_TTL_SEC = Number(process.env.HB_TTL_SEC || 90);
 const HB_INTERVAL_MS = 20_000;
 
 function makeInstanceId() {
-  return `${process.env.SITE_ID || 'oci'}:${process.pid}:${Date.now()}:${crypto.randomBytes(4).toString('hex')}`;
+  return `${process.env.SITE_ID || 'oci'}:${process.pid}:${Date.now()}:${nodeCrypto.randomBytes(4).toString('hex')}`;
 }
 
 function createRedis() {
@@ -34,7 +34,6 @@ async function runLeadership({ siteId = 'oci', onAcquire, onRelease }) {
 
   let leader = false;
   let renewTimer = null;
-  let hbTimer = null;
 
   async function writeHeartbeat() {
     try {
@@ -95,7 +94,7 @@ async function runLeadership({ siteId = 'oci', onAcquire, onRelease }) {
     }, RENEW_INTERVAL_MS);
   }
 
-  hbTimer = setInterval(writeHeartbeat, HB_INTERVAL_MS);
+  setInterval(writeHeartbeat, HB_INTERVAL_MS);
   await writeHeartbeat();
 
   // main loop

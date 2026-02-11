@@ -81,7 +81,7 @@ module.exports = {
 
       const buttonRow = new ActionRowBuilder().addComponents(replyButton);
 
-      const reportMessage = await reportChannel.send({
+      await reportChannel.send({
         embeds: [reportEmbed],
         components: [buttonRow]
       });

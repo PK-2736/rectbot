@@ -238,7 +238,7 @@ async function handleFinalize(request, env, corsHeaders) {
 }
 
 // GET /api/guild-settings/:guildId
-async function handleGet(request, env, corsHeaders, url, ctx) {
+async function handleGet(request, env, corsHeaders, url, _ctx) {
   const defaultSettings = {
     recruit_channel: null,
     recruit_channels: [],

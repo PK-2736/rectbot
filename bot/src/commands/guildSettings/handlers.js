@@ -1,5 +1,4 @@
 const {
-  SlashCommandBuilder,
   PermissionFlagsBits,
   PermissionsBitField,
   MessageFlags,
@@ -8,7 +7,7 @@ const {
 
 const { saveGuildSettingsToRedis, getGuildSettingsFromRedis, getGuildSettingsSmart, finalizeGuildSettings, upsertTemplate } = require('../../utils/db');
 const { safeReply } = require('../../utils/safeReply');
-const { createErrorEmbed, createSuccessEmbed, createWarningEmbed } = require('../../utils/embedHelpers');
+const { createErrorEmbed, createSuccessEmbed } = require('../../utils/embedHelpers');
 const {
   showSettingsUI,
   showSettingsCategoryUI,
@@ -16,7 +15,6 @@ const {
   showRoleSelect,
   showTitleModal,
   showColorModal,
-  showTemplateModal,
 } = require('./ui');
 
 // 管理者判定を一元化（Administrator / ManageGuild / ギルドオーナーを許可）
@@ -317,7 +315,7 @@ async function updateGuildSetting(interaction, settingKey, value) {
       payload = { dedicated_channel_category_id: value ? String(value) : null };
     }
 
-    const result = await saveGuildSettingsToRedis(guildId, payload);
+    await saveGuildSettingsToRedis(guildId, payload);
 
     const settingNames = {
       recruit_channel: '募集チャンネル',
@@ -401,7 +399,7 @@ async function resetAllSettings(interaction) {
       return await safeReply(interaction, { content: '❌ この操作を実行するには「管理者」権限が必要です。', flags: MessageFlags.Ephemeral });
     }
     const guildId = interaction.guildId;
-    const result = await saveGuildSettingsToRedis(guildId, {
+    await saveGuildSettingsToRedis(guildId, {
       recruit_channel: null,
       notification_role: null,
       notification_roles: [],

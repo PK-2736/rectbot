@@ -39,7 +39,6 @@ async function checkAndNotifyStartTime(client) {
     const jstNow = new Date(now.getTime() + jstOffset * 60 * 1000);
     const currentHour = jstNow.getUTCHours();
     const currentMinute = jstNow.getUTCMinutes();
-    const currentTimeStr = `${currentHour}:${currentMinute.toString().padStart(2, '0')}`;
 
     const settingsCache = new Map();
 
@@ -110,7 +109,6 @@ async function sendStartTimeNotification(client, recruit, guildSettings = null) 
     const recruitId = recruit.recruitId || recruit.id;
     const messageId = recruit.metadata?.messageId;
     const channelId = recruit.metadata?.channelId;
-    const guildId = recruit.metadata?.guildId;
     const title = recruit.title || recruit.game || '募集';
     const vc = recruit.voice;
     const startTime = recruit.startTime;
@@ -135,9 +133,6 @@ async function sendStartTimeNotification(client, recruit, guildSettings = null) 
     const participantIds = await getParticipantsFromRedis(messageId).catch(() => []);
     
     // 参加者のメンション
-    const participantMentions = participantIds.length > 0 
-      ? participantIds.map(id => `<@${id}>`).join('\n')
-      : 'なし';
 
     // ボイスチャット情報
     const voiceChannelId = recruit.metadata?.raw?.voiceChannelId;
@@ -156,13 +151,6 @@ async function sendStartTimeNotification(client, recruit, guildSettings = null) 
     }
 
     // 日時フォーマット（JST）
-    const now = new Date();
-    const jstOffset = 9 * 60 * 60 * 1000;
-    const jstDate = new Date(now.getTime() + jstOffset);
-    const dateStr = `${jstDate.getUTCFullYear()}/${String(jstDate.getUTCMonth() + 1).padStart(2, '0')}/${String(jstDate.getUTCDate()).padStart(2, '0')} ${String(jstDate.getUTCHours()).padStart(2, '0')}:${String(jstDate.getUTCMinutes()).padStart(2, '0')}`;
-
-    // 元のメッセージへのリンク
-    const messageLink = `https://discord.com/channels/${guildId}/${channelId}/${messageId}`;
 
     // Embed で通知メッセージを構築（コンパクト）
     const embed = new EmbedBuilder()

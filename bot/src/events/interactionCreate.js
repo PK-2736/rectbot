@@ -18,7 +18,7 @@ module.exports = {
         setTimeout(() => {
           try {
             client.processedInteractions.delete(interaction.id);
-          } catch (e) {
+          } catch (_e) {
             /* silent */
           }
         }, client.DEDUPE_TTL_MS || 3000);
@@ -408,35 +408,3 @@ module.exports = {
     }
   },
 };
-
-
-// report返信ボタン処理関数
-async function handleReplyButton(interaction) {
-  const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, MessageFlags } = require('discord.js');
-  const { safeReply } = require('../utils/safeReply');
-
-  try {
-    // 返信モーダルを作成
-    const modal = new ModalBuilder()
-      .setCustomId('replyReportModal')
-      .setTitle('報告への返信');
-
-    const replyInput = new TextInputBuilder()
-      .setCustomId('reply_content')
-      .setLabel('返信内容')
-      .setStyle(TextInputStyle.Paragraph)
-      .setPlaceholder('報告への返信内容を入力してください')
-      .setRequired(true)
-      .setMaxLength(2000);
-
-    modal.addComponents(new ActionRowBuilder().addComponents(replyInput));
-
-    // モーダルを表示
-    await interaction.showModal(modal);
-  } catch (error) {
-    console.error('[report reply button] error:', error);
-    try {
-      await safeReply(interaction, { content: '❌ 返信フォームの表示に失敗しました。', flags: MessageFlags.Ephemeral });
-    } catch (_) {}
-  }
-}

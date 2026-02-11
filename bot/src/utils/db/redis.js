@@ -1,5 +1,4 @@
 const Redis = require('ioredis');
-const EventEmitter = require('events');
 
 let redis;
 try {

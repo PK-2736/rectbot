@@ -1,10 +1,9 @@
-const { MessageFlags, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, LabelBuilder, UserSelectMenuBuilder, RoleSelectMenuBuilder, StringSelectMenuBuilder } = require('discord.js');
+const { MessageFlags, ModalBuilder, TextInputBuilder, TextInputStyle, LabelBuilder, UserSelectMenuBuilder, StringSelectMenuBuilder } = require('discord.js');
 const { pendingModalOptions } = require('./state');
 const { safeReply } = require('../../utils/safeReply');
-const { createErrorEmbed, createWarningEmbed } = require('../../utils/embedHelpers');
-const { listRecruitsFromRedis, getCooldownRemaining } = require('../../utils/db');
+const { createErrorEmbed } = require('../../utils/embedHelpers');
+const { listRecruitsFromRedis, getCooldownRemaining, getGuildSettings } = require('../../utils/db');
 const { EXEMPT_GUILD_IDS } = require('./constants');
-const { getGuildSettings } = require('../../utils/db');
 
 // execute handler split from gameRecruit.js
 async function execute(interaction) {
@@ -84,7 +83,6 @@ async function execute(interaction) {
     // スラッシュ引数の取得（日本語/英語両対応、必須でも例外にしない）
     const optStr = (name) => { try { return interaction.options.getString(name); } catch { return null; } };
     const optInt = (name) => { try { return interaction.options.getInteger(name); } catch { return null; } };
-    const optBool = (name) => { try { return interaction.options.getBoolean(name); } catch { return null; } };
     const optChan = (name) => { try { return interaction.options.getChannel(name); } catch { return null; } };
 
     const titleArg = optStr('タイトル') ?? optStr('title');

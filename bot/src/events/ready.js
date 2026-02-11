@@ -1,4 +1,4 @@
-const { ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits } = require('discord.js');
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { setDiscordClient } = require('../utils/db');
 
 module.exports = {
@@ -13,7 +13,7 @@ module.exports = {
     // ロール付与ボタンメッセージ送信処理
     const channelId = '1414751785272217745';
     const roleId = '1420235531442196562';
-    const buttonCustomId = 'grant_role_1420235531442196562';
+    const buttonCustomId = `grant_role_${roleId}`;
     const { EmbedBuilder } = require('discord.js');
     const embed = new EmbedBuilder()
       .setTitle('アップデート通知ロール')
@@ -52,7 +52,7 @@ module.exports = {
           .setLabel('ロールを付与')
           .setStyle(ButtonStyle.Primary),
         new ButtonBuilder()
-          .setCustomId('remove_role_1420235531442196562')
+          .setCustomId(`remove_role_${roleId}`)
           .setLabel('ロールを外す')
           .setStyle(ButtonStyle.Secondary)
       );

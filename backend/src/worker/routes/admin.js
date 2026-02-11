@@ -35,7 +35,7 @@ export async function routeAdmin(request, env, ctx, url, corsHeaders) {
       const resp = await fetch(apiUrl, { method: 'GET', headers: { 'x-service-token': serviceToken } });
       const responseText = await resp.text();
       let data;
-      try { data = JSON.parse(responseText); } catch (parseError) {
+      try { data = JSON.parse(responseText); } catch (_parseError) {
         if (responseText.includes('error code:') || responseText.includes('cloudflare')) {
           return new Response(JSON.stringify({ error: 'VPS Express unreachable', message: 'Cloudflare Tunnel might be down', details: responseText.substring(0, 200) }), { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         }

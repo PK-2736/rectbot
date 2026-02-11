@@ -1,11 +1,11 @@
 const { MessageFlags, EmbedBuilder, ComponentType, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, ActionRowBuilder, AttachmentBuilder, UserSelectMenuBuilder, PermissionsBitField, ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, SeparatorSpacingSize, MediaGalleryBuilder, MediaGalleryItemBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { recruitParticipants, pendingModalOptions } = require('./state');
 const { safeReply } = require('../../utils/safeReply');
-const { createErrorEmbed, createSuccessEmbed, createWarningEmbed } = require('../../utils/embedHelpers');
+const { createErrorEmbed } = require('../../utils/embedHelpers');
 const { getGuildSettings, listRecruitsFromRedis, saveRecruitmentData, updateRecruitmentStatus, deleteRecruitmentData, saveRecruitToRedis, getRecruitFromRedis, saveParticipantsToRedis, getParticipantsFromRedis, deleteParticipantsFromRedis, pushRecruitToWebAPI, getCooldownRemaining, setCooldown } = require('../../utils/db');
 const { buildContainer } = require('../../utils/recruitHelpers');
 const { generateRecruitCard } = require('../../utils/canvasRecruit');
-const { updateParticipantList, autoCloseRecruitment } = require('../../utils/recruitMessage');
+const { updateParticipantList } = require('../../utils/recruitMessage');
 const { EXEMPT_GUILD_IDS } = require('./constants');
 const { handlePermissionError } = require('../../utils/handlePermissionError');
 const { sendNotificationAsync, formatVoiceLabel, fetchUserAvatarUrl, formatParticipantList, runInBackground } = require('./handlerUtils');
@@ -17,17 +17,12 @@ const { hexToIntColor, buildStartTimeNotificationEmbed, buildStartTimeNotificati
 // Helper utilities (behavior-preserving refactor)
 // ------------------------------
 
-const eightHoursMs = 8 * 60 * 60 * 1000;
-
 function computeDelayMs(targetTime, now = null) {
   if (!targetTime) return null;
   const target = new Date(targetTime).getTime();
   const current = now ? new Date(now).getTime() : Date.now();
   return target - current;
 }
-
-// 満員DMの重複送信防止
-const fullNotifySent = new Set();
 
 // 開始時刻通知の重複送信防止
 const startNotifySent = new Set();

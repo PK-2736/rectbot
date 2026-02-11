@@ -40,7 +40,7 @@ function normalizeGameName(input) {
   const cleanInput = input.trim().toLowerCase();
   
   // 1. 完全一致チェック（正式名称）
-  for (const [officialName, aliases] of Object.entries(GAME_DICTIONARY)) {
+  for (const officialName of Object.keys(GAME_DICTIONARY)) {
     if (cleanInput === officialName) {
       return { normalized: officialName, confidence: 1.0 };
     }

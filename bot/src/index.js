@@ -207,7 +207,7 @@ client.once('clientReady', () => {
 });
 
 // ギルド参加時と退出時にもギルド数を更新
-client.on('guildCreate', async (guild) => {
+client.on('guildCreate', async (_guild) => {
   
   // ステータスを更新
   setBotStatus(client);
@@ -242,7 +242,7 @@ client.on('guildCreate', async (guild) => {
   */
 });
 
-client.on('guildDelete', async (guild) => {
+client.on('guildDelete', async (_guild) => {
   
   // ステータスを更新
   setBotStatus(client);

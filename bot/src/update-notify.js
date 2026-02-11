@@ -16,7 +16,7 @@ const NOTIFY_COLOR = 0xF97316;
 
 async function sendUpdateToAllGuilds() {
   let sent = 0, failed = 0;
-  for (const [guildId, guild] of client.guilds.cache) {
+  for (const [guildId] of client.guilds.cache) {
     try {
       const settings = await getGuildSettings(guildId);
       const channelId = settings.update_channel || settings.recruit_channel;

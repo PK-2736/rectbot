@@ -277,29 +277,6 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
     }
   }
   
-  function drawDefaultParticipant(participantId, x, y) {
-    // 参加者円の背景（少し濃い色）
-    ctx.fillStyle = '#333';
-    ctx.beginPath();
-    ctx.arc(x, y, circleRadius, 0, Math.PI * 2);
-    ctx.fill();
-    
-    // 円の枠線
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-    ctx.lineWidth = 1;
-    ctx.stroke();
-    
-    // イニシャル表示
-    ctx.fillStyle = '#fff';
-    ctx.font = 'bold 8px CorporateRounded';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    const initial = participantId.slice(-1).toUpperCase();
-    ctx.fillText(initial, x, y);
-    ctx.textAlign = 'start';
-    ctx.textBaseline = 'top';
-  }
-  
   // 各参加者円を描画（2列表示）
   for (let i = 0; i < participantCount; i++) {
     const row = Math.floor(i / maxPerRow); // 行番号（0または1）

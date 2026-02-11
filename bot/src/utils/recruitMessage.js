@@ -1,5 +1,4 @@
 const { AttachmentBuilder, MessageFlags } = require('discord.js');
-const { buildContainer } = require('./recruitHelpers');
 const db = require('./db');
 
 function hydrateRecruitData(recruit) {

@@ -18,7 +18,7 @@ export async function routeLogs(request, env, ctx, url, corsHeaders) {
       }
 
       let payload = null;
-      try { payload = await request.json(); } catch (e) { payload = null; }
+      try { payload = await request.json(); } catch (_e) { payload = null; }
 
       const LOKI_PUSH_URL = env.LOKI_PUSH_URL || '';
       const LOKI_TENANT = env.LOKI_TENANT || '';
@@ -65,7 +65,7 @@ export async function routeLogs(request, env, ctx, url, corsHeaders) {
       }
 
       return new Response(JSON.stringify({ ok: true, forwarded: entries.length }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    } catch (err) {
+    } catch (_err) {
       return new Response(JSON.stringify({ ok: false, error: 'internal_error' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
   }

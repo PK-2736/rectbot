@@ -2,7 +2,7 @@
 const { ensureRedisConnection, RECRUIT_TTL_SECONDS, scanKeys } = require('./redis');
 const { dbEvents, getLastCleanupStatus } = require('./events');
 const { normalizeRecruitId } = require('./utils');
-const { normalizeGuildSettingsObject, saveGuildSettingsToRedis, getGuildSettingsFromRedis, getGuildSettingsSmart, finalizeGuildSettings, deleteGuildSettings } = require('./guildSettings');
+const { saveGuildSettingsToRedis, getGuildSettingsFromRedis, getGuildSettingsSmart, finalizeGuildSettings, deleteGuildSettings } = require('./guildSettings');
 const { saveParticipantsToRedis, getParticipantsFromRedis, deleteParticipantsFromRedis } = require('./participants');
 const { saveRecruitToRedis, getRecruitFromRedis, listRecruitIdsFromRedis, listRecruitsFromRedis, deleteRecruitFromRedis, getRecruitFromWorker, pushRecruitToWebAPI } = require('./recruits');
 const { cleanupExpiredRecruits, runCleanupNow } = require('./cleanup');

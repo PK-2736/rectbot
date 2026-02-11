@@ -103,7 +103,7 @@ function createInMemoryStore() {
 }
 
 export default {
-  async fetch(request, env, ctx) {
+  async fetch(request, env, _ctx) {
     const url = new URL(request.url);
     const origin = request.headers.get('Origin') || '';
     const cors = corsHeadersFor(origin, env);
@@ -219,6 +219,7 @@ export default {
           update_channel_id: update_channel || null,
           default_color: Object.prototype.hasOwnProperty.call(body, 'defaultColor') ? (defaultColor || null) : undefined,
           default_title: defaultTitle || '参加者募集',
+          recruit_style: Object.prototype.hasOwnProperty.call(body, 'recruit_style') ? (recruit_style || null) : undefined,
           enable_dedicated_channel: Object.prototype.hasOwnProperty.call(body, 'enable_dedicated_channel') ? !!enable_dedicated_channel : undefined,
           dedicated_channel_category_id: Object.prototype.hasOwnProperty.call(body, 'dedicated_channel_category_id') ? (dedicated_channel_category_id || null) : undefined,
           updated_at: new Date().toISOString()
@@ -756,7 +757,7 @@ export default {
       try {
         const body = await request.json().catch(() => ({}));
         requesterId = body.userId || '';
-      } catch(e){}
+      } catch (_e) {}
       try {
         if (store.forwardToDO) {
           const res = await store.forwardToDO(`/api/recruits/${id}`, 'DELETE', { userId: requesterId }, { authorization: request.headers.get('authorization') || ''});

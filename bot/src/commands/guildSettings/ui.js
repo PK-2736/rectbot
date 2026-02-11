@@ -5,32 +5,11 @@ const {
   RoleSelectMenuBuilder, ChannelSelectMenuBuilder,
   StringSelectMenuBuilder, StringSelectMenuOptionBuilder,
   ChannelType, MessageFlags, ComponentType,
-  ModalBuilder, TextInputBuilder, TextInputStyle,
-  SectionBuilder
+  ModalBuilder, TextInputBuilder, TextInputStyle
 } = require('discord.js');
 
 const { getGuildSettingsFromRedis, listTemplates } = require('../../utils/db');
 const { safeRespond } = require('../../utils/interactionHandler');
-
-function addSafeSection(container, builder, fallbackText) {
-  try {
-    try {
-      if (Object.prototype.hasOwnProperty.call(builder, 'accessory') && builder.accessory === undefined) {
-        delete builder.accessory;
-      }
-      if (Object.prototype.hasOwnProperty.call(builder, 'thumbnail') && builder.thumbnail === undefined) {
-        delete builder.thumbnail;
-      }
-    } catch (sanitizeErr) {
-      // ignore sanitize errors
-    }
-    builder.toJSON();
-    container.addSectionComponents(builder);
-  } catch (sectionErr) {
-    console.warn('[guildSettings] Section validation failed; using fallback text-only section', { fallbackText, err: sectionErr?.message || sectionErr });
-    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(fallbackText));
-  }
-}
 
 async function showSettingsUI(interaction, settings = {}, isAdmin = false) {
   const container = new ContainerBuilder();
@@ -86,13 +65,10 @@ async function showSettingsUI(interaction, settings = {}, isAdmin = false) {
     return [...new Set(roles.map(String))];
   })();
 
-  const updateChannelValue = (settings.update_channel || settings.updateNotificationChannelId) 
-    ? `<#${settings.update_channel || settings.updateNotificationChannelId}>` 
-    : '未設定';
 
   const defaultTitleValue = settings.defaultTitle || settings.defaultRecruitTitle || '参加者募集';
   const styleValue = (settings?.recruit_style === 'simple') ? 'シンプル' : '画像パネル';
-  const dedicatedStatus = !!settings.enable_dedicated_channel ? '✅ 有効' : '⭕ 無効';
+  const dedicatedStatus = settings.enable_dedicated_channel ? '✅ 有効' : '⭕ 無効';
 
   container.addTextDisplayComponents(
     new TextDisplayBuilder().setContent(
@@ -234,7 +210,7 @@ async function showSettingsCategoryUI(interaction, category, settings = {}, isAd
   const defaultTitleValue = settings.defaultTitle || settings.defaultRecruitTitle || '参加者募集';
   const defaultColorValue = settings.defaultColor || settings.defaultRecruitColor || '#00FFFF';
   const styleValue = (settings?.recruit_style === 'simple') ? 'シンプル' : '画像パネル';
-  const dedicatedStatus = !!settings.enable_dedicated_channel ? '✅ オン' : '⭕ オフ';
+  const dedicatedStatus = settings.enable_dedicated_channel ? '✅ オン' : '⭕ オフ';
   const dedicatedCategory = settings.dedicated_channel_category_id
     ? `<#${settings.dedicated_channel_category_id}>`
     : 'サーバートップレベル';
@@ -621,7 +597,7 @@ async function showTemplateColorSelect(interaction) {
   }
 }
 
-async function showTemplateNotificationRoleSelect(interaction, templateData) {
+async function showTemplateNotificationRoleSelect(interaction, _templateData) {
   const settings = await getGuildSettingsFromRedis(interaction.guildId);
   
   // ギルド設定から許可されている通知ロールを取得

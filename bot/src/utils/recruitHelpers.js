@@ -7,7 +7,7 @@ const {
 } = require('discord.js');
 
 // Build a consistent ContainerBuilder for recruit messages
-function buildContainer({ headerTitle = '募集', participantText = '', recruitIdText = '(unknown)', accentColor = 0x000000, imageAttachmentName = 'attachment://recruit-card.png', recruiterId = null, requesterId = null, footerExtra = null, subHeaderText = null, contentText = '', titleText = '', avatarUrl = null, extraActionButtons = [] }) {
+function buildContainer({ headerTitle = '募集', participantText = '', recruitIdText = '(unknown)', accentColor = 0x000000, imageAttachmentName = 'attachment://recruit-card.png', recruiterId: _recruiterId = null, requesterId: _requesterId = null, footerExtra = null, subHeaderText = null, contentText = '', titleText = '', avatarUrl: _avatarUrl = null, extraActionButtons = [] }) {
   const container = new ContainerBuilder();
   container.setAccentColor(typeof accentColor === 'number' ? accentColor : parseInt(String(accentColor), 16) || 0x000000);
   // 画像スタイル用: コンテナ直下にテキストを追加（サムネイルは非表示）
@@ -47,7 +47,6 @@ function buildContainer({ headerTitle = '募集', participantText = '', recruitI
     new TextDisplayBuilder().setContent(participantText)
   );
   // close ボタンはグローバルには無効化せずに常に表示する（権限チェックはボタンハンドラ側で行う）
-  const isRequesterRecruiter = true;
   const actionRow = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('join').setLabel('参加').setEmoji('✅').setStyle(ButtonStyle.Success),
     new ButtonBuilder().setCustomId('cancel').setLabel('取り消し').setEmoji('✖️').setStyle(ButtonStyle.Danger),
@@ -196,8 +195,6 @@ function buildContainerSimple({ headerTitle = '募集', detailsText = '', partic
     console.log('[buildContainerSimple] participantLines:', String(participantText).split('\n').filter(Boolean));
     addTextLinesToContainer(container, participantText);
   }
-  
-  const isRequesterRecruiter = true;
   const actionRow = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('join').setLabel('参加').setEmoji('✅').setStyle(ButtonStyle.Success),
     new ButtonBuilder().setCustomId('cancel').setLabel('取り消し').setEmoji('✖️').setStyle(ButtonStyle.Danger),

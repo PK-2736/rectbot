@@ -1,21 +1,7 @@
-const {
-  SlashCommandBuilder,
-  ContainerBuilder, TextDisplayBuilder,
-  SeparatorBuilder, SeparatorSpacingSize,
-  ActionRowBuilder, ButtonBuilder, ButtonStyle,
-  MessageFlags, MediaGalleryBuilder, MediaGalleryItemBuilder,
-  AttachmentBuilder, SectionBuilder, EmbedBuilder,
-  StringSelectMenuBuilder, StringSelectMenuOptionBuilder,
-  ComponentType
-} = require('discord.js');
-// Components v2 で画像をインライン表示するためのビルダー
-const { ThumbnailBuilder } = require('@discordjs/builders');
-const path = require('path');
-const fs = require('fs');
+const { SlashCommandBuilder } = require('discord.js');
 // externalized shared state and helpers
-const { recruitParticipants, pendingModalOptions, __hydrateParticipants } = require('./gameRecruit/state');
-const { safeReply } = require('../utils/safeReply');
-const { updateParticipantList, autoCloseRecruitment } = require('../utils/recruitMessage');
+const { recruitParticipants, __hydrateParticipants } = require('./gameRecruit/state');
+const { autoCloseRecruitment } = require('../utils/recruitMessage');
 
 // hydrateRecruitData moved to utils/recruitMessage
 
@@ -24,8 +10,7 @@ const { updateParticipantList, autoCloseRecruitment } = require('../utils/recrui
 // safeReply moved to ../utils/safeReply
 
 // Redis専用 募集データAPI
-const { saveRecruitToRedis, getRecruitFromRedis, listRecruitsFromRedis, deleteRecruitFromRedis, pushRecruitToWebAPI, getGuildSettings, saveParticipantsToRedis, getParticipantsFromRedis, deleteParticipantsFromRedis } = require('../utils/db');
-const { buildContainer, sendChannelNotification } = require('../utils/recruitHelpers');
+const { saveRecruitToRedis, getRecruitFromRedis, listRecruitsFromRedis } = require('../utils/db');
 
 // updateParticipantList moved to ../utils/recruitMessage
 

@@ -5,7 +5,7 @@
 
 // このスクリプトは wrangler で実行するため、ESM 形式
 export default {
-  async scheduled(event, env, ctx) {
+  async scheduled(event, env, _ctx) {
     await generateGameDatabase(env);
   }
 };

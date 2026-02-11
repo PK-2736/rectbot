@@ -86,7 +86,7 @@ export async function routeRecruitment(request, env, ctx, url, corsHeaders, send
         const hdrs = {};
         for (const [k, v] of request.headers.entries()) hdrs[k] = v;
         console.log('[Grafana API] Request:', { method: request.method, path: url.pathname, hasToken: !!grafanaToken });
-      } catch (_) {}
+      } catch (_err) {}
 
       const id = env.RECRUITS_DO.idFromName('global');
       const stub = env.RECRUITS_DO.get(id);
@@ -222,7 +222,7 @@ export async function routeRecruitment(request, env, ctx, url, corsHeaders, send
       return new Response(text, { status: resp.status, headers: { ...corsHeaders, 'Content-Type': contentType } });
     } catch (e) {
       console.error('[RecruitsDO proxy] Error:', e);
-      if (typeof sendToSentry === 'function') { try { await sendToSentry(env, e, { path: url.pathname }, ctx); } catch (_) {} }
+      if (typeof sendToSentry === 'function') { try { await sendToSentry(env, e, { path: url.pathname }, ctx); } catch (_err) {} }
       return new Response(JSON.stringify({ error: 'internal_error' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
   }
@@ -290,7 +290,7 @@ export async function routeRecruitment(request, env, ctx, url, corsHeaders, send
     } catch (e) {
       console.error('[active-recruits] Error:', e);
       if (typeof sendToSentry === 'function') { 
-        try { await sendToSentry(env, e, { path: url.pathname }, ctx); } catch (_) {} 
+        try { await sendToSentry(env, e, { path: url.pathname }, ctx); } catch (_err) {} 
       }
       return new Response(JSON.stringify({ error: 'internal_error' }), { 
         status: 500, 

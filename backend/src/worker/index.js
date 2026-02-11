@@ -1,7 +1,7 @@
 // JWT library (install: npm install jsonwebtoken)
 // For Worker environment, use: npm install @tsndr/cloudflare-worker-jwt
 // import jwt from '@tsndr/cloudflare-worker-jwt';
-import { resolveSupabaseRestUrl, getSupabaseClient, pingSupabase, buildSupabaseHeaders } from './supabase.js';
+import { resolveSupabaseRestUrl } from './supabase.js';
 import { routeGuildSettings } from './routes/guildSettings.js';
 import { routeRecruitment } from './routes/recruitment.js';
 import { getCorsHeaders } from './utils/cors.js';
@@ -177,6 +177,7 @@ export class RecruitsDO {
         }
         return new Response(JSON.stringify({ ok: true, joined: userId }), { status: 200, headers: { 'Content-Type': 'application/json' } });
       }
+    }
 
     // Create/Upsert
     if (method === 'POST' && url.pathname === base) {
@@ -188,14 +189,38 @@ export class RecruitsDO {
       }
       const now = new Date();
       const ttlHours = Number(this.env.RECRUITS_TTL_HOURS || 8);
-        
-      out.sort((a,b)=>a.ts-b.ts);
-      return new Response(JSON.stringify({ events: out }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      const expiresAt = data?.expiresAt || new Date(now.getTime() + ttlHours * 3600 * 1000).toISOString();
+
+      const record = {
+        id: recruitId,
+        recruitId,
+        ownerId,
+        title: (data?.title || '').toString(),
+        description: (data?.description || data?.content || '').toString(),
+        game: (data?.game || '').toString(),
+        platform: (data?.platform || '').toString(),
+        startTime: data?.startTime || now.toISOString(),
+        maxMembers: Number(data?.maxMembers || 0) || undefined,
+        voice: Boolean(data?.voice),
+        participants: Array.isArray(data?.participants) ? data.participants.slice(0, 100) : [],
+        createdAt: data?.createdAt || now.toISOString(),
+        expiresAt,
+        status: (data?.status || 'recruiting').toString(),
+        metadata: data?.metadata || {}
+      };
+
+      store.items[recruitId] = record;
+      if (!store.list.includes(recruitId)) {
+        store.list.unshift(recruitId);
+      }
+      this.addHistory(store, recruitId, 'create', { ...record });
+      await this.saveStore(store);
+      return new Response(JSON.stringify({ ok: true, recruitId }), { status: 201, headers: { 'Content-Type': 'application/json' } });
     }
 
-    if (method === 'GET' && urlObj.pathname === '/api/recruits-at') {
-      const ts = urlObj.searchParams.get('ts') ? Date.parse(urlObj.searchParams.get('ts')) : Date.now();
-      const idFilter = urlObj.searchParams.get('id');
+    if (method === 'GET' && url.pathname === '/api/recruits-at') {
+      const ts = url.searchParams.get('ts') ? Date.parse(url.searchParams.get('ts')) : Date.now();
+      const idFilter = url.searchParams.get('id');
       const result = [];
       const ids = idFilter ? [idFilter] : Array.from(new Set([...(store.list||[]), ...Object.keys(store.history||{})]));
       for (const id of ids) {
@@ -209,7 +234,6 @@ export class RecruitsDO {
 
     return new Response(JSON.stringify({ error: 'not_found' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
   }
-}
 }
 
 // Durable Object: InviteTokensDO for one-time bot invite links
@@ -257,7 +281,7 @@ export class InviteTokensDO {
     }
 
     // Consume token: POST /do/invite-token/:token/consume
-    const m = url.pathname.match(/^\/do\/invite-token\/([A-Za-z0-9_\-]+)\/consume$/);
+    const m = url.pathname.match(/^\/do\/invite-token\/([A-Za-z0-9_-]+)\/consume$/);
     if (method === 'POST' && m) {
       const token = m[1];
       const meta = store.items[token];

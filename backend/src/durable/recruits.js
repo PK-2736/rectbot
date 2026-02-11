@@ -23,7 +23,7 @@ export class RecruitsDO {
     const ttlHours = Number(this.env.RECRUITS_TTL_HOURS || 8);
     const closedRetentionHours = Number(this.env.RECRUITS_CLOSED_RETENTION_HOURS || 5);
 
-    removeExpiredRecruits(store, now, ttlHours * 3600 * 1000);
+    removeExpiredRecruits(store, now);
     pruneHistory(store, now, ttlHours * 3600 * 1000, closedRetentionHours * 3600 * 1000);
   }
 
@@ -289,14 +289,14 @@ function applyRecruitUpdate(original, update, env) {
     }
   }
 
-  if (shouldMarkAsClosed(original, next, update, env)) {
+  if (shouldMarkAsClosed(original, next, update)) {
     markRecruitClosed(next, env);
   }
 
   return next;
 }
 
-function shouldMarkAsClosed(existing, next, update, env) {
+function shouldMarkAsClosed(existing, next, update) {
   const wasRecruiting = String(existing.status || "recruiting") === "recruiting";
   const willRecruiting = String(update.status ?? next.status ?? "recruiting") === "recruiting";
   return wasRecruiting && !willRecruiting;
@@ -312,7 +312,7 @@ function markRecruitClosed(record, env) {
   record.expiresAt = exp.toISOString();
 }
 
-function removeExpiredRecruits(store, now, ttlMs) {
+function removeExpiredRecruits(store, now) {
   const toDelete = [];
   for (const id of Object.keys(store.items || {})) {
     const record = store.items[id];

@@ -1,5 +1,3 @@
-const { MessageFlags } = require('discord.js');
-
 async function safeReply(interaction, options) {
   if (!interaction) return null;
   try {
@@ -8,7 +6,7 @@ async function safeReply(interaction, options) {
     }
     try {
       return await interaction.followUp(options);
-    } catch (followErr) {
+    } catch (_followErr) {
       try {
         return await interaction.editReply(options);
       } catch (editErr) {
@@ -22,7 +20,7 @@ async function safeReply(interaction, options) {
       return null;
     }
     console.warn('safeReply unexpected error:', err?.message || err);
-    try { return await interaction.followUp(options); } catch (e) { try { return await interaction.editReply(options); } catch (e2) { return null; } }
+    try { return await interaction.followUp(options); } catch (_e) { try { return await interaction.editReply(options); } catch (_e2) { return null; } }
   }
 }
 
@@ -40,7 +38,7 @@ async function safeUpdate(interaction, options) {
       return null;
     }
     console.warn('safeUpdate unexpected error:', err?.message || err);
-    try { return await safeReply(interaction, options); } catch (e) { return null; }
+    try { return await safeReply(interaction, options); } catch (_e) { return null; }
   }
 }
 

@@ -24,7 +24,7 @@ export async function sendToSentry(env, error, extra = {}, ctx = null) {
   try {
     if (!env || !env.SENTRY_DSN) return;
     const dsn = env.SENTRY_DSN;
-    const m = dsn.match(/^https:\/\/([^@]+)@([^\/]+)\/(\d+)$/);
+    const m = dsn.match(/^https:\/\/([^@]+)@([^/]+)\/(\d+)$/);
     if (!m) return;
     const publicKey = m[1];
     const host = m[2];

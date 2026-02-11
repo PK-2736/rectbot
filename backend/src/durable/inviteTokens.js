@@ -48,7 +48,7 @@ export class InviteTokensDO {
       return jsonResponse({ ok: true, token }, 201);
     }
 
-    const consumeMatch = url.pathname.match(/^\/do\/invite-token\/([A-Za-z0-9_\-]+)\/consume$/);
+    const consumeMatch = url.pathname.match(/^\/do\/invite-token\/([A-Za-z0-9_-]+)\/consume$/);
     if (method === "POST" && consumeMatch) {
       const token = consumeMatch[1];
       const meta = store.items[token];

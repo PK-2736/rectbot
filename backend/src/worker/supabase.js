@@ -100,11 +100,11 @@ export async function pingSupabase(env, timeoutMs = 3000) {
       });
       clearTimeout(id);
       return true;
-    } catch (e) {
+    } catch (_e) {
       clearTimeout(id);
       return false;
     }
-  } catch (e) {
+  } catch (_e) {
     return false;
   }
 }

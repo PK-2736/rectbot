@@ -23,7 +23,7 @@ function errorResponse(message, status = 500, headers = {}) {
 export async function handleNormalizeGameName(request, env, corsHeaders = {}) {
   try {
     const body = await request.json();
-    const { input, userId, guildId } = body;
+    const { input } = body;
 
     if (!input || typeof input !== 'string') {
       return errorResponse('Invalid input', 400, corsHeaders);

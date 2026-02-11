@@ -1,9 +1,44 @@
 const { EmbedBuilder } = require('discord.js');
-const { normalizeGameNameWithWorker, getFriendCodesFromWorker } = require('../utils/workerApiClient');
+const { getFriendCodesFromWorker } = require('../utils/workerApiClient');
+const nodemailer = require('nodemailer');
+const config = require('../config');
+
+// 2時間後のメール送信タイマーを管理
+let bumpReminderTimer = null;
+
+// メール送信関数
+async function sendBumpNotification(channelName, content = '') {
+  if (!config.GMAIL_USER || !config.GMAIL_APP_PASSWORD || !config.NOTIFICATION_EMAIL_TO) {
+    console.warn('[messageCreate] メール送信設定が環境変数に設定されていません');
+    return;
+  }
+
+  try {
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: config.GMAIL_USER,
+        pass: config.GMAIL_APP_PASSWORD
+      }
+    });
+
+    const mailOptions = {
+      from: config.GMAIL_USER,
+      to: config.NOTIFICATION_EMAIL_TO,
+      subject: 'bump通知です',
+      text: content || `チャンネル ${channelName} で2時間が経過しました。`
+    };
+
+    await transporter.sendMail(mailOptions);
+    console.log(`[messageCreate] bump通知メール送信完了`);
+  } catch (emailError) {
+    console.error('[messageCreate] メール送信エラー:', emailError);
+  }
+}
 
 module.exports = {
   name: 'messageCreate',
-  async execute(message, client) {
+  async execute(message) {
     // DMは無視
     if (!message.guild) return;
 
