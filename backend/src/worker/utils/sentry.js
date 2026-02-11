@@ -20,60 +20,66 @@ function parseStackFrames(stack) {
   return frames.reverse();
 }
 
+function parseDsn(dsn) {
+  const match = dsn.match(/^https:\/\/([^@]+)@([^/]+)\/(\d+)$/);
+  if (!match) return null;
+  return { publicKey: match[1], host: match[2], projectId: match[3] };
+}
+
+function buildSentryEvent(error, extra) {
+  const errMsg = (error && (error.message || String(error))) || 'Unknown error';
+  const exception = error ? {
+    values: [{
+      type: error.name || 'Error',
+      value: errMsg,
+      stacktrace: { frames: parseStackFrames(error.stack) }
+    }]
+  } : undefined;
+
+  const event = {
+    message: errMsg,
+    exception,
+    level: 'error',
+    logger: 'rectbot.backend',
+    platform: 'javascript',
+    sdk: { name: 'custom.rectbot.worker', version: '0.1' },
+    tags: { path: extra && extra.path ? String(extra.path) : undefined },
+    extra: { ...extra, stack: error && error.stack },
+    timestamp: new Date().toISOString(),
+  };
+
+  if (extra && extra.requestInfo) event.request = extra.requestInfo;
+  return event;
+}
+
+async function postSentryEvent(storeUrl, event, ctx) {
+  const body = JSON.stringify(event);
+  const requestInit = {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'User-Agent': 'rectbot-worker/0.1' },
+    body
+  };
+
+  if (ctx && typeof ctx.waitUntil === 'function') {
+    try {
+      ctx.waitUntil(fetch(storeUrl, requestInit));
+    } catch (e) {
+      console.warn('sendToSentry (ctx.waitUntil) failed', e);
+    }
+    return;
+  }
+
+  await fetch(storeUrl, requestInit);
+}
+
 export async function sendToSentry(env, error, extra = {}, ctx = null) {
   try {
     if (!env || !env.SENTRY_DSN) return;
-    const dsn = env.SENTRY_DSN;
-    const m = dsn.match(/^https:\/\/([^@]+)@([^/]+)\/(\d+)$/);
-    if (!m) return;
-    const publicKey = m[1];
-    const host = m[2];
-    const projectId = m[3];
-    const storeUrl = `https://${host}/api/${projectId}/store/?sentry_key=${publicKey}`;
-
-    const errMsg = (error && (error.message || String(error))) || 'Unknown error';
-    const exception = error ? {
-      values: [{
-        type: error.name || 'Error',
-        value: errMsg,
-        stacktrace: { frames: parseStackFrames(error.stack) }
-      }]
-    } : undefined;
-
-    const event = {
-      message: errMsg,
-      exception,
-      level: 'error',
-      logger: 'rectbot.backend',
-      platform: 'javascript',
-      sdk: { name: 'custom.rectbot.worker', version: '0.1' },
-      tags: { path: extra && extra.path ? String(extra.path) : undefined },
-      extra: { ...extra, stack: error && error.stack },
-      timestamp: new Date().toISOString(),
-    };
-
-    if (extra && extra.requestInfo) event.request = extra.requestInfo;
-
-    const body = JSON.stringify(event);
-
-    if (ctx && typeof ctx.waitUntil === 'function') {
-      try {
-        ctx.waitUntil(fetch(storeUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'User-Agent': 'rectbot-worker/0.1' },
-          body
-        }));
-      } catch (e) {
-        console.warn('sendToSentry (ctx.waitUntil) failed', e);
-      }
-      return;
-    }
-
-    await fetch(storeUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'User-Agent': 'rectbot-worker/0.1' },
-      body
-    });
+    const parsed = parseDsn(env.SENTRY_DSN);
+    if (!parsed) return;
+    const storeUrl = `https://${parsed.host}/api/${parsed.projectId}/store/?sentry_key=${parsed.publicKey}`;
+    const event = buildSentryEvent(error, extra);
+    await postSentryEvent(storeUrl, event, ctx);
   } catch (e) {
     console.warn('sendToSentry failed', e);
   }

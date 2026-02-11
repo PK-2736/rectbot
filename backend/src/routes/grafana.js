@@ -1,31 +1,37 @@
 import { jsonResponse } from '../worker/http.js';
 
-function getProvidedGrafanaToken(request) {
-  return request.headers.get('x-grafana-token') || request.headers.get('authorization')?.replace('Bearer ', '');
-}
-
-function logGrafanaTokenStatus(prefix, envToken, providedToken, request, url) {
-  console.log(prefix, {
-    hasEnvToken: !!envToken,
-    envTokenLength: envToken?.length || 0,
-    hasProvidedToken: !!providedToken,
-    providedTokenLength: providedToken?.length || 0,
+function createGrafanaAuthContext(request, env, url) {
+  const providedToken = request.headers.get('x-grafana-token') || request.headers.get('authorization')?.replace('Bearer ', '');
+  return {
+    grafanaToken: env.GRAFANA_TOKEN,
+    providedToken,
     method: request.method,
     path: url.pathname
+  };
+}
+
+function logGrafanaAuthStatus(prefix, authContext) {
+  console.log(prefix, {
+    hasEnvToken: !!authContext.grafanaToken,
+    envTokenLength: authContext.grafanaToken?.length || 0,
+    hasProvidedToken: !!authContext.providedToken,
+    providedTokenLength: authContext.providedToken?.length || 0,
+    method: authContext.method,
+    path: authContext.path
   });
 }
 
-function ensureGrafanaAuthorized(request, env, safeHeaders, url, prefix) {
-  const grafanaToken = env.GRAFANA_TOKEN;
-  const providedToken = getProvidedGrafanaToken(request);
-
+function ensureGrafanaAuthorized(authContext, safeHeaders, prefix) {
   if (prefix) {
-    logGrafanaTokenStatus(prefix, grafanaToken, providedToken, request, url);
+    logGrafanaAuthStatus(prefix, authContext);
   }
 
-  if (grafanaToken) {
-    if (!providedToken || providedToken !== grafanaToken) {
-      console.warn(`${prefix} Unauthorized access attempt`, { grafanaToken: !!grafanaToken, providedToken: !!providedToken });
+  if (authContext.grafanaToken) {
+    if (!authContext.providedToken || authContext.providedToken !== authContext.grafanaToken) {
+      console.warn(`${prefix} Unauthorized access attempt`, { 
+        grafanaToken: !!authContext.grafanaToken, 
+        providedToken: !!authContext.providedToken 
+      });
       return { ok: false, response: jsonResponse({ error: 'unauthorized' }, 401, safeHeaders) };
     }
     if (prefix) console.log(`${prefix} Token validated successfully`);
@@ -65,7 +71,8 @@ function formatGrafanaItem(r) {
 }
 
 async function handleGrafanaList(request, env, { url, safeHeaders, store }) {
-  const auth = ensureGrafanaAuthorized(request, env, safeHeaders, url, '[Grafana API] Token check:');
+  const authContext = createGrafanaAuthContext(request, env, url);
+  const auth = ensureGrafanaAuthorized(authContext, safeHeaders, '[Grafana API] Token check:');
   if (!auth.ok) return auth.response;
 
   const items = await listItems(store);
@@ -83,7 +90,8 @@ async function handleGrafanaList(request, env, { url, safeHeaders, store }) {
 }
 
 async function handleGrafanaAt(request, env, { url, safeHeaders, store }) {
-  const auth = ensureGrafanaAuthorized(request, env, safeHeaders, url, '[Grafana API /at] Token check:');
+  const authContext = createGrafanaAuthContext(request, env, url);
+  const auth = ensureGrafanaAuthorized(authContext, safeHeaders, '[Grafana API /at] Token check:');
   if (!auth.ok) return auth.response;
 
   const items = await listItems(store);
@@ -103,7 +111,8 @@ async function handleGrafanaAt(request, env, { url, safeHeaders, store }) {
 }
 
 async function handleGrafanaHistory(request, env, { url, safeHeaders, store }) {
-  const auth = ensureGrafanaAuthorized(request, env, safeHeaders, url, '[Grafana API /history] Token check:');
+  const authContext = createGrafanaAuthContext(request, env, url);
+  const auth = ensureGrafanaAuthorized(authContext, safeHeaders, '[Grafana API /history] Token check:');
   if (!auth.ok) return auth.response;
 
   const items = await listItems(store);

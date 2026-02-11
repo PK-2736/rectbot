@@ -2,35 +2,66 @@
 const API_BASE = process.env.WORKER_API_BASE_URL || process.env.PUBLIC_API_BASE_URL || process.env.BACKEND_API_URL || 'https://api.recrubo.net';
 const SERVICE_TOKEN = process.env.SERVICE_TOKEN || '';
 
-async function backendFetch(path, opts = {}) {
-  const url = path.startsWith('http') ? path : `${API_BASE}${path}`;
-  const init = Object.assign({}, opts);
-  const method = (init.method || 'GET').toUpperCase();
+function buildRequestUrl(path) {
+  return path.startsWith('http') ? path : `${API_BASE}${path}`;
+}
 
-  init.headers = init.headers ? { ...init.headers } : {};
-  // Normalize header existence checks (case-insensitive) and set service token headers when needed.
-  const hasAuthHeader = Object.keys(init.headers).some(k => k.toLowerCase() === 'authorization');
-  const hasXServiceToken = Object.keys(init.headers).some(k => k.toLowerCase() === 'x-service-token');
-  if (SERVICE_TOKEN) {
-    if (!hasAuthHeader) init.headers.authorization = `Bearer ${SERVICE_TOKEN}`;
-    if (!hasXServiceToken) init.headers['x-service-token'] = SERVICE_TOKEN;
-  }
-  if (!Object.keys(init.headers).some(k => k.toLowerCase() === 'content-type')) init.headers['content-type'] = 'application/json; charset=utf-8';
+function normalizeHeaders(headers) {
+  return headers ? { ...headers } : {};
+}
 
+function hasHeader(headers, headerName) {
+  return Object.keys(headers).some(key => key.toLowerCase() === headerName.toLowerCase());
+}
+
+function ensureServiceHeaders(headers) {
+  if (!SERVICE_TOKEN) return headers;
+  if (!hasHeader(headers, 'authorization')) headers.authorization = `Bearer ${SERVICE_TOKEN}`;
+  if (!hasHeader(headers, 'x-service-token')) headers['x-service-token'] = SERVICE_TOKEN;
+  return headers;
+}
+
+function ensureJsonContentType(headers) {
+  if (!hasHeader(headers, 'content-type')) headers['content-type'] = 'application/json; charset=utf-8';
+  return headers;
+}
+
+function logRequest(method, url, headers) {
   console.log(`[backendFetch] ${method} ${url}`);
   console.log(`[backendFetch] SERVICE_TOKEN present: ${!!SERVICE_TOKEN}, length: ${SERVICE_TOKEN ? SERVICE_TOKEN.length : 0}`);
-  console.log(`[backendFetch] Headers:`, JSON.stringify(init.headers, null, 2));
-  const res = await fetch(url, init);
-  console.log(`[backendFetch] Response status: ${res.status}`);
+  console.log(`[backendFetch] Headers:`, JSON.stringify(headers, null, 2));
+}
+
+async function parseResponse(res) {
   const text = await res.text();
   let json = null;
   try { json = text ? JSON.parse(text) : null; } catch {}
+  return { text, json };
+}
+
+function buildRequestError(res, body) {
+  const err = new Error(`Request failed ${res.status}`);
+  err.status = res.status;
+  err.body = body;
+  return err;
+}
+
+async function backendFetch(path, opts = {}) {
+  const url = buildRequestUrl(path);
+  const init = Object.assign({}, opts);
+  const method = (init.method || 'GET').toUpperCase();
+
+  init.headers = normalizeHeaders(init.headers);
+  ensureServiceHeaders(init.headers);
+  ensureJsonContentType(init.headers);
+
+  logRequest(method, url, init.headers);
+  const res = await fetch(url, init);
+  console.log(`[backendFetch] Response status: ${res.status}`);
+  const { text, json } = await parseResponse(res);
   if (!res.ok) {
     console.error(`[backendFetch] Request failed ${res.status}: ${text}`);
-    const err = new Error(`Request failed ${res.status}`);
-    err.status = res.status;
-    err.body = json || text;
-    throw err;
+    throw buildRequestError(res, json || text);
   }
   console.log(`[backendFetch] Response:`, json);
   return json;

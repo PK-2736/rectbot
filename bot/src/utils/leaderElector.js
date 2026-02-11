@@ -26,6 +26,21 @@ function createRedis() {
   return redis;
 }
 
+async function sleep(ms) {
+  return new Promise(r => setTimeout(r, ms));
+}
+
+async function readLock(redis) {
+  const v = await redis.get(LOCK_KEY);
+  try { return v ? JSON.parse(v) : null; } catch { return { raw: v }; }
+}
+
+async function shouldStepDownForXserver(redis, siteId) {
+  if (siteId === 'xserver') return false;
+  const xhb = await redis.get(`${HB_PREFIX}xserver`);
+  return !!(xhb && Date.now() - Number(xhb) < HB_TTL_SEC * 1000);
+}
+
 async function runLeadership({ siteId = 'oci', onAcquire, onRelease }) {
   const instanceId = makeInstanceId();
   const redis = createRedis();
@@ -49,23 +64,26 @@ async function runLeadership({ siteId = 'oci', onAcquire, onRelease }) {
     return ok === 'OK';
   }
 
-  async function readLock() {
-    const v = await redis.get(LOCK_KEY);
-    try { return v ? JSON.parse(v) : null; } catch { return { raw: v }; }
-  }
-
   async function renew(value) {
-    // renew only if we still own the lock
-    const cur = await readLock();
+    const cur = await readLock(redis);
     if (!cur || cur.owner !== JSON.parse(value).owner) return false;
     const ok = await redis.set(LOCK_KEY, value, 'PX', LOCK_TTL_MS, 'XX');
     return ok === 'OK';
   }
 
   async function release() {
-    const cur = await readLock();
-    if (cur && cur.owner && String(cur.owner).startsWith(instanceId.split(':').slice(0,2).join(':'))) {
+    const cur = await readLock(redis);
+    if (cur && cur.owner && String(cur.owner).startsWith(instanceId.split(':').slice(0, 2).join(':'))) {
       await redis.del(LOCK_KEY).catch(() => {});
+    }
+  }
+
+  async function stepDown(reason) {
+    console.log(reason);
+    await release();
+    if (leader) {
+      leader = false;
+      onRelease && (await onRelease());
     }
   }
 
@@ -73,20 +91,13 @@ async function runLeadership({ siteId = 'oci', onAcquire, onRelease }) {
     if (renewTimer) clearInterval(renewTimer);
     renewTimer = setInterval(async () => {
       try {
-        // Prefer Xserver when its heartbeat is fresh and we are OCI
-        if (siteId !== 'xserver') {
-          const xhb = await redis.get(`${HB_PREFIX}xserver`);
-          if (xhb && Date.now() - Number(xhb) < HB_TTL_SEC * 1000) {
-            console.log('[leader] xserver heartbeat is fresh; stepping down to prefer xserver');
-            await release();
-            if (leader) { leader = false; onRelease && (await onRelease()); }
-            return; // next loop will try to reacquire if needed
-          }
+        if (await shouldStepDownForXserver(redis, siteId)) {
+          await stepDown('[leader] xserver heartbeat is fresh; stepping down to prefer xserver');
+          return;
         }
         const ok = await renew(value);
         if (!ok) {
-          console.warn('[leader] lost lock during renew; stepping down');
-          if (leader) { leader = false; onRelease && (await onRelease()); }
+          await stepDown('[leader] lost lock during renew; stepping down');
         }
       } catch (e) {
         console.warn('[leader] renew failed:', e?.message || e);
@@ -116,7 +127,7 @@ async function runLeadership({ siteId = 'oci', onAcquire, onRelease }) {
     } catch (e) {
       console.warn('[leader] loop error:', e?.message || e);
     }
-    await new Promise(r => setTimeout(r, 5000));
+    await sleep(5000);
   }
 }
 

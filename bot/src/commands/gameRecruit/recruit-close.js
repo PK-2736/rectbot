@@ -145,30 +145,39 @@ async function buildImageStyleLayout(context) {
   };
 }
 
+function buildDetailsLabel(data, totalMembers) {
+  const startLabel = data?.startTime ? `🕒 ${data.startTime}` : null;
+  const membersLabel = (typeof totalMembers === 'number') ? `👥 ${totalMembers}人` : null;
+  const voiceLabel = formatVoiceLabel(
+    data?.vc || (data?.voice === true ? 'あり' : data?.voice === false ? 'なし' : null),
+    data?.voicePlace
+  );
+  return [startLabel, membersLabel, voiceLabel].filter(Boolean).join(' | ');
+}
+
+function addComponentIfExists(components, condition, component) {
+  if (condition) {
+    components.push(component);
+  }
+}
+
 function buildSimpleStyleLayout(context) {
   const components = [
     { type: 'text', content: '🔒 **募集締め切り済み**' }
   ];
 
-  if (context.data?.title) {
-    components.push({ type: 'text', content: `📌 タイトル\n${String(context.data.title).slice(0,200)}` });
-  }
+  addComponentIfExists(components, context.data?.title, {
+    type: 'text',
+    content: `📌 タイトル\n${String(context.data.title).slice(0,200)}`
+  });
 
   components.push({ type: 'separator', spacing: 'Small', divider: true });
 
-  const startLabel = context.data?.startTime ? `🕒 ${context.data.startTime}` : null;
-  const membersLabel = (typeof context.totalMembers === 'number') ? `👥 ${context.totalMembers}人` : null;
-  const voiceLabel = formatVoiceLabel(context.data?.vc || (context.data?.voice === true ? 'あり' : context.data?.voice === false ? 'なし' : null), context.data?.voicePlace);
-  const detailsText = [startLabel, membersLabel, voiceLabel].filter(Boolean).join(' | ');
-
-  if (detailsText) {
-    components.push({ type: 'text', content: detailsText });
-  }
+  const detailsText = buildDetailsLabel(context.data, context.totalMembers);
+  addComponentIfExists(components, detailsText, { type: 'text', content: detailsText });
 
   const contentText = context.data?.content ? `📝 募集内容\n${String(context.data.content).slice(0,1500)}` : '';
-  if (contentText) {
-    components.push({ type: 'text', content: contentText });
-  }
+  addComponentIfExists(components, contentText, { type: 'text', content: contentText });
 
   components.push(
     { type: 'separator', spacing: 'Small', divider: true },
@@ -208,7 +217,7 @@ function buildClosedCardContainer(layout) {
   return container;
 }
 
-async function buildClosedRecruitmentCard(recruitStyle, data, messageId, interaction, originalMessage) {
+async function buildClosedRecruitmentCard({ recruitStyle, data, messageId, interaction, originalMessage }) {
   const context = prepareClosedRecruitmentContext(data, messageId, interaction, originalMessage);
   const layoutType = resolveClosedRecruitmentLayout(recruitStyle);
 
@@ -311,13 +320,13 @@ async function sendCloseNotification(interaction, data, messageId) {
 }
 
 async function updateMessageWithClosedCard({ interaction, messageId, recruitStyle, data }) {
-  const { container, attachment } = await buildClosedRecruitmentCard(
+  const { container, attachment } = await buildClosedRecruitmentCard({
     recruitStyle,
     data,
     messageId,
     interaction,
-    interaction.message
-  );
+    originalMessage: interaction.message
+  });
 
   const editPayload = {
     components: [container],

@@ -6,6 +6,59 @@
 const { MessageFlags } = require('discord.js');
 const { handlePermissionError } = require('./handlePermissionError');
 
+function isPermissionError(error) {
+  return !!(error && (error.code === 50001 || error.code === 50013));
+}
+
+function isUnknownInteractionError(error) {
+  return !!(error && (error.code === 40060 || error.status === 400));
+}
+
+async function attemptInteractionCall(call) {
+  try {
+    return { ok: true, result: await call() };
+  } catch (error) {
+    return { ok: false, error };
+  }
+}
+
+function buildErrorMessage(error, defaultMessage) {
+  if (process.env.NODE_ENV === 'production') {
+    return isPermissionError(error)
+      ? '⚠️ 権限エラーが発生しました。詳細はDMをご確認ください。'
+      : defaultMessage;
+  }
+  return `エラー: ${error?.message || error}`;
+}
+
+async function notifyPermissionError(user, error, context) {
+  if (!isPermissionError(error)) return;
+  try {
+    await handlePermissionError(user, error, context);
+  } catch (dmErr) {
+    console.error('[interactionHandler] Failed to send permission error DM:', dmErr?.message || dmErr);
+  }
+}
+
+async function respondWithError(interaction, message) {
+  try {
+    await safeRespond(interaction, {
+      content: message,
+      flags: MessageFlags.Ephemeral
+    });
+  } catch (respondError) {
+    console.error('[interactionHandler] Failed to send error response:', respondError?.message || respondError);
+  }
+}
+
+async function handleInteractionError(interaction, error, options) {
+  const { contextLabel, defaultMessage, permissionContext } = options;
+  console.error(`[interactionHandler] Error in ${contextLabel}:`, error);
+  await notifyPermissionError(interaction.user, error, permissionContext);
+  const errorMessage = buildErrorMessage(error, defaultMessage);
+  await respondWithError(interaction, errorMessage);
+}
+
 /**
  * 安全にdeferReplyを実行（既にdefer済み/返信済みの場合はスキップ）
  * @param {Interaction} interaction 
@@ -32,24 +85,22 @@ async function safeDeferReply(interaction, options = { flags: MessageFlags.Ephem
  * @returns {Promise<Message>}
  */
 async function safeRespond(interaction, payload) {
-  try {
-    // 既にdefer/reply済みならfollowUp、それ以外はreply
-    if (interaction.deferred || interaction.replied) {
-      return await interaction.followUp(payload);
-    }
-    return await interaction.reply(payload);
-  } catch (e) {
-    // Discord API error 40060 (Unknown interaction) の場合のフォールバック
-    if (e && (e.code === 40060 || e.status === 400)) {
-      try {
-        return await interaction.followUp(payload);
-      } catch (fallbackError) {
-        console.error('[interactionHandler] safeRespond fallback also failed:', fallbackError?.message || fallbackError);
-        throw fallbackError;
-      }
-    }
-    throw e;
+  const shouldFollowUp = interaction.deferred || interaction.replied;
+  const primaryCall = shouldFollowUp
+    ? () => interaction.followUp(payload)
+    : () => interaction.reply(payload);
+
+  const primaryResult = await attemptInteractionCall(primaryCall);
+  if (primaryResult.ok) return primaryResult.result;
+
+  if (isUnknownInteractionError(primaryResult.error)) {
+    const fallbackResult = await attemptInteractionCall(() => interaction.followUp(payload));
+    if (fallbackResult.ok) return fallbackResult.result;
+    console.error('[interactionHandler] safeRespond fallback also failed:', fallbackResult.error?.message || fallbackResult.error);
+    throw fallbackResult.error;
   }
+
+  throw primaryResult.error;
 }
 
 /**
@@ -70,34 +121,11 @@ async function handleCommandSafely(interaction, handler, options = { defer: true
     // コマンドハンドラーを実行
     await handler(interaction);
   } catch (error) {
-    console.error(`[interactionHandler] Error in command ${interaction.commandName}:`, error);
-    
-    // 権限エラーの場合はDMに通知
-    if (error.code === 50001 || error.code === 50013) {
-      try {
-        await handlePermissionError(interaction.user, error, {
-          commandName: interaction.commandName
-        });
-      } catch (dmErr) {
-        console.error('[interactionHandler] Failed to send permission error DM:', dmErr?.message || dmErr);
-      }
-    }
-    
-    // エラーメッセージを安全に返信
-    const errorMessage = process.env.NODE_ENV === 'production'
-      ? error.code === 50001 || error.code === 50013
-        ? '⚠️ 権限エラーが発生しました。詳細はDMをご確認ください。'
-        : 'コマンド実行中にエラーが発生しました。'
-      : `エラー: ${error?.message || error}`;
-    
-    try {
-      await safeRespond(interaction, {
-        content: errorMessage,
-        flags: MessageFlags.Ephemeral
-      });
-    } catch (respondError) {
-      console.error('[interactionHandler] Failed to send error response:', respondError?.message || respondError);
-    }
+    await handleInteractionError(interaction, error, {
+      contextLabel: `command ${interaction.commandName}`,
+      defaultMessage: 'コマンド実行中にエラーが発生しました。',
+      permissionContext: { commandName: interaction.commandName }
+    });
   }
 }
 
@@ -110,31 +138,10 @@ async function handleComponentSafely(interaction, handler) {
   try {
     await handler(interaction);
   } catch (error) {
-    console.error(`[interactionHandler] Error in component ${interaction.customId}:`, error);
-    
-    // 権限エラーの場合はDMに通知
-    if (error.code === 50001 || error.code === 50013) {
-      try {
-        await handlePermissionError(interaction.user, error);
-      } catch (dmErr) {
-        console.error('[interactionHandler] Failed to send permission error DM:', dmErr?.message || dmErr);
-      }
-    }
-    
-    const errorMessage = process.env.NODE_ENV === 'production'
-      ? error.code === 50001 || error.code === 50013
-        ? '⚠️ 権限エラーが発生しました。詳細はDMをご確認ください。'
-        : '処理中にエラーが発生しました。'
-      : `エラー: ${error?.message || error}`;
-    
-    try {
-      await safeRespond(interaction, {
-        content: errorMessage,
-        flags: MessageFlags.Ephemeral
-      });
-    } catch (respondError) {
-      console.error('[interactionHandler] Failed to send error response:', respondError?.message || respondError);
-    }
+    await handleInteractionError(interaction, error, {
+      contextLabel: `component ${interaction.customId}`,
+      defaultMessage: '処理中にエラーが発生しました。'
+    });
   }
 }
 

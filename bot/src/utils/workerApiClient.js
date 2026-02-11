@@ -18,164 +18,136 @@ function getHeaders() {
   return headers;
 }
 
-/**
- * ゲーム名を正規化
- */
-async function normalizeGameNameWithWorker(input, userId, guildId) {
+function buildWorkerUrl(path) {
+  if (path.startsWith('http')) return path;
+  return `${WORKER_URL}${path}`;
+}
+
+async function requestWorkerJson(path, options = {}) {
+  const {
+    method = 'GET',
+    body,
+    errorLabel,
+    defaultValue,
+    allowFailure = false
+  } = options;
+
   try {
-    const response = await fetch(`${WORKER_URL}/api/game/normalize`, {
-      method: 'POST',
+    const response = await fetch(buildWorkerUrl(path), {
+      method,
       headers: getHeaders(),
-      body: JSON.stringify({ input, userId, guildId })
+      body
     });
 
     if (!response.ok) {
       const errorText = await response.text().catch(() => 'No error body');
-      console.error(`[Worker API] normalizeGameName failed: ${response.status} - ${errorText}`);
+      if (errorLabel) {
+        console.error(`[Worker API] ${errorLabel} failed: ${response.status} - ${errorText}`);
+      }
+      if (allowFailure) return defaultValue;
       throw new Error(`Worker API error: ${response.status}`);
     }
 
-    const data = await response.json();
-    return {
-      normalized: data.normalized,
-      confidence: data.confidence,
-      method: data.method,
-      matches: data.vectorizeMatches || []
-    };
-
+    return await response.json();
   } catch (error) {
-    console.error('[Worker API] normalizeGameName error:', error);
+    if (errorLabel) {
+      console.error(`[Worker API] ${errorLabel} error:`, error);
+    }
+    if (allowFailure) return defaultValue;
     throw error;
   }
+}
+
+/**
+ * ゲーム名を正規化
+ */
+async function normalizeGameNameWithWorker(input, userId, guildId) {
+  const data = await requestWorkerJson('/api/game/normalize', {
+    method: 'POST',
+    body: JSON.stringify({ input, userId, guildId }),
+    errorLabel: 'normalizeGameName'
+  });
+
+  return {
+    normalized: data.normalized,
+    confidence: data.confidence,
+    method: data.method,
+    matches: data.vectorizeMatches || []
+  };
 }
 
 /**
  * フレンドコードを検証
  */
 async function validateFriendCodeWithWorker(gameName, friendCode) {
-  try {
-    const response = await fetch(`${WORKER_URL}/api/friend-code/validate`, {
-      method: 'POST',
-      headers: getHeaders(),
-      body: JSON.stringify({ gameName, friendCode })
-    });
+  const data = await requestWorkerJson('/api/friend-code/validate', {
+    method: 'POST',
+    body: JSON.stringify({ gameName, friendCode }),
+    errorLabel: 'validateFriendCode'
+  });
 
-    if (!response.ok) {
-      const errorText = await response.text().catch(() => 'No error body');
-      console.error(`[Worker API] validateFriendCode failed: ${response.status} - ${errorText}`);
-      throw new Error(`Worker API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    return {
-      isValid: data.isValid,
-      confidence: data.confidence,
-      message: data.message,
-      suggestions: data.suggestions || []
-    };
-
-  } catch (error) {
-    console.error('[Worker API] validateFriendCode error:', error);
-    throw error;
-  }
+  return {
+    isValid: data.isValid,
+    confidence: data.confidence,
+    message: data.message,
+    suggestions: data.suggestions || []
+  };
 }
 
 /**
  * フレンドコードを追加
  */
 async function addFriendCodeToWorker(userId, guildId, gameName, friendCode, originalGameName = null) {
-  try {
-    const response = await fetch(`${WORKER_URL}/api/friend-code/add`, {
-      method: 'POST',
-      headers: getHeaders(),
-      body: JSON.stringify({ userId, guildId, gameName, friendCode, originalGameName })
-    });
+  const data = await requestWorkerJson('/api/friend-code/add', {
+    method: 'POST',
+    body: JSON.stringify({ userId, guildId, gameName, friendCode, originalGameName }),
+    errorLabel: 'addFriendCode'
+  });
 
-    if (!response.ok) {
-      throw new Error(`Worker API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    return data.success;
-
-  } catch (error) {
-    console.error('[Worker API] addFriendCode error:', error);
-    throw error;
-  }
+  return data.success;
 }
 
 /**
  * フレンドコードを取得
  */
 async function getFriendCodesFromWorker(userId, guildId, gameName = null) {
-  try {
-    const params = new URLSearchParams({ userId, guildId });
-    if (gameName) params.append('gameName', gameName);
+  const params = new URLSearchParams({ userId, guildId });
+  if (gameName) params.append('gameName', gameName);
 
-    const response = await fetch(`${WORKER_URL}/api/friend-code/get?${params}`, {
-      headers: getHeaders()
-    });
+  const data = await requestWorkerJson(`/api/friend-code/get?${params}`, {
+    errorLabel: 'getFriendCodes'
+  });
 
-    if (!response.ok) {
-      throw new Error(`Worker API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    return data.codes || [];
-
-  } catch (error) {
-    console.error('[Worker API] getFriendCodes error:', error);
-    throw error;
-  }
+  return data.codes || [];
 }
 
 /**
  * フレンドコードを削除
  */
 async function deleteFriendCodeFromWorker(userId, guildId, gameName) {
-  try {
-    const response = await fetch(`${WORKER_URL}/api/friend-code/delete`, {
-      method: 'DELETE',
-      headers: getHeaders(),
-      body: JSON.stringify({ userId, guildId, gameName })
-    });
+  const data = await requestWorkerJson('/api/friend-code/delete', {
+    method: 'DELETE',
+    body: JSON.stringify({ userId, guildId, gameName }),
+    errorLabel: 'deleteFriendCode'
+  });
 
-    if (!response.ok) {
-      throw new Error(`Worker API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    return data.success;
-
-  } catch (error) {
-    console.error('[Worker API] deleteFriendCode error:', error);
-    throw error;
-  }
+  return data.success;
 }
 
 /**
  * ゲーム名を検索（オートコンプリート用）
  */
 async function searchGameNamesFromWorker(query) {
-  try {
-    const params = new URLSearchParams();
-    if (query) params.append('q', query);
+  const params = new URLSearchParams();
+  if (query) params.append('q', query);
 
-    const response = await fetch(`${WORKER_URL}/api/game/search?${params}`, {
-      headers: getHeaders()
-    });
+  const data = await requestWorkerJson(`/api/game/search?${params}`, {
+    errorLabel: 'searchGameNames',
+    defaultValue: { games: [] },
+    allowFailure: true
+  });
 
-    if (!response.ok) {
-      throw new Error(`Worker API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    return data.games || [];
-
-  } catch (error) {
-    console.error('[Worker API] searchGameNames error:', error);
-    return [];
-  }
+  return data.games || [];
 }
 
 module.exports = {

@@ -19,20 +19,40 @@ async function readPayload(request) {
   }
 }
 
+async function readPayloadWithRawText(request) {
+  const payload = await readPayload(request);
+  const rawText = payload === null ? await request.text() : '';
+  return { payload, rawText };
+}
+
+function entryFromRawText(rawText) {
+  const trimmed = rawText ? rawText.trim() : '';
+  return trimmed ? [{ message: trimmed }] : [];
+}
+
+function entryFromMessage(payload) {
+  return [{ message: payload.message || payload.msg, labels: payload.labels || payload.meta }];
+}
+
+function entryFromPayload(payload) {
+  return [{ message: JSON.stringify(payload) }];
+}
+
 function normalizeEntries(payload, rawText) {
-  const entries = [];
-  if (payload === null) {
-    if (rawText && rawText.trim()) entries.push({ message: rawText.trim() });
-  } else if (Array.isArray(payload)) {
-    entries.push(...payload);
-  } else if (payload.logs && Array.isArray(payload.logs)) {
-    entries.push(...payload.logs);
-  } else if (payload.message || payload.msg) {
-    entries.push({ message: payload.message || payload.msg, labels: payload.labels || payload.meta });
-  } else {
-    entries.push({ message: JSON.stringify(payload) });
+  const handlers = [
+    { when: () => payload === null, build: () => entryFromRawText(rawText) },
+    { when: () => Array.isArray(payload), build: () => payload },
+    { when: () => payload?.logs && Array.isArray(payload.logs), build: () => payload.logs },
+    { when: () => payload?.message || payload?.msg, build: () => entryFromMessage(payload) },
+    { when: () => true, build: () => entryFromPayload(payload) }
+  ];
+
+  for (const handler of handlers) {
+    if (handler.when()) {
+      return handler.build();
+    }
   }
-  return entries;
+  return [];
 }
 
 function buildLokiPayload(entries, payload) {
@@ -87,6 +107,25 @@ async function sendToLoki(env, payload, corsHeaders) {
   return null;
 }
 
+async function handleLogsRequest({ request, env, corsHeaders }) {
+  const { serviceToken, response: tokenResponse } = ensureServiceToken(env, corsHeaders);
+  if (tokenResponse) return tokenResponse;
+
+  const authResponse = validateServiceToken(request, serviceToken, corsHeaders);
+  if (authResponse) return authResponse;
+
+  const { payload, rawText } = await readPayloadWithRawText(request);
+  const lokiConfigured = ensureLokiConfigured(env, corsHeaders);
+  if (lokiConfigured) return lokiConfigured;
+
+  const entries = normalizeEntries(payload, rawText);
+  const lokiPush = buildLokiPayload(entries, payload);
+  const sendResponse = await sendToLoki(env, lokiPush, corsHeaders);
+  if (sendResponse) return sendResponse;
+
+  return respondJson({ ok: true, forwarded: entries.length }, 200, corsHeaders);
+}
+
 export async function routeLogs(context) {
   const { request, env, url, corsHeaders } = context;
   if (url.pathname !== '/api/logs/cloudflare' || request.method !== 'POST') {
@@ -94,24 +133,7 @@ export async function routeLogs(context) {
   }
 
   try {
-    const { serviceToken, response: tokenResponse } = ensureServiceToken(env, corsHeaders);
-    if (tokenResponse) return tokenResponse;
-
-    const authResponse = validateServiceToken(request, serviceToken, corsHeaders);
-    if (authResponse) return authResponse;
-
-    const payload = await readPayload(request);
-    const rawText = payload === null ? await request.text() : '';
-
-    const lokiConfigured = ensureLokiConfigured(env, corsHeaders);
-    if (lokiConfigured) return lokiConfigured;
-
-    const entries = normalizeEntries(payload, rawText);
-    const lokiPush = buildLokiPayload(entries, payload);
-    const sendResponse = await sendToLoki(env, lokiPush, corsHeaders);
-    if (sendResponse) return sendResponse;
-
-    return respondJson({ ok: true, forwarded: entries.length }, 200, corsHeaders);
+    return await handleLogsRequest({ request, env, corsHeaders });
   } catch (_err) {
     return respondJson({ ok: false, error: 'internal_error' }, 500, corsHeaders);
   }

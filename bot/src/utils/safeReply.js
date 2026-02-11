@@ -1,27 +1,36 @@
+function isUnknownInteractionError(err) {
+  return !!(err && err.code === 10062);
+}
+
+async function attemptInteractionCall(call) {
+  try {
+    return { ok: true, result: await call() };
+  } catch (error) {
+    return { ok: false, error };
+  }
+}
+
 async function safeReply(interaction, options) {
   if (!interaction) return null;
-  try {
-    if (!interaction.replied && !interaction.deferred) {
-      return await interaction.reply(options);
-    }
-    try {
-      return await interaction.followUp(options);
-    } catch (_followErr) {
-      try {
-        return await interaction.editReply(options);
-      } catch (editErr) {
-        console.warn('safeReply: all response methods failed:', editErr?.message || editErr);
-        return null;
-      }
-    }
-  } catch (err) {
-    if (err && err.code === 10062) {
+
+  if (!interaction.replied && !interaction.deferred) {
+    const replyResult = await attemptInteractionCall(() => interaction.reply(options));
+    if (replyResult.ok) return replyResult.result;
+    if (isUnknownInteractionError(replyResult.error)) {
       console.warn('safeReply: Unknown interaction (ignored)');
       return null;
     }
-    console.warn('safeReply unexpected error:', err?.message || err);
-    try { return await interaction.followUp(options); } catch (_e) { try { return await interaction.editReply(options); } catch (_e2) { return null; } }
+    console.warn('safeReply unexpected error:', replyResult.error?.message || replyResult.error);
   }
+
+  const followUpResult = await attemptInteractionCall(() => interaction.followUp(options));
+  if (followUpResult.ok) return followUpResult.result;
+
+  const editResult = await attemptInteractionCall(() => interaction.editReply(options));
+  if (editResult.ok) return editResult.result;
+
+  console.warn('safeReply: all response methods failed:', editResult.error?.message || editResult.error);
+  return null;
 }
 
 async function safeUpdate(interaction, options) {

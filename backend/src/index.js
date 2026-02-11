@@ -14,6 +14,37 @@ import { corsHeadersFor } from './worker/cors.js';
 import { jsonResponse } from './worker/http.js';
 import { createStore } from './worker/store.js';
 
+function isFriendCodeRequest(pathname) {
+  return pathname.startsWith('/api/game/') || pathname.startsWith('/api/friend-code/');
+}
+
+function isBotApiRequest(pathname) {
+  return pathname.startsWith('/api/guild-settings/') ||
+         pathname.startsWith('/api/recruitments') ||
+         pathname.startsWith('/api/recruitment') ||
+         pathname.startsWith('/api/bot-invite/');
+}
+
+function shouldAllowWithoutCors(request, isFriendCode, isBotApi) {
+  return request.method === 'GET' || isFriendCode || isBotApi;
+}
+
+function isHealthCheckPath(pathname) {
+  return pathname === '/ping' || pathname === '/health';
+}
+
+async function handleHealthCheck(safeHeaders) {
+  return jsonResponse({ ok: true, name: 'recrubo-api', status: 'ok' }, 200, safeHeaders);
+}
+
+async function tryRouteHandlers(handlers) {
+  for (const handler of handlers) {
+    const response = await handler();
+    if (response) return response;
+  }
+  return null;
+}
+
 export default {
   async fetch(request, env, _ctx) {
     const url = new URL(request.url);
@@ -27,44 +58,32 @@ export default {
       return new Response(null, { status: 204, headers: cors });
     }
 
-    const isFriendCodeAPI = url.pathname.startsWith('/api/game/') || url.pathname.startsWith('/api/friend-code/');
-    const isBotAPI = url.pathname.startsWith('/api/guild-settings/') ||
-                     url.pathname.startsWith('/api/recruitments') ||
-                     url.pathname.startsWith('/api/recruitment') ||
-                     url.pathname.startsWith('/api/bot-invite/');
+    const isFriendCode = isFriendCodeRequest(url.pathname);
+    const isBotApi = isBotApiRequest(url.pathname);
 
-    if (!cors && request.method !== 'GET' && !isFriendCodeAPI && !isBotAPI) {
+    if (!cors && !shouldAllowWithoutCors(request, isFriendCode, isBotApi)) {
       return new Response('Forbidden', { status: 403 });
     }
 
     const safeHeaders = cors || {};
 
-    if (url.pathname === '/ping' || url.pathname === '/health') {
-      return jsonResponse({ ok: true, name: 'recrubo-api', status: 'ok' }, 200, safeHeaders);
+    if (isHealthCheckPath(url.pathname)) {
+      return handleHealthCheck(safeHeaders);
     }
-
-    const friendCodeResponse = await handleFriendCodeRoutes(request, env, { url, safeHeaders });
-    if (friendCodeResponse) return friendCodeResponse;
-
-    const guildSettingsResponse = await handleGuildSettingsRoutes(request, env, { url, safeHeaders });
-    if (guildSettingsResponse) return guildSettingsResponse;
-
-    const adminResponse = await handleAdminRoutes(request, env, { url, safeHeaders });
-    if (adminResponse) return adminResponse;
 
     const store = createStore(env, request);
 
-    const metricsResponse = await handleMetricsRoutes(request, env, { url, cors, safeHeaders, store });
-    if (metricsResponse) return metricsResponse;
+    const response = await tryRouteHandlers([
+      () => handleFriendCodeRoutes(request, env, { url, safeHeaders }),
+      () => handleGuildSettingsRoutes(request, env, { url, safeHeaders }),
+      () => handleAdminRoutes(request, env, { url, safeHeaders }),
+      () => handleMetricsRoutes(request, env, { url, cors, safeHeaders, store }),
+      () => handleGrafanaRoutes(request, env, { url, safeHeaders, store }),
+      () => handleRecruitmentRoutes(request, env, { url, safeHeaders, store, cors }),
+      () => handleBotInviteRoutes(request, env, { url, safeHeaders })
+    ]);
 
-    const grafanaResponse = await handleGrafanaRoutes(request, env, { url, safeHeaders, store });
-    if (grafanaResponse) return grafanaResponse;
-
-    const recruitmentResponse = await handleRecruitmentRoutes(request, env, { url, safeHeaders, store, cors });
-    if (recruitmentResponse) return recruitmentResponse;
-
-    const botInviteResponse = await handleBotInviteRoutes(request, env, { url, safeHeaders });
-    if (botInviteResponse) return botInviteResponse;
+    if (response) return response;
 
     return new Response('Not Found', { status: 404, headers: safeHeaders });
   }

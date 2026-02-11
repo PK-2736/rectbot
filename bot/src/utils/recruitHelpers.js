@@ -6,10 +6,41 @@ const {
   ThumbnailBuilder
 } = require('discord.js');
 
+function normalizeAccentColor(accentColor) {
+  if (typeof accentColor === 'number') return accentColor;
+  return parseInt(String(accentColor), 16) || 0x000000;
+}
+
+function buildFooterText(recruitIdText, footerExtra) {
+  const footerParts = [`募集ID：\`${recruitIdText}\``];
+  if (footerExtra) footerParts.push(footerExtra);
+  footerParts.push('powered by Recrubo');
+  return footerParts.join(' | ');
+}
+
+function buildActionRow(extraActionButtons = [], logLabel = 'buildContainer') {
+  const actionRow = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId('join').setLabel('参加').setEmoji('✅').setStyle(ButtonStyle.Success),
+    new ButtonBuilder().setCustomId('cancel').setLabel('取り消し').setEmoji('✖️').setStyle(ButtonStyle.Danger),
+    new ButtonBuilder().setCustomId('close').setLabel('締め').setStyle(ButtonStyle.Secondary).setDisabled(false)
+  );
+
+  if (Array.isArray(extraActionButtons) && extraActionButtons.length > 0) {
+    try {
+      const safeButtons = extraActionButtons.slice(0, Math.max(0, 5 - 3));
+      actionRow.addComponents(...safeButtons);
+    } catch (e) {
+      console.warn(`[${logLabel}] failed to add extraActionButtons:`, e?.message || e);
+    }
+  }
+
+  return actionRow;
+}
+
 // Build a consistent ContainerBuilder for recruit messages
 function buildContainer({ headerTitle = '募集', participantText = '', recruitIdText = '(unknown)', accentColor = 0x000000, imageAttachmentName = 'attachment://recruit-card.png', recruiterId: _recruiterId = null, requesterId: _requesterId = null, footerExtra = null, subHeaderText = null, contentText = '', titleText = '', avatarUrl: _avatarUrl = null, extraActionButtons = [] }) {
   const container = new ContainerBuilder();
-  container.setAccentColor(typeof accentColor === 'number' ? accentColor : parseInt(String(accentColor), 16) || 0x000000);
+  container.setAccentColor(normalizeAccentColor(accentColor));
   // 画像スタイル用: コンテナ直下にテキストを追加（サムネイルは非表示）
   const isImageStyle = !!imageAttachmentName;
   container.addTextDisplayComponents(
@@ -47,30 +78,12 @@ function buildContainer({ headerTitle = '募集', participantText = '', recruitI
     new TextDisplayBuilder().setContent(participantText)
   );
   // close ボタンはグローバルには無効化せずに常に表示する（権限チェックはボタンハンドラ側で行う）
-  const actionRow = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('join').setLabel('参加').setEmoji('✅').setStyle(ButtonStyle.Success),
-    new ButtonBuilder().setCustomId('cancel').setLabel('取り消し').setEmoji('✖️').setStyle(ButtonStyle.Danger),
-    new ButtonBuilder().setCustomId('close').setLabel('締め').setStyle(ButtonStyle.Secondary).setDisabled(false)
-  );
-  if (Array.isArray(extraActionButtons) && extraActionButtons.length > 0) {
-    try {
-      // 1行に最大5コンポーネントまで
-      const safeButtons = extraActionButtons.slice(0, Math.max(0, 5 - 3));
-      actionRow.addComponents(...safeButtons);
-    } catch (e) {
-      console.warn('[buildContainer] failed to add extraActionButtons:', e?.message || e);
-    }
-  }
-  container.addActionRowComponents(actionRow);
+  container.addActionRowComponents(buildActionRow(extraActionButtons, 'buildContainer'));
   container.addSeparatorComponents(
     new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
   );
-  const footerParts = [`募集ID：\`${recruitIdText}\``];
-  if (footerExtra) footerParts.push(footerExtra);
-  footerParts.push('powered by Recrubo');
-  const footerText = footerParts.join(' | ');
   container.addTextDisplayComponents(
-    new TextDisplayBuilder().setContent(footerText)
+    new TextDisplayBuilder().setContent(buildFooterText(recruitIdText, footerExtra))
   );
   return container;
 }
@@ -162,7 +175,7 @@ function buildHeaderSection(titleText, headerTitle, subHeaderText, avatarUrl) {
 // Simple text-first container (no image gallery, but with header section that can have avatar)
 function buildContainerSimple({ headerTitle = '募集', detailsText = '', participantText = '', recruitIdText = '(unknown)', accentColor = 0x000000, footerExtra = null, subHeaderText = null, contentText = '', titleText = '', avatarUrl = null, extraActionButtons = [] }) {
   const container = new ContainerBuilder();
-  container.setAccentColor(typeof accentColor === 'number' ? accentColor : parseInt(String(accentColor), 16) || 0x000000);
+  container.setAccentColor(normalizeAccentColor(accentColor));
   
   // ヘッダーセクション（アバター付き）
   const headerSection = buildHeaderSection(titleText, headerTitle, subHeaderText, avatarUrl);
@@ -195,28 +208,10 @@ function buildContainerSimple({ headerTitle = '募集', detailsText = '', partic
     console.log('[buildContainerSimple] participantLines:', String(participantText).split('\n').filter(Boolean));
     addTextLinesToContainer(container, participantText);
   }
-  const actionRow = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('join').setLabel('参加').setEmoji('✅').setStyle(ButtonStyle.Success),
-    new ButtonBuilder().setCustomId('cancel').setLabel('取り消し').setEmoji('✖️').setStyle(ButtonStyle.Danger),
-    new ButtonBuilder().setCustomId('close').setLabel('締め').setStyle(ButtonStyle.Secondary).setDisabled(false)
-  );
-  
-  if (Array.isArray(extraActionButtons) && extraActionButtons.length > 0) {
-    try {
-      const safeButtons = extraActionButtons.slice(0, Math.max(0, 5 - 3));
-      actionRow.addComponents(...safeButtons);
-    } catch (e) {
-      console.warn('[buildContainerSimple] failed to add extraActionButtons:', e?.message || e);
-    }
-  }
-  
-  container.addActionRowComponents(actionRow);
+  container.addActionRowComponents(buildActionRow(extraActionButtons, 'buildContainerSimple'));
   container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
   
-  const footerParts = [`募集ID：\`${recruitIdText}\``];
-  if (footerExtra) footerParts.push(footerExtra);
-  footerParts.push('powered by Recrubo');
-  container.addTextDisplayComponents(new TextDisplayBuilder().setContent(footerParts.join(' | ')));
+  container.addTextDisplayComponents(new TextDisplayBuilder().setContent(buildFooterText(recruitIdText, footerExtra)));
   
   return container;
 }

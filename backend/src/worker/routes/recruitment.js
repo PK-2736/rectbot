@@ -76,6 +76,45 @@ function getGrafanaToken(request) {
   return request.headers.get('x-grafana-token') || request.headers.get('authorization')?.replace('Bearer ', '');
 }
 
+function logGrafanaTokenCheck({ grafanaToken, providedToken, request, url }) {
+  console.log('[Grafana API] Token check:', {
+    hasEnvToken: !!grafanaToken,
+    envTokenLength: grafanaToken?.length || 0,
+    hasProvidedToken: !!providedToken,
+    providedTokenLength: providedToken?.length || 0,
+    method: request.method,
+    path: url.pathname
+  });
+}
+
+function logGrafanaRequestHeaders(request, url, hasToken) {
+  try {
+    const hdrs = {};
+    for (const [k, v] of request.headers.entries()) hdrs[k] = v;
+    console.log('[Grafana API] Request:', { method: request.method, path: url.pathname, hasToken });
+  } catch (_err) {}
+}
+
+function validateGrafanaListAccess(env, request, url, corsHeaders) {
+  const grafanaToken = env.GRAFANA_TOKEN;
+  const providedToken = getGrafanaToken(request);
+
+  logGrafanaTokenCheck({ grafanaToken, providedToken, request, url });
+
+  if (grafanaToken) {
+    if (!providedToken || providedToken !== grafanaToken) {
+      console.warn('[Grafana API] Unauthorized access attempt', { grafanaToken: !!grafanaToken, providedToken: !!providedToken });
+      return new Response(JSON.stringify({ error: 'unauthorized' }), { status: 401, headers: withJsonHeaders(corsHeaders) });
+    }
+    console.log('[Grafana API] Token validated successfully');
+  } else {
+    console.warn('[Grafana API] No GRAFANA_TOKEN env variable set - API is open to any request');
+  }
+
+  logGrafanaRequestHeaders(request, url, !!grafanaToken);
+  return null;
+}
+
 function getServiceToken(env) {
   return env.SERVICE_TOKEN || '';
 }
@@ -126,6 +165,39 @@ function buildGrafanaHistoryUrl(requestUrl, fromMs, toMs) {
 
 function buildGrafanaAtUrl(requestUrl, ts) {
   return new URL(`/api/recruits-at?ts=${encodeURIComponent(new Date(ts).toISOString())}`, requestUrl);
+}
+
+function createRecruitmentCache(env) {
+  const { hasUpstash, post } = createUpstashClient(env);
+  const ttlHours = Number(env.RECRUITS_TTL_HOURS || 8);
+  const ttlSec = ttlHours * 3600;
+
+  const getJson = async (key) => {
+    if (!hasUpstash) return null;
+    const res = await post(['GET', key]);
+    return res?.result || null;
+  };
+
+  const setJson = async (key, obj, ttl = ttlSec) => {
+    if (!hasUpstash) return;
+    await post(['SET', key, JSON.stringify(obj), 'EX', String(ttl)]);
+  };
+
+  const delKey = async (key) => {
+    if (!hasUpstash) return;
+    await post(['DEL', key]);
+  };
+
+  return { hasUpstash, getJson, setJson, delKey, ttlSec };
+}
+
+function getRecruitmentIdFromPath(url) {
+  const pathPrefix = url.pathname.startsWith('/api/recruitments/') ? '/api/recruitments/' : '/api/recruitment/';
+  return url.pathname.split(pathPrefix)[1];
+}
+
+function buildDoRequest(url, path, method, body) {
+  return new Request(new URL(path, url).toString(), { method, body });
 }
 
 function createUpstashClient(env) {
@@ -203,38 +275,13 @@ async function handleGrafanaList({ request, env, url, corsHeaders }) {
   }
 
   try {
-    const grafanaToken = env.GRAFANA_TOKEN;
-    const providedToken = getGrafanaToken(request);
-    console.log('[Grafana API] Token check:', {
-      hasEnvToken: !!grafanaToken,
-      envTokenLength: grafanaToken?.length || 0,
-      hasProvidedToken: !!providedToken,
-      providedTokenLength: providedToken?.length || 0,
-      method: request.method,
-      path: url.pathname
-    });
-
-    if (grafanaToken) {
-      if (!providedToken || providedToken !== grafanaToken) {
-        console.warn('[Grafana API] Unauthorized access attempt', { grafanaToken: !!grafanaToken, providedToken: !!providedToken });
-        return new Response(JSON.stringify({ error: 'unauthorized' }), { status: 401, headers: withJsonHeaders(corsHeaders) });
-      }
-      console.log('[Grafana API] Token validated successfully');
-    } else {
-      console.warn('[Grafana API] No GRAFANA_TOKEN env variable set - API is open to any request');
-    }
-
-    try {
-      const hdrs = {};
-      for (const [k, v] of request.headers.entries()) hdrs[k] = v;
-      console.log('[Grafana API] Request:', { method: request.method, path: url.pathname, hasToken: !!grafanaToken });
-    } catch (_err) {}
+    const authResponse = validateGrafanaListAccess(env, request, url, corsHeaders);
+    if (authResponse) return authResponse;
 
     const items = await fetchRecruitsFromDO({ request, env });
     console.log(`[Grafana API] Got ${items.length} items from DO`);
 
-    let body = {};
-    try { body = await request.json(); } catch {}
+    const body = await readJsonBody(request);
     const range = parseGrafanaRange(body);
     const filtered = items.filter(r => shouldIncludeGrafanaRecruit(r, range));
 
@@ -424,16 +471,13 @@ async function handleDashboardRecruitment({ request, env, url, corsHeaders, read
 async function handleRecruitmentCollection({ request, env, url, corsHeaders, readDoOnlyForGrafana }) {
   if (url.pathname !== '/api/recruitment' && url.pathname !== '/api/recruitments') return null;
 
-  const { hasUpstash, post: redisPost } = createUpstashClient(env);
-  const setJson = async (key, obj, ttl) => { if (!hasUpstash) return; await redisPost(['SET', key, JSON.stringify(obj), 'EX', String(ttl || 8 * 3600)]); };
-  const ttlHours = Number(env.RECRUITS_TTL_HOURS || 8);
-  const ttlSec = ttlHours * 3600;
+  const { setJson, ttlSec } = createRecruitmentCache(env);
 
   if (request.method === 'POST') {
     try {
       const data = await request.json();
       const stub = getDoStub(env);
-      const resp = await stub.fetch(new Request(new URL('/api/recruits', url).toString(), { method: 'POST', body: JSON.stringify(data) }));
+      const resp = await stub.fetch(buildDoRequest(url, '/api/recruits', 'POST', JSON.stringify(data)));
       const bodyText = await resp.text();
       let parsed; try { parsed = JSON.parse(bodyText); } catch { parsed = { ok: false, raw: bodyText }; }
       if (parsed?.ok && data?.recruitId) {
@@ -452,7 +496,7 @@ async function handleRecruitmentCollection({ request, env, url, corsHeaders, rea
         return new Response(JSON.stringify({ items: [] }), { status: 200, headers: withJsonHeaders(corsHeaders) });
       }
       const stub = getDoStub(env);
-      const resp = await stub.fetch(new Request(new URL('/api/recruits', url).toString(), { method: 'GET' }));
+      const resp = await stub.fetch(buildDoRequest(url, '/api/recruits', 'GET'));
       const text = await resp.text();
       return new Response(text, { status: 200, headers: withJsonHeaders(corsHeaders) });
     } catch (error) {
@@ -468,15 +512,14 @@ async function handleRecruitmentPatch({ request, env, url, corsHeaders }) {
   const isPatchPath = (url.pathname.startsWith('/api/recruitment/') || url.pathname.startsWith('/api/recruitments/')) && request.method === 'PATCH';
   if (!isPatchPath) return null;
 
-  const pathPrefix = url.pathname.startsWith('/api/recruitments/') ? '/api/recruitments/' : '/api/recruitment/';
-  const messageId = url.pathname.split(pathPrefix)[1];
+  const messageId = getRecruitmentIdFromPath(url);
   if (!messageId) {
     return new Response(JSON.stringify({ error: 'Message ID required' }), { status: 400, headers: withJsonHeaders(corsHeaders) });
   }
   try {
     const updateData = await request.json();
     const stub = getDoStub(env);
-    const resp = await stub.fetch(new Request(new URL(`/api/recruits/${encodeURIComponent(messageId)}`, url).toString(), { method: 'PATCH', body: JSON.stringify(updateData) }));
+    const resp = await stub.fetch(buildDoRequest(url, `/api/recruits/${encodeURIComponent(messageId)}`, 'PATCH', JSON.stringify(updateData)));
     const text = await resp.text();
     return new Response(text, { status: resp.status, headers: withJsonHeaders(corsHeaders) });
   } catch (error) {
@@ -489,35 +532,34 @@ async function handleRecruitmentItem({ request, env, url, corsHeaders, readDoOnl
   const isRecruitmentPath = url.pathname.startsWith('/api/recruitment/') || url.pathname.startsWith('/api/recruitments/');
   if (!isRecruitmentPath || (request.method !== 'GET' && request.method !== 'DELETE')) return null;
 
-  const pathPrefix = url.pathname.startsWith('/api/recruitments/') ? '/api/recruitments/' : '/api/recruitment/';
-  const rid = url.pathname.split(pathPrefix)[1];
+  const rid = getRecruitmentIdFromPath(url);
   if (!rid) {
     return new Response(JSON.stringify({ error: 'Message ID required' }), { status: 400, headers: withJsonHeaders(corsHeaders) });
   }
 
-  const { hasUpstash, post: redisPost } = createUpstashClient(env);
+  const { hasUpstash, getJson, delKey } = createRecruitmentCache(env);
 
   if (request.method === 'GET') {
     if (hasUpstash) {
-      const res = await redisPost(['GET', `recruit:${rid}`]);
-      if (res && res.result) {
-        try { return new Response(res.result, { status: 200, headers: withJsonHeaders(corsHeaders) }); } catch {}
+      const cached = await getJson(`recruit:${rid}`);
+      if (cached) {
+        try { return new Response(cached, { status: 200, headers: withJsonHeaders(corsHeaders) }); } catch {}
       }
     }
     if (readDoOnlyForGrafana) {
       return new Response(JSON.stringify({ error: 'restricted', message: 'DO read disabled outside Grafana' }), { status: 403, headers: withJsonHeaders(corsHeaders) });
     }
     const stub = getDoStub(env);
-    const resp = await stub.fetch(new Request(new URL(`/api/recruits/${encodeURIComponent(rid)}`, url).toString(), { method: 'GET' }));
+    const resp = await stub.fetch(buildDoRequest(url, `/api/recruits/${encodeURIComponent(rid)}`, 'GET'));
     const text = await resp.text();
     return new Response(text, { status: resp.status, headers: withJsonHeaders(corsHeaders) });
   }
 
   const body = await request.text();
   const stub = getDoStub(env);
-  const resp = await stub.fetch(new Request(new URL(`/api/recruits/${encodeURIComponent(rid)}`, url).toString(), { method: 'DELETE', body }));
+  const resp = await stub.fetch(buildDoRequest(url, `/api/recruits/${encodeURIComponent(rid)}`, 'DELETE', body));
   const text = await resp.text();
-  if (hasUpstash) { await redisPost(['DEL', `recruit:${rid}`]); }
+  if (hasUpstash) { await delKey(`recruit:${rid}`); }
   return new Response(text, { status: resp.status, headers: withJsonHeaders(corsHeaders) });
 }
 

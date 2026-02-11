@@ -105,6 +105,95 @@ const COMMAND_DETAILS = {
   }
 };
 
+const HELP_COLOR = 0xF97316;
+const HOME_URL = 'https://recrubo.net';
+
+function buildHelpEmbed(interaction) {
+  return new EmbedBuilder()
+    .setColor(HELP_COLOR)
+    .setTitle('🤖 Recrubo ヘルプ')
+    .setDescription('Recruboの機能一覧です。下のメニューからコマンドを選択すると詳細が表示されます。')
+    .addFields(
+      { name: '🎮 募集管理', value: '`/rect` - ゲーム募集を作成\n`/rect_edit` - 募集を編集\n`/rect_close` - 募集を締切', inline: false },
+      { name: '🔗 フレンドコード', value: '`/id_add` - フレンドコードを登録\n`/id_show` - フレンドコードを表示\n`/id_delete` - フレンドコードを削除', inline: false },
+      { name: '⚙️ その他', value: '`/setting` - ギルドの募集設定（管理者のみ）\n`/invite` - 公式サーバーとボット招待リンク\n`/help` - このヘルプを表示', inline: false }
+    )
+    .setFooter({
+      text: 'Recrubo v1.0 | 作成者: Recrubo Team',
+      iconURL: interaction.client.user.displayAvatarURL()
+    })
+    .setTimestamp();
+}
+
+function buildDetailEmbed(interaction, command) {
+  return new EmbedBuilder()
+    .setColor(HELP_COLOR)
+    .setTitle(command.title)
+    .setDescription(command.description)
+    .addFields(
+      { name: '📝 使用方法', value: command.usage, inline: true },
+      { name: '💡 例', value: command.examples, inline: true },
+      { name: '\u200B', value: '\u200B', inline: false },
+      ...command.fields
+    )
+    .setFooter({
+      text: 'Recrubo ヘルプ | /help で戻る',
+      iconURL: interaction.client.user.displayAvatarURL()
+    })
+    .setTimestamp();
+}
+
+function buildHelpSelectMenu() {
+  return new StringSelectMenuBuilder()
+    .setCustomId('help_command_select')
+    .setPlaceholder('コマンドを選んで詳細を確認')
+    .addOptions(HELP_MENU_OPTIONS.map(option => (
+      new StringSelectMenuOptionBuilder()
+        .setLabel(option.label)
+        .setDescription(option.description)
+        .setValue(option.value)
+        .setEmoji(option.emoji)
+    )));
+}
+
+function buildHomeButton() {
+  return new ButtonBuilder()
+    .setLabel('🏠 ホームページ')
+    .setStyle(ButtonStyle.Link)
+    .setURL(HOME_URL);
+}
+
+function buildHelpComponents() {
+  const selectRow = new ActionRowBuilder().addComponents(buildHelpSelectMenu());
+  const buttonRow = new ActionRowBuilder().addComponents(buildHomeButton());
+  return [selectRow, buttonRow];
+}
+
+function buildDetailButtons() {
+  const backButton = new ButtonBuilder()
+    .setCustomId('help_back')
+    .setLabel('⬅️ 戻る')
+    .setStyle(ButtonStyle.Secondary);
+
+  return new ActionRowBuilder().addComponents(backButton, buildHomeButton());
+}
+
+async function respondWithEmbed(interaction, embed, components, options) {
+  const { shouldUpdate, updateFn } = options;
+  const useUpdate = typeof shouldUpdate === 'function' ? shouldUpdate(interaction) : !!shouldUpdate;
+
+  if (useUpdate) {
+    await updateFn(interaction, { embeds: [embed], components });
+    return;
+  }
+
+  await safeReply(interaction, {
+    embeds: [embed],
+    components,
+    flags: MessageFlags.Ephemeral
+  });
+}
+
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('help')
@@ -156,112 +245,27 @@ module.exports = {
 
 // 全体のヘルプを表示
 async function showGeneralHelp(interaction) {
-  const helpEmbed = new EmbedBuilder()
-    .setColor(0xF97316)
-    .setTitle('🤖 Recrubo ヘルプ')
-    .setDescription('Recruboの機能一覧です。下のメニューからコマンドを選択すると詳細が表示されます。')
-    .addFields(
-      { name: '🎮 募集管理', value: '`/rect` - ゲーム募集を作成\n`/rect_edit` - 募集を編集\n`/rect_close` - 募集を締切', inline: false },
-      { name: '🔗 フレンドコード', value: '`/id_add` - フレンドコードを登録\n`/id_show` - フレンドコードを表示\n`/id_delete` - フレンドコードを削除', inline: false },
-      { name: '⚙️ その他', value: '`/setting` - ギルドの募集設定（管理者のみ）\n`/invite` - 公式サーバーとボット招待リンク\n`/help` - このヘルプを表示', inline: false }
-    )
-    .setFooter({ 
-  text: 'Recrubo v1.0 | 作成者: Recrubo Team',
-      iconURL: interaction.client.user.displayAvatarURL()
-    })
-    .setTimestamp();
-
-  // コマンド選択用のセレクトメニュー
-  const selectMenu = new StringSelectMenuBuilder()
-    .setCustomId('help_command_select')
-    .setPlaceholder('コマンドを選んで詳細を確認')
-    .addOptions(HELP_MENU_OPTIONS.map(option => (
-      new StringSelectMenuOptionBuilder()
-        .setLabel(option.label)
-        .setDescription(option.description)
-        .setValue(option.value)
-        .setEmoji(option.emoji)
-    )));
-
-  // ホームページへのボタン
-  const homeButton = new ButtonBuilder()
-    .setLabel('🏠 ホームページ')
-    .setStyle(ButtonStyle.Link)
-  .setURL('https://recrubo.net');
-
-  const selectRow = new ActionRowBuilder().addComponents(selectMenu);
-  const buttonRow = new ActionRowBuilder().addComponents(homeButton);
-
-  // 応答方法を判定（reply or update）
-  if (interaction.isButton()) {
-    // ボタンからの操作の場合はupdate
-    await safeUpdate(interaction, {
-      embeds: [helpEmbed],
-      components: [selectRow, buttonRow]
-    });
-  } else {
-    // 最初のコマンド実行の場合はreply
-    await safeReply(interaction, {
-      embeds: [helpEmbed],
-      components: [selectRow, buttonRow],
-      flags: MessageFlags.Ephemeral
-    });
-  }
+  const helpEmbed = buildHelpEmbed(interaction);
+  await respondWithEmbed(interaction, helpEmbed, buildHelpComponents(), {
+    shouldUpdate: (ctx) => ctx.isButton(),
+    updateFn: (ctx, payload) => safeUpdate(ctx, payload)
+  });
 }
 
 // 特定のコマンドの詳細を表示
 async function showCommandDetails(interaction, commandName) {
   const command = COMMAND_DETAILS[commandName];
   if (!command) {
-    await interaction.reply({
+    await safeReply(interaction, {
       content: '❌ 指定されたコマンドが見つかりません。',
       flags: MessageFlags.Ephemeral
     });
     return;
   }
 
-  const detailEmbed = new EmbedBuilder()
-    .setColor(0xF97316)
-    .setTitle(command.title)
-    .setDescription(command.description)
-    .addFields(
-      { name: '📝 使用方法', value: command.usage, inline: true },
-      { name: '💡 例', value: command.examples, inline: true },
-      { name: '\u200B', value: '\u200B', inline: false }, // 空行
-      ...command.fields
-    )
-    .setFooter({ 
-      text: 'Recrubo ヘルプ | /help で戻る',
-      iconURL: interaction.client.user.displayAvatarURL()
-    })
-    .setTimestamp();
-
-  // 戻るボタンとホームページボタン
-  const backButton = new ButtonBuilder()
-    .setCustomId('help_back')
-    .setLabel('⬅️ 戻る')
-    .setStyle(ButtonStyle.Secondary);
-
-  const homeButton = new ButtonBuilder()
-    .setLabel('🏠 ホームページ')
-    .setStyle(ButtonStyle.Link)
-  .setURL('https://recrubo.net');
-
-  const buttonRow = new ActionRowBuilder().addComponents(backButton, homeButton);
-
-  // 応答方法を判定（reply or update）
-  if (interaction.isStringSelectMenu() || interaction.isButton()) {
-    // セレクトメニューやボタンからの操作の場合はupdate
-    await interaction.update({
-      embeds: [detailEmbed],
-      components: [buttonRow]
-    });
-  } else {
-    // 最初のコマンド実行の場合はreply
-    await interaction.reply({
-      embeds: [detailEmbed],
-      components: [buttonRow],
-      flags: MessageFlags.Ephemeral
-    });
-  }
+  const detailEmbed = buildDetailEmbed(interaction, command);
+  await respondWithEmbed(interaction, detailEmbed, [buildDetailButtons()], {
+    shouldUpdate: (ctx) => ctx.isStringSelectMenu() || ctx.isButton(),
+    updateFn: (ctx, payload) => ctx.update(payload)
+  });
 }

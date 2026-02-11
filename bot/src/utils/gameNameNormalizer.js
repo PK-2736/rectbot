@@ -27,63 +27,85 @@ const GAME_DICTIONARY = {
   'rocket league': ['rl', 'rocketleague', 'ロケットリーグ', 'rocket league']
 };
 
+let OFFICIAL_NAMES = Object.keys(GAME_DICTIONARY);
+const OFFICIAL_SET = new Set(OFFICIAL_NAMES);
+const ALIAS_LOOKUP = new Map(
+  Object.entries(GAME_DICTIONARY).flatMap(([officialName, aliases]) =>
+    aliases.map(alias => [alias.toLowerCase(), officialName])
+  )
+);
+
+function cleanInputValue(input) {
+  if (!input || typeof input !== 'string') return null;
+  return input.trim().toLowerCase();
+}
+
+function matchOfficialExact(cleanInput) {
+  return OFFICIAL_SET.has(cleanInput) ? cleanInput : null;
+}
+
+function matchAliasExact(cleanInput) {
+  return ALIAS_LOOKUP.get(cleanInput) || null;
+}
+
+function findMatch(cleanInput, options) {
+  const { matchOfficial, matchAlias, officialConfidence, aliasConfidence } = options;
+
+  for (const officialName of OFFICIAL_NAMES) {
+    if (matchOfficial(officialName, cleanInput)) {
+      return { normalized: officialName, confidence: officialConfidence };
+    }
+
+    const aliases = GAME_DICTIONARY[officialName] || [];
+    const matchedAlias = aliases.find(alias => matchAlias(alias, cleanInput));
+    if (matchedAlias) {
+      return { normalized: officialName, confidence: aliasConfidence };
+    }
+  }
+
+  return null;
+}
+
 /**
  * 入力されたゲーム名を正規化
  * @param {string} input - ユーザー入力のゲーム名
  * @returns {Object} { normalized: string, confidence: number }
  */
 function normalizeGameName(input) {
-  if (!input || typeof input !== 'string') {
-    return { normalized: null, confidence: 0 };
-  }
-
-  const cleanInput = input.trim().toLowerCase();
+  const cleanInput = cleanInputValue(input);
+  if (!cleanInput) return { normalized: null, confidence: 0 };
   
   // 1. 完全一致チェック（正式名称）
-  for (const officialName of Object.keys(GAME_DICTIONARY)) {
-    if (cleanInput === officialName) {
-      return { normalized: officialName, confidence: 1.0 };
-    }
-  }
+  const exactOfficial = matchOfficialExact(cleanInput);
+  if (exactOfficial) return { normalized: exactOfficial, confidence: 1.0 };
   
   // 2. エイリアス完全一致チェック
-  for (const [officialName, aliases] of Object.entries(GAME_DICTIONARY)) {
-    if (aliases.some(alias => alias.toLowerCase() === cleanInput)) {
-      return { normalized: officialName, confidence: 0.95 };
-    }
-  }
+  const exactAlias = matchAliasExact(cleanInput);
+  if (exactAlias) return { normalized: exactAlias, confidence: 0.95 };
   
   // 3. 部分一致チェック（前方一致優先）
-  for (const [officialName, aliases] of Object.entries(GAME_DICTIONARY)) {
-    // 正式名称の前方一致
-    if (officialName.startsWith(cleanInput) || cleanInput.startsWith(officialName)) {
-      return { normalized: officialName, confidence: 0.85 };
-    }
-    
-    // エイリアスの前方一致
-    const matchedAlias = aliases.find(alias => 
-      alias.toLowerCase().startsWith(cleanInput) || 
-      cleanInput.startsWith(alias.toLowerCase())
-    );
-    if (matchedAlias) {
-      return { normalized: officialName, confidence: 0.8 };
-    }
-  }
+  const prefixMatch = findMatch(cleanInput, {
+    matchOfficial: (officialName, input) => officialName.startsWith(input) || input.startsWith(officialName),
+    matchAlias: (alias, input) => {
+      const lowered = alias.toLowerCase();
+      return lowered.startsWith(input) || input.startsWith(lowered);
+    },
+    officialConfidence: 0.85,
+    aliasConfidence: 0.8
+  });
+  if (prefixMatch) return prefixMatch;
   
   // 4. 含まれているかチェック（あいまい検索）
-  for (const [officialName, aliases] of Object.entries(GAME_DICTIONARY)) {
-    if (officialName.includes(cleanInput) || cleanInput.includes(officialName)) {
-      return { normalized: officialName, confidence: 0.7 };
-    }
-    
-    const containsAlias = aliases.find(alias => 
-      alias.toLowerCase().includes(cleanInput) || 
-      cleanInput.includes(alias.toLowerCase())
-    );
-    if (containsAlias) {
-      return { normalized: officialName, confidence: 0.65 };
-    }
-  }
+  const containsMatch = findMatch(cleanInput, {
+    matchOfficial: (officialName, input) => officialName.includes(input) || input.includes(officialName),
+    matchAlias: (alias, input) => {
+      const lowered = alias.toLowerCase();
+      return lowered.includes(input) || input.includes(lowered);
+    },
+    officialConfidence: 0.7,
+    aliasConfidence: 0.65
+  });
+  if (containsMatch) return containsMatch;
   
   // 5. 見つからない場合は入力値をそのまま使用（小文字化して統一）
   return { normalized: cleanInput, confidence: 0.5 };
@@ -96,12 +118,12 @@ function normalizeGameName(input) {
  * @returns {Array<string>} 候補リスト
  */
 function suggestGameNames(input, limit = 10) {
-  if (!input || typeof input !== 'string') return [];
-  
-  const cleanInput = input.trim().toLowerCase();
+  const cleanInput = cleanInputValue(input);
+  if (!cleanInput) return [];
   const suggestions = new Set();
   
-  for (const [officialName, aliases] of Object.entries(GAME_DICTIONARY)) {
+  for (const officialName of OFFICIAL_NAMES) {
+    const aliases = GAME_DICTIONARY[officialName] || [];
     // 正式名称が一致
     if (officialName.includes(cleanInput)) {
       suggestions.add(officialName);
@@ -127,8 +149,14 @@ function addGameAliases(officialName, newAliases) {
   const lowerName = officialName.toLowerCase();
   if (!GAME_DICTIONARY[lowerName]) {
     GAME_DICTIONARY[lowerName] = [];
+    OFFICIAL_SET.add(lowerName);
+    OFFICIAL_NAMES = Object.keys(GAME_DICTIONARY);
   }
-  GAME_DICTIONARY[lowerName].push(...newAliases);
+  const aliases = Array.isArray(newAliases) ? newAliases : [newAliases];
+  GAME_DICTIONARY[lowerName].push(...aliases);
+  aliases.forEach(alias => {
+    if (alias) ALIAS_LOOKUP.set(String(alias).toLowerCase(), lowerName);
+  });
 }
 
 /**

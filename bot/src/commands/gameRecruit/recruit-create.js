@@ -191,6 +191,37 @@ async function sendWebhookNotification(finalRecruitData, interaction, actualMess
   }
 }
 
+function formatContentText(finalRecruitData) {
+  const contentTextValue = finalRecruitData?.content || finalRecruitData?.note || finalRecruitData?.description || '';
+  return contentTextValue && String(contentTextValue).trim().length > 0
+    ? `**📝 募集内容**\n${String(contentTextValue).slice(0, 1500)}`
+    : '';
+}
+
+function createVoiceChannelButton(actualRecruitId) {
+  return new ButtonBuilder()
+    .setCustomId(`create_vc_${actualRecruitId}`)
+    .setLabel('専用チャンネル作成')
+    .setEmoji('📢')
+    .setStyle(ButtonStyle.Primary);
+}
+
+function buildExtraButtonsForRecruit(finalRecruitData, actualRecruitId) {
+  if (finalRecruitData?.startTime === '今から') {
+    return [createVoiceChannelButton(actualRecruitId)];
+  }
+  return [];
+}
+
+function buildSimpleStyleDetails(finalRecruitData) {
+  const labelsLine = '**🕒 開始時間 | 👥 募集人数 | 🎙 通話有無**';
+  const startVal = finalRecruitData?.startTime ? String(finalRecruitData.startTime) : null;
+  const membersVal = typeof finalRecruitData?.participants === 'number' ? `${finalRecruitData.participants}人` : null;
+  const voiceVal = formatVoiceLabel(finalRecruitData?.vc, finalRecruitData?.voicePlace);
+  const valuesLine = [startVal, membersVal, voiceVal].filter(Boolean).join(' | ');
+  return `${labelsLine}\n${valuesLine}`;
+}
+
 async function updateRecruitmentMessage({
   actualMessage,
   finalRecruitData,
@@ -220,75 +251,35 @@ async function updateRecruitmentMessage({
   }
 
   const finalAccentColor = /^[0-9A-Fa-f]{6}$/.test(finalUseColor) ? parseInt(finalUseColor, 16) : 0x000000;
-  let updatedContainer;
-
-  if (styleForEdit === 'simple') {
-    const labelsLine = '**🕒 開始時間 | 👥 募集人数 | 🎙 通話有無**';
-    const startVal = finalRecruitData?.startTime ? String(finalRecruitData.startTime) : null;
-    const membersVal = typeof finalRecruitData?.participants === 'number' ? `${finalRecruitData.participants}人` : null;
-    const voiceVal = formatVoiceLabel(finalRecruitData?.vc, finalRecruitData?.voicePlace);
-    const valuesLine = [startVal, membersVal, voiceVal].filter(Boolean).join(' | ');
-    const detailsText = `${labelsLine}\n${valuesLine}`;
-
-    const contentTextValue = finalRecruitData?.content || finalRecruitData?.note || finalRecruitData?.description || '';
-    const contentText = contentTextValue && String(contentTextValue).trim().length > 0
-      ? `**📝 募集内容**\n${String(contentTextValue).slice(0, 1500)}`
-      : '';
-
-    const extraButtonsFinalSimple = [];
-    if (finalRecruitData?.startTime === '今から') {
-      extraButtonsFinalSimple.push(
-        new ButtonBuilder()
-          .setCustomId(`create_vc_${actualRecruitId}`)
-          .setLabel('専用チャンネル作成')
-          .setEmoji('📢')
-          .setStyle(ButtonStyle.Primary)
-      );
-    }
-
-    updatedContainer = buildContainerSimple({
-      headerTitle: `${user.username}さんの募集`,
-      detailsText,
-      contentText,
-      titleText: finalRecruitData?.title ? `## ${String(finalRecruitData.title).slice(0,200)}` : '',
-      participantText,
-      recruitIdText: actualRecruitId,
-      accentColor: finalAccentColor,
-      subHeaderText,
-      avatarUrl,
-      extraActionButtons: extraButtonsFinalSimple
-    });
-  } else {
-    const contentTextValue = finalRecruitData?.content || finalRecruitData?.note || finalRecruitData?.description || '';
-    const contentText = contentTextValue && String(contentTextValue).trim().length > 0
-      ? `**📝 募集内容**\n${String(contentTextValue).slice(0, 1500)}`
-      : '';
-
-    const extraButtonsFinalImg = [];
-    if (finalRecruitData?.startTime === '今から') {
-      extraButtonsFinalImg.push(
-        new ButtonBuilder()
-          .setCustomId(`create_vc_${actualRecruitId}`)
-          .setLabel('専用チャンネル作成')
-          .setEmoji('📢')
-          .setStyle(ButtonStyle.Primary)
-      );
-    }
-
-    updatedContainer = buildContainer({
-      headerTitle: `${user.username}さんの募集`,
-      subHeaderText,
-      contentText,
-      titleText: '',
-      participantText,
-      recruitIdText: actualRecruitId,
-      accentColor: finalAccentColor,
-      imageAttachmentName: 'attachment://recruit-card.png',
-      recruiterId: interaction.user.id,
-      requesterId: interaction.user.id,
-      extraActionButtons: extraButtonsFinalImg
-    });
-  }
+  const contentText = formatContentText(finalRecruitData);
+  const extraButtons = buildExtraButtonsForRecruit(finalRecruitData, actualRecruitId);
+  
+  const updatedContainer = styleForEdit === 'simple'
+    ? buildContainerSimple({
+        headerTitle: `${user.username}さんの募集`,
+        detailsText: buildSimpleStyleDetails(finalRecruitData),
+        contentText,
+        titleText: finalRecruitData?.title ? `## ${String(finalRecruitData.title).slice(0,200)}` : '',
+        participantText,
+        recruitIdText: actualRecruitId,
+        accentColor: finalAccentColor,
+        subHeaderText,
+        avatarUrl,
+        extraActionButtons: extraButtons
+      })
+    : buildContainer({
+        headerTitle: `${user.username}さんの募集`,
+        subHeaderText,
+        contentText,
+        titleText: '',
+        participantText,
+        recruitIdText: actualRecruitId,
+        accentColor: finalAccentColor,
+        imageAttachmentName: 'attachment://recruit-card.png',
+        recruiterId: interaction.user.id,
+        requesterId: interaction.user.id,
+        extraActionButtons: extraButtons
+      });
 
   try {
     const editPayload = {
@@ -488,7 +479,7 @@ function buildImageStyleContainer({ user, participantText, subHeaderText, intera
   });
 }
 
-async function sendAnnouncementsWithErrorHandling(interaction, selectedNotificationRole, configuredNotificationRoleIds, image, container, guildSettings, user) {
+async function sendAnnouncementsWithErrorHandling({ interaction, selectedNotificationRole, configuredNotificationRoleIds, image, container, guildSettings, user }) {
   try {
     const announceRes = await sendAnnouncements({
       interaction,
@@ -642,10 +633,15 @@ async function sendAndUpdateInitialMessage({
   container, guildSettings, user, recruitDataObj, style, panelColor,
   participantText, subHeaderText
 }) {
-  const { followUpMessage, secondaryMessage } = await sendAnnouncementsWithErrorHandling(
-    interaction, selectedNotificationRole, configuredNotificationRoleIds,
-    image, container, guildSettings, user
-  );
+  const { followUpMessage, secondaryMessage } = await sendAnnouncementsWithErrorHandling({
+    interaction,
+    selectedNotificationRole,
+    configuredNotificationRoleIds,
+    image,
+    container,
+    guildSettings,
+    user
+  });
 
   const msgId = followUpMessage?.id;
   if (!msgId) return null;
@@ -783,7 +779,7 @@ async function gatherRecruitmentInputs(interaction, guildSettings) {
   };
 }
 
-async function prepareRecruitmentUI(interaction, guildSettings, recruitDataObj, currentParticipants, participantText, selectedNotificationRole, panelColor) {
+async function prepareRecruitmentUI({ interaction, guildSettings, recruitDataObj, currentParticipants, participantText, selectedNotificationRole, panelColor }) {
   const useColor = normalizeHex(panelColor ? panelColor : (guildSettings.defaultColor ? guildSettings.defaultColor : '000000'), '000000');
   const user = interaction.targetUser || interaction.user;
   const style = (guildSettings?.recruit_style === 'simple') ? 'simple' : 'image';
@@ -847,7 +843,7 @@ async function handleRecruitCreateModal(interaction) {
     const currentParticipants = buildCurrentParticipants(interaction, existingMembers);
     const participantText = buildParticipantText(currentParticipants, participantsNum);
 
-    const uiData = await prepareRecruitmentUI(
+    const uiData = await prepareRecruitmentUI({
       interaction,
       guildSettings,
       recruitDataObj,
@@ -855,7 +851,7 @@ async function handleRecruitCreateModal(interaction) {
       participantText,
       selectedNotificationRole,
       panelColor
-    );
+    });
 
     const { image, container, user, style, subHeaderText, configuredNotificationRoleIds } = uiData;
 

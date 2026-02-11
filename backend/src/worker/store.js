@@ -1,6 +1,11 @@
 function createInMemoryStore() {
   const map = new Map();
   const list = [];
+  
+  function isUnauthorizedDelete(recruit, requesterId) {
+    return recruit.ownerId && requesterId && recruit.ownerId !== requesterId;
+  }
+  
   return {
     async listAll() {
       return list.map(id => map.get(id));
@@ -37,7 +42,7 @@ function createInMemoryStore() {
     async delete(id, requesterId) {
       const r = map.get(id);
       if (!r) return null;
-      if (r.ownerId && requesterId && r.ownerId !== requesterId) {
+      if (isUnauthorizedDelete(r, requesterId)) {
         throw new Error('forbidden');
       }
       map.delete(id);
