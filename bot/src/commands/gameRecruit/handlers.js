@@ -1,4 +1,4 @@
-const { MessageFlags, EmbedBuilder, ComponentType, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, ActionRowBuilder, AttachmentBuilder, UserSelectMenuBuilder, PermissionsBitField, ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, SeparatorSpacingSize, MediaGalleryBuilder, MediaGalleryItemBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { MessageFlags, EmbedBuilder, AttachmentBuilder, PermissionsBitField, ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, SeparatorSpacingSize, MediaGalleryBuilder, MediaGalleryItemBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { recruitParticipants, pendingModalOptions } = require('./state');
 const { safeReply } = require('../../utils/safeReply');
 const { createErrorEmbed } = require('../../utils/embedHelpers');
@@ -8,10 +8,10 @@ const { generateRecruitCard } = require('../../utils/canvasRecruit');
 const { updateParticipantList } = require('../../utils/recruitMessage');
 const { EXEMPT_GUILD_IDS } = require('./constants');
 const { handlePermissionError } = require('../../utils/handlePermissionError');
-const { sendNotificationAsync, formatVoiceLabel, fetchUserAvatarUrl, formatParticipantList, runInBackground } = require('./handlerUtils');
-const { replyEphemeral, logError, logWarning, logCriticalError } = require('./reply-helpers');
-const { isValidParticipantsNumber, isValidStartDelay, isImmediateStartTime, isValidHexColor, hasNotificationRole, hasVoiceChat, hasVoiceChannelId, isRecruiter, hasValidParticipants, shouldUseDefaultNotification: shouldUseDefaultNotif, isDifferentChannel, isPermissionError, isUnknownInteractionError } = require('./validation-helpers');
-const { hexToIntColor, buildStartTimeNotificationEmbed, buildStartTimeNotificationComponents, buildTextComponent, buildSeparatorComponent, buildMediaGalleryComponent, addComponentToContainer, buildContainerFromLayout } = require('./ui-builders');
+const { sendNotificationAsync, formatVoiceLabel, fetchUserAvatarUrl, runInBackground } = require('./handlerUtils');
+const { replyEphemeral, logError, logCriticalError } = require('./reply-helpers');
+const { isValidParticipantsNumber, isValidStartDelay, isImmediateStartTime, isRecruiter, hasValidParticipants, shouldUseDefaultNotification: shouldUseDefaultNotif, isDifferentChannel, isPermissionError, isUnknownInteractionError } = require('./validation-helpers');
+const { hexToIntColor, buildStartTimeNotificationEmbed, buildStartTimeNotificationComponents } = require('./ui-builders');
 
 // ------------------------------
 // Helper utilities (behavior-preserving refactor)
@@ -129,62 +129,6 @@ function buildConfiguredNotificationRoleIds(guildSettings) {
   return [...new Set(roles.map(String))].slice(0, 25);
 }
 
-async function fetchValidNotificationRoles(interaction, configuredIds) {
-  const valid = [];
-  for (const roleId of configuredIds) {
-    let role = interaction.guild?.roles?.cache?.get(roleId) || null;
-    if (!role) role = await interaction.guild.roles.fetch(roleId).catch(() => null);
-    if (role) valid.push({ id: role.id, name: role.name });
-  }
-  return valid;
-}
-
-async function selectNotificationRole(interaction, configuredIds) {
-  // 事前選択（pending）
-  try {
-    const pending = interaction.user && interaction.user.id ? pendingModalOptions.get(interaction.user.id) : null;
-    const preSelected = pending && pending.notificationRoleId ? String(pending.notificationRoleId) : null;
-    if (preSelected) {
-      if (configuredIds.includes(preSelected)) {
-        pendingModalOptions.delete(interaction.user.id);
-        return { roleId: preSelected, aborted: false };
-      } else {
-        await replyEphemeral(interaction, { 
-          content: '❌ 指定された通知ロールは使用できません（設定に含まれていません）。' 
-        });
-        return { roleId: null, aborted: true };
-      }
-    }
-  } catch (e) {
-    logError('pendingModalOptions (notificationRoleId) read failed', e);
-  }
-
-  const valid = await fetchValidNotificationRoles(interaction, configuredIds);
-  if (valid.length === 0) return { roleId: null, aborted: false };
-  if (valid.length === 1) return { roleId: valid[0].id, aborted: false };
-
-  // 複数有効なロールがある場合、選択 UI を提示
-  const options = valid.slice(0, 24).map(role => new StringSelectMenuOptionBuilder().setLabel(role.name?.slice(0, 100) || '通知ロール').setValue(role.id));
-  options.push(new StringSelectMenuOptionBuilder().setLabel('通知ロールなし').setValue('none').setDescription('今回は通知ロールを使用せずに募集します。'));
-  const selectMenu = new StringSelectMenuBuilder().setCustomId(`recruit_notification_role_select_${interaction.id}`).setPlaceholder('通知ロールを選択してください').setMinValues(1).setMaxValues(1).addOptions(options);
-  const selectRow = new ActionRowBuilder().addComponents(selectMenu);
-  const promptMessage = await safeReply(interaction, { content: '🔔 通知ロールを選択してください（任意）', components: [selectRow], flags: MessageFlags.Ephemeral, allowedMentions: { roles: [], users: [] } });
-  if (!promptMessage || typeof promptMessage.awaitMessageComponent !== 'function') {
-    return { roleId: valid[0]?.id || null, aborted: false };
-  }
-  try {
-    const selectInteraction = await promptMessage.awaitMessageComponent({ componentType: ComponentType.StringSelect, time: 60_000, filter: (i) => i.user.id === interaction.user.id });
-    const choice = selectInteraction.values[0];
-    const selected = choice === 'none' ? null : choice;
-    const confirmationText = selected ? `🔔 通知ロール: <@&${selected}>` : '🔕 通知ロールを使用せずに募集を作成します。';
-    await selectInteraction.update({ content: confirmationText, components: [], allowedMentions: { roles: [], users: [] } });
-    return { roleId: selected, aborted: false };
-  } catch (collectorError) {
-    logError('[handleModalSubmit] Notification role selection timed out', collectorError);
-    await promptMessage.edit({ content: '⏱ 通知ロールの選択がタイムアウトしました。募集は作成されませんでした。', components: [] }).catch(() => {});
-    return { roleId: null, aborted: true };
-  }
-}
 
 /**
  * Sends notification to a channel (primary or recruitment channel)
@@ -1251,7 +1195,7 @@ function resolveExistingMembers(interaction) {
         return id !== interaction.user.id && !(member?.user?.bot);
       });
     }
-  } catch (e) {
+  } catch (_e) {
     // no existing members selected
   }
   return [];
@@ -1276,7 +1220,7 @@ function resolveNotificationRole(interaction) {
         return roleId;
       }
     }
-  } catch (e) {
+  } catch (_e) {
     // no notification role selected
   }
   return null;
@@ -1564,7 +1508,7 @@ async function updateMessagesWithRecruitId(followUpMessage, secondaryMessage, im
 async function sendAndUpdateInitialMessage({ 
   interaction, selectedNotificationRole, configuredNotificationRoleIds, image, 
   container, guildSettings, user, recruitDataObj, style, panelColor, 
-  participantText, subHeaderText, currentParticipants 
+  participantText, subHeaderText 
 }) {
   // アナウンス送信
   const { followUpMessage, secondaryMessage } = await sendAnnouncementsWithErrorHandling(
@@ -1786,12 +1730,12 @@ async function handleRecruitCreateModal(interaction) {
     const result = await sendAndUpdateInitialMessage({ 
       interaction, selectedNotificationRole, configuredNotificationRoleIds, image, 
       container, guildSettings, user, recruitDataObj, style, panelColor, 
-      participantText, subHeaderText, currentParticipants 
+      participantText, subHeaderText 
     });
     
     if (!result) return;
     
-    const { followUpMessage, secondaryMessage } = result;
+    const { followUpMessage } = result;
 
     // 送信後の保存とUI更新（確定画像/ID/ボタン）
     try {
