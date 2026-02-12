@@ -390,15 +390,17 @@ async function processClose(interaction, messageId, savedRecruitData) {
     }
 
     const statusUpdateSuccess = await updateRecruitmentStatusToEnded(messageId);
-    if (statusUpdateSuccess) {
-      await cleanupRecruitmentData(messageId, interaction.user.id, data);
-    }
 
     const recruitStyle = await getRecruitStyle(interaction.guildId);
 
     await updateMessageWithClosedCard({ interaction, messageId, recruitStyle, data });
 
     await sendCloseNotification(interaction, data, messageId);
+
+    // クリーンアップは参加者リストを使用する処理の後に実行
+    if (statusUpdateSuccess) {
+      await cleanupRecruitmentData(messageId, interaction.user.id, data);
+    }
   } catch (e) {
     logCriticalError('close button handler error', e);
   }

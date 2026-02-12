@@ -10,6 +10,7 @@ import { handleMetricsRoutes } from './routes/metrics';
 import { handleGrafanaRoutes } from './routes/grafana';
 import { handleRecruitmentRoutes } from './routes/recruitments';
 import { handleBotInviteRoutes } from './routes/bot-invite';
+import { handleStripeRoutes } from './routes/stripe';
 import { corsHeadersFor } from './worker/cors.js';
 import { jsonResponse } from './worker/http.js';
 import { createStore } from './worker/store.js';
@@ -80,7 +81,8 @@ export default {
       () => handleMetricsRoutes(request, env, { url, cors, safeHeaders, store }),
       () => handleGrafanaRoutes(request, env, { url, safeHeaders, store }),
       () => handleRecruitmentRoutes(request, env, { url, safeHeaders, store, cors }),
-      () => handleBotInviteRoutes(request, env, { url, safeHeaders })
+      () => handleBotInviteRoutes(request, env, { url, safeHeaders }),
+      () => handleStripeRoutes(request, url, env)
     ]);
 
     if (response) return response;
