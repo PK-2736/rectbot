@@ -194,11 +194,37 @@ module.exports = {
         )
     ),
 
+  async validateRecruitId(interaction, recruitId) {
+    if (recruitId === 'NO_ACTIVE') {
+      await safeRespond(interaction, { content: '❌ 編集できる募集がありません。', flags: MessageFlags.Ephemeral });
+      return false;
+    }
+    return true;
+  },
+
+  extractRecruitMetadata(recruit) {
+    const ownerId = recruit?.ownerId || recruit?.metadata?.raw?.recruiterId;
+    const messageId = recruit?.metadata?.messageId;
+    return { ownerId, messageId };
+  },
+
+  async validateRecruitOwnership(interaction, ownerId, messageId) {
+    if (!ownerId || !messageId) {
+      await safeRespond(interaction, { content: '❌ 募集の取得に失敗しました。', flags: MessageFlags.Ephemeral });
+      return false;
+    }
+    if (String(ownerId) !== interaction.user.id) {
+      await safeRespond(interaction, { content: '❌ 募集主のみが編集できます。', flags: MessageFlags.Ephemeral });
+      return false;
+    }
+    return true;
+  },
+
   async execute(interaction) {
     const recruitId = interaction.options.getString('id');
     console.log(`[rect-edit] execute called with recruitId: ${recruitId}`);
-    if (recruitId === 'NO_ACTIVE') {
-      await safeRespond(interaction, { content: '❌ 編集できる募集がありません。', flags: MessageFlags.Ephemeral });
+    
+    if (!await this.validateRecruitId(interaction, recruitId)) {
       return;
     }
 
@@ -209,14 +235,9 @@ module.exports = {
       // DO NOT defer - showModal must be the first response
       const recruit = await fetchRecruitById(recruitId);
       console.log(`[rect-edit] recruit fetched:`, { id: recruit?.recruitId || recruit?.id, title: recruit?.title });
-      const ownerId = recruit?.ownerId || recruit?.metadata?.raw?.recruiterId;
-      const messageId = recruit?.metadata?.messageId;
-      if (!ownerId || !messageId) {
-        await safeRespond(interaction, { content: '❌ 募集の取得に失敗しました。', flags: MessageFlags.Ephemeral });
-        return;
-      }
-      if (String(ownerId) !== interaction.user.id) {
-        await safeRespond(interaction, { content: '❌ 募集主のみが編集できます。', flags: MessageFlags.Ephemeral });
+      
+      const { ownerId, messageId } = this.extractRecruitMetadata(recruit);
+      if (!await this.validateRecruitOwnership(interaction, ownerId, messageId)) {
         return;
       }
 
@@ -234,25 +255,66 @@ module.exports = {
     }
   },
 
+  async handleStartTimeAutocomplete(interaction, focused) {
+    const suggestions = [
+      { name: '今から', value: '今から' },
+      { name: '21:00', value: '21:00' },
+      { name: '22:00', value: '22:00' },
+      { name: '23:00', value: '23:00' },
+      { name: '20:00', value: '20:00' },
+      { name: '19:00', value: '19:00' },
+      { name: '18:00', value: '18:00' },
+    ];
+    const filtered = suggestions.filter(s => 
+      !focused || s.name.includes(focused) || s.value.includes(focused)
+    );
+    await interaction.respond(filtered.slice(0, 25));
+  },
+
+  async fetchAndFilterRecruits(guildId, userId) {
+    const res = await getActiveRecruits();
+    const list = Array.isArray(res?.body) ? res.body : [];
+    console.log(`[rect-edit autocomplete] Found ${list.length} total recruits`);
+    
+    return list
+      .filter(r => (r.status || 'recruiting') === 'recruiting')
+      .filter(r => !guildId || r.metadata?.guildId === guildId)
+      .filter(r => !userId || String(r.ownerId || r.owner_id) === String(userId))
+      .map(r => ({
+        id: r.recruitId || r.id,
+        title: r.title || r.game || '募集',
+        start: r.startTime || r.metadata?.startLabel || '',
+        voice: r.voice,
+        guildId: r.metadata?.guildId,
+      }));
+  },
+
+  buildAutocompleteOptions(filtered, focused) {
+    return filtered
+      .filter(r => !focused || String(r.id).includes(focused) || (r.title && r.title.includes(focused)))
+      .slice(0, 25)
+      .map(r => ({
+        name: `${r.title} | ${r.start || ''} | ${r.id}`.slice(0, 100),
+        value: String(r.id).slice(-100)
+      }));
+  },
+
+  async respondAutocomplete(interaction, options) {
+    console.log(`[rect-edit autocomplete] Responding with ${options.length} options`, options.map(o => o.value));
+    if (options.length === 0) {
+      await interaction.respond([{ name: 'アクティブな募集なし', value: 'NO_ACTIVE' }]);
+    } else {
+      await interaction.respond(options);
+    }
+  },
+
   async autocomplete(interaction) {
     const focusedName = interaction.options.getFocused(true)?.name;
     
     // 開始時間のオートコンプリート
     if (focusedName === '開始時間') {
       const focused = (interaction.options.getFocused() || '').trim();
-      const suggestions = [
-        { name: '今から', value: '今から' },
-        { name: '21:00', value: '21:00' },
-        { name: '22:00', value: '22:00' },
-        { name: '23:00', value: '23:00' },
-        { name: '20:00', value: '20:00' },
-        { name: '19:00', value: '19:00' },
-        { name: '18:00', value: '18:00' },
-      ];
-      const filtered = suggestions.filter(s => 
-        !focused || s.name.includes(focused) || s.value.includes(focused)
-      );
-      await interaction.respond(filtered.slice(0, 25));
+      await this.handleStartTimeAutocomplete(interaction, focused);
       return;
     }
 
@@ -261,38 +323,12 @@ module.exports = {
       const focused = (interaction.options.getFocused() || '').trim();
       const guildId = interaction.guild?.id;
       const userId = interaction.user?.id;
-      const res = await getActiveRecruits();
-      const list = Array.isArray(res?.body) ? res.body : [];
-      console.log(`[rect-edit autocomplete] Found ${list.length} total recruits`);
-      const filtered = list
-        .filter(r => (r.status || 'recruiting') === 'recruiting')
-        .filter(r => !guildId || r.metadata?.guildId === guildId)
-        .filter(r => !userId || String(r.ownerId || r.owner_id) === String(userId))
-        .map(r => ({
-          id: r.recruitId || r.id,
-          title: r.title || r.game || '募集',
-          start: r.startTime || r.metadata?.startLabel || '',
-          voice: r.voice,
-          guildId: r.metadata?.guildId,
-        }));
-
+      
+      const filtered = await this.fetchAndFilterRecruits(guildId, userId);
       console.log(`[rect-edit autocomplete] After filtering: ${filtered.length} recruits`, filtered.map(r => r.id));
-
-      const options = filtered
-        .filter(r => !focused || String(r.id).includes(focused) || (r.title && r.title.includes(focused)))
-        .slice(0, 25)
-        .map(r => ({
-          name: `${r.title} | ${r.start || ''} | ${r.id}`.slice(0, 100),
-          value: String(r.id).slice(-100)
-        }));
-
-      console.log(`[rect-edit autocomplete] Responding with ${options.length} options`, options.map(o => o.value));
-
-      if (options.length === 0) {
-        await interaction.respond([{ name: 'アクティブな募集なし', value: 'NO_ACTIVE' }]);
-      } else {
-        await interaction.respond(options);
-      }
+      
+      const options = this.buildAutocompleteOptions(filtered, focused);
+      await this.respondAutocomplete(interaction, options);
     } catch (err) {
       console.error('[rect-edit] autocomplete error', err);
       try { await interaction.respond([]); } catch (_) { /* ignore */ }
@@ -301,20 +337,16 @@ module.exports = {
 
   async handleModalSubmit(interaction) {
     console.log('[rect-edit handleModalSubmit] called with customId:', interaction.customId);
-    if (!interaction.customId.startsWith('editRecruitModal_')) {
+    
+    const extracted = extractCacheKey(interaction.customId);
+    if (!extracted) {
       console.log('[rect-edit handleModalSubmit] skipped - customId does not start with editRecruitModal_');
       return;
     }
+    
     console.log('[rect-edit handleModalSubmit] processing editRecruitModal');
-    const parts = interaction.customId.replace('editRecruitModal_', '').split('_');
-    const messageId = parts[0];
-    const cacheKey = parts[1] || null;
-    let argUpdates = {};
-    if (cacheKey && interaction.client.rectEditArgCache && interaction.client.rectEditArgCache.has(cacheKey)) {
-      argUpdates = interaction.client.rectEditArgCache.get(cacheKey) || {};
-      // cleanup immediately after use
-      interaction.client.rectEditArgCache.delete(cacheKey);
-    }
+    const { messageId, cacheKey } = extracted;
+    const argUpdates = retrieveArgUpdates(interaction.client, cacheKey);
 
     try {
       await interaction.deferReply({ ephemeral: true });
@@ -331,40 +363,102 @@ module.exports = {
   }
 };
 
+function extractCacheKey(customId) {
+  if (!customId.startsWith('editRecruitModal_')) {
+    return null;
+  }
+  const parts = customId.replace('editRecruitModal_', '').split('_');
+  return { messageId: parts[0], cacheKey: parts[1] || null };
+}
+
+function retrieveArgUpdates(client, cacheKey) {
+  if (!cacheKey || !client.rectEditArgCache) {
+    return {};
+  }
+  
+  const argUpdates = client.rectEditArgCache.get(cacheKey) || {};
+  client.rectEditArgCache.delete(cacheKey);
+  return argUpdates;
+}
+
+async function executeRecruitUpdate(interaction, messageId, content, argUpdates) {
+  const update = buildUpdatePayload(content, argUpdates);
+  console.log('[rect-edit] handleModalSubmit - messageId:', messageId);
+  console.log('[rect-edit] Updating recruit with:', update);
+
+  const result = await updateRecruitmentData(messageId, update);
+  console.log('[rect-edit] updateRecruitmentData result:', { ok: result.ok, status: result.status });
+
+  if (!result.ok || !result.body?.recruit) {
+    console.error('[rect-edit] Update failed or no recruit data returned');
+    return null;
+  }
+
+  return result.body.recruit;
+}
+
+async function fetchRecruitMessage(interaction, recruitData, messageId) {
+  const actualMessageId = recruitData.metadata?.messageId || messageId;
+  const recruitId = recruitData.recruitId;
+
+  console.log('[rect-edit] Updated recruit from backend:', {
+    recruitId,
+    title: recruitData.title,
+    description: recruitData.description,
+    actualMessageId
+  });
+
+  const msg = await interaction.channel.messages.fetch(actualMessageId).catch((err) => {
+    console.error('[rect-edit] Failed to fetch message:', err.message);
+    return null;
+  });
+
+  return { msg, actualMessageId, recruitId };
+}
+
+async function buildAndUpdateMessage(msg, recruitData, interaction, recruitId) {
+  const participants = normalizeParticipants(recruitData);
+  console.log('[rect-edit] Participants:', participants);
+
+  const recruitStyle = await resolveRecruitStyle(recruitData.metadata?.guildId || interaction.guildId);
+  console.log('[rect-edit] Recruit style:', recruitStyle);
+
+  const { useColor, accentColor } = resolveAccentColor(recruitData);
+  const participantText = buildParticipantText(recruitData, participants);
+
+  const { container, files } = await buildRecruitContainer({
+    recruitStyle,
+    recruitData,
+    participants,
+    interaction,
+    useColor,
+    accentColor,
+    participantText,
+    recruitId
+  });
+
+  console.log('[rect-edit] Updating message');
+  await msg.edit({
+    files,
+    components: [container],
+    flags: require('discord.js').MessageFlags.IsComponentsV2,
+    allowedMentions: { roles: [], users: [] }
+  });
+}
+
 async function runUpdateFlow(interaction, messageId, argUpdates) {
   (async () => {
     try {
       const content = interaction.fields.getTextInputValue('content') || null;
       console.log('[rect-edit] Background update started - content:', content);
 
-      const update = buildUpdatePayload(content, argUpdates);
-      console.log('[rect-edit] handleModalSubmit - messageId:', messageId);
-      console.log('[rect-edit] Updating recruit with:', update);
-
-      const result = await updateRecruitmentData(messageId, update);
-      console.log('[rect-edit] updateRecruitmentData result:', { ok: result.ok, status: result.status });
-
-      if (!result.ok || !result.body?.recruit) {
-        console.error('[rect-edit] Update failed or no recruit data returned');
+      const recruitData = await executeRecruitUpdate(interaction, messageId, content, argUpdates);
+      if (!recruitData) {
         await interaction.editReply({ content: '⚠️ 募集の更新に失敗しました。' });
         return;
       }
 
-      const recruitData = result.body.recruit;
-      const actualMessageId = recruitData.metadata?.messageId || messageId;
-      const recruitId = recruitData.recruitId;
-
-      console.log('[rect-edit] Updated recruit from backend:', {
-        recruitId,
-        title: recruitData.title,
-        description: recruitData.description,
-        actualMessageId
-      });
-
-      const msg = await interaction.channel.messages.fetch(actualMessageId).catch((err) => {
-        console.error('[rect-edit] Failed to fetch message:', err.message);
-        return null;
-      });
+      const { msg, actualMessageId, recruitId } = await fetchRecruitMessage(interaction, recruitData, messageId);
 
       if (!msg) {
         console.warn('[rect-edit] Message not found:', actualMessageId);
@@ -372,33 +466,7 @@ async function runUpdateFlow(interaction, messageId, argUpdates) {
         return;
       }
 
-      const participants = normalizeParticipants(recruitData);
-      console.log('[rect-edit] Participants:', participants);
-
-      const recruitStyle = await resolveRecruitStyle(recruitData.metadata?.guildId || interaction.guildId);
-      console.log('[rect-edit] Recruit style:', recruitStyle);
-
-      const { useColor, accentColor } = resolveAccentColor(recruitData);
-      const participantText = buildParticipantText(recruitData, participants);
-
-      const { container, files } = await buildRecruitContainer({
-        recruitStyle,
-        recruitData,
-        participants,
-        interaction,
-        useColor,
-        accentColor,
-        participantText,
-        recruitId
-      });
-
-      console.log('[rect-edit] Updating message:', actualMessageId);
-      await msg.edit({
-        files,
-        components: [container],
-        flags: require('discord.js').MessageFlags.IsComponentsV2,
-        allowedMentions: { roles: [], users: [] }
-      });
+      await buildAndUpdateMessage(msg, recruitData, interaction, recruitId);
 
       console.log('[rect-edit] Update completed successfully');
       await interaction.editReply({ content: '✅ 募集を更新しました。' });
@@ -409,76 +477,93 @@ async function runUpdateFlow(interaction, messageId, argUpdates) {
   })();
 }
 
-async function buildRecruitContainer({ recruitStyle, recruitData, participants, interaction, useColor, accentColor, participantText, recruitId }) {
-  if (recruitStyle === 'simple') {
-    console.log('[rect-edit] Using simple style (no image)');
-    const titleLine = recruitData.title ? `## ${recruitData.title}` : '';
-    const currentMembers = participants.length;
-    const maxMembers = Number(recruitData.maxMembers) || currentMembers;
-
-    const startVal = recruitData.metadata?.startLabel || recruitData.startTime
-      ? `🕒 ${String(recruitData.metadata?.startLabel || recruitData.startTime)}`
-      : null;
-    const membersVal = `👥 ${currentMembers}/${maxMembers}人`;
-    const vcVal = (() => {
-      const hasVoice = recruitData.vc === 'あり' || recruitData.vc === true || recruitData.voice === true;
-      const noVoice = recruitData.vc === 'なし' || recruitData.vc === false || recruitData.voice === false;
-      if (hasVoice) {
-        const place = recruitData.metadata?.note || recruitData.voiceChannelName || recruitData.voicePlace;
-        return place ? `🎙 あり(${place})` : '🎙 あり';
-      } else if (noVoice) {
-        return '🎙 なし';
-      }
-      return null;
-    })();
-
-    const labelsLine = '**🕒 開始時間 | 👥 募集人数 | 🎙 通話有無**';
-    const valuesLine = [startVal, membersVal, vcVal].filter(Boolean).join(' | ');
-    const detailsText = [labelsLine, valuesLine].filter(Boolean).join('\n');
-
-    const recruitContent = recruitData.description || recruitData.content || recruitData.note || recruitData.metadata?.raw?.content || '';
-    const contentText = recruitContent && String(recruitContent).trim().length > 0
-      ? `**📝 募集内容**\n${String(recruitContent).slice(0, 1500)}`
-      : '';
-
-    let subHeaderText = null;
-    const notificationRoleId = recruitData.metadata?.notificationRoleId || recruitData.notificationRoleId;
-    if (notificationRoleId) {
-      if (notificationRoleId === 'everyone') {
-        subHeaderText = '🔔 通知ロール: @everyone';
-      } else if (notificationRoleId === 'here') {
-        subHeaderText = '🔔 通知ロール: @here';
-      } else {
-        subHeaderText = `🔔 通知ロール: <@&${notificationRoleId}>`;
-      }
-    }
-
-    let avatarUrl = null;
-    try {
-      const fetchedUser = await interaction.client.users.fetch(recruitData.ownerId).catch(() => null);
-      if (fetchedUser && typeof fetchedUser.displayAvatarURL === 'function') {
-        avatarUrl = fetchedUser.displayAvatarURL({ size: 128, extension: 'png' });
-      }
-    } catch (_) {}
-
-    const simpleParticipantText = buildSimpleParticipantText(recruitData, participants);
-
-    return {
-      files: [],
-      container: buildContainerSimple({
-        headerTitle: `${interaction.user.username}さんの募集`,
-        titleText: titleLine,
-        subHeaderText,
-        detailsText,
-        contentText,
-        participantText: simpleParticipantText,
-        recruitIdText: recruitId,
-        accentColor,
-        avatarUrl
-      })
-    };
+function calculateVcValue(recruitData) {
+  const hasVoice = recruitData.vc === 'あり' || recruitData.vc === true || recruitData.voice === true;
+  const noVoice = recruitData.vc === 'なし' || recruitData.vc === false || recruitData.voice === false;
+  
+  if (hasVoice) {
+    const place = recruitData.metadata?.note || recruitData.voiceChannelName || recruitData.voicePlace;
+    return place ? `🎙 あり(${place})` : '🎙 あり';
+  } else if (noVoice) {
+    return '🎙 なし';
   }
+  return null;
+}
 
+function buildNotificationRoleText(notificationRoleId) {
+  if (!notificationRoleId) return null;
+  
+  if (notificationRoleId === 'everyone') {
+    return '🔔 通知ロール: @everyone';
+  } else if (notificationRoleId === 'here') {
+    return '🔔 通知ロール: @here';
+  } else {
+    return `🔔 通知ロール: <@&${notificationRoleId}>`;
+  }
+}
+
+async function extractUserAvatar(interaction, ownerId) {
+  try {
+    const fetchedUser = await interaction.client.users.fetch(ownerId).catch(() => null);
+    if (fetchedUser && typeof fetchedUser.displayAvatarURL === 'function') {
+      return fetchedUser.displayAvatarURL({ size: 128, extension: 'png' });
+    }
+  } catch (_) {}
+  return null;
+}
+
+function buildDetailsText(recruitData, participants) {
+  const currentMembers = participants.length;
+  const maxMembers = Number(recruitData.maxMembers) || currentMembers;
+
+  const startVal = recruitData.metadata?.startLabel || recruitData.startTime
+    ? `🕒 ${String(recruitData.metadata?.startLabel || recruitData.startTime)}`
+    : null;
+  const membersVal = `👥 ${currentMembers}/${maxMembers}人`;
+  const vcVal = calculateVcValue(recruitData);
+
+  const labelsLine = '**🕒 開始時間 | 👥 募集人数 | 🎙 通話有無**';
+  const valuesLine = [startVal, membersVal, vcVal].filter(Boolean).join(' | ');
+  return [labelsLine, valuesLine].filter(Boolean).join('\n');
+}
+
+function buildRecruitContentText(recruitData) {
+  const recruitContent = recruitData.description || recruitData.content || recruitData.note || recruitData.metadata?.raw?.content || '';
+  if (recruitContent && String(recruitContent).trim().length > 0) {
+    return `**📝 募集内容**\n${String(recruitContent).slice(0, 1500)}`;
+  }
+  return '';
+}
+
+async function buildSimpleRecruitContainer({ recruitData, participants, interaction, accentColor, recruitId }) {
+  console.log('[rect-edit] Using simple style (no image)');
+  const titleLine = recruitData.title ? `## ${recruitData.title}` : '';
+  const detailsText = buildDetailsText(recruitData, participants);
+  const contentText = buildRecruitContentText(recruitData);
+  
+  const notificationRoleId = recruitData.metadata?.notificationRoleId || recruitData.notificationRoleId;
+  const subHeaderText = buildNotificationRoleText(notificationRoleId);
+  
+  const avatarUrl = await extractUserAvatar(interaction, recruitData.ownerId);
+  const simpleParticipantText = buildSimpleParticipantText(recruitData, participants);
+
+  return {
+    files: [],
+    container: buildContainerSimple({
+      headerTitle: `${interaction.user.username}さんの募集`,
+      titleText: titleLine,
+      subHeaderText,
+      detailsText,
+      contentText,
+      participantText: simpleParticipantText,
+      recruitIdText: recruitId,
+      accentColor,
+      avatarUrl
+    })
+  };
+}
+
+async function buildImageRecruitContainer({ recruitData, participants, interaction, useColor, participantText, recruitId, accentColor }) {
   console.log('[rect-edit] Generating recruit card image...');
   const imageBuffer = await generateRecruitCard(recruitData, participants, interaction.client, useColor);
   const image = new AttachmentBuilder(imageBuffer, { name: 'recruit-card.png' });
@@ -499,4 +584,12 @@ async function buildRecruitContainer({ recruitStyle, recruitData, participants, 
       requesterId: interaction.user.id
     })
   };
+}
+
+async function buildRecruitContainer({ recruitStyle, recruitData, participants, interaction, useColor, accentColor, participantText, recruitId }) {
+  if (recruitStyle === 'simple') {
+    return await buildSimpleRecruitContainer({ recruitData, participants, interaction, accentColor, recruitId });
+  }
+
+  return await buildImageRecruitContainer({ recruitData, participants, interaction, useColor, participantText, recruitId, accentColor });
 }

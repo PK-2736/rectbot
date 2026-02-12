@@ -190,44 +190,57 @@ function wrapTextLines(ctx, text, maxWidth) {
   return lines;
 }
 
+function extractVoicePlace(recruitData) {
+  return recruitData.voiceChannelName || 
+         recruitData.voicePlace || 
+         recruitData.metadata?.note || 
+         null;
+}
+
+function appendVoicePlace(baseText, voicePlace) {
+  return voicePlace ? `${baseText}/${voicePlace}` : baseText;
+}
+
+function parseStringVoiceValue(vcLower, voicePlace) {
+  if (vcLower.includes('なし')) {
+    return 'なし';
+  }
+  
+  if (vcLower.includes('聞き専')) {
+    return appendVoicePlace('あり(聞き専)', voicePlace);
+  }
+  
+  if (vcLower.includes('あり')) {
+    return appendVoicePlace('あり', voicePlace);
+  }
+  
+  return null;
+}
+
+function formatBooleanVoiceValue(vcValue, voicePlace) {
+  if (vcValue === true) {
+    return appendVoicePlace('あり', voicePlace);
+  }
+  
+  if (vcValue === false) {
+    return 'なし';
+  }
+  
+  return null;
+}
+
 function formatVoiceInfo(recruitData) {
   const vcValue = recruitData.vc || recruitData.voice;
+  const voicePlace = extractVoicePlace(recruitData);
 
   if (typeof vcValue === 'string') {
     const vcLower = vcValue.toLowerCase();
-    if (vcLower.includes('なし')) {
-      return 'なし';
-    } else if (vcLower.includes('聞き専')) {
-      if (recruitData.voiceChannelName) {
-        return `あり(聞き専)/${recruitData.voiceChannelName}`;
-      } else if (recruitData.voicePlace) {
-        return `あり(聞き専)/${recruitData.voicePlace}`;
-      }
-      return 'あり(聞き専)';
-    } else if (vcLower.includes('あり')) {
-      if (recruitData.voiceChannelName) {
-        return `あり/${recruitData.voiceChannelName}`;
-      } else if (recruitData.voicePlace) {
-        return `あり/${recruitData.voicePlace}`;
-      } else if (recruitData.metadata?.note) {
-        return `あり/${recruitData.metadata.note}`;
-      }
-      return 'あり';
-    }
+    const result = parseStringVoiceValue(vcLower, voicePlace);
+    if (result) return result;
   }
 
-  if (vcValue === true) {
-    if (recruitData.voiceChannelName) {
-      return `あり/${recruitData.voiceChannelName}`;
-    } else if (recruitData.voicePlace) {
-      return `あり/${recruitData.voicePlace}`;
-    } else if (recruitData.metadata?.note) {
-      return `あり/${recruitData.metadata.note}`;
-    }
-    return 'あり';
-  } else if (vcValue === false) {
-    return 'なし';
-  }
+  const booleanResult = formatBooleanVoiceValue(vcValue, voicePlace);
+  if (booleanResult) return booleanResult;
 
   return '指定なし';
 }

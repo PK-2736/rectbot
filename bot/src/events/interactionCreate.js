@@ -30,6 +30,26 @@ function handleInteractionDedupe(interaction, client) {
   }
 }
 
+async function suggestDefaultTitle(guildId, value, choices) {
+  try {
+    const { getGuildSettings } = require('../utils/db');
+    const settings = await getGuildSettings(guildId).catch(() => null);
+    const def = settings?.defaultTitle;
+    if (def && (!value || def.includes(value))) {
+      choices.push({ name: `既定: ${def}`, value: def });
+    }
+  } catch (_) {}
+}
+
+function suggestStartTime(value, choices) {
+  const label = '今から';
+  const v = (value || '').toLowerCase();
+  const shouldSuggest = !v || ['いま','今','ima','now'].some(k => v.includes(k));
+  if (shouldSuggest) {
+    choices.push({ name: label, value: label });
+  }
+}
+
 // オートコンプリート処理
 async function handleAutocomplete(interaction, client) {
   try {
@@ -45,23 +65,11 @@ async function handleAutocomplete(interaction, client) {
     const choices = [];
     
     if (name === 'タイトル') {
-      try {
-        const { getGuildSettings } = require('../utils/db');
-        const settings = await getGuildSettings(interaction.guildId).catch(() => null);
-        const def = settings?.defaultTitle;
-        if (def && (!value || def.includes(value))) {
-          choices.push({ name: `既定: ${def}`, value: def });
-        }
-      } catch (_) {}
+      await suggestDefaultTitle(interaction.guildId, value, choices);
     }
     
     if (name === '開始時間') {
-      const label = '今から';
-      const v = (value || '').toLowerCase();
-      const shouldSuggest = !v || ['いま','今','ima','now'].some(k => v.includes(k));
-      if (shouldSuggest) {
-        choices.push({ name: label, value: label });
-      }
+      suggestStartTime(value, choices);
     }
     
     await interaction.respond(choices.slice(0, 10));
@@ -92,25 +100,52 @@ async function handleSlashCommand(interaction, client) {
   }
 }
 
+function isGuildSettingsSelectMenu(customId) {
+  return customId?.startsWith('channel_select_') || 
+         customId?.startsWith('role_select_') || 
+         customId === 'settings_category_menu';
+}
+
+async function handleGuildSettingsSelectMenu(interaction, client) {
+  const guildSettings = getGuildSettingsCommand(client);
+  if (guildSettings?.handleSelectMenuInteraction) {
+    await handleComponentSafely(interaction, () => guildSettings.handleSelectMenuInteraction(interaction));
+  } else {
+    await safeRespond(interaction, { content: '設定ハンドラが見つかりませんでした。', flags: MessageFlags.Ephemeral }).catch(() => {});
+  }
+}
+
+async function handleHelpSelectMenu(interaction, client) {
+  const helpCommand = client.commands.get('help');
+  if (helpCommand?.handleSelectMenu) {
+    await handleComponentSafely(interaction, () => helpCommand.handleSelectMenu(interaction));
+  }
+}
+
 // 文字列選択メニュー処理
 async function handleStringSelectMenu(interaction, client) {
   const id = interaction.customId;
   
-  if (id?.startsWith('channel_select_') || id?.startsWith('role_select_') || id === 'settings_category_menu') {
-    const guildSettings = getGuildSettingsCommand(client);
-    if (guildSettings?.handleSelectMenuInteraction) {
-      await handleComponentSafely(interaction, () => guildSettings.handleSelectMenuInteraction(interaction));
-    } else {
-      await safeRespond(interaction, { content: '設定ハンドラが見つかりませんでした。', flags: MessageFlags.Ephemeral }).catch(() => {});
-    }
+  if (isGuildSettingsSelectMenu(id)) {
+    await handleGuildSettingsSelectMenu(interaction, client);
     return;
   }
 
   if (id === 'help_command_select') {
-    const helpCommand = client.commands.get('help');
-    if (helpCommand?.handleSelectMenu) {
-      await handleComponentSafely(interaction, () => helpCommand.handleSelectMenu(interaction));
-    }
+    await handleHelpSelectMenu(interaction, client);
+  }
+}
+
+function isRoleOrChannelSelectMenu(customId) {
+  return customId?.startsWith('channel_select_') || customId?.startsWith('role_select_');
+}
+
+async function executeGuildSettingsSelectMenu(interaction, guildSettings) {
+  try {
+    await guildSettings.handleSelectMenuInteraction(interaction);
+  } catch (error) {
+    console.error('ギルド設定メニュー処理中にエラー:', error);
+    await safeRespond(interaction, { content: `メニュー処理でエラー: ${error.message || error}`, flags: MessageFlags.Ephemeral }).catch(() => {});
   }
 }
 
@@ -118,15 +153,10 @@ async function handleStringSelectMenu(interaction, client) {
 async function handleRoleChannelSelectMenu(interaction, client) {
   const id = interaction.customId;
   
-  if (id?.startsWith('channel_select_') || id?.startsWith('role_select_')) {
+  if (isRoleOrChannelSelectMenu(id)) {
     const guildSettings = getGuildSettingsCommand(client);
     if (guildSettings?.handleSelectMenuInteraction) {
-      try {
-        await guildSettings.handleSelectMenuInteraction(interaction);
-      } catch (error) {
-        console.error('ギルド設定セレクトメニュー処理中にエラー:', error);
-        await safeRespond(interaction, { content: 'メニュー処理でエラーが発生しました。', flags: MessageFlags.Ephemeral }).catch(() => {});
-      }
+      await executeGuildSettingsSelectMenu(interaction, guildSettings);
     } else {
       console.warn('[interactionCreate] guildSettings handler not found for role/channel select. Available commands:', [...client.commands.keys()].join(', '));
       await safeRespond(interaction, { content: '設定ハンドラが見つかりませんでした。', flags: MessageFlags.Ephemeral }).catch(() => {});
@@ -179,68 +209,86 @@ async function handleReportReplyModal(interaction) {
   }
 }
 
+async function delegateToCommandModalHandler(interaction, client, commandName, errorContext) {
+  const command = client.commands.get(commandName);
+  if (command?.handleModalSubmit) {
+    try {
+      await command.handleModalSubmit(interaction);
+    } catch (error) {
+      console.error(`${errorContext}処理中にエラー:`, error);
+      await safeRespond(interaction, { content: `${errorContext}処理でエラー: ${error.message || error}`, flags: MessageFlags.Ephemeral }).catch(() => {});
+    }
+  }
+}
+
 // モーダル送信処理
+async function handleEditRecruitModal(interaction, client) {
+  await delegateToCommandModalHandler(interaction, client, 'rect_edit', '編集モーダル送信');
+}
+
+async function handleFriendCodeModal(interaction, client) {
+  await delegateToCommandModalHandler(interaction, client, 'id_add', 'フレンドコード登録モーダル');
+}
+
+async function handleReportModal(interaction, client) {
+  await delegateToCommandModalHandler(interaction, client, 'report', 'エラー報告モーダル');
+}
+
+async function handleGameRecruitModalFallback(interaction, client) {
+  await delegateToCommandModalHandler(interaction, client, 'rect', 'モーダル送信');
+}
+
+function isGuildSettingsModal(customId) {
+  const guildSettingsModals = new Set([
+    'default_title_modal',
+    'default_color_modal',
+    'template_create_modal',
+    'template_optional_modal'
+  ]);
+  return guildSettingsModals.has(customId);
+}
+
+function isEditRecruitModal(customId) {
+  return customId?.startsWith('editRecruitModal_');
+}
+
+function isReportReplyModal(customId) {
+  return customId?.startsWith('report_reply_modal_');
+}
+
+function isReportModal(customId) {
+  return customId?.startsWith('report_modal_');
+}
+
 async function handleModalSubmit(interaction, client) {
   const id = interaction.customId;
   
-  if (id === 'default_title_modal' || id === 'default_color_modal' || id === 'template_create_modal' || id === 'template_optional_modal') {
+  if (isGuildSettingsModal(id)) {
     await handleGuildSettingsModal(interaction, client);
     return;
   }
 
-  if (id?.startsWith('editRecruitModal_')) {
-    const editRecruit = client.commands.get('rect_edit');
-    if (editRecruit?.handleModalSubmit) {
-      try {
-        await editRecruit.handleModalSubmit(interaction);
-      } catch (error) {
-        console.error('編集モーダル送信処理中にエラー:', error);
-        await safeRespond(interaction, { content: `編集モーダル送信処理でエラー: ${error.message || error}`, flags: MessageFlags.Ephemeral }).catch(() => {});
-      }
-    }
+  if (isEditRecruitModal(id)) {
+    await handleEditRecruitModal(interaction, client);
     return;
   }
 
   if (id === 'friend_code_add_modal') {
-    const linkAdd = client.commands.get('id_add');
-    if (linkAdd?.handleModalSubmit) {
-      try {
-        await linkAdd.handleModalSubmit(interaction);
-      } catch (error) {
-        console.error('フレンドコード登録モーダル処理中にエラー:', error);
-        await safeRespond(interaction, { content: `フレンドコード登録処理でエラー: ${error.message || error}`, flags: MessageFlags.Ephemeral }).catch(() => {});
-      }
-    }
+    await handleFriendCodeModal(interaction, client);
     return;
   }
 
-  if (id?.startsWith('report_reply_modal_')) {
+  if (isReportReplyModal(id)) {
     await handleReportReplyModal(interaction);
     return;
   }
 
-  if (id?.startsWith('report_modal_')) {
-    const report = client.commands.get('report');
-    if (report?.handleModalSubmit) {
-      try {
-        await report.handleModalSubmit(interaction);
-      } catch (error) {
-        console.error('エラー報告モーダル処理中にエラー:', error);
-        await safeRespond(interaction, { content: `エラー報告処理でエラー: ${error.message || error}`, flags: MessageFlags.Ephemeral }).catch(() => {});
-      }
-    }
+  if (isReportModal(id)) {
+    await handleReportModal(interaction, client);
     return;
   }
   
-  const gameRecruit = client.commands.get('rect');
-  if (gameRecruit?.handleModalSubmit) {
-    try {
-      await gameRecruit.handleModalSubmit(interaction);
-    } catch (error) {
-      console.error('モーダル送信処理中にエラー:', error);
-      await safeRespond(interaction, { content: `モーダル送信処理でエラー: ${error.message || error}`, flags: MessageFlags.Ephemeral }).catch(() => {});
-    }
-  }
+  await handleGameRecruitModalFallback(interaction, client);
 }
 
 // ボタン処理 - 報告返信ボタン
@@ -265,23 +313,66 @@ async function handleReportReplyButton(interaction, authorId) {
   await interaction.showModal(replyModal);
 }
 
+async function validateGuildContext(interaction) {
+  if (!interaction.guild) {
+    await safeRespond(interaction, { content: '❌ ギルド外では実行できません。', flags: MessageFlags.Ephemeral });
+    return null;
+  }
+  return interaction.guild;
+}
+
+async function fetchRoleById(guild, roleId) {
+  const role = await guild.roles.fetch(roleId).catch(() => null);
+  if (!role) {
+    return null;
+  }
+  return role;
+}
+
+async function fetchMemberFromInteraction(interaction) {
+  if (interaction.member) {
+    return interaction.member;
+  }
+  return await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
+}
+
+function hasRole(member, roleId) {
+  return member.roles.cache.has(roleId);
+}
+
+async function grantRole(member, role, interaction) {
+  if (hasRole(member, role.id)) {
+    await safeRespond(interaction, { content: 'ℹ️ そのロールは既に付与されています。', flags: MessageFlags.Ephemeral });
+  } else {
+    await member.roles.add(role.id, 'Recrubo: update notification self-assign');
+    await safeRespond(interaction, { content: '✅ ロールを付与しました。', flags: MessageFlags.Ephemeral });
+  }
+}
+
+async function removeRole(member, role, interaction) {
+  if (!hasRole(member, role.id)) {
+    await safeRespond(interaction, { content: 'ℹ️ そのロールは付与されていません。', flags: MessageFlags.Ephemeral });
+  } else {
+    await member.roles.remove(role.id, 'Recrubo: update notification self-remove');
+    await safeRespond(interaction, { content: '✅ ロールを外しました。', flags: MessageFlags.Ephemeral });
+  }
+}
+
 // ボタン処理 - ロール付与/削除
 async function handleRoleButton(interaction, id) {
   const isGrant = id.startsWith('grant_role_');
   const roleId = id.replace(isGrant ? 'grant_role_' : 'remove_role_', '');
   
-  if (!interaction.guild) {
-    await safeRespond(interaction, { content: '❌ ギルド外では実行できません。', flags: MessageFlags.Ephemeral });
-    return;
-  }
+  const guild = await validateGuildContext(interaction);
+  if (!guild) return;
   
-  const role = await interaction.guild.roles.fetch(roleId).catch(() => null);
+  const role = await fetchRoleById(guild, roleId);
   if (!role) {
     await safeRespond(interaction, { content: '❌ 対象ロールが見つかりませんでした。', flags: MessageFlags.Ephemeral });
     return;
   }
   
-  const member = interaction.member || await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
+  const member = await fetchMemberFromInteraction(interaction);
   if (!member) {
     await safeRespond(interaction, { content: '❌ メンバー情報を取得できませんでした。', flags: MessageFlags.Ephemeral });
     return;
@@ -289,19 +380,9 @@ async function handleRoleButton(interaction, id) {
   
   try {
     if (isGrant) {
-      if (member.roles.cache.has(role.id)) {
-        await safeRespond(interaction, { content: 'ℹ️ そのロールは既に付与されています。', flags: MessageFlags.Ephemeral });
-      } else {
-        await member.roles.add(role.id, 'Recrubo: update notification self-assign');
-        await safeRespond(interaction, { content: '✅ ロールを付与しました。', flags: MessageFlags.Ephemeral });
-      }
+      await grantRole(member, role, interaction);
     } else {
-      if (!member.roles.cache.has(role.id)) {
-        await safeRespond(interaction, { content: 'ℹ️ そのロールは付与されていません。', flags: MessageFlags.Ephemeral });
-      } else {
-        await member.roles.remove(role.id, 'Recrubo: update notification self-remove');
-        await safeRespond(interaction, { content: '✅ ロールを外しました。', flags: MessageFlags.Ephemeral });
-      }
+      await removeRole(member, role, interaction);
     }
   } catch (e) {
     console.error('[interactionCreate] role assign/remove failed:', e?.message || e);

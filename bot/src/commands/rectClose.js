@@ -65,10 +65,17 @@ async function fetchParticipants(messageId) {
   return Array.isArray(participants) ? participants : [];
 }
 
+function matchesMessageId(recruit, messageId) {
+  return String(recruit?.message_id || recruit?.messageId || '') === messageId;
+}
+
+function matchesRecruitId(recruit, messageId) {
+  return String(recruit?.recruitId || '') === messageId.slice(-8);
+}
+
 function findRecruitByMessageId(all, messageId) {
   return (all || []).find(r =>
-    String(r?.message_id || r?.messageId || '') === messageId ||
-    String(r?.recruitId || '') === messageId.slice(-8)
+    matchesMessageId(r, messageId) || matchesRecruitId(r, messageId)
   );
 }
 
@@ -92,25 +99,53 @@ function buildRecruitLabel(recruit) {
   return `${title} (ID: ${id})`;
 }
 
+function matchesGuildId(recruit, guildId) {
+  const gid = String(recruit?.guildId ?? recruit?.guild_id ?? recruit?.metadata?.guildId ?? '');
+  return gid === String(guildId);
+}
+
+function hasActiveStatus(recruit) {
+  const status = String(recruit?.status ?? '').toLowerCase();
+  if (!status) return true;
+  return status === 'recruiting' || status === 'active';
+}
+
+function extractMessageId(recruit) {
+  return String(recruit?.message_id || recruit?.messageId || recruit?.metadata?.messageId || '');
+}
+
+async function isUserParticipant(messageId, userId) {
+  if (!messageId) return false;
+  try {
+    const participants = await fetchParticipants(messageId);
+    return participants.includes(userId);
+  } catch (_) {
+    return false;
+  }
+}
+
+async function buildRecruitOption(recruit, messageId) {
+  return {
+    name: buildRecruitLabel(recruit),
+    value: messageId
+  };
+}
+
 async function buildUserRecruitOptions(all, guildId, userId) {
   const userRecruits = [];
   for (const r of all || []) {
     try {
-      const gid = String(r?.guildId ?? r?.guild_id ?? r?.metadata?.guildId ?? '');
-      const status = String(r?.status ?? '').toLowerCase();
-      if (gid !== String(guildId)) continue;
-      if (status && !(status === 'recruiting' || status === 'active')) continue;
+      if (!matchesGuildId(r, guildId)) continue;
+      if (!hasActiveStatus(r)) continue;
 
-      const messageId = String(r?.message_id || r?.messageId || r?.metadata?.messageId || '');
+      const messageId = extractMessageId(r);
       if (!messageId) continue;
 
-      const participants = await fetchParticipants(messageId);
-      if (!participants.includes(userId)) continue;
+      const isParticipant = await isUserParticipant(messageId, userId);
+      if (!isParticipant) continue;
 
-      userRecruits.push({
-        name: buildRecruitLabel(r),
-        value: messageId
-      });
+      const option = await buildRecruitOption(r, messageId);
+      userRecruits.push(option);
     } catch (_) {}
   }
   return userRecruits;

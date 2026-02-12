@@ -1,11 +1,31 @@
 const { AttachmentBuilder, MessageFlags } = require('discord.js');
 const db = require('./db');
 
+function assignGuildId(recruit) {
+  if (!recruit.guildId && recruit.metadata?.guildId) {
+    recruit.guildId = recruit.metadata.guildId;
+  }
+}
+
+function assignChannelId(recruit) {
+  if (!recruit.channelId && recruit.metadata?.channelId) {
+    recruit.channelId = recruit.metadata.channelId;
+  }
+}
+
+function assignMessageIds(recruit) {
+  if (!recruit.message_id && recruit.metadata?.messageId) {
+    recruit.message_id = recruit.metadata.messageId;
+  }
+  if (!recruit.messageId && recruit.metadata?.messageId) {
+    recruit.messageId = recruit.metadata.messageId;
+  }
+}
+
 function hydrateBasicFields(recruit) {
-  if (!recruit.guildId && recruit.metadata?.guildId) recruit.guildId = recruit.metadata.guildId;
-  if (!recruit.channelId && recruit.metadata?.channelId) recruit.channelId = recruit.metadata.channelId;
-  if (!recruit.message_id && recruit.metadata?.messageId) recruit.message_id = recruit.metadata.messageId;
-  if (!recruit.messageId && recruit.metadata?.messageId) recruit.messageId = recruit.metadata.messageId;
+  assignGuildId(recruit);
+  assignChannelId(recruit);
+  assignMessageIds(recruit);
 }
 
 function hydrateOwnerFields(recruit) {
@@ -13,11 +33,35 @@ function hydrateOwnerFields(recruit) {
   if (!recruit.ownerId && recruit.recruiterId) recruit.ownerId = recruit.recruiterId;
 }
 
+function assignPanelColor(recruit) {
+  if (!recruit.panelColor && recruit.metadata?.panelColor) {
+    recruit.panelColor = recruit.metadata.panelColor;
+  }
+}
+
+function assignVc(recruit) {
+  if (!recruit.vc && recruit.metadata?.vc) {
+    recruit.vc = recruit.metadata.vc;
+  }
+}
+
+function assignNote(recruit) {
+  if (!recruit.note && recruit.metadata?.note) {
+    recruit.note = recruit.metadata.note;
+  }
+}
+
+function assignContent(recruit) {
+  if (!recruit.content && recruit.metadata?.raw?.content) {
+    recruit.content = recruit.metadata.raw.content;
+  }
+}
+
 function hydrateMetadataFields(recruit) {
-  if (!recruit.panelColor && recruit.metadata?.panelColor) recruit.panelColor = recruit.metadata.panelColor;
-  if (!recruit.vc && recruit.metadata?.vc) recruit.vc = recruit.metadata.vc;
-  if (!recruit.note && recruit.metadata?.note) recruit.note = recruit.metadata.note;
-  if (!recruit.content && recruit.metadata?.raw?.content) recruit.content = recruit.metadata.raw.content;
+  assignPanelColor(recruit);
+  assignVc(recruit);
+  assignNote(recruit);
+  assignContent(recruit);
 }
 
 function hydrateTitleField(recruit) {
@@ -46,39 +90,67 @@ function hydrateRecruitData(recruit) {
   return recruit;
 }
 
-function resolveMessageContext(interactionOrMessage) {
-  let interaction = null;
-  let message = null;
-  if (interactionOrMessage && interactionOrMessage.message) {
-    interaction = interactionOrMessage;
-    message = interaction.message;
-  } else {
-    message = interactionOrMessage;
+function isInteraction(obj) {
+  return obj && obj.message;
+}
+
+function extractInteractionAndMessage(interactionOrMessage) {
+  if (isInteraction(interactionOrMessage)) {
+    return { interaction: interactionOrMessage, message: interactionOrMessage.message };
   }
-  const client = (interaction && interaction.client) || (message && message.client);
+  return { interaction: null, message: interactionOrMessage };
+}
+
+function extractClient(interaction, message) {
+  return (interaction && interaction.client) || (message && message.client);
+}
+
+function extractRecruitIdFromMessage(message) {
   const messageIdStr = message?.id ? String(message.id) : null;
   const recruitId = messageIdStr ? messageIdStr.slice(-8) : null;
+  return { messageIdStr, recruitId };
+}
+
+function resolveMessageContext(interactionOrMessage) {
+  const { interaction, message } = extractInteractionAndMessage(interactionOrMessage);
+  const client = extractClient(interaction, message);
+  const { messageIdStr, recruitId } = extractRecruitIdFromMessage(message);
   return { interaction, message, client, messageIdStr, recruitId };
+}
+
+async function fetchFromRedis(recruitId) {
+  try {
+    return await db.getRecruitFromRedis(recruitId);
+  } catch (e) {
+    console.warn('fetchFromRedis failed:', e?.message || e);
+    return null;
+  }
+}
+
+async function fetchFromWorkerAndCache(recruitId) {
+  try {
+    const fromWorker = await db.getRecruitFromWorker(recruitId);
+    if (fromWorker?.ok && fromWorker.body) {
+      const data = fromWorker.body;
+      try { 
+        await db.saveRecruitToRedis(recruitId, data); 
+      } catch (_) {}
+      return data;
+    }
+  } catch (e) {
+    console.warn('fetchFromWorkerAndCache failed:', e?.message || e);
+  }
+  return null;
 }
 
 async function fetchRecruitData(recruitId, savedRecruitData) {
   if (savedRecruitData) return savedRecruitData;
   if (!recruitId) return null;
 
-  try {
-    const fromRedis = await db.getRecruitFromRedis(recruitId);
-    if (fromRedis) return fromRedis;
-    
-    const fromWorker = await db.getRecruitFromWorker(recruitId);
-    if (fromWorker?.ok && fromWorker.body) {
-      const data = fromWorker.body;
-      try { await db.saveRecruitToRedis(recruitId, data); } catch (_) {}
-      return data;
-    }
-  } catch (e) {
-    console.warn('fetchRecruitData: fallback fetch failed:', e?.message || e);
-  }
-  return null;
+  const fromRedis = await fetchFromRedis(recruitId);
+  if (fromRedis) return fromRedis;
+  
+  return await fetchFromWorkerAndCache(recruitId);
 }
 
 function normalizeColor(color) {
@@ -108,40 +180,69 @@ function buildNotificationRoleText(selectedNotificationRole) {
   return `🔔 通知ロール: <@&${selectedNotificationRole}>`;
 }
 
+function getDefaultRecruiterInfo() {
+  return { headerTitle: '募集', avatarUrl: null };
+}
+
+async function fetchUserSafely(recruiterId, client) {
+  try {
+    return await client.users.fetch(recruiterId).catch(() => null);
+  } catch {
+    return null;
+  }
+}
+
+function extractRecruiterName(user) {
+  return user.username || user.displayName || user.tag;
+}
+
+function buildRecruiterHeader(name) {
+  return name ? `${name}さんの募集` : '募集';
+}
+
+function extractAvatarUrl(user) {
+  return typeof user.displayAvatarURL === 'function'
+    ? user.displayAvatarURL({ size: 64, extension: 'png' })
+    : null;
+}
+
 async function fetchRecruiterInfo(recruiterId, client) {
-  if (!recruiterId || !client) return { headerTitle: '募集', avatarUrl: null };
+  if (!recruiterId || !client) return getDefaultRecruiterInfo();
   
   try {
-    const user = await client.users.fetch(recruiterId).catch(() => null);
-    if (!user) return { headerTitle: '募集', avatarUrl: null };
+    const user = await fetchUserSafely(recruiterId, client);
+    if (!user) return getDefaultRecruiterInfo();
     
-    const name = user.username || user.displayName || user.tag;
-    const headerTitle = name ? `${name}さんの募集` : '募集';
-    const avatarUrl = typeof user.displayAvatarURL === 'function'
-      ? user.displayAvatarURL({ size: 64, extension: 'png' })
-      : null;
+    const name = extractRecruiterName(user);
+    const headerTitle = buildRecruiterHeader(name);
+    const avatarUrl = extractAvatarUrl(user);
     
     return { headerTitle, avatarUrl };
   } catch (e) {
     console.warn('fetchRecruiterInfo failed:', e?.message || e);
-    return { headerTitle: '募集', avatarUrl: null };
+    return getDefaultRecruiterInfo();
   }
+}
+
+function needsDedicatedChannelButton(guildSettings, recruitData, recruitId) {
+  const enableDedicated = Boolean(guildSettings?.enable_dedicated_channel);
+  const isNowStart = String(recruitData?.startTime || '').trim() === '今から';
+  return enableDedicated && isNowStart && recruitId;
+}
+
+function createDedicatedChannelButton(recruitId) {
+  const { ButtonBuilder, ButtonStyle } = require('discord.js');
+  return new ButtonBuilder()
+    .setCustomId(`create_vc_${recruitId}`)
+    .setLabel('専用チャンネル作成')
+    .setEmoji('📢')
+    .setStyle(ButtonStyle.Primary);
 }
 
 function buildExtraActionButtons(guildSettings, recruitData, recruitId) {
   try {
-    const { ButtonBuilder, ButtonStyle } = require('discord.js');
-    const enableDedicated = Boolean(guildSettings?.enable_dedicated_channel);
-    const isNowStart = String(recruitData?.startTime || '').trim() === '今から';
-    
-    if (enableDedicated && isNowStart && recruitId) {
-      return [
-        new ButtonBuilder()
-          .setCustomId(`create_vc_${recruitId}`)
-          .setLabel('専用チャンネル作成')
-          .setEmoji('📢')
-          .setStyle(ButtonStyle.Primary)
-      ];
+    if (needsDedicatedChannelButton(guildSettings, recruitData, recruitId)) {
+      return [createDedicatedChannelButton(recruitId)];
     }
   } catch (e) {
     console.warn('buildExtraActionButtons failed:', e?.message || e);
@@ -149,45 +250,72 @@ function buildExtraActionButtons(guildSettings, recruitData, recruitId) {
   return [];
 }
 
-function buildVoiceValue(recruitData) {
-  if (typeof recruitData?.vc === 'string') {
-    if (recruitData.vc === 'あり(聞き専)') {
-      return recruitData?.voicePlace ? `聞き専/${recruitData.voicePlace}` : '聞き専';
-    } else if (recruitData.vc === 'あり') {
-      return recruitData?.voicePlace ? `あり/${recruitData.voicePlace}` : 'あり';
-    } else if (recruitData.vc === 'なし') {
-      return 'なし';
-    }
-  } else if (recruitData?.voice === true) {
-    return recruitData?.voicePlace ? `あり/${recruitData.voicePlace}` : 'あり';
-  } else if (recruitData?.voice === false) {
+function formatVoiceWithPlace(baseText, voicePlace) {
+  return voicePlace ? `${baseText}/${voicePlace}` : baseText;
+}
+
+function buildVcStringValue(vc, voicePlace) {
+  if (vc === 'あり(聞き専)') {
+    return formatVoiceWithPlace('聞き専', voicePlace);
+  } else if (vc === 'あり') {
+    return formatVoiceWithPlace('あり', voicePlace);
+  } else if (vc === 'なし') {
     return 'なし';
   }
   return null;
 }
 
-function buildSimpleStyleContainer(options) {
-  const { recruitData, participantText, recruitIdText, accentColor, headerTitle, subHeaderText, avatarUrl, extraActionButtons } = options;
-  
+function buildVcBooleanValue(voice, voicePlace) {
+  if (voice === true) {
+    return formatVoiceWithPlace('あり', voicePlace);
+  } else if (voice === false) {
+    return 'なし';
+  }
+  return null;
+}
+
+function buildVoiceValue(recruitData) {
+  if (typeof recruitData?.vc === 'string') {
+    return buildVcStringValue(recruitData.vc, recruitData?.voicePlace);
+  }
+  return buildVcBooleanValue(recruitData?.voice, recruitData?.voicePlace);
+}
+
+function buildDetailsLine(recruitData) {
   const labelsLine = '**🕒 開始時間 | 👥 募集人数 | 🎙 通話有無**';
   const startVal = recruitData?.startTime ? String(recruitData.startTime) : null;
   const totalSlots = recruitData?.participants || recruitData?.participant_count;
   const membersVal = typeof totalSlots === 'number' ? `${totalSlots}人` : null;
   const voiceVal = buildVoiceValue(recruitData);
   const valuesLine = [startVal, membersVal, voiceVal].filter(Boolean).join(' | ');
-  const details = [labelsLine, valuesLine].filter(Boolean).join('\n');
-  
+  return [labelsLine, valuesLine].filter(Boolean).join('\n');
+}
+
+function buildContentTextFromRecruit(recruitData) {
   const contentTextValue = recruitData?.note || recruitData?.content || '';
-  const contentText = contentTextValue && String(contentTextValue).trim().length > 0
-    ? `**📝 募集内容**\n${String(contentTextValue).slice(0, 1500)}`
-    : '';
+  if (contentTextValue && String(contentTextValue).trim().length > 0) {
+    return `**📝 募集内容**\n${String(contentTextValue).slice(0, 1500)}`;
+  }
+  return '';
+}
+
+function buildTitleText(recruitData) {
+  return recruitData?.title ? `## ${String(recruitData.title).slice(0,200)}` : '';
+}
+
+function buildSimpleStyleContainer(options) {
+  const { recruitData, participantText, recruitIdText, accentColor, headerTitle, subHeaderText, avatarUrl, extraActionButtons } = options;
+  
+  const details = buildDetailsLine(recruitData);
+  const contentText = buildContentTextFromRecruit(recruitData);
+  const titleText = buildTitleText(recruitData);
   
   const { buildContainerSimple } = require('./recruitHelpers');
   return buildContainerSimple({
     headerTitle,
     detailsText: details,
     contentText,
-    titleText: (recruitData?.title ? `## ${String(recruitData.title).slice(0,200)}` : ''),
+    titleText,
     participantText,
     recruitIdText,
     accentColor,
@@ -197,15 +325,21 @@ function buildSimpleStyleContainer(options) {
   });
 }
 
+function buildImageTitleText(recruitData) {
+  return recruitData?.title ? `📌 タイトル\n${String(recruitData.title).slice(0,200)}` : '';
+}
+
 function buildImageStyleContainer(options) {
   const { recruitData, participantText, recruitIdText, accentColor, headerTitle, subHeaderText, avatarUrl, recruiterId, requesterId, extraActionButtons } = options;
   
   const contentText = recruitData?.note || recruitData?.content || '';
+  const titleText = buildImageTitleText(recruitData);
+  
   const { buildContainer } = require('./recruitHelpers');
   return buildContainer({
     headerTitle,
     contentText,
-    titleText: (recruitData?.title ? `📌 タイトル\n${String(recruitData.title).slice(0,200)}` : ''),
+    titleText,
     participantText,
     recruitIdText,
     accentColor,
@@ -263,6 +397,18 @@ function resolveActualRecruitId(recruitId, recruitIdText) {
   return null;
 }
 
+function extractUserIds(savedRecruitData, interaction) {
+  const recruiterId = savedRecruitData?.recruiterId || null;
+  const requesterId = interaction ? interaction.user?.id : null;
+  return { recruiterId, requesterId };
+}
+
+function prepareRecruitIdTexts(savedRecruitData, messageIdStr, recruitId) {
+  const recruitIdText = buildRecruitIdText(savedRecruitData, messageIdStr);
+  const actualRecruitId = resolveActualRecruitId(recruitId, recruitIdText);
+  return { recruitIdText, actualRecruitId };
+}
+
 async function buildContainerOptions(savedRecruitData, participants, context, styleSettings) {
   const { client, messageIdStr, recruitId, interaction } = context;
   const { accentColor, guildSettings } = styleSettings;
@@ -272,10 +418,8 @@ async function buildContainerOptions(savedRecruitData, participants, context, st
   const subHeaderText = buildNotificationRoleText(savedRecruitData?.notificationRoleId);
   const { headerTitle, avatarUrl } = await fetchRecruiterInfo(savedRecruitData?.recruiterId, client);
   
-  const recruiterId = savedRecruitData?.recruiterId || null;
-  const requesterId = interaction ? interaction.user?.id : null;
-  const recruitIdText = buildRecruitIdText(savedRecruitData, messageIdStr);
-  const actualRecruitId = resolveActualRecruitId(recruitId, recruitIdText);
+  const { recruiterId, requesterId } = extractUserIds(savedRecruitData, interaction);
+  const { recruitIdText, actualRecruitId } = prepareRecruitIdTexts(savedRecruitData, messageIdStr, recruitId);
   const extraActionButtons = buildExtraActionButtons(guildSettings, savedRecruitData, actualRecruitId);
   
   return {
@@ -299,6 +443,14 @@ function selectContainer(style, containerOptions) {
   return buildImageStyleContainer(containerOptions);
 }
 
+function createBaseEditPayload(updatedContainer) {
+  return { 
+    components: [updatedContainer], 
+    flags: MessageFlags.IsComponentsV2, 
+    allowedMentions: { roles: [], users: [] } 
+  };
+}
+
 async function buildUpdatePayload(savedRecruitData, participants, context) {
   const { client } = context;
   const guildId = savedRecruitData?.guildId || context.guildId;
@@ -310,11 +462,7 @@ async function buildUpdatePayload(savedRecruitData, participants, context) {
   const containerOptions = await buildContainerOptions(savedRecruitData, participants, context, styleSettings);
   const updatedContainer = selectContainer(style, containerOptions);
 
-  const editPayload = { 
-    components: [updatedContainer], 
-    flags: MessageFlags.IsComponentsV2, 
-    allowedMentions: { roles: [], users: [] } 
-  };
+  const editPayload = createBaseEditPayload(updatedContainer);
   
   if (style === 'image' && updatedImage) {
     editPayload.files = [updatedImage];
@@ -323,31 +471,46 @@ async function buildUpdatePayload(savedRecruitData, participants, context) {
   return editPayload;
 }
 
+function extractContextFromInteraction(interactionOrMessage) {
+  const { interaction, message, client, messageIdStr, recruitId } = resolveMessageContext(interactionOrMessage);
+  const guildId = (interaction && interaction.guildId) || (message && message.guildId);
+  return { interaction, message, client, messageIdStr, recruitId, guildId };
+}
+
+async function persistParticipantsOnly(message, participants) {
+  console.warn('updateParticipantList: savedRecruitData unavailable; persisting participants only');
+  if (message && message.id) {
+    try { 
+      await db.saveParticipantsToRedis(message.id, participants); 
+    } catch (_) {}
+  }
+}
+
+async function updateMessageWithParticipants(message, savedRecruitData, participants, context) {
+  const editPayload = await buildUpdatePayload(savedRecruitData, participants, context);
+  
+  if (message && message.edit) {
+    await message.edit(editPayload);
+  }
+  
+  if (message && message.id) {
+    await db.saveParticipantsToRedis(message.id, participants);
+  }
+}
+
 async function updateParticipantList(interactionOrMessage, participants, savedRecruitData) {
   try {
-    const { interaction, message, client, messageIdStr, recruitId } = resolveMessageContext(interactionOrMessage);
-    const guildId = (interaction && interaction.guildId) || (message && message.guildId);
+    const context = extractContextFromInteraction(interactionOrMessage);
+    const { message, recruitId } = context;
 
     savedRecruitData = await prepareRecruitDataForUpdate(recruitId, savedRecruitData);
 
     if (!savedRecruitData) {
-      console.warn('updateParticipantList: savedRecruitData unavailable; persisting participants only');
-      if (message && message.id) {
-        try { await db.saveParticipantsToRedis(message.id, participants); } catch (_) {}
-      }
+      await persistParticipantsOnly(message, participants);
       return;
     }
 
-    const context = { client, messageIdStr, recruitId, interaction, guildId };
-    const editPayload = await buildUpdatePayload(savedRecruitData, participants, context);
-
-    if (message && message.edit) {
-      await message.edit(editPayload);
-    }
-
-    if (message && message.id) {
-      await db.saveParticipantsToRedis(message.id, participants);
-    }
+    await updateMessageWithParticipants(message, savedRecruitData, participants, context);
   } catch (err) {
     console.error('updateParticipantList error:', err);
   }
