@@ -8,6 +8,38 @@ const { replyEphemeral, logError } = require('./reply-helpers');
 const { isRecruiter } = require('./validation-helpers');
 const { hexToIntColor } = require('./ui-builders');
 
+async function saveAndUpdateParticipants(interaction, messageId, participants, savedRecruitData) {
+  recruitParticipants.set(messageId, participants);
+  saveParticipantsToRedis(messageId, participants).catch(e =>
+    logError('参加者保存失敗 (async)', e)
+  );
+  updateParticipantList(interaction, participants, savedRecruitData).catch(e =>
+    logError('updateParticipantList failed (async)', e)
+  );
+}
+
+async function notifyRecruiter(interaction, savedRecruitData, embedOptions) {
+  if (!savedRecruitData?.recruiterId) return;
+
+  runInBackground(async () => {
+    const color = hexToIntColor(savedRecruitData?.panelColor || embedOptions.defaultColor, embedOptions.defaultColorInt);
+    const embed = new EmbedBuilder()
+      .setColor(color)
+      .setTitle(embedOptions.title)
+      .setDescription(embedOptions.description)
+      .addFields(
+        { name: '募集タイトル', value: savedRecruitData.title, inline: false },
+        { name: '現在の参加者数', value: embedOptions.participantCount, inline: true }
+      )
+      .setTimestamp();
+
+    await sendRecruiterMessage(interaction, savedRecruitData, {
+      content: embedOptions.content,
+      embeds: [embed]
+    });
+  }, embedOptions.backgroundTaskName);
+}
+
 async function sendRecruiterMessage(interaction, savedRecruitData, payload) {
   if (!savedRecruitData?.recruiterId) return;
 
@@ -53,6 +85,30 @@ async function loadSavedRecruitData(_interaction, messageId) {
   return savedRecruitData;
 }
 
+function createJoinNotificationOptions(userId, participants, savedRecruitData) {
+  return {
+    defaultColor: '00FF00',
+    defaultColorInt: 0x00FF00,
+    title: '🎮 新しい参加者がいます！',
+    description: `<@${userId}> が募集に参加しました！`,
+    participantCount: `${participants.length}/${savedRecruitData.participants}人`,
+    content: `あなたの募集に参加者が増えました: ${savedRecruitData.title || ''}`,
+    backgroundTaskName: 'Recruiter DM notification'
+  };
+}
+
+function createCancelNotificationOptions(userId, participants, savedRecruitData) {
+  return {
+    defaultColor: 'FF6B35',
+    defaultColorInt: 0xFF6B35,
+    title: '📤 参加者がキャンセルしました',
+    description: `<@${userId}> が募集から離脱しました。`,
+    participantCount: `${participants.length}/${savedRecruitData.participants}人`,
+    content: `あなたの募集から参加者が離脱しました: ${savedRecruitData.title || ''}`,
+    backgroundTaskName: 'Cancel notification'
+  };
+}
+
 async function sendJoinNotificationToChannel(interaction, messageId, savedRecruitData) {
   if (!savedRecruitData?.recruiterId || !savedRecruitData?.channelId) return;
 
@@ -80,28 +136,6 @@ async function sendJoinNotificationToChannel(interaction, messageId, savedRecrui
   }, 'Join notification to channel');
 }
 
-async function notifyRecruiterOfJoin(interaction, participants, savedRecruitData) {
-  if (!savedRecruitData?.recruiterId) return;
-
-  runInBackground(async () => {
-    const joinColor = hexToIntColor(savedRecruitData?.panelColor || '00FF00', 0x00FF00);
-    const joinEmbed = new EmbedBuilder()
-      .setColor(joinColor)
-      .setTitle('🎮 新しい参加者がいます！')
-      .setDescription(`<@${interaction.user.id}> が募集に参加しました！`)
-      .addFields(
-        { name: '募集タイトル', value: savedRecruitData.title, inline: false },
-        { name: '現在の参加者数', value: `${participants.length}/${savedRecruitData.participants}人`, inline: true }
-      )
-      .setTimestamp();
-
-    await sendRecruiterMessage(interaction, savedRecruitData, {
-      content: `あなたの募集に参加者が増えました: ${savedRecruitData.title || ''}`,
-      embeds: [joinEmbed]
-    });
-  }, 'Recruiter DM notification');
-}
-
 async function processJoin(interaction, messageId, participants, savedRecruitData) {
   if (participants.includes(interaction.user.id)) {
     await replyEphemeral(interaction, {
@@ -111,10 +145,6 @@ async function processJoin(interaction, messageId, participants, savedRecruitDat
   }
 
   participants.push(interaction.user.id);
-  recruitParticipants.set(messageId, participants);
-  saveParticipantsToRedis(messageId, participants).catch(e =>
-    logError('参加者保存失敗 (async)', e)
-  );
 
   try {
     await replyEphemeral(interaction, {
@@ -125,32 +155,8 @@ async function processJoin(interaction, messageId, participants, savedRecruitDat
   }
 
   await sendJoinNotificationToChannel(interaction, messageId, savedRecruitData);
-  await notifyRecruiterOfJoin(interaction, participants, savedRecruitData);
-
-  updateParticipantList(interaction, participants, savedRecruitData).catch(e =>
-    logError('updateParticipantList failed (async)', e)
-  );
-}
-
-async function sendCancelNotificationToRecruiter(interaction, savedRecruitData, updated) {
-  try {
-    const cancelColor = hexToIntColor(savedRecruitData?.panelColor || 'FF6B35', 0xFF6B35);
-    const cancelEmbed = new EmbedBuilder()
-      .setColor(cancelColor)
-      .setTitle('📤 参加者がキャンセルしました')
-      .setDescription(`<@${interaction.user.id}> が募集から離脱しました。`)
-      .addFields(
-        { name: '募集タイトル', value: savedRecruitData.title, inline: false },
-        { name: '現在の参加者数', value: `${updated.length}/${savedRecruitData.participants}人`, inline: true }
-      )
-      .setTimestamp();
-    await sendRecruiterMessage(interaction, savedRecruitData, {
-      content: `あなたの募集から参加者が離脱しました: ${savedRecruitData.title || ''}`,
-      embeds: [cancelEmbed]
-    });
-  } catch (e) {
-    logError('background cancel notify failed', e);
-  }
+  await notifyRecruiter(interaction, savedRecruitData, createJoinNotificationOptions(interaction.user.id, participants, savedRecruitData));
+  await saveAndUpdateParticipants(interaction, messageId, participants, savedRecruitData);
 }
 
 async function processCancel(interaction, messageId, participants, savedRecruitData) {
@@ -166,9 +172,6 @@ async function processCancel(interaction, messageId, participants, savedRecruitD
   const updated = participants.filter(id => id !== interaction.user.id);
 
   if (beforeLength > updated.length) {
-    recruitParticipants.set(messageId, updated);
-    saveParticipantsToRedis(messageId, updated).catch(e => logError('参加者保存失敗 (async)', e));
-
     try {
       await replyEphemeral(interaction, {
         content: '✅ 参加を取り消しました。'
@@ -177,18 +180,13 @@ async function processCancel(interaction, messageId, participants, savedRecruitD
       logError('quick cancel reply failed', e);
     }
 
-    if (savedRecruitData && savedRecruitData.recruiterId) {
-      runInBackground(() => sendCancelNotificationToRecruiter(interaction, savedRecruitData, updated), 'Cancel notification');
-    }
+    await notifyRecruiter(interaction, savedRecruitData, createCancelNotificationOptions(interaction.user.id, updated, savedRecruitData));
+    await saveAndUpdateParticipants(interaction, messageId, updated, savedRecruitData);
   } else {
     await replyEphemeral(interaction, {
       embeds: [createErrorEmbed('参加していないため、取り消せません。')]
     });
   }
-
-  updateParticipantList(interaction, updated, savedRecruitData).catch(e =>
-    logError('updateParticipantList failed (async)', e)
-  );
 
   return updated;
 }

@@ -166,7 +166,9 @@ function buildVoiceValue(recruitData) {
   return null;
 }
 
-function buildSimpleStyleContainer(recruitData, participantText, recruitIdText, accentColor, headerTitle, subHeaderText, avatarUrl, extraActionButtons) {
+function buildSimpleStyleContainer(options) {
+  const { recruitData, participantText, recruitIdText, accentColor, headerTitle, subHeaderText, avatarUrl, extraActionButtons } = options;
+  
   const labelsLine = '**🕒 開始時間 | 👥 募集人数 | 🎙 通話有無**';
   const startVal = recruitData?.startTime ? String(recruitData.startTime) : null;
   const totalSlots = recruitData?.participants || recruitData?.participant_count;
@@ -195,7 +197,9 @@ function buildSimpleStyleContainer(recruitData, participantText, recruitIdText, 
   });
 }
 
-function buildImageStyleContainer(recruitData, participantText, recruitIdText, accentColor, headerTitle, subHeaderText, avatarUrl, recruiterId, requesterId, extraActionButtons) {
+function buildImageStyleContainer(options) {
+  const { recruitData, participantText, recruitIdText, accentColor, headerTitle, subHeaderText, avatarUrl, recruiterId, requesterId, extraActionButtons } = options;
+  
   const contentText = recruitData?.note || recruitData?.content || '';
   const { buildContainer } = require('./recruitHelpers');
   return buildContainer({
@@ -214,11 +218,117 @@ function buildImageStyleContainer(recruitData, participantText, recruitIdText, a
   });
 }
 
+async function prepareRecruitDataForUpdate(recruitId, savedRecruitData) {
+  savedRecruitData = await fetchRecruitData(recruitId, savedRecruitData);
+  
+  if (!savedRecruitData) {
+    return null;
+  }
+  
+  savedRecruitData = hydrateRecruitData(savedRecruitData);
+  if (recruitId) {
+    try { 
+      await db.saveRecruitToRedis(recruitId, savedRecruitData); 
+    } catch (_) {}
+  }
+  
+  return savedRecruitData;
+}
+
+async function fetchStyleAndSettings(savedRecruitData, guildId) {
+  const guildSettings = await db.getGuildSettings(guildId);
+  const useColor = normalizeColor(savedRecruitData?.panelColor || guildSettings?.defaultColor);
+  const style = (guildSettings?.recruit_style === 'simple') ? 'simple' : 'image';
+  const accentColor = parseInt(useColor, 16);
+  
+  return { guildSettings, useColor, style, accentColor };
+}
+
+function buildRecruitIdText(savedRecruitData, messageIdStr) {
+  if (savedRecruitData?.recruitId) {
+    return savedRecruitData.recruitId;
+  }
+  if (savedRecruitData?.message_id) {
+    return savedRecruitData.message_id.slice(-8);
+  }
+  if (messageIdStr) {
+    return messageIdStr.slice(-8);
+  }
+  return '(unknown)';
+}
+
+function resolveActualRecruitId(recruitId, recruitIdText) {
+  if (recruitId) return recruitId;
+  if (recruitIdText && recruitIdText !== '(unknown)') return recruitIdText;
+  return null;
+}
+
+async function buildContainerOptions(savedRecruitData, participants, context, styleSettings) {
+  const { client, messageIdStr, recruitId, interaction } = context;
+  const { accentColor, guildSettings } = styleSettings;
+  
+  const totalSlots = savedRecruitData?.participants || savedRecruitData?.participant_count || 1;
+  const participantText = buildParticipantText(participants, totalSlots);
+  const subHeaderText = buildNotificationRoleText(savedRecruitData?.notificationRoleId);
+  const { headerTitle, avatarUrl } = await fetchRecruiterInfo(savedRecruitData?.recruiterId, client);
+  
+  const recruiterId = savedRecruitData?.recruiterId || null;
+  const requesterId = interaction ? interaction.user?.id : null;
+  const recruitIdText = buildRecruitIdText(savedRecruitData, messageIdStr);
+  const actualRecruitId = resolveActualRecruitId(recruitId, recruitIdText);
+  const extraActionButtons = buildExtraActionButtons(guildSettings, savedRecruitData, actualRecruitId);
+  
+  return {
+    recruitData: savedRecruitData,
+    participantText,
+    recruitIdText,
+    accentColor,
+    headerTitle,
+    subHeaderText,
+    avatarUrl,
+    extraActionButtons,
+    recruiterId,
+    requesterId
+  };
+}
+
+function selectContainer(style, containerOptions) {
+  if (style === 'simple') {
+    return buildSimpleStyleContainer(containerOptions);
+  }
+  return buildImageStyleContainer(containerOptions);
+}
+
+async function buildUpdatePayload(savedRecruitData, participants, context) {
+  const { client } = context;
+  const guildId = savedRecruitData?.guildId || context.guildId;
+  
+  const styleSettings = await fetchStyleAndSettings(savedRecruitData, guildId);
+  const { style, useColor } = styleSettings;
+  
+  const updatedImage = await generateRecruitImageIfNeeded(style, savedRecruitData, participants, client, useColor);
+  const containerOptions = await buildContainerOptions(savedRecruitData, participants, context, styleSettings);
+  const updatedContainer = selectContainer(style, containerOptions);
+
+  const editPayload = { 
+    components: [updatedContainer], 
+    flags: MessageFlags.IsComponentsV2, 
+    allowedMentions: { roles: [], users: [] } 
+  };
+  
+  if (style === 'image' && updatedImage) {
+    editPayload.files = [updatedImage];
+  }
+
+  return editPayload;
+}
+
 async function updateParticipantList(interactionOrMessage, participants, savedRecruitData) {
   try {
     const { interaction, message, client, messageIdStr, recruitId } = resolveMessageContext(interactionOrMessage);
+    const guildId = (interaction && interaction.guildId) || (message && message.guildId);
 
-    savedRecruitData = await fetchRecruitData(recruitId, savedRecruitData);
+    savedRecruitData = await prepareRecruitDataForUpdate(recruitId, savedRecruitData);
 
     if (!savedRecruitData) {
       console.warn('updateParticipantList: savedRecruitData unavailable; persisting participants only');
@@ -228,44 +338,10 @@ async function updateParticipantList(interactionOrMessage, participants, savedRe
       return;
     }
 
-    savedRecruitData = hydrateRecruitData(savedRecruitData);
-    if (recruitId) {
-      try { await db.saveRecruitToRedis(recruitId, savedRecruitData); } catch (_) {}
-    }
-
-    const guildId = savedRecruitData?.guildId || (interaction && interaction.guildId) || (message && message.guildId);
-    const guildSettings = await db.getGuildSettings(guildId);
-
-    const useColor = normalizeColor(savedRecruitData?.panelColor || guildSettings?.defaultColor);
-    const style = (guildSettings?.recruit_style === 'simple') ? 'simple' : 'image';
-    const updatedImage = await generateRecruitImageIfNeeded(style, savedRecruitData, participants, client, useColor);
-
-    const totalSlots = savedRecruitData?.participants || savedRecruitData?.participant_count || 1;
-    const participantText = buildParticipantText(participants, totalSlots);
-    
-    const subHeaderText = buildNotificationRoleText(savedRecruitData?.notificationRoleId);
-    const { headerTitle, avatarUrl } = await fetchRecruiterInfo(savedRecruitData?.recruiterId, client);
-
-    const accentColor = parseInt(useColor, 16);
-    const recruiterId = savedRecruitData?.recruiterId || null;
-    const requesterId = interaction ? interaction.user?.id : null;
-    const recruitIdText = savedRecruitData?.recruitId || (savedRecruitData?.message_id ? savedRecruitData.message_id.slice(-8) : (messageIdStr ? messageIdStr.slice(-8) : '(unknown)'));
-    const actualRecruitId = recruitId || (recruitIdText && recruitIdText !== '(unknown)' ? recruitIdText : null);
-
-    const extraActionButtons = buildExtraActionButtons(guildSettings, savedRecruitData, actualRecruitId);
-    
-    let updatedContainer;
-    if (style === 'simple') {
-      updatedContainer = buildSimpleStyleContainer(savedRecruitData, participantText, recruitIdText, accentColor, headerTitle, subHeaderText, avatarUrl, extraActionButtons);
-    } else {
-      updatedContainer = buildImageStyleContainer(savedRecruitData, participantText, recruitIdText, accentColor, headerTitle, subHeaderText, avatarUrl, recruiterId, requesterId, extraActionButtons);
-    }
+    const context = { client, messageIdStr, recruitId, interaction, guildId };
+    const editPayload = await buildUpdatePayload(savedRecruitData, participants, context);
 
     if (message && message.edit) {
-      const editPayload = { components: [updatedContainer], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } };
-      if (style === 'image' && updatedImage) {
-        editPayload.files = [updatedImage];
-      }
       await message.edit(editPayload);
     }
 
@@ -403,83 +479,120 @@ function buildDisabledButtonRow() {
     );
 }
 
+async function tryUpdateRecruitmentStatus(messageId) {
+  try {
+    const statusRes = await db.updateRecruitmentStatus(messageId, 'ended', new Date().toISOString());
+    if (!statusRes?.ok) {
+      console.warn('[autoClose] Status update returned warning:', statusRes);
+    }
+  } catch (e) {
+    console.warn('[autoClose] Failed to update status:', e?.message || e);
+  }
+}
+
+async function tryDeleteRecruitmentData(messageId, recruiterId) {
+  try {
+    const deleteRes = await db.deleteRecruitmentData(messageId, recruiterId);
+    if (!deleteRes?.ok && deleteRes?.status !== 404) {
+      console.warn('[autoClose] Recruitment delete returned warning:', deleteRes);
+    }
+  } catch (e) {
+    console.warn('[autoClose] Failed to delete recruitment from Durable Object:', e?.message || e);
+  }
+}
+
+async function tryDeleteParticipants(messageId) {
+  try {
+    await db.deleteParticipantsFromRedis(messageId);
+  } catch (e) {
+    console.warn('[autoClose] deleteParticipantsFromRedis failed:', e?.message || e);
+  }
+}
+
+async function tryDeleteRecruit(recruitId) {
+  if (!recruitId) return;
+  try {
+    await db.deleteRecruitFromRedis(recruitId);
+  } catch (e) {
+    console.warn('[autoClose] deleteRecruitFromRedis failed:', e?.message || e);
+  }
+}
+
 async function cleanupRecruitmentCaches(messageId, recruitId, recruiterId) {
-  try { 
-    const statusRes = await db.updateRecruitmentStatus(messageId, 'ended', new Date().toISOString()); 
-    if (!statusRes?.ok) console.warn('[autoClose] Status update returned warning:', statusRes); 
-  } catch (e) { 
-    console.warn('[autoClose] Failed to update status:', e?.message || e); 
+  await tryUpdateRecruitmentStatus(messageId);
+  await tryDeleteRecruitmentData(messageId, recruiterId);
+  await tryDeleteParticipants(messageId);
+  await tryDeleteRecruit(recruitId);
+}
+
+async function prepareAutoCloseData(client, guildId, channelId, messageId) {
+  if (!client) throw new Error('client unavailable');
+
+  const recruitId = String(messageId).slice(-8);
+  const savedRecruitData = await fetchRecruitDataForClose(recruitId);
+  const recruiterId = savedRecruitData?.recruiterId || savedRecruitData?.ownerId || null;
+  const recruitStyle = await getRecruitStyle(guildId);
+  const { channel, message } = await fetchChannelAndMessage(client, channelId, messageId);
+
+  return { recruitId, savedRecruitData, recruiterId, recruitStyle, channel, message };
+}
+
+async function buildClosedPayload(savedRecruitData, recruitStyle, recruitId, message) {
+  const { MessageFlags } = require('discord.js');
+  
+  const baseColor = resolveBaseColor(savedRecruitData);
+  let closedAttachment = null;
+  
+  if (recruitStyle === 'image') {
+    closedAttachment = await generateClosedImage(message);
   }
   
-  try { 
-    const deleteRes = await db.deleteRecruitmentData(messageId, recruiterId); 
-    if (!deleteRes?.ok && deleteRes?.status !== 404) console.warn('[autoClose] Recruitment delete returned warning:', deleteRes); 
-  } catch (e) { 
-    console.warn('[autoClose] Failed to delete recruitment from Durable Object:', e?.message || e); 
+  const disabledContainer = recruitStyle === 'image'
+    ? buildClosedImageContainer(baseColor, closedAttachment, recruitId)
+    : buildClosedSimpleContainer(baseColor, recruitId);
+  
+  const disabledButtons = buildDisabledButtonRow();
+  
+  const editPayload = {
+    components: [disabledContainer, disabledButtons],
+    flags: MessageFlags.IsComponentsV2,
+    allowedMentions: { roles: [], users: [] }
+  };
+  
+  if (recruitStyle === 'image' && closedAttachment) {
+    editPayload.files = [closedAttachment];
   }
   
-  try { 
-    await db.deleteParticipantsFromRedis(messageId); 
-  } catch (e) { 
-    console.warn('[autoClose] deleteParticipantsFromRedis failed:', e?.message || e); 
+  return editPayload;
+}
+
+async function updateMessageForAutoClose(message, savedRecruitData, recruitStyle, recruitId) {
+  try {
+    const editPayload = await buildClosedPayload(savedRecruitData, recruitStyle, recruitId, message);
+    await message.edit(editPayload);
+  } catch (e) {
+    console.warn('[autoClose] Failed to edit message during auto close:', e?.message || e);
   }
-  
-  try { 
-    if (recruitId) await db.deleteRecruitFromRedis(recruitId); 
-  } catch (e) { 
-    console.warn('[autoClose] deleteRecruitFromRedis failed:', e?.message || e); 
-  }
+}
+
+async function sendAutoCloseReply(message, recruiterId) {
+  try {
+    await message.reply({
+      content: `🔒 自動締切: この募集は有効期限切れのため締め切りました。`,
+      allowedMentions: { roles: [], users: recruiterId ? [recruiterId] : [] }
+    }).catch(() => null);
+  } catch (_) {}
 }
 
 async function autoCloseRecruitment(client, guildId, channelId, messageId) {
   console.log('[autoClose] Triggered for message:', messageId, 'guild:', guildId, 'channel:', channelId);
   try {
-    if (!client) throw new Error('client unavailable');
-
-    const recruitId = String(messageId).slice(-8);
-    const savedRecruitData = await fetchRecruitDataForClose(recruitId);
-    const recruiterId = savedRecruitData?.recruiterId || savedRecruitData?.ownerId || null;
-    const recruitStyle = await getRecruitStyle(guildId);
-    const { channel, message } = await fetchChannelAndMessage(client, channelId, messageId);
+    const { recruitId, savedRecruitData, recruiterId, recruitStyle, message } = 
+      await prepareAutoCloseData(client, guildId, channelId, messageId);
 
     if (message) {
-      try {
-        const { MessageFlags } = require('discord.js');
-        
-        const baseColor = resolveBaseColor(savedRecruitData);
-        let closedAttachment = null;
-        
-        if (recruitStyle === 'image') {
-          closedAttachment = await generateClosedImage(message);
-        }
-        
-        const disabledContainer = recruitStyle === 'image'
-          ? buildClosedImageContainer(baseColor, closedAttachment, recruitId)
-          : buildClosedSimpleContainer(baseColor, recruitId);
-        
-        const disabledButtons = buildDisabledButtonRow();
-        
-        const editPayload = {
-          components: [disabledContainer, disabledButtons],
-          flags: MessageFlags.IsComponentsV2,
-          allowedMentions: { roles: [], users: [] }
-        };
-        
-        if (recruitStyle === 'image' && closedAttachment) {
-          editPayload.files = [closedAttachment];
-        }
-        
-        await message.edit(editPayload);
-      } catch (e) { 
-        console.warn('[autoClose] Failed to edit message during auto close:', e?.message || e); 
-      }
-
-      try { 
-        await message.reply({ 
-          content: `🔒 自動締切: この募集は有効期限切れのため締め切りました。`, 
-          allowedMentions: { roles: [], users: recruiterId ? [recruiterId] : [] } 
-        }).catch(() => null); 
-      } catch (_) {}
+      await updateMessageForAutoClose(message, savedRecruitData, recruitStyle, recruitId);
+      await sendAutoCloseReply(message, recruiterId);
     } else {
       console.warn('[autoClose] Message not found (manual deletion or already deleted):', messageId);
     }

@@ -32,24 +32,44 @@ async function checkExistingDedicatedChannel(interaction, recruitId) {
   return false;
 }
 
+function extractMessageId(recruit) {
+  return recruit?.message_id || recruit?.messageId;
+}
+
+async function tryGetPersistedParticipants(messageId) {
+  if (!messageId) return null;
+  
+  try {
+    const persisted = await getParticipantsFromRedis(messageId);
+    return Array.isArray(persisted) ? persisted : null;
+  } catch (e) {
+    console.warn('Failed to get participants from Redis:', e?.message || e);
+    return null;
+  }
+}
+
+function getCurrentMembersFromRecruit(recruit) {
+  if (recruit?.currentMembers && Array.isArray(recruit.currentMembers)) {
+    return recruit.currentMembers;
+  }
+  return null;
+}
+
+async function extractParticipants(recruit) {
+  const messageId = extractMessageId(recruit);
+  
+  const persisted = await tryGetPersistedParticipants(messageId);
+  if (persisted) return persisted;
+  
+  const currentMembers = getCurrentMembersFromRecruit(recruit);
+  if (currentMembers) return currentMembers;
+  
+  return [];
+}
+
 async function loadRecruitmentParticipants(recruitId) {
   const recruit = await getRecruitFromRedis(recruitId).catch(() => null);
-  const messageId = recruit?.message_id || recruit?.messageId;
-  let participants = [];
-
-  try {
-    if (messageId) {
-      const persisted = await getParticipantsFromRedis(messageId);
-      if (Array.isArray(persisted)) participants = persisted;
-    }
-
-    if (participants.length === 0 && recruit?.currentMembers) {
-      participants = Array.isArray(recruit.currentMembers) ? recruit.currentMembers : [];
-    }
-  } catch (e) {
-    console.warn('Failed to get participants:', e?.message || e);
-  }
-
+  const participants = await extractParticipants(recruit);
   return { participants, recruit };
 }
 

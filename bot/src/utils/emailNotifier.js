@@ -4,9 +4,14 @@ const config = require('../config');
 // 2時間30秒後のメール送信タイマーを管理
 let bumpReminderTimer = null;
 
+// メール設定が有効かチェック
+function isEmailConfigured() {
+  return !!(config.GMAIL_USER && config.GMAIL_APP_PASSWORD && config.NOTIFICATION_EMAIL_TO);
+}
+
 // メール送信関数
 async function sendBumpNotification(channelName, content = '') {
-  if (!config.GMAIL_USER || !config.GMAIL_APP_PASSWORD || !config.NOTIFICATION_EMAIL_TO) {
+  if (!isEmailConfigured()) {
     console.warn('[emailNotifier] メール送信設定が環境変数に設定されていません');
     return;
   }

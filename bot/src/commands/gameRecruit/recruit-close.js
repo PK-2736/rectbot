@@ -32,7 +32,7 @@ async function updateRecruitmentStatusToEnded(messageId) {
   }
 }
 
-async function cleanupRecruitmentData(messageId, userId, data) {
+async function tryDeleteRecruitmentData(messageId, userId) {
   try {
     const delRes = await deleteRecruitmentData(messageId, userId);
     if (!delRes?.ok && delRes?.status !== 404) {
@@ -41,14 +41,18 @@ async function cleanupRecruitmentData(messageId, userId, data) {
   } catch (err) {
     console.error('募集データの削除に失敗:', err);
   }
+}
 
+async function tryDeleteParticipantsFromCache(messageId) {
   recruitParticipants.delete(messageId);
   try {
     await deleteParticipantsFromRedis(messageId);
   } catch (e) {
     console.warn('Redis参加者削除失敗:', e?.message || e);
   }
+}
 
+async function tryDeleteRecruitFromCache(messageId, data) {
   try {
     const rid = data?.recruitId || String(messageId).slice(-8);
     if (rid) {
@@ -58,6 +62,12 @@ async function cleanupRecruitmentData(messageId, userId, data) {
   } catch (e) {
     console.warn('Redis recruit削除失敗:', e?.message || e);
   }
+}
+
+async function cleanupRecruitmentData(messageId, userId, data) {
+  await tryDeleteRecruitmentData(messageId, userId);
+  await tryDeleteParticipantsFromCache(messageId);
+  await tryDeleteRecruitFromCache(messageId, data);
 }
 
 function resolveClosedRecruitmentLayout(recruitStyle) {
@@ -87,43 +97,55 @@ function prepareClosedRecruitmentContext(data, messageId, interaction, originalM
   };
 }
 
+async function fetchOriginalImageBuffer(originalMessage) {
+  if (!originalMessage?.attachments || originalMessage.attachments.size === 0) {
+    return null;
+  }
+
+  try {
+    const originalAttachmentUrl = originalMessage.attachments.first().url;
+    const response = await fetch(originalAttachmentUrl);
+    const arrayBuffer = await response.arrayBuffer();
+    return Buffer.from(arrayBuffer);
+  } catch (imgErr) {
+    console.warn('[processClose] Failed to fetch original image:', imgErr);
+    return null;
+  }
+}
+
+async function generateFallbackImageBuffer(data, finalParticipants, client) {
+  try {
+    const { generateRecruitCard } = require('../../utils/canvasRecruit');
+    let useColor = data?.panelColor || '808080';
+    if (typeof useColor === 'string' && useColor.startsWith('#')) useColor = useColor.slice(1);
+    if (!/^[0-9A-Fa-f]{6}$/.test(useColor)) useColor = '808080';
+    return await generateRecruitCard(data, finalParticipants, client, useColor);
+  } catch (imgErr) {
+    console.warn('[processClose] Failed to generate base recruit image:', imgErr);
+    return null;
+  }
+}
+
 async function generateClosedImageAttachment(context) {
-  const { generateClosedRecruitCard, generateRecruitCard } = require('../../utils/canvasRecruit');
+  const { generateClosedRecruitCard } = require('../../utils/canvasRecruit');
 
-  let baseImageBuffer = null;
+  let baseImageBuffer = await fetchOriginalImageBuffer(context.originalMessage);
 
-  if (context.hasAttachment) {
-    try {
-      const originalAttachmentUrl = context.originalMessage.attachments.first().url;
-      const response = await fetch(originalAttachmentUrl);
-      const arrayBuffer = await response.arrayBuffer();
-      baseImageBuffer = Buffer.from(arrayBuffer);
-    } catch (imgErr) {
-      console.warn('[processClose] Failed to fetch original image:', imgErr);
-    }
+  if (!baseImageBuffer) {
+    baseImageBuffer = await generateFallbackImageBuffer(context.data, context.finalParticipants, context.interaction.client);
   }
 
   if (!baseImageBuffer) {
-    try {
-      let useColor = context.data?.panelColor || '808080';
-      if (typeof useColor === 'string' && useColor.startsWith('#')) useColor = useColor.slice(1);
-      if (!/^[0-9A-Fa-f]{6}$/.test(useColor)) useColor = '808080';
-      baseImageBuffer = await generateRecruitCard(context.data, context.finalParticipants, context.interaction.client, useColor);
-    } catch (imgErr) {
-      console.warn('[processClose] Failed to generate base recruit image:', imgErr);
-    }
+    return null;
   }
 
-  if (baseImageBuffer) {
-    try {
-      const closedImageBuffer = await generateClosedRecruitCard(baseImageBuffer);
-      return new AttachmentBuilder(closedImageBuffer, { name: 'recruit-card-closed.png' });
-    } catch (imgErr) {
-      console.warn('[processClose] Failed to generate closed image:', imgErr);
-    }
+  try {
+    const closedImageBuffer = await generateClosedRecruitCard(baseImageBuffer);
+    return new AttachmentBuilder(closedImageBuffer, { name: 'recruit-card-closed.png' });
+  } catch (imgErr) {
+    console.warn('[processClose] Failed to generate closed image:', imgErr);
+    return null;
   }
-
-  return null;
 }
 
 async function buildImageStyleLayout(context) {
@@ -155,29 +177,35 @@ function buildDetailsLabel(data, totalMembers) {
   return [startLabel, membersLabel, voiceLabel].filter(Boolean).join(' | ');
 }
 
-function addComponentIfExists(components, condition, component) {
-  if (condition) {
-    components.push(component);
-  }
-}
-
-function buildSimpleStyleLayout(context) {
+function buildSimpleComponents(context) {
   const components = [
     { type: 'text', content: '🔒 **募集締め切り済み**' }
   ];
 
-  addComponentIfExists(components, context.data?.title, {
-    type: 'text',
-    content: `📌 タイトル\n${String(context.data.title).slice(0,200)}`
-  });
+  if (context.data?.title) {
+    components.push({
+      type: 'text',
+      content: `📌 タイトル\n${String(context.data.title).slice(0, 200)}`
+    });
+  }
 
   components.push({ type: 'separator', spacing: 'Small', divider: true });
 
   const detailsText = buildDetailsLabel(context.data, context.totalMembers);
-  addComponentIfExists(components, detailsText, { type: 'text', content: detailsText });
+  if (detailsText) {
+    components.push({ type: 'text', content: detailsText });
+  }
 
-  const contentText = context.data?.content ? `📝 募集内容\n${String(context.data.content).slice(0,1500)}` : '';
-  addComponentIfExists(components, contentText, { type: 'text', content: contentText });
+  const contentText = context.data?.content ? `📝 募集内容\n${String(context.data.content).slice(0, 1500)}` : '';
+  if (contentText) {
+    components.push({ type: 'text', content: contentText });
+  }
+
+  return components;
+}
+
+function buildSimpleStyleLayout(context) {
+  const components = buildSimpleComponents(context);
 
   components.push(
     { type: 'separator', spacing: 'Small', divider: true },
@@ -230,37 +258,45 @@ async function buildClosedRecruitmentCard({ recruitStyle, data, messageId, inter
   return { container, attachment: layout.attachment };
 }
 
+async function sendDeletionNotice(interaction, dedicatedChannelId) {
+  try {
+    const channel = await interaction.guild.channels.fetch(dedicatedChannelId).catch(() => null);
+    if (channel && typeof channel.send === 'function') {
+      await channel.send({
+        content: '⏰ **募集が締められたので5分後に専用チャンネルを削除します**',
+        allowedMentions: { roles: [], users: [] }
+      });
+    }
+  } catch (e) {
+    console.warn('[processClose] Failed to send deletion notice:', e?.message || e);
+  }
+}
+
+async function deleteDedicatedChannelAfterDelay(interaction, dedicatedChannelId, recruitId) {
+  setTimeout(async () => {
+    try {
+      const channel = await interaction.guild.channels.fetch(dedicatedChannelId).catch(() => null);
+      if (channel) {
+        await channel.delete();
+      }
+      const { deleteDedicatedChannel } = require('../../utils/db/dedicatedChannels');
+      await deleteDedicatedChannel(recruitId);
+    } catch (e) {
+      console.warn(`[processClose] Failed to delete channel ${dedicatedChannelId}:`, e?.message || e);
+    }
+  }, 5 * 60 * 1000);
+}
+
 function scheduleDedicatedChannelCleanup(interaction, data, messageId) {
   runInBackground(async () => {
-    const { getDedicatedChannel, deleteDedicatedChannel } = require('../../utils/db/dedicatedChannels');
+    const { getDedicatedChannel } = require('../../utils/db/dedicatedChannels');
     const recruitId = data?.recruitId || String(messageId).slice(-8);
     const dedicatedChannelId = await getDedicatedChannel(recruitId).catch(() => null);
 
     if (!dedicatedChannelId) return;
 
-    try {
-      const channel = await interaction.guild.channels.fetch(dedicatedChannelId).catch(() => null);
-      if (channel && typeof channel.send === 'function') {
-        await channel.send({
-          content: '⏰ **募集が締められたので5分後に専用チャンネルを削除します**',
-          allowedMentions: { roles: [], users: [] }
-        });
-      }
-    } catch (e) {
-      console.warn('[processClose] Failed to send deletion notice:', e?.message || e);
-    }
-
-    setTimeout(async () => {
-      try {
-        const channel = await interaction.guild.channels.fetch(dedicatedChannelId).catch(() => null);
-        if (channel) {
-          await channel.delete();
-        }
-        await deleteDedicatedChannel(recruitId);
-      } catch (e) {
-        console.warn(`[processClose] Failed to delete channel ${dedicatedChannelId}:`, e?.message || e);
-      }
-    }, 5 * 60 * 1000);
+    await sendDeletionNotice(interaction, dedicatedChannelId);
+    await deleteDedicatedChannelAfterDelay(interaction, dedicatedChannelId, recruitId);
   }, 'Dedicated channel cleanup');
 }
 

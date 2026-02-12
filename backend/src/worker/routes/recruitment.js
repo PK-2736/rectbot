@@ -407,41 +407,69 @@ async function handleActiveRecruits({ request, env, url, corsHeaders, sendToSent
   }
 }
 
+function extractRequestMetadata(request) {
+  const userAgent = request.headers.get('user-agent') || '';
+  const clientIP = request.headers.get('cf-connecting-ip') || request.headers.get('x-forwarded-for') || 'unknown';
+  return { userAgent, clientIP };
+}
+
+function validateServiceToken(serviceToken, request, clientIP, userAgent, corsHeaders) {
+  if (!serviceToken) {
+    return new Response(JSON.stringify({ error: 'service_unavailable' }), { status: 503, headers: withJsonHeaders(corsHeaders) });
+  }
+
+  if (!isAuthorizedServiceRequest(request, serviceToken)) {
+    console.warn(`[security] Unauthorized push attempt from IP: ${clientIP}, UA: ${userAgent}`);
+    return new Response(JSON.stringify({ error: 'unauthorized' }), { status: 401, headers: withJsonHeaders(corsHeaders) });
+  }
+  
+  return null;
+}
+
+function validateUserAgent(userAgent, clientIP, corsHeaders) {
+  if (!userAgent.includes('node') && !userAgent.includes('discord')) {
+    console.warn(`[security] Suspicious User-Agent from IP: ${clientIP}, UA: ${userAgent}`);
+    return new Response(JSON.stringify({ error: 'forbidden' }), { status: 403, headers: withJsonHeaders(corsHeaders) });
+  }
+  return null;
+}
+
+function validateRecruitmentData(data, corsHeaders) {
+  if (!data.recruitId || !data.guildId) {
+    return new Response(JSON.stringify({ error: 'invalid_data', detail: 'recruitId and guildId are required' }), { status: 400, headers: withJsonHeaders(corsHeaders) });
+  }
+  return null;
+}
+
+function sanitizeRecruitmentData(data) {
+  return {
+    recruitId: String(data.recruitId).slice(0, 50),
+    guildId: String(data.guildId).slice(0, 20),
+    channelId: String(data.channelId || '').slice(0, 20),
+    message_id: String(data.message_id || '').slice(0, 20),
+    status: String(data.status || 'recruiting').slice(0, 20),
+    start_time: data.start_time || new Date().toISOString()
+  };
+}
+
 async function handleRecruitmentPush({ request, env, url, corsHeaders }) {
   if (url.pathname !== '/api/recruitment/push' || request.method !== 'POST') return null;
 
   try {
     const serviceToken = getServiceToken(env);
-    const userAgent = request.headers.get('user-agent') || '';
-    const clientIP = request.headers.get('cf-connecting-ip') || request.headers.get('x-forwarded-for') || 'unknown';
+    const { userAgent, clientIP } = extractRequestMetadata(request);
 
-    if (!serviceToken) {
-      return new Response(JSON.stringify({ error: 'service_unavailable' }), { status: 503, headers: withJsonHeaders(corsHeaders) });
-    }
+    const tokenValidation = validateServiceToken(serviceToken, request, clientIP, userAgent, corsHeaders);
+    if (tokenValidation) return tokenValidation;
 
-    if (!isAuthorizedServiceRequest(request, serviceToken)) {
-      console.warn(`[security] Unauthorized push attempt from IP: ${clientIP}, UA: ${userAgent}`);
-      return new Response(JSON.stringify({ error: 'unauthorized' }), { status: 401, headers: withJsonHeaders(corsHeaders) });
-    }
-
-    if (!userAgent.includes('node') && !userAgent.includes('discord')) {
-      console.warn(`[security] Suspicious User-Agent from IP: ${clientIP}, UA: ${userAgent}`);
-      return new Response(JSON.stringify({ error: 'forbidden' }), { status: 403, headers: withJsonHeaders(corsHeaders) });
-    }
+    const agentValidation = validateUserAgent(userAgent, clientIP, corsHeaders);
+    if (agentValidation) return agentValidation;
 
     const data = await request.json();
-    if (!data.recruitId || !data.guildId) {
-      return new Response(JSON.stringify({ error: 'invalid_data', detail: 'recruitId and guildId are required' }), { status: 400, headers: withJsonHeaders(corsHeaders) });
-    }
+    const dataValidation = validateRecruitmentData(data, corsHeaders);
+    if (dataValidation) return dataValidation;
 
-    const sanitizedData = {
-      recruitId: String(data.recruitId).slice(0, 50),
-      guildId: String(data.guildId).slice(0, 20),
-      channelId: String(data.channelId || '').slice(0, 20),
-      message_id: String(data.message_id || '').slice(0, 20),
-      status: String(data.status || 'recruiting').slice(0, 20),
-      start_time: data.start_time || new Date().toISOString()
-    };
+    const sanitizedData = sanitizeRecruitmentData(data);
 
     console.log(`[worker][recruitment-push] Authorized request from IP: ${clientIP}, recruitId: ${sanitizedData.recruitId}`);
     return new Response(JSON.stringify({ success: true, recruitId: sanitizedData.recruitId, guildId: sanitizedData.guildId, message: 'Data received successfully' }), { status: 200, headers: withJsonHeaders(corsHeaders) });

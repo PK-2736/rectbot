@@ -296,77 +296,149 @@ async function handleTemplateCreateModal(interaction) {
   }, 400);
 }
 
-async function handleTemplateOptionalModal(interaction) {
-  const content = interaction.fields.getTextInputValue('template_content') || null;
-  const startTime = interaction.fields.getTextInputValue('template_start_time') || null;
-  const regulationRaw = interaction.fields.getTextInputValue('template_regulation') || null;
-  const voicePlace = interaction.fields.getTextInputValue('template_voice_place') || null;
-  const voiceOption = interaction.fields.getTextInputValue('template_voice_option') || null;
+// オプショナルフィールドを抽出
+function extractOptionalFields(interaction) {
+  return {
+    content: interaction.fields.getTextInputValue('template_content') || null,
+    startTime: interaction.fields.getTextInputValue('template_start_time') || null,
+    regulationRaw: interaction.fields.getTextInputValue('template_regulation') || null,
+    voicePlace: interaction.fields.getTextInputValue('template_voice_place') || null,
+    voiceOption: interaction.fields.getTextInputValue('template_voice_option') || null,
+  };
+}
 
-  let regulationMembers = null;
-  if (regulationRaw) {
-    const num = parseIntSafe(regulationRaw);
-    if (Number.isFinite(num) && num > 0 && num <= 99) {
-      regulationMembers = num;
-    }
+// 規定人数を検証
+function validateRegulationMembers(regulationRaw) {
+  if (!regulationRaw) return null;
+  
+  const num = parseIntSafe(regulationRaw);
+  if (Number.isFinite(num) && num > 0 && num <= 99) {
+    return num;
   }
+  return null;
+}
 
-  const baseData = interaction.templateData || {};
+// テンプレートデータを構築
+function buildTemplateData(baseData, optionalFields, regulationMembers) {
+  return {
+    guildId: baseData.guildId,
+    createdBy: baseData.createdBy,
+    name: baseData.name,
+    title: baseData.title,
+    participants: baseData.participants,
+    color: baseData.color,
+    notificationRoleId: baseData.notificationRoleId,
+    content: optionalFields.content?.slice(0, 200),
+    startTimeText: optionalFields.startTime?.slice(0, 100),
+    regulationMembers,
+    voicePlace: optionalFields.voicePlace?.slice(0, 100),
+    voiceOption: optionalFields.voiceOption?.slice(0, 50),
+  };
+}
+
+// テンプレートオプショナルモーダル処理
+async function handleTemplateOptionalModal(interaction) {
+  const optionalFields = extractOptionalFields(interaction);
+  const regulationMembers = validateRegulationMembers(optionalFields.regulationRaw);
+  
+  const baseData = {
+    guildId: interaction.guildId,
+    createdBy: interaction.user?.id,
+    ...(interaction.templateData || {})
+  };
+  
+  const templateData = buildTemplateData(baseData, optionalFields, regulationMembers);
 
   try {
-    await upsertTemplate({
-      guildId: interaction.guildId,
-      createdBy: interaction.user?.id,
-      name: baseData.name,
-      title: baseData.title,
-      participants: baseData.participants,
-      color: baseData.color,
-      notificationRoleId: baseData.notificationRoleId,
-      content: content?.slice(0, 200),
-      startTimeText: startTime?.slice(0, 100),
-      regulationMembers,
-      voicePlace: voicePlace?.slice(0, 100),
-      voiceOption: voiceOption?.slice(0, 50),
-    });
+    await upsertTemplate(templateData);
   } catch (error) {
     console.error('Template upsert error:', error);
-    await interaction.editReply({ embeds: [createErrorEmbed('テンプレートの保存に失敗しました。時間をおいて再度お試しください。', '保存エラー')] });
+    await interaction.editReply({ 
+      embeds: [createErrorEmbed('テンプレートの保存に失敗しました。時間をおいて再度お試しください。', '保存エラー')] 
+    });
     return;
   }
 
-  await interaction.editReply({ embeds: [createSuccessEmbed('テンプレートを保存しました！✨\n\n次回からこのテンプレートを使って素早く募集を開始できます。', '募集テンプレート完成')] });
+  await interaction.editReply({ 
+    embeds: [createSuccessEmbed(
+      'テンプレートを保存しました！✨\n\n次回からこのテンプレートを使って素早く募集を開始できます。', 
+      '募集テンプレート完成'
+    )] 
+  });
 }
 
+// 通知ロールを正規化
+function normalizeNotificationRoles(value) {
+  const uniqueRoles = Array.isArray(value) 
+    ? [...new Set(value.filter(Boolean).map(String))] 
+    : [];
+  return {
+    notification_roles: uniqueRoles,
+    notification_role: uniqueRoles.length > 0 ? uniqueRoles[0] : null
+  };
+}
+
+// 募集チャンネルを正規化
+function normalizeRecruitChannels(value) {
+  const uniqueChannels = Array.isArray(value) 
+    ? [...new Set(value.filter(Boolean).map(String))].slice(0, 25) 
+    : [];
+  return {
+    recruit_channels: uniqueChannels,
+    recruit_channel: uniqueChannels.length > 0 ? uniqueChannels[0] : null
+  };
+}
+
+// 設定タイプに応じたペイロードを構築
+function buildSettingPayload(settingKey, value) {
+  switch (settingKey) {
+    case 'notification_roles':
+      return normalizeNotificationRoles(value);
+    
+    case 'notification_role':
+      const roleId = value ? String(value) : null;
+      return { 
+        notification_role: roleId, 
+        notification_roles: roleId ? [roleId] : [] 
+      };
+    
+    case 'recruit_channels':
+      return normalizeRecruitChannels(value);
+    
+    case 'enable_dedicated_channel':
+      return { enable_dedicated_channel: !!value };
+    
+    case 'dedicated_channel_category_id':
+      return { dedicated_channel_category_id: value ? String(value) : null };
+    
+    default:
+      return { [settingKey]: value };
+  }
+}
+
+// ギルド設定を更新
 async function updateGuildSetting(interaction, settingKey, value) {
   try {
     const isAdmin = await ensureAdmin(interaction);
     if (!isAdmin) return;
+    
     const guildId = interaction.guildId;
-    let payload = { [settingKey]: value };
-
-    if (settingKey === 'notification_roles') {
-      const uniqueRoles = Array.isArray(value) ? [...new Set(value.filter(Boolean).map(String))] : [];
-      payload = { notification_roles: uniqueRoles, notification_role: uniqueRoles.length > 0 ? uniqueRoles[0] : null };
-    } else if (settingKey === 'notification_role') {
-      const roleId = value ? String(value) : null;
-      payload = { notification_role: roleId, notification_roles: roleId ? [roleId] : [] };
-    } else if (settingKey === 'recruit_channels') {
-      const uniqueChannels = Array.isArray(value) ? [...new Set(value.filter(Boolean).map(String))].slice(0, 25) : [];
-      payload = { recruit_channels: uniqueChannels, recruit_channel: uniqueChannels.length > 0 ? uniqueChannels[0] : null };
-    } else if (settingKey === 'enable_dedicated_channel') {
-      payload = { enable_dedicated_channel: !!value };
-    } else if (settingKey === 'dedicated_channel_category_id') {
-      payload = { dedicated_channel_category_id: value ? String(value) : null };
-    }
+    const payload = buildSettingPayload(settingKey, value);
 
     await saveGuildSettingsToRedis(guildId, payload);
 
     const settingName = getSettingLabel(settingKey);
-    await safeReply(interaction, { embeds: [createSuccessEmbed(`${settingName}を更新しました！`, '設定更新')], flags: MessageFlags.Ephemeral });
+    await safeReply(interaction, { 
+      embeds: [createSuccessEmbed(`${settingName}を更新しました！`, '設定更新')], 
+      flags: MessageFlags.Ephemeral 
+    });
     scheduleSettingsRefresh(interaction, guildId, 1000);
   } catch (error) {
     console.error('Guild setting update error:', error);
-    await safeReply(interaction, { content: '❌ 設定の更新に失敗しました。', flags: MessageFlags.Ephemeral });
+    await safeReply(interaction, { 
+      content: '❌ 設定の更新に失敗しました。', 
+      flags: MessageFlags.Ephemeral 
+    });
   }
 }
 

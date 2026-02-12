@@ -33,35 +33,56 @@ async function enforceGuildCooldown(interaction) {
   }
 }
 
-async function enforceActiveRecruitLimit(interaction) {
-  if (EXEMPT_GUILD_IDS.has(String(interaction.guildId))) {
-    return true;
-  }
+function logRecruitCount(allRecruits) {
+  const count = Array.isArray(allRecruits) ? allRecruits.length : typeof allRecruits;
+  console.log('[gameRecruit.execute] listRecruitsFromRedis returned count:', count);
+}
 
-  const allRecruits = await listRecruitsFromRedis();
-  console.log('[gameRecruit.execute] listRecruitsFromRedis returned count:', Array.isArray(allRecruits) ? allRecruits.length : typeof allRecruits);
-  const guildIdStr = String(interaction.guildId);
-  let matched = [];
-  if (Array.isArray(allRecruits)) {
-    matched = allRecruits.filter(r => {
-      const gid = String(r?.guildId ?? r?.guild_id ?? r?.guild ?? r?.metadata?.guildId ?? r?.metadata?.guild ?? '');
-      const status = String(r?.status ?? '').toLowerCase();
-      return gid === guildIdStr && (status === 'recruiting' || status === 'active');
-    });
-  }
-  console.log('[gameRecruit.execute] matched active recruits for guild:', matched.map(m => m?.recruitId || m?.message_id || m?.recruit_id || '(no-id)'));
-  const guildActiveCount = matched.length;
-  if (guildActiveCount < 3) {
-    return true;
-  }
+function logMatchedRecruits(matched) {
+  const recruitIds = matched.map(m => m?.recruitId || m?.message_id || m?.recruit_id || '(no-id)');
+  console.log('[gameRecruit.execute] matched active recruits for guild:', recruitIds);
+}
 
+async function notifyRecruitLimitReached(interaction) {
   console.log('[gameRecruit.execute] blocking create due to 3 active recruits limit');
   await safeReply(interaction, {
     embeds: [createErrorEmbed('このサーバーでは同時に実行できる募集は3件までです。\n既存の募集をいくつか締め切ってから新しい募集を作成してください。', '募集上限到達')],
     flags: MessageFlags.Ephemeral,
     allowedMentions: { roles: [], users: [] }
   });
+}
+
+async function enforceActiveRecruitLimit(interaction) {
+  if (EXEMPT_GUILD_IDS.has(String(interaction.guildId))) {
+    return true;
+  }
+
+  const allRecruits = await listRecruitsFromRedis();
+  logRecruitCount(allRecruits);
+  
+  const guildIdStr = String(interaction.guildId);
+  const matched = filterActiveRecruits(allRecruits, guildIdStr);
+  
+  logMatchedRecruits(matched);
+  
+  if (matched.length < 3) {
+    return true;
+  }
+
+  await notifyRecruitLimitReached(interaction);
   return false;
+}
+
+function filterActiveRecruits(allRecruits, guildIdStr) {
+  if (!Array.isArray(allRecruits)) {
+    return [];
+  }
+  
+  return allRecruits.filter(r => {
+    const gid = String(r?.guildId ?? r?.guild_id ?? r?.guild ?? r?.metadata?.guildId ?? r?.metadata?.guild ?? '');
+    const status = String(r?.status ?? '').toLowerCase();
+    return gid === guildIdStr && (status === 'recruiting' || status === 'active');
+  });
 }
 
 function resolveAllowedChannels(guildSettings) {
@@ -120,10 +141,9 @@ function parseRecruitOptions(interaction) {
   const voiceArg = readOption(interaction, 'string', '通話有無') ?? readOption(interaction, 'string', 'voice');
   const voiceChannel = readOption(interaction, 'channel', '通話場所');
   const legacyVoicePlace = readOption(interaction, 'string', 'voice_place');
-  const voicePlaceArg = voiceChannel
-    ? voiceChannel.name
-    : (legacyVoicePlace || null);
-  const voiceChannelId = voiceChannel ? voiceChannel.id : null;
+  
+  const voicePlaceArg = voiceChannel ? voiceChannel.name : (legacyVoicePlace || null);
+  const voiceChannelId = voiceChannel?.id || null;
   const selectedColor = interaction.options.getString('色') || undefined;
 
   return {
@@ -224,13 +244,8 @@ async function savePendingOptions(interaction, options) {
   }
 }
 
-async function buildNotificationRoleOptions(interaction, guildSettings) {
-  const roles = [];
-  if (Array.isArray(guildSettings.notification_roles)) roles.push(...guildSettings.notification_roles.filter(Boolean));
-  if (guildSettings.notification_role) roles.push(guildSettings.notification_role);
-  const configuredNotificationRoleIds = [...new Set(roles.map(String))].filter(Boolean);
-
-  const roleOptions = [
+function buildDefaultRoleOptions() {
+  return [
     {
       label: '通知ロールなし',
       value: 'none',
@@ -248,25 +263,46 @@ async function buildNotificationRoleOptions(interaction, guildSettings) {
       description: 'オンライン中のメンバーに通知'
     }
   ];
+}
 
-  if (configuredNotificationRoleIds.length > 0) {
-    for (const roleId of configuredNotificationRoleIds.slice(0, 22)) {
-      if (roleId === 'everyone' || roleId === 'here') {
-        continue;
-      }
-      try {
-        const role = await interaction.guild.roles.fetch(roleId);
-        if (role) {
-          roleOptions.push({
-            label: role.name.slice(0, 100),
-            value: roleId,
-            description: `通知ロール: ${role.name}`.slice(0, 100)
-          });
-        }
-      } catch (e) {
-        console.warn('[gameRecruit.execute] failed to fetch role:', roleId, e?.message);
-      }
+function extractConfiguredRoleIds(guildSettings) {
+  const roles = [];
+  if (Array.isArray(guildSettings.notification_roles)) roles.push(...guildSettings.notification_roles.filter(Boolean));
+  if (guildSettings.notification_role) roles.push(guildSettings.notification_role);
+  return [...new Set(roles.map(String))].filter(Boolean);
+}
+
+async function fetchRoleOptions(interaction, configuredRoleIds) {
+  const roleOptions = [];
+  
+  for (const roleId of configuredRoleIds.slice(0, 22)) {
+    if (roleId === 'everyone' || roleId === 'here') {
+      continue;
     }
+    try {
+      const role = await interaction.guild.roles.fetch(roleId);
+      if (role) {
+        roleOptions.push({
+          label: role.name.slice(0, 100),
+          value: roleId,
+          description: `通知ロール: ${role.name}`.slice(0, 100)
+        });
+      }
+    } catch (e) {
+      console.warn('[gameRecruit.execute] failed to fetch role:', roleId, e?.message);
+    }
+  }
+  
+  return roleOptions;
+}
+
+async function buildNotificationRoleOptions(interaction, guildSettings) {
+  const roleOptions = buildDefaultRoleOptions();
+  const configuredRoleIds = extractConfiguredRoleIds(guildSettings);
+
+  if (configuredRoleIds.length > 0) {
+    const additionalRoleOptions = await fetchRoleOptions(interaction, configuredRoleIds);
+    roleOptions.push(...additionalRoleOptions);
   }
 
   return roleOptions;

@@ -52,15 +52,22 @@ async function listItems(store) {
   return [];
 }
 
+// 参加者数を取得
+function getParticipantCount(r) {
+  return r.participants?.length || r.currentMembers?.length || 0;
+}
+
+// Grafana用にアイテムを整形
 function formatGrafanaItem(r) {
+  const participantCount = getParticipantCount(r);
   return {
     id: r.recruitId || r.id,
     title: r.title,
     game: r.game,
     platform: r.platform,
     ownerId: r.ownerId,
-    participants_count: r.participants?.length || r.currentMembers?.length || 0,
-    currentMembers: r.participants?.length || r.currentMembers?.length || 0,
+    participants_count: participantCount,
+    currentMembers: participantCount,
     maxMembers: r.maxMembers || 0,
     voice: r.voice,
     status: r.status,
@@ -110,6 +117,27 @@ async function handleGrafanaAt(request, env, { url, safeHeaders, store }) {
   return jsonResponse(snapshot, 200, safeHeaders);
 }
 
+// 時間範囲を解析
+function parseTimeRange(body) {
+  const range = body?.range || {};
+  const toMs = range?.to ? Date.parse(range.to) : Date.now();
+  const fromMs = range?.from ? Date.parse(range.from) : (toMs - 24 * 3600 * 1000);
+  return { fromMs, toMs };
+}
+
+// タイムスタンプが範囲内かチェック
+function isTimestampInRange(ts, fromMs, toMs) {
+  const t = ts ? Date.parse(ts) : NaN;
+  return !Number.isNaN(t) && t >= fromMs && t <= toMs;
+}
+
+// アイテムが履歴範囲内かチェック
+function isItemInHistoryRange(r, fromMs, toMs) {
+  return isTimestampInRange(r.createdAt, fromMs, toMs) || 
+         isTimestampInRange(r.closedAt, fromMs, toMs);
+}
+
+// Grafana履歴取得ハンドラー
 async function handleGrafanaHistory(request, env, { url, safeHeaders, store }) {
   const authContext = createGrafanaAuthContext(request, env, url);
   const auth = ensureGrafanaAuthorized(authContext, safeHeaders, '[Grafana API /history] Token check:');
@@ -119,50 +147,74 @@ async function handleGrafanaHistory(request, env, { url, safeHeaders, store }) {
 
   let body = {};
   try { body = await request.json(); } catch {}
-  const range = body?.range || {};
-  const toMs = range?.to ? Date.parse(range.to) : Date.now();
-  const fromMs = range?.from ? Date.parse(range.from) : (toMs - 24 * 3600 * 1000);
+  const { fromMs, toMs } = parseTimeRange(body);
 
-  const withinRange = (ts) => {
-    const t = ts ? Date.parse(ts) : NaN;
-    return !Number.isNaN(t) && t >= fromMs && t <= toMs;
-  };
-
-  const history = items.filter(r => withinRange(r.createdAt) || withinRange(r.closedAt)).map(r => ({
-    ...formatGrafanaItem(r),
-    closedAt: r.closedAt || null
-  }));
+  const history = items
+    .filter(r => isItemInHistoryRange(r, fromMs, toMs))
+    .map(r => ({
+      ...formatGrafanaItem(r),
+      closedAt: r.closedAt || null
+    }));
 
   console.log(`[Grafana API /history] Returning ${history.length} items`);
   return jsonResponse(history, 200, safeHeaders);
 }
 
+// メソッドがGETまたはPOSTかチェック
+function isGetOrPost(method) {
+  return method === 'GET' || method === 'POST';
+}
+
+// ルートとメソッドが一致するかチェック
+function matchesRoute(url, method, ...pathnames) {
+  return pathnames.includes(url.pathname) && isGetOrPost(method);
+}
+
+// エラーハンドリングされたハンドラーを実行
+async function safeHandle(handler, options) {
+  const { logPrefix, request, env, context, safeHeaders } = options;
+  try {
+    return await handler(request, env, context);
+  } catch (e) {
+    console.error(`${logPrefix} Error:`, e);
+    return jsonResponse({ ok: false, error: e.message }, 500, safeHeaders);
+  }
+}
+
+// Grafanaルーティング
 async function handleGrafanaRoutes(request, env, { url, safeHeaders, store }) {
-  if ((url.pathname === '/api/grafana/recruits' || url.pathname === '/api/grafana/recruits/search') && (request.method === 'POST' || request.method === 'GET')) {
-    try {
-      return await handleGrafanaList(request, env, { url, safeHeaders, store });
-    } catch (e) {
-      console.error('[Grafana API] Error:', e);
-      return jsonResponse({ ok: false, error: e.message }, 500, safeHeaders);
-    }
+  const { pathname } = url;
+  const { method } = request;
+  const context = { url, safeHeaders, store };
+
+  if (matchesRoute(url, method, '/api/grafana/recruits', '/api/grafana/recruits/search')) {
+    return safeHandle(handleGrafanaList, { 
+      logPrefix: '[Grafana API]', 
+      request, 
+      env, 
+      context, 
+      safeHeaders 
+    });
   }
 
-  if (url.pathname === '/api/grafana/recruits/at' && (request.method === 'POST' || request.method === 'GET')) {
-    try {
-      return await handleGrafanaAt(request, env, { url, safeHeaders, store });
-    } catch (e) {
-      console.error('[Grafana API /at] Error:', e);
-      return jsonResponse({ ok: false, error: e.message }, 500, safeHeaders);
-    }
+  if (matchesRoute(url, method, '/api/grafana/recruits/at')) {
+    return safeHandle(handleGrafanaAt, { 
+      logPrefix: '[Grafana API /at]', 
+      request, 
+      env, 
+      context, 
+      safeHeaders 
+    });
   }
 
-  if (url.pathname === '/api/grafana/recruits/history' && (request.method === 'POST' || request.method === 'GET')) {
-    try {
-      return await handleGrafanaHistory(request, env, { url, safeHeaders, store });
-    } catch (e) {
-      console.error('[Grafana API /history] Error:', e);
-      return jsonResponse({ ok: false, error: e.message }, 500, safeHeaders);
-    }
+  if (matchesRoute(url, method, '/api/grafana/recruits/history')) {
+    return safeHandle(handleGrafanaHistory, { 
+      logPrefix: '[Grafana API /history]', 
+      request, 
+      env, 
+      context, 
+      safeHeaders 
+    });
   }
 
   return null;

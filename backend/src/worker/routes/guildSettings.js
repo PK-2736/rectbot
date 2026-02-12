@@ -65,19 +65,39 @@ function buildDefaultSettings() {
   };
 }
 
+function tryParseJsonArray(str) {
+  const trimmed = str.trim();
+  if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        return parsed.filter(Boolean).map(String);
+      }
+    } catch (e) {
+      console.warn('[guild-settings:get] parse notification_role_id JSON failed:', e?.message || e);
+    }
+  }
+  return [];
+}
+
+function parseStringNotificationRole(rawNotificationRole) {
+  const trimmed = rawNotificationRole.trim();
+  const parsed = tryParseJsonArray(trimmed);
+  if (parsed.length > 0) return parsed;
+  if (trimmed.length > 0) return [trimmed];
+  return [];
+}
+
 function parseNotificationRoles(rawNotificationRole) {
   let notificationRoles = [];
-  if (Array.isArray(rawNotificationRole)) notificationRoles = rawNotificationRole.map(String);
-  else if (typeof rawNotificationRole === 'string') {
-    const trimmed = rawNotificationRole.trim();
-    if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
-      try {
-        const parsed = JSON.parse(trimmed);
-        if (Array.isArray(parsed)) notificationRoles = parsed.filter(Boolean).map(String);
-      } catch (e) { console.warn('[guild-settings:get] parse notification_role_id JSON failed:', e?.message || e); }
-    }
-    if (notificationRoles.length === 0 && trimmed.length > 0) notificationRoles = [trimmed];
-  } else if (rawNotificationRole) notificationRoles = [String(rawNotificationRole)];
+  
+  if (Array.isArray(rawNotificationRole)) {
+    notificationRoles = rawNotificationRole.map(String);
+  } else if (typeof rawNotificationRole === 'string') {
+    notificationRoles = parseStringNotificationRole(rawNotificationRole);
+  } else if (rawNotificationRole) {
+    notificationRoles = [String(rawNotificationRole)];
+  }
 
   return [...new Set(notificationRoles)].slice(0, 25);
 }
@@ -125,16 +145,46 @@ async function ensureSupabaseReachable(env, corsHeaders) {
   return null;
 }
 
+function addRecruitChannelFields(patchBody, supabaseData) {
+  if (supabaseData.recruit_channel_id !== null) {
+    patchBody.recruit_channel_id = supabaseData.recruit_channel_id;
+  }
+  if (Array.isArray(supabaseData.recruit_channel_ids)) {
+    patchBody.recruit_channel_ids = supabaseData.recruit_channel_ids;
+  }
+}
+
+function addNotificationFields(patchBody, supabaseData) {
+  patchBody.notification_role_id = supabaseData.notification_role_id;
+  if (supabaseData.update_channel_id !== null) {
+    patchBody.update_channel_id = supabaseData.update_channel_id;
+  }
+}
+
+function addDisplayFields(patchBody, incomingSettings, supabaseData) {
+  if (supabaseData.default_title) {
+    patchBody.default_title = supabaseData.default_title;
+  }
+  if (Object.prototype.hasOwnProperty.call(incomingSettings, 'defaultColor')) {
+    patchBody.default_color = supabaseData.default_color;
+  }
+}
+
+function addDedicatedChannelFields(patchBody, incomingSettings, supabaseData) {
+  if (typeof supabaseData.enable_dedicated_channel === 'boolean') {
+    patchBody.enable_dedicated_channel = supabaseData.enable_dedicated_channel;
+  }
+  if (Object.prototype.hasOwnProperty.call(incomingSettings, 'dedicated_channel_category_id')) {
+    patchBody.dedicated_channel_category_id = supabaseData.dedicated_channel_category_id;
+  }
+}
+
 function buildPatchBody(incomingSettings, supabaseData) {
   const patchBody = { updated_at: new Date().toISOString() };
-  if (supabaseData.recruit_channel_id !== null) patchBody.recruit_channel_id = supabaseData.recruit_channel_id;
-  if (Array.isArray(supabaseData.recruit_channel_ids)) patchBody.recruit_channel_ids = supabaseData.recruit_channel_ids;
-  patchBody.notification_role_id = supabaseData.notification_role_id;
-  if (supabaseData.default_title) patchBody.default_title = supabaseData.default_title;
-  if (Object.prototype.hasOwnProperty.call(incomingSettings, 'defaultColor')) patchBody.default_color = supabaseData.default_color;
-  if (supabaseData.update_channel_id !== null) patchBody.update_channel_id = supabaseData.update_channel_id;
-  if (typeof supabaseData.enable_dedicated_channel === 'boolean') patchBody.enable_dedicated_channel = supabaseData.enable_dedicated_channel;
-  if (Object.prototype.hasOwnProperty.call(incomingSettings, 'dedicated_channel_category_id')) patchBody.dedicated_channel_category_id = supabaseData.dedicated_channel_category_id;
+  addRecruitChannelFields(patchBody, supabaseData);
+  addNotificationFields(patchBody, supabaseData);
+  addDisplayFields(patchBody, incomingSettings, supabaseData);
+  addDedicatedChannelFields(patchBody, incomingSettings, supabaseData);
   return stripUndefinedValues(patchBody);
 }
 

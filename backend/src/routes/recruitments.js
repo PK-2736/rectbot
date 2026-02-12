@@ -183,65 +183,82 @@ async function handleDeleteRecruit(request, store, id, cors, safeHeaders) {
   }
 }
 
-async function handleRecruitmentRoutes(request, env, { url, safeHeaders, store, cors }) {
+function logRecruitmentDebug(url, request, store) {
   if (url.pathname.includes('recruitment')) {
     console.log(`[DEBUG] ${request.method} ${url.pathname} (original: ${new URL(request.url).pathname})`);
     console.log('[DEBUG] store available:', !!store, 'store.forwardToDO:', !!store?.forwardToDO);
   }
+}
 
+function prepareNormalizedPath(url) {
   const normalizedPath = normalizeRecruitmentPath(url.pathname);
   if (normalizedPath !== url.pathname) {
     console.log('[DEBUG] Normalizing singular to plural:', url.pathname, '->', normalizedPath);
   }
+  return normalizedPath;
+}
 
-  const path = normalizedPath;
-  if (path !== url.pathname) {
-    console.log('[DEBUG] After normalization:', path);
-  }
-
-  if (path === '/api/recruitments' && request.method === 'GET') {
+async function routeGetRequests(path, request, store, cors, safeHeaders) {
+  if (path === '/api/recruitments') {
     return handleListRecruits(store, cors, safeHeaders);
   }
-
-  if (path === '/api/active-recruits' && request.method === 'GET') {
+  if (path === '/api/active-recruits') {
     return handleActiveRecruits(store, safeHeaders);
   }
+  if (path.startsWith('/api/recruitments/')) {
+    const id = path.split('/')[3];
+    return handleGetRecruitById(store, id, cors, safeHeaders);
+  }
+  return null;
+}
 
-  if (path === '/api/recruitments' && request.method === 'POST') {
+async function routePostRequests(path, request, env, store, cors, safeHeaders) {
+  if (path === '/api/recruitments') {
     const authError = await requireAuth(request, env, safeHeaders);
     if (authError) return authError;
     return handleCreateRecruit(request, store, cors, safeHeaders);
   }
-
-  if (path.match(/^\/api\/recruitments\/[^/]+$/) && request.method === 'PATCH') {
-    const authError = await requireAuth(request, env, safeHeaders);
-    if (authError) return authError;
-    const id = path.split('/')[3];
-    return handleUpdateRecruit(request, store, id, cors, safeHeaders);
-  }
-
-  if (path.startsWith('/api/recruitments/') && request.method === 'GET') {
-    const id = path.split('/')[3];
-    return handleGetRecruitById(store, id, cors, safeHeaders);
-  }
-
-  if (path.match(/^\/api\/recruitments\/[^/]+\/join$/) && request.method === 'POST') {
+  if (path.match(/^\/api\/recruitments\/[^/]+\/join$/)) {
     const authError = await requireAuth(request, env, safeHeaders);
     if (authError) return authError;
     const id = path.split('/')[3];
     return handleJoinRecruit(request, store, id, cors, safeHeaders);
   }
+  if (path === '/api/cleanup') {
+    return jsonResponse({ ok: true, cleaned: 0 }, 200, safeHeaders);
+  }
+  return null;
+}
 
-  if (path.match(/^\/api\/recruitments\/[^/]+$/) && request.method === 'DELETE') {
+async function routePatchRequests(path, request, env, store, cors, safeHeaders) {
+  if (path.match(/^\/api\/recruitments\/[^/]+$/)) {
+    const authError = await requireAuth(request, env, safeHeaders);
+    if (authError) return authError;
+    const id = path.split('/')[3];
+    return handleUpdateRecruit(request, store, id, cors, safeHeaders);
+  }
+  return null;
+}
+
+async function routeDeleteRequests(path, request, env, store, cors, safeHeaders) {
+  if (path.match(/^\/api\/recruitments\/[^/]+$/)) {
     const authError = await requireAuth(request, env, safeHeaders);
     if (authError) return authError;
     const id = path.split('/')[3];
     return handleDeleteRecruit(request, store, id, cors, safeHeaders);
   }
+  return null;
+}
 
-  if (path === '/api/cleanup' && request.method === 'POST') {
-    return jsonResponse({ ok: true, cleaned: 0 }, 200, safeHeaders);
-  }
+async function handleRecruitmentRoutes(request, env, { url, safeHeaders, store, cors }) {
+  logRecruitmentDebug(url, request, store);
+  const path = prepareNormalizedPath(url);
+
+  const method = request.method;
+  if (method === 'GET') return await routeGetRequests(path, request, store, cors, safeHeaders);
+  if (method === 'POST') return await routePostRequests(path, request, env, store, cors, safeHeaders);
+  if (method === 'PATCH') return await routePatchRequests(path, request, env, store, cors, safeHeaders);
+  if (method === 'DELETE') return await routeDeleteRequests(path, request, env, store, cors, safeHeaders);
 
   return null;
 }

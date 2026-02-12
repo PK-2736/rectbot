@@ -35,21 +35,31 @@ async function enforceCooldown(interaction) {
   }
 }
 
+function extractGuildId(recruit) {
+  return String(recruit?.guildId ?? recruit?.guild_id ?? recruit?.guild ?? recruit?.metadata?.guildId ?? recruit?.metadata?.guild ?? '');
+}
+
+function isRecruitActive(recruit, guildIdStr) {
+  const gid = extractGuildId(recruit);
+  const status = String(recruit?.status ?? '').toLowerCase();
+  return gid === guildIdStr && (status === 'recruiting' || status === 'active');
+}
+
+async function notifyRecruitLimit(interaction) {
+  await replyEphemeral(interaction, {
+    embeds: [createErrorEmbed('このサーバーでは同時に実行できる募集は3件までです。\n既存の募集をいくつか締め切ってから新しい募集を作成してください。', '募集上限到達')]
+  });
+}
+
 async function ensureNoActiveRecruit(interaction) {
   if (isGuildExempt(interaction.guildId)) return true;
   try {
     const allRecruits = await listRecruitsFromRedis();
     const guildIdStr = String(interaction.guildId);
     if (Array.isArray(allRecruits)) {
-      const matched = allRecruits.filter(r => {
-        const gid = String(r?.guildId ?? r?.guild_id ?? r?.guild ?? r?.metadata?.guildId ?? r?.metadata?.guild ?? '');
-        const status = String(r?.status ?? '').toLowerCase();
-        return gid === guildIdStr && (status === 'recruiting' || status === 'active');
-      });
+      const matched = allRecruits.filter(r => isRecruitActive(r, guildIdStr));
       if (matched.length >= 3) {
-        await replyEphemeral(interaction, {
-          embeds: [createErrorEmbed('このサーバーでは同時に実行できる募集は3件までです。\n既存の募集をいくつか締め切ってから新しい募集を作成してください。', '募集上限到達')]
-        });
+        await notifyRecruitLimit(interaction);
         return false;
       }
     }
@@ -422,29 +432,41 @@ function buildExtraButtonsWithRecruitId(recruitDataObj, recruitId) {
   return extraButtons;
 }
 
-async function buildSimpleStyleContainer({ recruitDataObj, user, participantText, subHeaderText, interaction, accentColor, recruitIdText }) {
+function buildRecruitDetailsLine(recruitDataObj) {
   const startLabel = recruitDataObj?.startTime ? `🕒 ${recruitDataObj.startTime}` : null;
   const membersLabel = typeof recruitDataObj?.participants === 'number' ? `👥 ${recruitDataObj.participants}人` : null;
   const voiceLabelBase = formatVoiceLabel(recruitDataObj?.vc, recruitDataObj?.voicePlace);
   const voiceLabel = voiceLabelBase ? `🎙 ${voiceLabelBase}` : null;
   const valuesLine = [startLabel, membersLabel, voiceLabel].filter(Boolean).join(' | ');
   const labelsLine = '**🕒 開始時間 | 👥 募集人数 | 🎙 通話有無**';
-  const detailsText = [labelsLine, valuesLine].filter(Boolean).join('\n');
+  return [labelsLine, valuesLine].filter(Boolean).join('\n');
+}
 
-  const contentText = recruitDataObj?.content && String(recruitDataObj.content).trim().length > 0
+function buildRecruitContentText(recruitDataObj) {
+  return recruitDataObj?.content && String(recruitDataObj.content).trim().length > 0
     ? `**📝 募集内容**\n${String(recruitDataObj.content).slice(0,1500)}`
     : '';
+}
 
-  const titleText = recruitDataObj?.title ? `## ${String(recruitDataObj.title).slice(0,200)}` : '';
+function buildRecruitTitleText(recruitDataObj) {
+  return recruitDataObj?.title ? `## ${String(recruitDataObj.title).slice(0,200)}` : '';
+}
 
-  let avatarUrl = null;
+async function fetchUserAvatar(interaction) {
   try {
     const fetchedUser = await interaction.client.users.fetch(interaction.user.id).catch(() => null);
     if (fetchedUser && typeof fetchedUser.displayAvatarURL === 'function') {
-      avatarUrl = fetchedUser.displayAvatarURL({ size: 128, extension: 'png' });
+      return fetchedUser.displayAvatarURL({ size: 128, extension: 'png' });
     }
   } catch (_) {}
+  return null;
+}
 
+async function buildSimpleStyleContainer({ recruitDataObj, user, participantText, subHeaderText, interaction, accentColor, recruitIdText }) {
+  const detailsText = buildRecruitDetailsLine(recruitDataObj);
+  const contentText = buildRecruitContentText(recruitDataObj);
+  const titleText = buildRecruitTitleText(recruitDataObj);
+  const avatarUrl = await fetchUserAvatar(interaction);
   const extraButtons = buildExtraButtonsIfNeeded(recruitDataObj);
 
   return buildContainerSimple({

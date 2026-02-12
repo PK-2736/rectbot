@@ -71,9 +71,15 @@ async function runLeadership({ siteId = 'oci', onAcquire, onRelease }) {
     return ok === 'OK';
   }
 
+  function isOwnedByCurrentInstance(cur, instanceId) {
+    if (!cur || !cur.owner) return false;
+    const instancePrefix = instanceId.split(':').slice(0, 2).join(':');
+    return String(cur.owner).startsWith(instancePrefix);
+  }
+
   async function release() {
     const cur = await readLock(redis);
-    if (cur && cur.owner && String(cur.owner).startsWith(instanceId.split(':').slice(0, 2).join(':'))) {
+    if (isOwnedByCurrentInstance(cur, instanceId)) {
       await redis.del(LOCK_KEY).catch(() => {});
     }
   }

@@ -78,6 +78,29 @@ async function safeDeferReply(interaction, options = { flags: MessageFlags.Ephem
   }
 }
 
+function shouldUseFollowUp(interaction) {
+  return interaction.deferred || interaction.replied;
+}
+
+async function attemptPrimaryCall(interaction, payload) {
+  const primaryCall = shouldUseFollowUp(interaction)
+    ? () => interaction.followUp(payload)
+    : () => interaction.reply(payload);
+  return await attemptInteractionCall(primaryCall);
+}
+
+async function attemptFallback(interaction, payload, primaryError) {
+  if (!isUnknownInteractionError(primaryError)) {
+    throw primaryError;
+  }
+  
+  const fallbackResult = await attemptInteractionCall(() => interaction.followUp(payload));
+  if (fallbackResult.ok) return fallbackResult.result;
+  
+  console.error('[interactionHandler] safeRespond fallback also failed:', fallbackResult.error?.message || fallbackResult.error);
+  throw fallbackResult.error;
+}
+
 /**
  * 二重応答(40060)を避けるための安全な返信関数
  * @param {Interaction} interaction 
@@ -85,22 +108,10 @@ async function safeDeferReply(interaction, options = { flags: MessageFlags.Ephem
  * @returns {Promise<Message>}
  */
 async function safeRespond(interaction, payload) {
-  const shouldFollowUp = interaction.deferred || interaction.replied;
-  const primaryCall = shouldFollowUp
-    ? () => interaction.followUp(payload)
-    : () => interaction.reply(payload);
-
-  const primaryResult = await attemptInteractionCall(primaryCall);
+  const primaryResult = await attemptPrimaryCall(interaction, payload);
   if (primaryResult.ok) return primaryResult.result;
-
-  if (isUnknownInteractionError(primaryResult.error)) {
-    const fallbackResult = await attemptInteractionCall(() => interaction.followUp(payload));
-    if (fallbackResult.ok) return fallbackResult.result;
-    console.error('[interactionHandler] safeRespond fallback also failed:', fallbackResult.error?.message || fallbackResult.error);
-    throw fallbackResult.error;
-  }
-
-  throw primaryResult.error;
+  
+  return await attemptFallback(interaction, payload, primaryResult.error);
 }
 
 /**
