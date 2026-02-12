@@ -37,12 +37,7 @@ function buildActionRow(extraActionButtons = [], logLabel = 'buildContainer') {
   return actionRow;
 }
 
-// Build a consistent ContainerBuilder for recruit messages
-function buildContainer({ headerTitle = '募集', participantText = '', recruitIdText = '(unknown)', accentColor = 0x000000, imageAttachmentName = 'attachment://recruit-card.png', recruiterId: _recruiterId = null, requesterId: _requesterId = null, footerExtra = null, subHeaderText = null, contentText = '', titleText = '', avatarUrl: _avatarUrl = null, extraActionButtons = [] }) {
-  const container = new ContainerBuilder();
-  container.setAccentColor(normalizeAccentColor(accentColor));
-  // 画像スタイル用: コンテナ直下にテキストを追加（サムネイルは非表示）
-  const isImageStyle = !!imageAttachmentName;
+function addHeaderComponents(container, headerTitle, subHeaderText) {
   container.addTextDisplayComponents(
     new TextDisplayBuilder().setContent(`🎮 **${headerTitle}**`)
   );
@@ -51,13 +46,17 @@ function buildContainer({ headerTitle = '募集', participantText = '', recruitI
       new TextDisplayBuilder().setContent(String(subHeaderText))
     );
   }
-  // 画像スタイルではタイトルは画像に埋め込み済みのため表示しない
+}
+
+function addTitleComponent(container, titleText, isImageStyle) {
   if (!isImageStyle && titleText && String(titleText).trim().length > 0) {
     container.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(String(titleText))
     );
   }
-  // 上記の（サブヘッダー/タイトル）ブロックの後に区切り線を入れて、画像セクションへ
+}
+
+function addImageGallery(container, imageAttachmentName) {
   container.addSeparatorComponents(
     new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
   );
@@ -69,15 +68,19 @@ function buildContainer({ headerTitle = '募集', participantText = '', recruitI
   container.addSeparatorComponents(
     new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
   );
-  // 画像スタイルでは募集内容テキストは画像に埋め込み済みのため表示しない
+}
+
+function addContentTextIfNeeded(container, contentText, isImageStyle) {
   if (!isImageStyle && contentText && String(contentText).trim().length > 0) {
     container.addTextDisplayComponents(new TextDisplayBuilder().setContent(String(contentText)));
     container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
   }
+}
+
+function addFooterComponents(container, participantText, recruitIdText, footerExtra, extraActionButtons) {
   container.addTextDisplayComponents(
     new TextDisplayBuilder().setContent(participantText)
   );
-  // close ボタンはグローバルには無効化せずに常に表示する（権限チェックはボタンハンドラ側で行う）
   container.addActionRowComponents(buildActionRow(extraActionButtons, 'buildContainer'));
   container.addSeparatorComponents(
     new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
@@ -85,6 +88,21 @@ function buildContainer({ headerTitle = '募集', participantText = '', recruitI
   container.addTextDisplayComponents(
     new TextDisplayBuilder().setContent(buildFooterText(recruitIdText, footerExtra))
   );
+}
+
+// Build a consistent ContainerBuilder for recruit messages
+function buildContainer({ headerTitle = '募集', participantText = '', recruitIdText = '(unknown)', accentColor = 0x000000, imageAttachmentName = 'attachment://recruit-card.png', recruiterId: _recruiterId = null, requesterId: _requesterId = null, footerExtra = null, subHeaderText = null, contentText = '', titleText = '', avatarUrl: _avatarUrl = null, extraActionButtons = [] }) {
+  const container = new ContainerBuilder();
+  container.setAccentColor(normalizeAccentColor(accentColor));
+  
+  const isImageStyle = !!imageAttachmentName;
+  
+  addHeaderComponents(container, headerTitle, subHeaderText);
+  addTitleComponent(container, titleText, isImageStyle);
+  addImageGallery(container, imageAttachmentName);
+  addContentTextIfNeeded(container, contentText, isImageStyle);
+  addFooterComponents(container, participantText, recruitIdText, footerExtra, extraActionButtons);
+  
   return container;
 }
 

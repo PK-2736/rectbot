@@ -46,9 +46,26 @@ async function listItems(store) {
   return [];
 }
 
-async function handleListRecruits(store, cors, safeHeaders) {
+function buildJsonResponse(text, status, cors) {
+  return new Response(text, { 
+    status, 
+    headers: { ...(cors || {}), 'content-type': 'application/json; charset=utf-8' } 
+  });
+}
+
+async function executeWithErrorHandling(context, handler) {
   try {
-    const result = await forwardToDoOrExecute(
+    const result = await handler();
+    return buildJsonResponse(result.text, result.status, context.cors);
+  } catch (e) {
+    return jsonResponse({ ok: false, error: e.message || 'server_error' }, 500, context.safeHeaders);
+  }
+}
+
+async function handleListRecruits(store, cors, safeHeaders) {
+  const context = { store, cors, safeHeaders };
+  return executeWithErrorHandling(context, async () => {
+    return await forwardToDoOrExecute(
       store,
       '/api/recruits',
       'GET',
@@ -56,10 +73,7 @@ async function handleListRecruits(store, cors, safeHeaders) {
       {},
       async () => ({ status: 200, text: JSON.stringify({ ok: true, items: await store.listAll() }) })
     );
-    return new Response(result.text, { status: result.status, headers: { ...(cors || {}), 'content-type': 'application/json; charset=utf-8' } });
-  } catch (e) {
-    return jsonResponse({ ok: false, error: e.message || 'server_error' }, 500, safeHeaders);
-  }
+  });
 }
 
 async function handleActiveRecruits(store, safeHeaders) {
@@ -76,47 +90,48 @@ async function handleActiveRecruits(store, safeHeaders) {
   }
 }
 
+function buildAuthHeaders(request) {
+  return { authorization: request.headers.get('authorization') || '' };
+}
+
 async function handleCreateRecruit(request, store, cors, safeHeaders) {
   console.log('[DEBUG] Matched POST /api/recruitments handler');
-  try {
+  const context = { store, cors, safeHeaders };
+  return executeWithErrorHandling(context, async () => {
     const body = await request.json();
-    const result = await forwardToDoOrExecute(
+    return await forwardToDoOrExecute(
       store,
       '/api/recruits',
       'POST',
       body,
-      { authorization: request.headers.get('authorization') || '' },
+      buildAuthHeaders(request),
       async () => {
         const item = await store.create(body);
         return { status: 201, text: JSON.stringify({ ok: true, recruit: item }) };
       }
     );
-    return new Response(result.text, { status: result.status, headers: { ...(cors || {}), 'content-type': 'application/json; charset=utf-8' } });
-  } catch (e) {
-    return jsonResponse({ ok: false, error: e.message || 'server_error' }, 500, safeHeaders);
-  }
+  });
 }
 
 async function handleUpdateRecruit(request, store, id, cors, safeHeaders) {
-  try {
+  const context = { store, cors, safeHeaders };
+  return executeWithErrorHandling(context, async () => {
     const update = await request.json();
-    const result = await forwardToDoOrExecute(
+    return await forwardToDoOrExecute(
       store,
       `/api/recruits/${id}`,
       'PATCH',
       update,
-      { authorization: request.headers.get('authorization') || '' },
+      buildAuthHeaders(request),
       async () => ({ status: 404, text: JSON.stringify({ ok: false, error: 'not_found' }) })
     );
-    return new Response(result.text, { status: result.status, headers: { ...(cors || {}), 'content-type': 'application/json; charset=utf-8' } });
-  } catch (e) {
-    return jsonResponse({ ok: false, error: e.message || 'server_error' }, 500, safeHeaders);
-  }
+  });
 }
 
 async function handleGetRecruitById(store, id, cors, safeHeaders) {
-  try {
-    const result = await forwardToDoOrExecute(
+  const context = { store, cors, safeHeaders };
+  return executeWithErrorHandling(context, async () => {
+    return await forwardToDoOrExecute(
       store,
       `/api/recruits/${id}`,
       'GET',
@@ -128,41 +143,44 @@ async function handleGetRecruitById(store, id, cors, safeHeaders) {
         return { status: 200, text: JSON.stringify({ ok: true, recruit: r }) };
       }
     );
-    return new Response(result.text, { status: result.status, headers: { ...(cors || {}), 'content-type': 'application/json; charset=utf-8' } });
-  } catch (e) {
-    return jsonResponse({ ok: false, error: e.message || 'server_error' }, 500, safeHeaders);
-  }
+  });
 }
 
 async function handleJoinRecruit(request, store, id, cors, safeHeaders) {
+  const { userId } = await request.json().catch(() => ({}));
+  if (!userId) return jsonResponse({ ok: false, error: 'invalid_user' }, 400, safeHeaders);
+  
+  const context = { store, cors, safeHeaders };
   try {
-    const { userId } = await request.json();
-    if (!userId) return jsonResponse({ ok: false, error: 'invalid_user' }, 400, safeHeaders);
-    
     const result = await forwardToDoOrExecute(
       store,
       `/api/recruits/${id}/join`,
       'POST',
       { userId },
-      { authorization: request.headers.get('authorization') || '' },
+      buildAuthHeaders(request),
       async () => {
         const updated = await store.join(id, userId);
         return { status: 200, text: JSON.stringify({ ok: true, recruit: updated }) };
       }
     );
-    return new Response(result.text, { status: result.status, headers: { ...(cors || {}), 'content-type': 'application/json; charset=utf-8' } });
+    return buildJsonResponse(result.text, result.status, cors);
   } catch (err) {
     if (err.message === 'full') return jsonResponse({ ok: false, error: 'full' }, 409, safeHeaders);
     return jsonResponse({ ok: false, error: err.message || 'server_error' }, 500, safeHeaders);
   }
 }
 
-async function handleDeleteRecruit(request, store, id, cors, safeHeaders) {
-  let requesterId = '';
+async function extractRequesterId(request) {
   try {
     const body = await request.json().catch(() => ({}));
-    requesterId = body.userId || '';
-  } catch (_e) {}
+    return body.userId || '';
+  } catch (_e) {
+    return '';
+  }
+}
+
+async function handleDeleteRecruit(request, store, id, cors, safeHeaders) {
+  const requesterId = await extractRequesterId(request);
   
   try {
     const result = await forwardToDoOrExecute(
@@ -170,13 +188,13 @@ async function handleDeleteRecruit(request, store, id, cors, safeHeaders) {
       `/api/recruits/${id}`,
       'DELETE',
       { userId: requesterId },
-      { authorization: request.headers.get('authorization') || '' },
+      buildAuthHeaders(request),
       async () => {
         await store.delete(id, requesterId);
         return { status: 200, text: JSON.stringify({ ok: true, status: 'deleted' }) };
       }
     );
-    return new Response(result.text, { status: result.status, headers: { ...(cors || {}), 'content-type': 'application/json; charset=utf-8' } });
+    return buildJsonResponse(result.text, result.status, cors);
   } catch (err) {
     if (err.message === 'forbidden') return jsonResponse({ ok: false, error: 'forbidden' }, 403, safeHeaders);
     return jsonResponse({ ok: false, error: err.message || 'server_error' }, 500, safeHeaders);
@@ -198,7 +216,8 @@ function prepareNormalizedPath(url) {
   return normalizedPath;
 }
 
-async function routeGetRequests(path, request, store, cors, safeHeaders) {
+async function routeGetRequests(context) {
+  const { path, store, cors, safeHeaders } = context;
   if (path === '/api/recruitments') {
     return handleListRecruits(store, cors, safeHeaders);
   }
@@ -212,7 +231,8 @@ async function routeGetRequests(path, request, store, cors, safeHeaders) {
   return null;
 }
 
-async function routePostRequests(path, request, env, store, cors, safeHeaders) {
+async function routePostRequests(context) {
+  const { path, request, env, store, cors, safeHeaders } = context;
   if (path === '/api/recruitments') {
     const authError = await requireAuth(request, env, safeHeaders);
     if (authError) return authError;
@@ -230,7 +250,8 @@ async function routePostRequests(path, request, env, store, cors, safeHeaders) {
   return null;
 }
 
-async function routePatchRequests(path, request, env, store, cors, safeHeaders) {
+async function routePatchRequests(context) {
+  const { path, request, env, store, cors, safeHeaders } = context;
   if (path.match(/^\/api\/recruitments\/[^/]+$/)) {
     const authError = await requireAuth(request, env, safeHeaders);
     if (authError) return authError;
@@ -240,7 +261,8 @@ async function routePatchRequests(path, request, env, store, cors, safeHeaders) 
   return null;
 }
 
-async function routeDeleteRequests(path, request, env, store, cors, safeHeaders) {
+async function routeDeleteRequests(context) {
+  const { path, request, env, store, cors, safeHeaders } = context;
   if (path.match(/^\/api\/recruitments\/[^/]+$/)) {
     const authError = await requireAuth(request, env, safeHeaders);
     if (authError) return authError;
@@ -253,12 +275,13 @@ async function routeDeleteRequests(path, request, env, store, cors, safeHeaders)
 async function handleRecruitmentRoutes(request, env, { url, safeHeaders, store, cors }) {
   logRecruitmentDebug(url, request, store);
   const path = prepareNormalizedPath(url);
+  const context = { path, request, env, store, cors, safeHeaders };
 
   const method = request.method;
-  if (method === 'GET') return await routeGetRequests(path, request, store, cors, safeHeaders);
-  if (method === 'POST') return await routePostRequests(path, request, env, store, cors, safeHeaders);
-  if (method === 'PATCH') return await routePatchRequests(path, request, env, store, cors, safeHeaders);
-  if (method === 'DELETE') return await routeDeleteRequests(path, request, env, store, cors, safeHeaders);
+  if (method === 'GET') return await routeGetRequests(context);
+  if (method === 'POST') return await routePostRequests(context);
+  if (method === 'PATCH') return await routePatchRequests(context);
+  if (method === 'DELETE') return await routeDeleteRequests(context);
 
   return null;
 }

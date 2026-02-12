@@ -460,31 +460,52 @@ async function handleGuildSettingsButtons(interaction, client) {
   return false;
 }
 
-// ボタン処理メイン
-async function handleButton(interaction, client) {
+async function tryHandleSystemButton(interaction, client) {
   try {
-    const handled = await handleSystemButtons(interaction, client);
-    if (handled) return;
+    return await handleSystemButtons(interaction, client);
   } catch (e) {
     console.error('[interactionCreate] system button handling error:', e?.message || e);
+    return false;
   }
+}
 
+async function tryHandleGuildSettingsButton(interaction, client) {
   try {
-    const handled = await handleGuildSettingsButtons(interaction, client);
-    if (handled) return;
-  } catch (buttonRouteError) {
-    console.error('[interactionCreate] guild settings button routing error:', buttonRouteError?.message || buttonRouteError);
+    return await handleGuildSettingsButtons(interaction, client);
+  } catch (e) {
+    console.error('[interactionCreate] guild settings button routing error:', e?.message || e);
+    return false;
   }
+}
 
+async function handleGameRecruitButton(interaction, client) {
   const gameRecruit = client.commands.get('rect');
   if (gameRecruit?.handleButton) {
     await handleComponentSafely(interaction, () => gameRecruit.handleButton(interaction));
-    return;
   }
+}
 
+async function sendButtonNotFoundResponse(interaction) {
   try {
     await safeRespond(interaction, { content: '⚠️ このボタンの処理が見つかりませんでした。', flags: MessageFlags.Ephemeral });
   } catch (_) {}
+}
+
+// ボタン処理メイン
+async function handleButton(interaction, client) {
+  const systemHandled = await tryHandleSystemButton(interaction, client);
+  if (systemHandled) return;
+
+  const guildSettingsHandled = await tryHandleGuildSettingsButton(interaction, client);
+  if (guildSettingsHandled) return;
+
+  const gameRecruit = client.commands.get('rect');
+  if (gameRecruit?.handleButton) {
+    await handleGameRecruitButton(interaction, client);
+    return;
+  }
+
+  await sendButtonNotFoundResponse(interaction);
 }
 
 module.exports = {
