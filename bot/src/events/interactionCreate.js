@@ -496,40 +496,22 @@ module.exports = {
     const isDuplicate = handleInteractionDedupe(interaction, client);
     if (isDuplicate) return;
 
-    // オートコンプリート
-    if (interaction.isAutocomplete?.()) {
-      await handleAutocomplete(interaction, client);
-      return;
-    }
+    // インタラクションタイプ別のハンドラマッピング
+    const handlers = [
+      { check: () => interaction.isAutocomplete?.(), handler: handleAutocomplete },
+      { check: () => interaction.isChatInputCommand?.(), handler: handleSlashCommand },
+      { check: () => interaction.isStringSelectMenu?.(), handler: handleStringSelectMenu },
+      { check: () => interaction.isRoleSelectMenu?.() || interaction.isChannelSelectMenu?.(), handler: handleRoleChannelSelectMenu },
+      { check: () => interaction.isModalSubmit?.() || interaction.type === 5, handler: handleModalSubmit },
+      { check: () => interaction.isButton?.(), handler: handleButton }
+    ];
 
-    // スラッシュコマンド
-    if (interaction.isChatInputCommand?.()) {
-      await handleSlashCommand(interaction, client);
-      return;
-    }
-
-    // 文字列選択メニュー
-    if (interaction.isStringSelectMenu?.()) {
-      await handleStringSelectMenu(interaction, client);
-      return;
-    }
-
-    // ロール/チャンネル選択メニュー
-    if (interaction.isRoleSelectMenu?.() || interaction.isChannelSelectMenu?.()) {
-      await handleRoleChannelSelectMenu(interaction, client);
-      return;
-    }
-
-    // モーダル送信
-    if (interaction.isModalSubmit?.() || interaction.type === 5) {
-      await handleModalSubmit(interaction, client);
-      return;
-    }
-
-    // ボタン
-    if (interaction.isButton?.()) {
-      await handleButton(interaction, client);
-      return;
+    for (const { check, handler } of handlers) {
+      if (check()) {
+        await handler(interaction, client);
+        return;
+      }
     }
   },
 };
+

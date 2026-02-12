@@ -37,23 +37,44 @@ function shouldIncludeGrafanaRecruit(recruit, range) {
   return isActive || isRecentlyClosed || isWithinRange(recruit.createdAt, range);
 }
 
-function formatGrafanaRecruit(recruit) {
+function extractBasicRecruitFields(recruit) {
   return {
     id: recruit.recruitId || recruit.id,
     message_id: recruit.message_id || recruit.messageId || null,
     title: recruit.title,
     content: recruit.description || recruit.content || recruit.title || null,
-    note: recruit.note || (recruit.metadata && recruit.metadata.note) || null,
+    note: recruit.note || (recruit.metadata && recruit.metadata.note) || null
+  };
+}
+
+function extractGuildChannelFields(recruit) {
+  return {
     guild_id: recruit.guildId || recruit.guild_id || null,
     guild_name: recruit.guildName || recruit.guild_name || null,
     channel_id: recruit.channelId || recruit.channel_id || null,
-    channel_name: recruit.channelName || recruit.channel_name || null,
+    channel_name: recruit.channelName || recruit.channel_name || null
+  };
+}
+
+function extractGamePlatformOwnerFields(recruit) {
+  return {
     game: recruit.game,
     platform: recruit.platform,
-    ownerId: recruit.ownerId,
-    participants_count: recruit.participants?.length || recruit.currentParticipants || recruit.participants_count || 0,
+    ownerId: recruit.ownerId
+  };
+}
+
+function extractParticipantFields(recruit) {
+  const participantsCount = recruit.participants?.length || recruit.currentParticipants || recruit.participants_count || 0;
+  return {
+    participants_count: participantsCount,
     currentMembers: recruit.participants?.length || recruit.currentMembers || 0,
-    maxMembers: recruit.maxMembers || 0,
+    maxMembers: recruit.maxMembers || 0
+  };
+}
+
+function extractStatusTimestampFields(recruit) {
+  return {
     voice: recruit.voice,
     status: recruit.status,
     createdAt: recruit.createdAt,
@@ -61,6 +82,16 @@ function formatGrafanaRecruit(recruit) {
     expiresAt: recruit.expiresAt,
     startTime: recruit.startTime,
     start_game_time: recruit.start_game_time || recruit.startGameTime || null
+  };
+}
+
+function formatGrafanaRecruit(recruit) {
+  return {
+    ...extractBasicRecruitFields(recruit),
+    ...extractGuildChannelFields(recruit),
+    ...extractGamePlatformOwnerFields(recruit),
+    ...extractParticipantFields(recruit),
+    ...extractStatusTimestampFields(recruit)
   };
 }
 
@@ -357,6 +388,36 @@ async function handleRecruitsProxy({ request, env, url, corsHeaders, sendToSentr
   }
 }
 
+function isActiveRecruit(recruit, now) {
+  const exp = recruit.expiresAt ? new Date(recruit.expiresAt).getTime() : Infinity;
+  return exp > now && recruit.status === 'recruiting';
+}
+
+function filterActiveRecruits(items, now) {
+  return items.filter(r => {
+    const active = isActiveRecruit(r, now);
+    if (!active) {
+      const exp = r.expiresAt ? new Date(r.expiresAt).getTime() : Infinity;
+      console.log(`[active-recruits] Filtered out: ${r.recruitId || r.id} (exp=${new Date(exp).toISOString()}, status=${r.status})`);
+    }
+    return active;
+  });
+}
+
+function logActiveRecruitsSample(activeRecruits) {
+  console.log(`[active-recruits] Returning ${activeRecruits.length} active recruits`);
+  if (activeRecruits.length > 0) {
+    console.log('[active-recruits] Sample recruits:', activeRecruits.slice(0, 2).map(r => ({
+      id: r.recruitId || r.id,
+      title: r.title,
+      startTime: r.startTime,
+      startTimeNotified: r.startTimeNotified,
+      status: r.status,
+      expiresAt: r.expiresAt
+    })));
+  }
+}
+
 async function handleActiveRecruits({ request, env, url, corsHeaders, sendToSentry, ctx }) {
   if (url.pathname !== '/api/active-recruits' || request.method !== 'GET') return null;
 
@@ -374,26 +435,9 @@ async function handleActiveRecruits({ request, env, url, corsHeaders, sendToSent
     console.log(`[active-recruits] Total items from DO: ${items.length}`);
 
     const now = Date.now();
-    const activeRecruits = items.filter(r => {
-      const exp = r.expiresAt ? new Date(r.expiresAt).getTime() : Infinity;
-      const isActive = exp > now && r.status === 'recruiting';
-      if (!isActive) {
-        console.log(`[active-recruits] Filtered out: ${r.recruitId || r.id} (exp=${new Date(exp).toISOString()}, status=${r.status})`);
-      }
-      return isActive;
-    });
-
-    console.log(`[active-recruits] Returning ${activeRecruits.length} active recruits`);
-    if (activeRecruits.length > 0) {
-      console.log('[active-recruits] Sample recruits:', activeRecruits.slice(0, 2).map(r => ({
-        id: r.recruitId || r.id,
-        title: r.title,
-        startTime: r.startTime,
-        startTimeNotified: r.startTimeNotified,
-        status: r.status,
-        expiresAt: r.expiresAt
-      })));
-    }
+    const activeRecruits = filterActiveRecruits(items, now);
+    
+    logActiveRecruitsSample(activeRecruits);
     return new Response(JSON.stringify(activeRecruits), { status: 200, headers: withJsonHeaders(corsHeaders) });
   } catch (e) {
     console.error('[active-recruits] Error:', e);
@@ -496,41 +540,58 @@ async function handleDashboardRecruitment({ request, env, url, corsHeaders, read
   }
 }
 
+async function handleRecruitmentPost(request, env, url, corsHeaders, setJson, ttlSec) {
+  try {
+    const data = await request.json();
+    const stub = getDoStub(env);
+    const resp = await stub.fetch(buildDoRequest(url, '/api/recruits', 'POST', JSON.stringify(data)));
+    const bodyText = await resp.text();
+    
+    let parsed;
+    try {
+      parsed = JSON.parse(bodyText);
+    } catch {
+      parsed = { ok: false, raw: bodyText };
+    }
+    
+    if (parsed?.ok && data?.recruitId) {
+      await setJson(`recruit:${data.recruitId}`, { ...data, createdAt: new Date().toISOString() }, ttlSec);
+    }
+    
+    return new Response(JSON.stringify(parsed), { status: resp.status || 201, headers: withJsonHeaders(corsHeaders) });
+  } catch (error) {
+    console.error('[POST]/api/recruitment error:', error);
+    return new Response(JSON.stringify({ error: 'internal_error' }), { status: 500, headers: withJsonHeaders(corsHeaders) });
+  }
+}
+
+async function handleRecruitmentGet(env, url, corsHeaders, readDoOnlyForGrafana) {
+  try {
+    if (readDoOnlyForGrafana) {
+      return new Response(JSON.stringify({ items: [] }), { status: 200, headers: withJsonHeaders(corsHeaders) });
+    }
+    
+    const stub = getDoStub(env);
+    const resp = await stub.fetch(buildDoRequest(url, '/api/recruits', 'GET'));
+    const text = await resp.text();
+    return new Response(text, { status: 200, headers: withJsonHeaders(corsHeaders) });
+  } catch (error) {
+    console.error('[GET]/api/recruitment error:', error);
+    return new Response(JSON.stringify({ error: 'internal_error' }), { status: 500, headers: withJsonHeaders(corsHeaders) });
+  }
+}
+
 async function handleRecruitmentCollection({ request, env, url, corsHeaders, readDoOnlyForGrafana }) {
   if (url.pathname !== '/api/recruitment' && url.pathname !== '/api/recruitments') return null;
 
   const { setJson, ttlSec } = createRecruitmentCache(env);
 
   if (request.method === 'POST') {
-    try {
-      const data = await request.json();
-      const stub = getDoStub(env);
-      const resp = await stub.fetch(buildDoRequest(url, '/api/recruits', 'POST', JSON.stringify(data)));
-      const bodyText = await resp.text();
-      let parsed; try { parsed = JSON.parse(bodyText); } catch { parsed = { ok: false, raw: bodyText }; }
-      if (parsed?.ok && data?.recruitId) {
-        await setJson(`recruit:${data.recruitId}`, { ...data, createdAt: new Date().toISOString() }, ttlSec);
-      }
-      return new Response(JSON.stringify(parsed), { status: resp.status || 201, headers: withJsonHeaders(corsHeaders) });
-    } catch (error) {
-      console.error('[POST]/api/recruitment error:', error);
-      return new Response(JSON.stringify({ error: 'internal_error' }), { status: 500, headers: withJsonHeaders(corsHeaders) });
-    }
+    return handleRecruitmentPost(request, env, url, corsHeaders, setJson, ttlSec);
   }
 
   if (request.method === 'GET') {
-    try {
-      if (readDoOnlyForGrafana) {
-        return new Response(JSON.stringify({ items: [] }), { status: 200, headers: withJsonHeaders(corsHeaders) });
-      }
-      const stub = getDoStub(env);
-      const resp = await stub.fetch(buildDoRequest(url, '/api/recruits', 'GET'));
-      const text = await resp.text();
-      return new Response(text, { status: 200, headers: withJsonHeaders(corsHeaders) });
-    } catch (error) {
-      console.error('[GET]/api/recruitment error:', error);
-      return new Response(JSON.stringify({ error: 'internal_error' }), { status: 500, headers: withJsonHeaders(corsHeaders) });
-    }
+    return handleRecruitmentGet(env, url, corsHeaders, readDoOnlyForGrafana);
   }
 
   return new Response('Method Not Allowed', { status: 405, headers: corsHeaders });
@@ -556,6 +617,37 @@ async function handleRecruitmentPatch({ request, env, url, corsHeaders }) {
   }
 }
 
+async function handleRecruitmentItemGet(rid, env, url, corsHeaders, readDoOnlyForGrafana, hasUpstash, getJson) {
+  if (hasUpstash) {
+    const cached = await getJson(`recruit:${rid}`);
+    if (cached) {
+      try {
+        return new Response(cached, { status: 200, headers: withJsonHeaders(corsHeaders) });
+      } catch {}
+    }
+  }
+  
+  if (readDoOnlyForGrafana) {
+    return new Response(JSON.stringify({ error: 'restricted', message: 'DO read disabled outside Grafana' }), { status: 403, headers: withJsonHeaders(corsHeaders) });
+  }
+  
+  const stub = getDoStub(env);
+  const resp = await stub.fetch(buildDoRequest(url, `/api/recruits/${encodeURIComponent(rid)}`, 'GET'));
+  const text = await resp.text();
+  return new Response(text, { status: resp.status, headers: withJsonHeaders(corsHeaders) });
+}
+
+async function handleRecruitmentItemDelete(rid, request, env, url, corsHeaders, hasUpstash, delKey) {
+  const body = await request.text();
+  const stub = getDoStub(env);
+  const resp = await stub.fetch(buildDoRequest(url, `/api/recruits/${encodeURIComponent(rid)}`, 'DELETE', body));
+  const text = await resp.text();
+  if (hasUpstash) {
+    await delKey(`recruit:${rid}`);
+  }
+  return new Response(text, { status: resp.status, headers: withJsonHeaders(corsHeaders) });
+}
+
 async function handleRecruitmentItem({ request, env, url, corsHeaders, readDoOnlyForGrafana }) {
   const isRecruitmentPath = url.pathname.startsWith('/api/recruitment/') || url.pathname.startsWith('/api/recruitments/');
   if (!isRecruitmentPath || (request.method !== 'GET' && request.method !== 'DELETE')) return null;
@@ -568,27 +660,10 @@ async function handleRecruitmentItem({ request, env, url, corsHeaders, readDoOnl
   const { hasUpstash, getJson, delKey } = createRecruitmentCache(env);
 
   if (request.method === 'GET') {
-    if (hasUpstash) {
-      const cached = await getJson(`recruit:${rid}`);
-      if (cached) {
-        try { return new Response(cached, { status: 200, headers: withJsonHeaders(corsHeaders) }); } catch {}
-      }
-    }
-    if (readDoOnlyForGrafana) {
-      return new Response(JSON.stringify({ error: 'restricted', message: 'DO read disabled outside Grafana' }), { status: 403, headers: withJsonHeaders(corsHeaders) });
-    }
-    const stub = getDoStub(env);
-    const resp = await stub.fetch(buildDoRequest(url, `/api/recruits/${encodeURIComponent(rid)}`, 'GET'));
-    const text = await resp.text();
-    return new Response(text, { status: resp.status, headers: withJsonHeaders(corsHeaders) });
+    return handleRecruitmentItemGet(rid, env, url, corsHeaders, readDoOnlyForGrafana, hasUpstash, getJson);
   }
 
-  const body = await request.text();
-  const stub = getDoStub(env);
-  const resp = await stub.fetch(buildDoRequest(url, `/api/recruits/${encodeURIComponent(rid)}`, 'DELETE', body));
-  const text = await resp.text();
-  if (hasUpstash) { await delKey(`recruit:${rid}`); }
-  return new Response(text, { status: resp.status, headers: withJsonHeaders(corsHeaders) });
+  return handleRecruitmentItemDelete(rid, request, env, url, corsHeaders, hasUpstash, delKey);
 }
 
 async function handleRecruitStatus({ request, url, corsHeaders }) {

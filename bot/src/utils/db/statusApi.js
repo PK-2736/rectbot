@@ -33,27 +33,37 @@ async function getActiveRecruits() {
   }
 }
 
-async function saveRecruitmentData(guildId, channelId, messageId, guildName, channelName, recruitData) {
-  const recruitId = recruitData.recruitId || String(messageId).slice(-8);
+function normalizeVoiceValue(value) {
+  if (typeof value === 'boolean') return value;
+  if (typeof value !== 'string') return false;
+  const lower = value.toLowerCase();
+  return lower.includes('あり') || lower.includes('yes') || lower.includes('true');
+}
+
+function extractOwnerId(recruitData) {
   const ownerId = recruitData.recruiterId || recruitData.ownerId;
   if (!ownerId) {
     throw new Error('saveRecruitmentData: recruiterId/ownerId is required to persist recruitment');
   }
-  const normalizeVoice = (value) => {
-    if (typeof value === 'boolean') return value;
-    if (typeof value !== 'string') return false;
-    const lower = value.toLowerCase();
-    return lower.includes('あり') || lower.includes('yes') || lower.includes('true');
-  };
+  return ownerId;
+}
 
+function normalizeParticipantsList(recruitData, ownerId) {
   const participantsArray = Array.isArray(recruitData.participantsList)
     ? recruitData.participantsList.filter(Boolean)
     : Array.isArray(recruitData.participants)
       ? recruitData.participants.filter(Boolean)
       : [ownerId];
-  if (!participantsArray.includes(ownerId)) participantsArray.unshift(ownerId);
+  
+  if (!participantsArray.includes(ownerId)) {
+    participantsArray.unshift(ownerId);
+  }
+  
+  return participantsArray.slice(0, 100);
+}
 
-  const payload = {
+function buildRecruitmentPayload(guildId, channelId, messageId, guildName, channelName, recruitData, recruitId, ownerId, participants) {
+  return {
     recruitId,
     ownerId,
     title: recruitData.title || '',
@@ -61,9 +71,9 @@ async function saveRecruitmentData(guildId, channelId, messageId, guildName, cha
     game: recruitData.game || '',
     platform: recruitData.platform || '',
     startTime: recruitData.startTime || recruitData.start_time || new Date().toISOString(),
-    maxMembers: Number.parseInt(recruitData.participants ?? recruitData.maxMembers ?? participantsArray.length, 10) || undefined,
-    voice: normalizeVoice(recruitData.vc ?? recruitData.voice),
-    participants: participantsArray.slice(0, 100),
+    maxMembers: Number.parseInt(recruitData.participants ?? recruitData.maxMembers ?? participants.length, 10) || undefined,
+    voice: normalizeVoiceValue(recruitData.vc ?? recruitData.voice),
+    participants,
     status: (recruitData.status || 'recruiting'),
     metadata: {
       guildId,
@@ -79,6 +89,14 @@ async function saveRecruitmentData(guildId, channelId, messageId, guildName, cha
       raw: recruitData
     }
   };
+}
+
+async function saveRecruitmentData(guildId, channelId, messageId, guildName, channelName, recruitData) {
+  const recruitId = recruitData.recruitId || String(messageId).slice(-8);
+  const ownerId = extractOwnerId(recruitData);
+  const participants = normalizeParticipantsList(recruitData, ownerId);
+  const payload = buildRecruitmentPayload(guildId, channelId, messageId, guildName, channelName, recruitData, recruitId, ownerId, participants);
+  
   try {
     const body = await backendFetch(`${config.BACKEND_API_URL.replace(/\/$/, '')}/api/recruitments`, {
       method: 'POST',
@@ -121,35 +139,48 @@ async function updateRecruitmentStatus(messageId, status, endTime = null) {
   }
 }
 
-async function updateRecruitmentData(messageId, recruitData) {
-  // Durable Objectが受け付けるフィールドに合わせて更新
-  // allowed: title, description, game, platform, status, maxMembers, voice, metadata, expiresAt, closedAt
-  const updateData = {};
-  if (recruitData.title != null) updateData.title = recruitData.title;
-  // Handle both 'description' and 'content' fields
+function updateTitleField(updateData, recruitData) {
+  if (recruitData.title != null) {
+    updateData.title = recruitData.title;
+  }
+}
+
+function updateDescriptionField(updateData, recruitData) {
   if (recruitData.description != null || recruitData.content != null) {
     const desc = recruitData.description ?? recruitData.content;
     if (desc !== undefined && desc !== null) {
       updateData.description = String(desc);
     }
   }
+}
+
+function updateGamePlatformFields(updateData, recruitData) {
   if (recruitData.game != null) updateData.game = recruitData.game;
   if (recruitData.platform != null) updateData.platform = recruitData.platform;
   if (recruitData.status != null) updateData.status = recruitData.status;
+}
+
+function updateMaxMembersField(updateData, recruitData) {
   if (recruitData.maxMembers != null || recruitData.participants != null) {
     const val = recruitData.maxMembers ?? (recruitData.participants ? parseInt(recruitData.participants, 10) : null);
-    if (val != null && !Number.isNaN(val)) updateData.maxMembers = val;
+    if (val != null && !Number.isNaN(val)) {
+      updateData.maxMembers = val;
+    }
   }
+}
+
+function updateVoiceField(updateData, recruitData) {
   if (recruitData.voice != null || recruitData.vc != null) {
     const v = recruitData.voice ?? recruitData.vc;
-    // 文字列の場合はそのまま、boolean の場合は 'あり'/'なし' に変換
     if (typeof v === 'string') {
       updateData.voice = v;
     } else if (typeof v === 'boolean') {
       updateData.voice = v ? 'あり' : 'なし';
     }
   }
-  // メタデータのマージ更新
+}
+
+function buildMetadataUpdates(recruitData) {
   const meta = {};
   if (recruitData.note != null) meta.note = recruitData.note;
   if (recruitData.startTime != null) meta.startLabel = recruitData.startTime;
@@ -157,9 +188,31 @@ async function updateRecruitmentData(messageId, recruitData) {
   if (recruitData.startTimeNotified !== undefined && recruitData.startTimeNotified !== null) {
     meta.startTimeNotified = recruitData.startTimeNotified === true;
   }
-  if (Object.keys(meta).length) updateData.metadata = meta;
+  return meta;
+}
+
+function buildUpdateData(recruitData) {
+  const updateData = {};
+  
+  updateTitleField(updateData, recruitData);
+  updateDescriptionField(updateData, recruitData);
+  updateGamePlatformFields(updateData, recruitData);
+  updateMaxMembersField(updateData, recruitData);
+  updateVoiceField(updateData, recruitData);
+  
+  const meta = buildMetadataUpdates(recruitData);
+  if (Object.keys(meta).length) {
+    updateData.metadata = meta;
+  }
+  
+  return updateData;
+}
+
+async function updateRecruitmentData(messageId, recruitData) {
+  const updateData = buildUpdateData(recruitData);
   const rid = normalizeRecruitId(messageId);
   const url = `${config.BACKEND_API_URL.replace(/\/$/, '')}/api/recruitment/${encodeURIComponent(rid)}`;
+  
   try {
     const body = await backendFetch(url, { method: 'PATCH', body: JSON.stringify(updateData) });
     return { ok: true, body };

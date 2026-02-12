@@ -134,25 +134,32 @@ function prepareFinalRecruitData(recruitDataObj, actualRecruitId, interaction, a
   };
 }
 
+async function saveToRedisAndPushToApi(actualRecruitId, finalRecruitData) {
+  await saveRecruitToRedis(actualRecruitId, finalRecruitData);
+  const pushRes = await pushRecruitToWebAPI(finalRecruitData);
+  if (!pushRes || !pushRes.ok) logCriticalError('Worker API push failed', pushRes);
+}
+
+async function syncToWorkerDurableObject(interaction, actualMessageId, finalRecruitData) {
+  try {
+    const workerSave = await saveRecruitmentData(
+      interaction.guildId,
+      interaction.channelId,
+      actualMessageId,
+      interaction.guild?.name,
+      interaction.channel?.name,
+      finalRecruitData
+    );
+    if (!workerSave?.ok) logCriticalError('[worker-sync] DO 保存失敗', workerSave);
+  } catch (saveErr) {
+    logCriticalError('[worker-sync] saveRecruitmentData error', saveErr);
+  }
+}
+
 async function persistRecruitmentData(finalRecruitData, interaction, actualMessageId, actualRecruitId) {
   try {
-    await saveRecruitToRedis(actualRecruitId, finalRecruitData);
-    const pushRes = await pushRecruitToWebAPI(finalRecruitData);
-    if (!pushRes || !pushRes.ok) logCriticalError('Worker API push failed', pushRes);
-
-    try {
-      const workerSave = await saveRecruitmentData(
-        interaction.guildId,
-        interaction.channelId,
-        actualMessageId,
-        interaction.guild?.name,
-        interaction.channel?.name,
-        finalRecruitData
-      );
-      if (!workerSave?.ok) logCriticalError('[worker-sync] DO 保存失敗', workerSave);
-    } catch (saveErr) {
-      logCriticalError('[worker-sync] saveRecruitmentData error', saveErr);
-    }
+    await saveToRedisAndPushToApi(actualRecruitId, finalRecruitData);
+    await syncToWorkerDurableObject(interaction, actualMessageId, finalRecruitData);
   } catch (err) {
     logCriticalError('Redis保存またはAPI pushエラー', err);
   }
@@ -665,12 +672,10 @@ async function sendAndUpdateInitialMessage({
     user
   });
 
-  const msgId = followUpMessage?.id;
-  if (!msgId) return null;
+  const colorData = calculateRecruitIdAndColors(followUpMessage, panelColor, guildSettings);
+  if (!colorData) return null;
 
-  const recruitId = msgId.slice(-8);
-  const useColorInit = normalizeHex(panelColor ? panelColor : (guildSettings.defaultColor ? guildSettings.defaultColor : '000000'), '000000');
-  const accentColorInit = /^[0-9A-Fa-f]{6}$/.test(useColorInit) ? parseInt(useColorInit, 16) : 0x000000;
+  const { recruitId, accentColorInit } = colorData;
 
   try {
     const immediateContainer = await buildImmediateContainer({
@@ -684,14 +689,7 @@ async function sendAndUpdateInitialMessage({
       interaction
     });
 
-    await updateMessagesWithRecruitId({
-      followUpMessage,
-      secondaryMessage,
-      immediateContainer,
-      container,
-      style,
-      image
-    });
+    await updateRecruitMessages(followUpMessage, secondaryMessage, immediateContainer, container, style, image);
   } catch (e) {
     logError('[handleRecruitCreateModal] Initial message edit failed', e);
   }
@@ -699,11 +697,41 @@ async function sendAndUpdateInitialMessage({
   return { followUpMessage, secondaryMessage };
 }
 
+function calculateRecruitIdAndColors(followUpMessage, panelColor, guildSettings) {
+  const msgId = followUpMessage?.id;
+  if (!msgId) return null;
+  
+  const recruitId = msgId.slice(-8);
+  const useColorInit = normalizeHex(panelColor ? panelColor : (guildSettings.defaultColor ? guildSettings.defaultColor : '000000'), '000000');
+  const accentColorInit = /^[0-9A-Fa-f]{6}$/.test(useColorInit) ? parseInt(useColorInit, 16) : 0x000000;
+  
+  return { recruitId, accentColorInit };
+}
+
+async function updateRecruitMessages(followUpMessage, secondaryMessage, immediateContainer, container, style, image) {
+  await updateMessagesWithRecruitId({
+    followUpMessage,
+    secondaryMessage,
+    immediateContainer,
+    container,
+    style,
+    image
+  });
+}
+
+function extractRecruitTitle(pendingData) {
+  return (pendingData?.title && pendingData.title.trim().length > 0) ? pendingData.title : '参加者募集';
+}
+
+function resolveParticipantsCount(participantsNum, pendingData) {
+  return participantsNum || pendingData?.participants || 1;
+}
+
 function buildRecruitDataObject({ interaction, pendingData, participantsNum, panelColor, selectedNotificationRole, voiceChannelName }) {
   return {
-    title: (pendingData?.title && pendingData.title.trim().length > 0) ? pendingData.title : '参加者募集',
+    title: extractRecruitTitle(pendingData),
     content: interaction.fields.getTextInputValue('content'),
-    participants: participantsNum || pendingData?.participants || 1,
+    participants: resolveParticipantsCount(participantsNum, pendingData),
     startTime: pendingData?.startTime || '',
     vc: pendingData?.voice || '',
     voicePlace: pendingData?.voicePlace,

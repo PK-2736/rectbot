@@ -11,31 +11,47 @@ function normalizeRecruitStyle(normalized) {
   }
 }
 
+function normalizeRolesArray(rawArray) {
+  const filtered = Array.isArray(rawArray) ? rawArray.filter(Boolean).map(String) : [];
+  return [...new Set(filtered)].slice(0, 25);
+}
+
+function syncNotificationRoleFromArray(normalized, uniqueRoles, hasRoleString) {
+  if (!hasRoleString || normalized.notification_role === undefined) {
+    normalized.notification_role = uniqueRoles.length > 0 ? uniqueRoles[0] : null;
+  } else if (normalized.notification_role !== null) {
+    normalized.notification_role = String(normalized.notification_role);
+  }
+}
+
+function syncNotificationRolesFromRole(normalized, uniqueRoles) {
+  if (normalized.notification_role !== null && uniqueRoles.length === 0 && normalized.notification_role) {
+    normalized.notification_roles = [normalized.notification_role];
+  }
+}
+
+function handleRoleStringOnly(normalized) {
+  const roleId = normalized.notification_role ? String(normalized.notification_role) : null;
+  normalized.notification_role = roleId;
+  normalized.notification_roles = roleId ? [roleId] : [];
+}
+
 function normalizeNotificationRoles(normalized) {
   const hasRolesArray = Object.prototype.hasOwnProperty.call(normalized, 'notification_roles');
   const hasRoleString = Object.prototype.hasOwnProperty.call(normalized, 'notification_role');
 
   if (hasRolesArray) {
-    const rawArray = Array.isArray(normalized.notification_roles)
-      ? normalized.notification_roles.filter(Boolean).map(String)
-      : [];
-    const uniqueRoles = [...new Set(rawArray)].slice(0, 25);
+    const uniqueRoles = normalizeRolesArray(normalized.notification_roles);
     normalized.notification_roles = uniqueRoles;
-    if (!hasRoleString || normalized.notification_role === undefined) {
-      normalized.notification_role = uniqueRoles.length > 0 ? uniqueRoles[0] : null;
-    } else if (normalized.notification_role !== null) {
-      normalized.notification_role = String(normalized.notification_role);
-      if (uniqueRoles.length === 0 && normalized.notification_role) {
-        normalized.notification_roles = [normalized.notification_role];
-      }
-    }
+    
+    syncNotificationRoleFromArray(normalized, uniqueRoles, hasRoleString);
+    syncNotificationRolesFromRole(normalized, uniqueRoles);
+    
     if (uniqueRoles.length === 0) {
       normalized.notification_role = null;
     }
   } else if (hasRoleString) {
-    const roleId = normalized.notification_role ? String(normalized.notification_role) : null;
-    normalized.notification_role = roleId;
-    normalized.notification_roles = roleId ? [roleId] : [];
+    handleRoleStringOnly(normalized);
   }
 }
 
@@ -101,28 +117,39 @@ function hasEssentialSettings(normalized) {
   return !rolesEmpty || !noSingleRole || !noChannel;
 }
 
-function mergeApiResponseWithCache(fromApi, normalized) {
-  const merged = normalizeGuildSettingsObject({ ...fromApi });
-  
+function mergeRecruitStyle(merged, fromApi, normalized) {
   if (normalized && typeof normalized.recruit_style === 'string' && !Object.prototype.hasOwnProperty.call(fromApi, 'recruit_style')) {
     merged.recruit_style = normalized.recruit_style;
   }
-  
+}
+
+function mergeDedicatedChannelEnabled(merged, fromApi, normalized) {
   if (!Object.prototype.hasOwnProperty.call(fromApi || {}, 'enable_dedicated_channel')) {
     merged.enable_dedicated_channel = normalized.enable_dedicated_channel;
   }
-  
+}
+
+function mergeDedicatedChannelCategory(merged, fromApi, normalized) {
   if (!Object.prototype.hasOwnProperty.call(fromApi || {}, 'dedicated_channel_category_id')) {
     merged.dedicated_channel_category_id = normalized.dedicated_channel_category_id || null;
   }
-  
+}
+
+function mergeRecruitChannels(merged, fromApi, normalized) {
   if (!Object.prototype.hasOwnProperty.call(fromApi || {}, 'recruit_channels') && Array.isArray(normalized.recruit_channels)) {
     merged.recruit_channels = normalized.recruit_channels;
     if (!merged.recruit_channel && normalized.recruit_channels.length > 0) {
       merged.recruit_channel = normalized.recruit_channels[0];
     }
   }
-  
+}
+
+function mergeApiResponseWithCache(fromApi, normalized) {
+  const merged = normalizeGuildSettingsObject({ ...fromApi });
+  mergeRecruitStyle(merged, fromApi, normalized);
+  mergeDedicatedChannelEnabled(merged, fromApi, normalized);
+  mergeDedicatedChannelCategory(merged, fromApi, normalized);
+  mergeRecruitChannels(merged, fromApi, normalized);
   return merged;
 }
 
@@ -146,17 +173,27 @@ async function fetchAndCacheFromApi(guildId, redis, key, normalized) {
   return null;
 }
 
+function getAndParseRedisSettings(redis, key) {
+  return redis.get(key).then(val => {
+    const parsed = val ? JSON.parse(val) : {};
+    const normalized = normalizeGuildSettingsObject(parsed);
+    return { val, normalized };
+  });
+}
+
+function shouldFetchFromApi(val, normalized) {
+  return !val || !hasEssentialSettings(normalized);
+}
+
 // Hybrid getter: prefer Redis, but if missing/empty, fetch from backend API and cache.
 async function getGuildSettingsSmart(guildId) {
   const redis = await ensureRedisConnection();
   const key = `guildsettings:${guildId}`;
-  let val = await redis.get(key);
-  let parsed = val ? JSON.parse(val) : {};
-  let normalized = normalizeGuildSettingsObject(parsed);
+  const { val, normalized } = await getAndParseRedisSettings(redis, key);
 
   console.log(`[getGuildSettingsSmart] Guild ${guildId}: Redis val=${!!val}, hasEssential=${hasEssentialSettings(normalized)}`);
 
-  if (!val || !hasEssentialSettings(normalized)) {
+  if (shouldFetchFromApi(val, normalized)) {
     const apiResult = await fetchAndCacheFromApi(guildId, redis, key, normalized);
     if (apiResult) return apiResult;
   }
@@ -236,21 +273,34 @@ async function sendWebhookNotification(guildId, payload) {
   }
 }
 
+async function fetchGuildSettingsFromApi(guildId) {
+  const apiBase = (config && config.BACKEND_API_URL) ? config.BACKEND_API_URL.replace(/\/$/, '') : '';
+  const path = `${apiBase}/api/guild-settings/${guildId}`;
+  return await backendFetch(path, { method: 'GET' });
+}
+
+function shouldPreserveRecruitStyle(fromApi, settings) {
+  if (typeof settings.recruit_style !== 'string') return false;
+  
+  const apiHasStyle = fromApi && Object.prototype.hasOwnProperty.call(fromApi, 'recruit_style');
+  const apiStyle = apiHasStyle ? fromApi.recruit_style : undefined;
+  const isApiDefault = apiStyle === undefined || apiStyle === null || apiStyle === 'image';
+  
+  return !apiHasStyle || isApiDefault;
+}
+
+function mergeRecruitStyleAfterFinalize(merged, fromApi, settings) {
+  if (shouldPreserveRecruitStyle(fromApi, settings)) {
+    merged.recruit_style = settings.recruit_style;
+  }
+}
+
 async function refetchAndRecacheSettings(guildId, settings, redis, key) {
   try {
-    const apiBase = (config && config.BACKEND_API_URL) ? config.BACKEND_API_URL.replace(/\/$/, '') : '';
-    const path = `${apiBase}/api/guild-settings/${guildId}`;
-    const fromApi = await backendFetch(path, { method: 'GET' });
+    const fromApi = await fetchGuildSettingsFromApi(guildId);
     let merged = normalizeGuildSettingsObject(fromApi || {});
-
-    if (typeof settings.recruit_style === 'string') {
-      const apiHasStyle = fromApi && Object.prototype.hasOwnProperty.call(fromApi, 'recruit_style');
-      const apiStyle = apiHasStyle ? fromApi.recruit_style : undefined;
-      const isApiDefault = apiStyle === undefined || apiStyle === null || apiStyle === 'image';
-      if (!apiHasStyle || isApiDefault) {
-        merged.recruit_style = settings.recruit_style;
-      }
-    }
+    
+    mergeRecruitStyleAfterFinalize(merged, fromApi, settings);
     
     await redis.set(key, JSON.stringify(merged));
     console.log(`[finalizeGuildSettings] Re-cached settings for guild ${guildId} after finalize`);
@@ -281,25 +331,34 @@ function logFinalizeError(url, payload, err) {
   }
 }
 
-async function finalizeGuildSettings(guildId) {
-  if (!guildId) throw new Error('Guild ID is required');
-  
+async function buildFinalizeRequest(guildId) {
   const settings = normalizeGuildSettingsObject(await getGuildSettingsFromRedis(guildId));
   const url = `${config.BACKEND_API_URL.replace(/\/$/, '')}/api/guild-settings/finalize`;
   const payload = buildFinalizePayload(guildId, settings);
   const headers = { 'Content-Type': 'application/json' };
+  return { settings, url, payload, headers };
+}
+
+async function handleFinalizeSuccess(guildId, settings, payload) {
+  const redis = await ensureRedisConnection();
+  const key = `guildsettings:${guildId}`;
+  await redis.del(key);
+  console.log(`[finalizeGuildSettings] Redis cache cleared for guild ${guildId}`);
+  
+  await sendWebhookNotification(guildId, payload);
+  await refetchAndRecacheSettings(guildId, settings, redis, key);
+}
+
+async function finalizeGuildSettings(guildId) {
+  if (!guildId) throw new Error('Guild ID is required');
+  
+  const { settings, url, payload, headers } = await buildFinalizeRequest(guildId);
   
   try {
     const body = await backendFetch(url, { method: 'POST', headers, body: JSON.stringify(payload) });
     
     if (body && body.ok) {
-      const redis = await ensureRedisConnection();
-      const key = `guildsettings:${guildId}`;
-      await redis.del(key);
-      console.log(`[finalizeGuildSettings] Redis cache cleared for guild ${guildId}`);
-      
-      await sendWebhookNotification(guildId, payload);
-      await refetchAndRecacheSettings(guildId, settings, redis, key);
+      await handleFinalizeSuccess(guildId, settings, payload);
     }
     
     return body;

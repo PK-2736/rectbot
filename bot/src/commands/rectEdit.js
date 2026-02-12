@@ -271,22 +271,39 @@ module.exports = {
     await interaction.respond(filtered.slice(0, 25));
   },
 
+  filterRecruitingStatus(list) {
+    return list.filter(r => (r.status || 'recruiting') === 'recruiting');
+  },
+
+  filterByGuild(list, guildId) {
+    if (!guildId) return list;
+    return list.filter(r => r.metadata?.guildId === guildId);
+  },
+
+  filterByOwner(list, userId) {
+    if (!userId) return list;
+    return list.filter(r => String(r.ownerId || r.owner_id) === String(userId));
+  },
+
+  mapToAutocompleteFormat(list) {
+    return list.map(r => ({
+      id: r.recruitId || r.id,
+      title: r.title || r.game || '募集',
+      start: r.startTime || r.metadata?.startLabel || '',
+      voice: r.voice,
+      guildId: r.metadata?.guildId,
+    }));
+  },
+
   async fetchAndFilterRecruits(guildId, userId) {
     const res = await getActiveRecruits();
     const list = Array.isArray(res?.body) ? res.body : [];
     console.log(`[rect-edit autocomplete] Found ${list.length} total recruits`);
     
-    return list
-      .filter(r => (r.status || 'recruiting') === 'recruiting')
-      .filter(r => !guildId || r.metadata?.guildId === guildId)
-      .filter(r => !userId || String(r.ownerId || r.owner_id) === String(userId))
-      .map(r => ({
-        id: r.recruitId || r.id,
-        title: r.title || r.game || '募集',
-        start: r.startTime || r.metadata?.startLabel || '',
-        voice: r.voice,
-        guildId: r.metadata?.guildId,
-      }));
+    const recruitingOnly = this.filterRecruitingStatus(list);
+    const guildFiltered = this.filterByGuild(recruitingOnly, guildId);
+    const ownerFiltered = this.filterByOwner(guildFiltered, userId);
+    return this.mapToAutocompleteFormat(ownerFiltered);
   },
 
   buildAutocompleteOptions(filtered, focused) {
