@@ -17,6 +17,10 @@ if [ -f "${SCRIPT_DIR}/.env.backup" ]; then
   export $(grep -v '^#' "${SCRIPT_DIR}/.env.backup" | xargs)
 fi
 
+# R2 uses S3-compatible API; default to auto region and path-style addressing
+: "${AWS_DEFAULT_REGION:=auto}"
+: "${AWS_S3_ADDRESSING_STYLE:=path}"
+
 # 必須環境変数チェック
 : "${SUPABASE_PROJECT_REF:?SUPABASE_PROJECT_REF が設定されていません}"
 : "${SUPABASE_DB_PASSWORD:?SUPABASE_DB_PASSWORD が設定されていません}"
@@ -57,8 +61,11 @@ log "Step 1: R2 から利用可能なバックアップを取得中..."
 
 BACKUPS=$(AWS_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID" \
           AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY" \
+          AWS_DEFAULT_REGION="$AWS_DEFAULT_REGION" \
+          AWS_S3_ADDRESSING_STYLE="$AWS_S3_ADDRESSING_STYLE" \
           aws s3 ls "s3://${R2_BUCKET_NAME}/" \
-          --endpoint-url "$R2_ENDPOINT" | \
+          --endpoint-url "$R2_ENDPOINT" \
+          --region "$AWS_DEFAULT_REGION" | \
           grep 'supabase_backup_' | \
           awk '{print $4}' | \
           sort -r)
@@ -115,9 +122,12 @@ log "Step 2: R2 からバックアップをダウンロード中..."
 DOWNLOAD_PATH="${BACKUP_DIR}/${SELECTED_BACKUP}"
 
 if AWS_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID" \
-   AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY" \
-   aws s3 cp "s3://${R2_BUCKET_NAME}/${SELECTED_BACKUP}" "$DOWNLOAD_PATH" \
-   --endpoint-url "$R2_ENDPOINT"; then
+  AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY" \
+  AWS_DEFAULT_REGION="$AWS_DEFAULT_REGION" \
+  AWS_S3_ADDRESSING_STYLE="$AWS_S3_ADDRESSING_STYLE" \
+  aws s3 cp "s3://${R2_BUCKET_NAME}/${SELECTED_BACKUP}" "$DOWNLOAD_PATH" \
+  --endpoint-url "$R2_ENDPOINT" \
+  --region "$AWS_DEFAULT_REGION"; then
   log "✅ ダウンロード成功: $DOWNLOAD_PATH"
 else
   error "❌ ダウンロード失敗"

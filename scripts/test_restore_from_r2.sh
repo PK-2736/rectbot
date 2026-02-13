@@ -32,6 +32,10 @@ elif [ -f "${SCRIPT_DIR}/.env.backup" ]; then
   export $(grep -v '^#' "${SCRIPT_DIR}/.env.backup" | xargs)
 fi
 
+# R2 uses S3-compatible API; default to auto region and path-style addressing
+: "${AWS_DEFAULT_REGION:=auto}"
+: "${AWS_S3_ADDRESSING_STYLE:=path}"
+
 log "=========================================="
 log "R2 復元スクリプトのテスト"
 log "=========================================="
@@ -95,9 +99,12 @@ log "Test 4: Cloudflare R2 バケットへの接続テスト..."
 R2_ENDPOINT="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
 
 if AWS_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID" \
-   AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY" \
-   aws s3 ls "s3://${R2_BUCKET_NAME}/" \
-   --endpoint-url "$R2_ENDPOINT" &> /dev/null; then
+  AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY" \
+  AWS_DEFAULT_REGION="$AWS_DEFAULT_REGION" \
+  AWS_S3_ADDRESSING_STYLE="$AWS_S3_ADDRESSING_STYLE" \
+  aws s3 ls "s3://${R2_BUCKET_NAME}/" \
+  --endpoint-url "$R2_ENDPOINT" \
+  --region "$AWS_DEFAULT_REGION" &> /dev/null; then
   success "Test 4: PASSED - R2 バケットに接続できます"
 else
   error "Test 4: FAILED - R2 バケットへの接続に失敗しました"
@@ -112,8 +119,11 @@ log "Test 5: R2 内のバックアップファイルの存在確認..."
 
 BACKUPS=$(AWS_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID" \
           AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY" \
+          AWS_DEFAULT_REGION="$AWS_DEFAULT_REGION" \
+          AWS_S3_ADDRESSING_STYLE="$AWS_S3_ADDRESSING_STYLE" \
           aws s3 ls "s3://${R2_BUCKET_NAME}/" \
-          --endpoint-url "$R2_ENDPOINT" | \
+          --endpoint-url "$R2_ENDPOINT" \
+          --region "$AWS_DEFAULT_REGION" | \
           grep 'supabase_backup_' | \
           awk '{print $4}' | \
           sort -r)
