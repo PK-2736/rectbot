@@ -35,6 +35,7 @@ fi
 # R2 uses S3-compatible API; default to auto region and path-style addressing
 : "${AWS_DEFAULT_REGION:=auto}"
 : "${AWS_S3_ADDRESSING_STYLE:=path}"
+: "${AWS_EC2_METADATA_DISABLED:=true}"
 
 log "=========================================="
 log "R2 復元スクリプトのテスト"
@@ -98,18 +99,37 @@ log ""
 log "Test 4: Cloudflare R2 バケットへの接続テスト..."
 R2_ENDPOINT="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
 
-if AWS_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID" \
+R2_LS_OUTPUT=$(AWS_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID" \
   AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY" \
   AWS_DEFAULT_REGION="$AWS_DEFAULT_REGION" \
   AWS_S3_ADDRESSING_STYLE="$AWS_S3_ADDRESSING_STYLE" \
+  AWS_EC2_METADATA_DISABLED="$AWS_EC2_METADATA_DISABLED" \
   aws s3 ls "s3://${R2_BUCKET_NAME}/" \
   --endpoint-url "$R2_ENDPOINT" \
-  --region "$AWS_DEFAULT_REGION" &> /dev/null; then
+  --region "$AWS_DEFAULT_REGION" 2>&1) || true
+
+if [ -n "$R2_LS_OUTPUT" ] && echo "$R2_LS_OUTPUT" | grep -qiE 'error|failed|forbidden|denied|signature|invalid|not found'; then
+  error "Test 4: FAILED - R2 バケットへの接続に失敗しました"
+  error "  エンドポイント: $R2_ENDPOINT"
+  error "  バケット名: $R2_BUCKET_NAME"
+  error "  詳細: $R2_LS_OUTPUT"
+  exit 1
+fi
+
+if [ -z "$R2_LS_OUTPUT" ]; then
+  error "Test 4: FAILED - R2 バケットへの接続に失敗しました"
+  error "  エンドポイント: $R2_ENDPOINT"
+  error "  バケット名: $R2_BUCKET_NAME"
+  exit 1
+fi
+
+if echo "$R2_LS_OUTPUT" | grep -qE '^20[0-9]{2}-'; then
   success "Test 4: PASSED - R2 バケットに接続できます"
 else
   error "Test 4: FAILED - R2 バケットへの接続に失敗しました"
   error "  エンドポイント: $R2_ENDPOINT"
   error "  バケット名: $R2_BUCKET_NAME"
+  error "  詳細: $R2_LS_OUTPUT"
   exit 1
 fi
 log ""
