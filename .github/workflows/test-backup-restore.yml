@@ -72,12 +72,21 @@ jobs:
           R2_SECRET_ACCESS_KEY=${{ secrets.R2_SECRET_ACCESS_KEY }}
           R2_BUCKET_NAME=${{ secrets.R2_BUCKET_NAME }}
           EOF
+
+          if [ -n "$SUPABASE_DB_HOST" ]; then echo "SUPABASE_DB_HOST=$SUPABASE_DB_HOST" >> .env.backup; fi
+          if [ -n "$SUPABASE_DB_PORT" ]; then echo "SUPABASE_DB_PORT=$SUPABASE_DB_PORT" >> .env.backup; fi
+          if [ -n "$SUPABASE_DB_USER" ]; then echo "SUPABASE_DB_USER=$SUPABASE_DB_USER" >> .env.backup; fi
+          if [ -n "$SUPABASE_DB_NAME" ]; then echo "SUPABASE_DB_NAME=$SUPABASE_DB_NAME" >> .env.backup; fi
           chmod 600 .env.backup
         env:
           SUPABASE_PROJECT_REF_TEST: ${{ secrets.SUPABASE_PROJECT_REF_TEST }}
           SUPABASE_DB_PASSWORD_TEST: ${{ secrets.SUPABASE_DB_PASSWORD_TEST }}
           SUPABASE_PROJECT_REF_PROD: ${{ secrets.SUPABASE_PROJECT_REF }}
           SUPABASE_DB_PASSWORD_PROD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          SUPABASE_DB_HOST: ${{ secrets.SUPABASE_DB_HOST_TEST }}
+          SUPABASE_DB_PORT: ${{ secrets.SUPABASE_DB_PORT_TEST }}
+          SUPABASE_DB_USER: ${{ secrets.SUPABASE_DB_USER_TEST }}
+          SUPABASE_DB_NAME: ${{ secrets.SUPABASE_DB_NAME_TEST }}
       
       - name: Run backup restore test
         id: test

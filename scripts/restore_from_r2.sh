@@ -31,10 +31,10 @@ fi
 
 # ===== Supabase 接続情報を構築 =====
 # Direct Connection (port 5432) を使用
-SUPABASE_DB_HOST="db.${SUPABASE_PROJECT_REF}.supabase.co"
-SUPABASE_DB_PORT=5432
-SUPABASE_DB_USER="postgres"
-SUPABASE_DB_NAME="postgres"
+SUPABASE_DB_HOST="${SUPABASE_DB_HOST:-db.${SUPABASE_PROJECT_REF}.supabase.co}"
+SUPABASE_DB_PORT="${SUPABASE_DB_PORT:-5432}"
+SUPABASE_DB_USER="${SUPABASE_DB_USER:-postgres}"
+SUPABASE_DB_NAME="${SUPABASE_DB_NAME:-postgres}"
 
 # ===== ログ関数 =====
 log() {

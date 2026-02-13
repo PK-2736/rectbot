@@ -165,10 +165,10 @@ log ""
 # ===== テスト6: Supabase データベースへの接続テスト =====
 log "Test 6: Supabase データベースへの接続テスト..."
 
-SUPABASE_DB_HOST="db.${SUPABASE_PROJECT_REF}.supabase.co"
-SUPABASE_DB_PORT=5432
-SUPABASE_DB_USER="postgres"
-SUPABASE_DB_NAME="postgres"
+SUPABASE_DB_HOST="${SUPABASE_DB_HOST:-db.${SUPABASE_PROJECT_REF}.supabase.co}"
+SUPABASE_DB_PORT="${SUPABASE_DB_PORT:-5432}"
+SUPABASE_DB_USER="${SUPABASE_DB_USER:-postgres}"
+SUPABASE_DB_NAME="${SUPABASE_DB_NAME:-postgres}"
 
 # IPv4 アドレスを取得
 log "  Supabase ホストの IPv4 アドレスを解決中..."
