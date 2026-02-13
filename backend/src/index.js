@@ -11,6 +11,7 @@ import { handleGrafanaRoutes } from './routes/grafana';
 import { handleRecruitmentRoutes } from './routes/recruitments';
 import { handleBotInviteRoutes } from './routes/bot-invite';
 import { handleStripeRoutes } from './routes/stripe';
+import { handleDiscordAuthRoutes } from './routes/discord-auth';
 import { corsHeadersFor } from './worker/cors.js';
 import { jsonResponse } from './worker/http.js';
 import { createStore } from './worker/store.js';
@@ -75,6 +76,7 @@ export default {
     const store = createStore(env, request);
 
     const response = await tryRouteHandlers([
+      () => handleDiscordAuthRoutes(request, env, { url, safeHeaders }),
       () => handleFriendCodeRoutes(request, env, { url, safeHeaders }),
       () => handleGuildSettingsRoutes(request, env, { url, safeHeaders }),
       () => handleAdminRoutes(request, env, { url, safeHeaders }),

@@ -1,5 +1,5 @@
 const { EmbedBuilder } = require('discord.js');
-const { getFriendCodesFromWorker } = require('../utils/workerApiClient');
+const { normalizeGameNameWithWorker, getFriendCodesFromWorker } = require('../utils/workerApiClient');
 const nodemailer = require('nodemailer');
 const config = require('../config');
 
@@ -36,118 +36,53 @@ async function sendBumpNotification(channelName, content = '') {
   }
 }
 
-function isBumpNotificationChannel(message) {
-  return message.channel.id === '1414751550223548607' && 
-         message.author.id === '302050872383242240';
-}
-
-function cancelExistingBumpTimer() {
-  if (bumpReminderTimer) {
-    clearTimeout(bumpReminderTimer);
-    console.log('[messageCreate] 既存の2時間タイマーをキャンセルしました');
-  }
-}
-
-function scheduleBumpReminder(message) {
-  const reminderDelay = 120 * 60 * 1000;
-  bumpReminderTimer = setTimeout(() => {
-    sendBumpNotification(
-      message.channel.name,
-      `2時間前にユーザー ${message.author.tag} がチャンネル ${message.channel.name} でメッセージを送信しました。\n\nメッセージ内容:\n${message.content}\n\n次のbumpの時間です！`
-    );
-    bumpReminderTimer = null;
-  }, reminderDelay);
-  console.log('[messageCreate] 2時間後のリマインダーを設定しました');
-}
-
-function handleBumpNotification(message) {
-  cancelExistingBumpTimer();
-  scheduleBumpReminder(message);
-}
-
-function extractAllMentions(content) {
-  const mentionRegex = /<@!?(\d+)>/g;
-  return [...content.matchAll(mentionRegex)];
-}
-
-function hasSelfMention(mentions, authorId) {
-  return mentions.some(match => match[1] === authorId);
-}
-
-function extractGameName(content) {
-  const mentionRegex = /<@!?(\d+)>/g;
-  return content.replace(mentionRegex, '').trim();
-}
-
-function checkSelfMention(message) {
-  const allMentions = extractAllMentions(message.content);
-  const selfMention = hasSelfMention(allMentions, message.author.id);
-  const gameName = extractGameName(message.content);
-  return { selfMention, gameName };
-}
-
-function matchGameNameFuzzy(code, inputLower) {
-  const gameLower = (code.original_game_name || code.game_name || '').toLowerCase();
-  const normalizedLower = (code.game_name || '').toLowerCase();
-  
-  return gameLower === inputLower || 
-         normalizedLower === inputLower ||
-         gameLower.includes(inputLower) ||
-         inputLower.includes(gameLower);
-}
-
-async function searchFriendCodesByGame(userId, guildId, gameName) {
-  let friendCodes = await getFriendCodesFromWorker(userId, guildId, gameName).catch(() => []);
-
-  if (!friendCodes || friendCodes.length === 0) {
-    const allCodes = await getFriendCodesFromWorker(userId, guildId).catch(() => []);
-    
-    if (allCodes && allCodes.length > 0) {
-      const inputLower = gameName.toLowerCase();
-      const matched = allCodes.filter(code => matchGameNameFuzzy(code, inputLower));
-      
-      if (matched.length > 0) {
-        friendCodes = matched;
-      }
-    }
-  }
-
-  return friendCodes;
-}
-
-function buildFriendCodeEmbed(friendCode, user) {
-  const gameDisplayName = friendCode.original_game_name || friendCode.game_name;
-  const titleGameName = `🎮 ${gameDisplayName}`;
-
-  return new EmbedBuilder()
-    .setColor(0x5865F2)
-    .setTitle(titleGameName)
-    .setDescription(`### ${user.username} のフレンドコード / ID\n\n\`\`\`\n${friendCode.friend_code}\n\`\`\``)
-    .setThumbnail(user.displayAvatarURL({ dynamic: true }))
-    .setTimestamp()
-    .setFooter({ text: `登録日: ${new Date(friendCode.created_at * 1000).toLocaleDateString('ja-JP')}` });
-}
-
 module.exports = {
   name: 'messageCreate',
-  async execute(message) {
+  async execute(message, client) {
     // DMは無視
     if (!message.guild) return;
 
     // 特定チャンネルと特定ユーザー（bot含む）のメッセージ監視（bump通知）
-    if (isBumpNotificationChannel(message)) {
-      handleBumpNotification(message);
+    if (message.channel.id === '1414751550223548607' && message.author.id === '302050872383242240') {
+      // 既存のタイマーがあればキャンセル
+      if (bumpReminderTimer) {
+        clearTimeout(bumpReminderTimer);
+        console.log('[messageCreate] 既存の2時間タイマーをキャンセルしました');
+      }
+
+      // 2時間後（120分 = 7,260,000ミリ秒）にメール送信（即時送信はしない）
+      const reminderDelay = 120 * 60 * 1000; // 120分
+      bumpReminderTimer = setTimeout(() => {
+        sendBumpNotification(
+          message.channel.name,
+          `2時間前にユーザー ${message.author.tag} がチャンネル ${message.channel.name} でメッセージを送信しました。\n\nメッセージ内容:\n${message.content}\n\n次のbumpの時間です！`
+        );
+        bumpReminderTimer = null;
+      }, reminderDelay);
+
+      console.log('[messageCreate] 2時間後のリマインダーを設定しました');
     }
 
     // 以降はBotのメッセージは無視（フレンドコード検索機能）
     if (message.author.bot) return;
 
-    // メンション検出とゲーム名抽出
-    const { selfMention, gameName } = checkSelfMention(message);
+    // メッセージ全体からメンションを検出 (自分自身への言及のみ)
+    const mentionRegex = /<@!?(\d+)>/g;
+    const allMentions = [...message.content.matchAll(mentionRegex)];
+    
+    // quiet
 
-    if (!selfMention) {
+    // メッセージ送信者が自分自身にメンションしているかチェック
+    const hasSelfMention = allMentions.some(match => match[1] === message.author.id);
+
+    if (!hasSelfMention) {
+      // 自分自身へのメンションがない場合は終了
       return;
     }
+
+    // すべてのメンションを除去してゲーム名を取得
+    const gameName = message.content.replace(mentionRegex, '').trim();
+    // quiet
 
     if (!gameName) {
       await message.reply('❌ ゲーム名を指定してください。\n例: `valorant @自分` または `apex @自分`');
@@ -156,7 +91,34 @@ module.exports = {
 
     try {
       const userId = message.author.id;
-      const friendCodes = await searchFriendCodesByGame(userId, message.guild.id, gameName);
+      
+      // まず入力されたゲーム名でコードが登録されているか確認
+      let friendCodes = await getFriendCodesFromWorker(userId, message.guild.id, gameName).catch(() => []);
+
+      // マッチしない場合、すべてのゲームを取得して検索
+      if (!friendCodes || friendCodes.length === 0) {
+        const allCodes = await getFriendCodesFromWorker(userId, message.guild.id).catch(() => []);
+        
+        if (allCodes && allCodes.length > 0) {
+          // 登録済みゲーム名から入力値とマッチするものを探す
+          // 大文字小文字を区別しない検索
+          const inputLower = gameName.toLowerCase();
+          const matched = allCodes.filter(code => {
+            const gameLower = (code.original_game_name || code.game_name || '').toLowerCase();
+            const normalizedLower = (code.game_name || '').toLowerCase();
+            
+            // 完全一致、部分一致、正規化後の一致をチェック
+            return gameLower === inputLower || 
+                   normalizedLower === inputLower ||
+                   gameLower.includes(inputLower) ||
+                   inputLower.includes(gameLower);
+          });
+          
+          if (matched.length > 0) {
+            friendCodes = matched;
+          }
+        }
+      }
 
       if (!friendCodes || friendCodes.length === 0) {
         await message.reply(`❌ **${gameName}** のフレンドコードが登録されていません。\n\`/id_add\` コマンドで登録してください。`);
@@ -164,7 +126,20 @@ module.exports = {
       }
 
       const friendCode = friendCodes[0];
-      const embed = buildFriendCodeEmbed(friendCode, message.author);
+      const user = message.author;
+
+      // タイトルを作成: 登録されたゲーム名をそのまま使用
+      const gameDisplayName = friendCode.original_game_name || friendCode.game_name;
+      const titleGameName = `🎮 ${gameDisplayName}`;
+
+      // Embed を作成
+      const embed = new EmbedBuilder()
+        .setColor(0x5865F2)
+        .setTitle(titleGameName)
+        .setDescription(`### ${user.username} のフレンドコード / ID\n\n\`\`\`\n${friendCode.friend_code}\n\`\`\``)
+        .setThumbnail(user.displayAvatarURL({ dynamic: true }))
+        .setTimestamp()
+        .setFooter({ text: `登録日: ${new Date(friendCode.created_at * 1000).toLocaleDateString('ja-JP')}` });
 
       await message.reply({ embeds: [embed] });
 
