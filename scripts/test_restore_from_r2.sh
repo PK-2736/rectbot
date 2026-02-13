@@ -36,6 +36,7 @@ fi
 : "${AWS_DEFAULT_REGION:=auto}"
 : "${AWS_S3_ADDRESSING_STYLE:=path}"
 : "${AWS_EC2_METADATA_DISABLED:=true}"
+: "${PGSSLMODE:=require}"
 
 log "=========================================="
 log "R2 復元スクリプトのテスト"
@@ -183,7 +184,7 @@ fi
 
 export PGPASSWORD="$SUPABASE_DB_PASSWORD"
 
-if psql \
+if PGSSLMODE="$PGSSLMODE" psql \
   -h "$SUPABASE_DB_HOST_IPV4" \
   -p "$SUPABASE_DB_PORT" \
   -U "$SUPABASE_DB_USER" \
@@ -192,7 +193,7 @@ if psql \
   success "Test 6: PASSED - Supabase データベースに接続できます"
   
   # データベースバージョンを取得
-  DB_VERSION=$(PGPASSWORD="$SUPABASE_DB_PASSWORD" psql \
+  DB_VERSION=$(PGPASSWORD="$SUPABASE_DB_PASSWORD" PGSSLMODE="$PGSSLMODE" psql \
     -h "$SUPABASE_DB_HOST_IPV4" \
     -p "$SUPABASE_DB_PORT" \
     -U "$SUPABASE_DB_USER" \

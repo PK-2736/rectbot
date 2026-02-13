@@ -20,6 +20,7 @@ fi
 # R2 uses S3-compatible API; default to auto region and path-style addressing
 : "${AWS_DEFAULT_REGION:=auto}"
 : "${AWS_S3_ADDRESSING_STYLE:=path}"
+: "${PGSSLMODE:=require}"
 
 # 必須環境変数チェック
 : "${SUPABASE_PROJECT_REF:?SUPABASE_PROJECT_REF が設定されていません}"
@@ -163,7 +164,7 @@ fi
 
 export PGPASSWORD="$SUPABASE_DB_PASSWORD"
 
-if psql \
+if PGSSLMODE="$PGSSLMODE" psql \
   -h "$SUPABASE_DB_HOST_IPV4" \
   -p "$SUPABASE_DB_PORT" \
   -U "$SUPABASE_DB_USER" \
