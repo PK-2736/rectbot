@@ -46,7 +46,7 @@ jobs:
           echo "Using Cloudflare R2 credentials for AWS CLI"
           echo "AWS_ACCESS_KEY_ID=${{ secrets.R2_ACCESS_KEY_ID }}" >> $GITHUB_ENV
           echo "AWS_SECRET_ACCESS_KEY=${{ secrets.R2_SECRET_ACCESS_KEY }}" >> $GITHUB_ENV
-          echo "AWS_DEFAULT_REGION=ap-northeast-1" >> $GITHUB_ENV
+          echo "AWS_DEFAULT_REGION=auto" >> $GITHUB_ENV
           echo "AWS_EC2_METADATA_DISABLED=true" >> $GITHUB_ENV
       
       - name: Create .env.backup file
