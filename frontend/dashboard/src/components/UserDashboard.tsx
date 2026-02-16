@@ -2,9 +2,13 @@
 
 import { useState } from 'react';
 import { useAuth } from '@/components/AuthProvider';
-import { loadStripe, type Stripe } from '@stripe/stripe-js';
+import { loadStripe } from '@stripe/stripe-js';
 
-const stripePromise: Promise<Stripe | null> = loadStripe(
+type StripeCheckout = {
+  redirectToCheckout: (options: { sessionId: string }) => Promise<{ error?: { message?: string } }>;
+};
+
+const stripePromise = loadStripe(
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || ''
 );
 
@@ -32,7 +36,7 @@ export default function UserDashboard() {
       }
 
       const { sessionId } = await response.json();
-      const stripe = (await stripePromise) as Stripe | null;
+      const stripe = (await stripePromise) as StripeCheckout | null;
       
       if (!stripe) {
         throw new Error('Stripeの初期化に失敗しました');
