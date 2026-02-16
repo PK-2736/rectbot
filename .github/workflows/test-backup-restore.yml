@@ -1,4 +1,4 @@
-name: Backup/Restore Test
+name: Backup
 
 # P1修正: バックアップ復元機能の動作確認を自動化
 # 毎週月曜日の午前3時(JST)に実行 + 手動実行可能

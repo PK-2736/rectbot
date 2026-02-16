@@ -13,7 +13,9 @@ BACKUP_DIR="${SCRIPT_DIR}/backups"
 LOG_FILE="${SCRIPT_DIR}/restore.log"
 
 # 環境変数を読み込み
-if [ -f "${SCRIPT_DIR}/.env.backup" ]; then
+if [ -f "${SCRIPT_DIR}/../.env.backup" ]; then
+  export $(grep -v '^#' "${SCRIPT_DIR}/../.env.backup" | xargs)
+elif [ -f "${SCRIPT_DIR}/.env.backup" ]; then
   export $(grep -v '^#' "${SCRIPT_DIR}/.env.backup" | xargs)
 fi
 
