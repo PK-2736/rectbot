@@ -747,12 +747,28 @@ async function processClose(interaction, messageId, savedRecruitData) {
     }
     
     // Closed header
-    // 画像版の場合は画像のみを表示（テキスト情報は画像に含まれている）
+    // 画像版の場合は画像 + 参加リスト + フッターを表示
     if (closedAttachment) {
       disabledContainer.addMediaGalleryComponents(
         new MediaGalleryBuilder().addItems(
           new MediaGalleryItemBuilder().setURL('attachment://recruit-card-closed.png')
         )
+      );
+      disabledContainer.addSeparatorComponents(
+        new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+      );
+      // Final participants list
+      const finalParticipants = recruitParticipants.get(messageId) || [];
+      const totalMembers = (typeof data?.participants === 'number') ? data.participants : (typeof data?.participant_count === 'number' ? data.participant_count : null);
+      const totalSlots = totalMembers || finalParticipants.length;
+      const finalParticipantText = `📋 参加リスト (最終 ${finalParticipants.length}/${totalSlots}人)\n${finalParticipants.map(id => `<@${id}>`).join(' • ')}`;
+      disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent(finalParticipantText));
+      disabledContainer.addSeparatorComponents(
+        new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+      );
+      const footerMessageId = interaction.message.interaction?.id || interaction.message.id;
+      disabledContainer.addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(`募集ID：\`${footerMessageId.slice(-8)}\` | powered by **Recrubo**`)
       );
     } else {
       // 画像がない場合のフォールバック表示

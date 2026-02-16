@@ -293,12 +293,29 @@ async function autoCloseRecruitment(client, guildId, channelId, messageId) {
         const disabledContainer = new ContainerBuilder();
         disabledContainer.setAccentColor(baseColor);
         
-        // 画像版の場合は画像のみを表示（テキスト情報は画像に含まれている）
+        // 画像版の場合は画像 + 参加リスト + フッターを表示
         if (closedAttachment) {
           disabledContainer.addMediaGalleryComponents(
             new MediaGalleryBuilder().addItems(
               new MediaGalleryItemBuilder().setURL('attachment://recruit-card-closed.png')
             )
+          );
+          disabledContainer.addSeparatorComponents(
+            new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+          );
+          // 参加リスト（最終）を表示
+          const finalParticipants = await getParticipantsFromRedis(messageId) || [];
+          const totalSlots = savedRecruitData?.participants || finalParticipants.length;
+          const finalParticipantText = `📋 参加リスト (最終 ${finalParticipants.length}/${totalSlots}人)\n${finalParticipants.map(id => `<@${id}>`).join(' • ')}`;
+          disabledContainer.addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(finalParticipantText)
+          );
+          disabledContainer.addSeparatorComponents(
+            new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+          );
+          // フッター
+          disabledContainer.addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(`募集ID：\`${recruitId}\` | powered by **Recrubo**`)
           );
         } else {
           // 画像がない場合のフォールバック表示
