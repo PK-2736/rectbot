@@ -1,5 +1,5 @@
 import { jsonResponse } from '../worker/http.js';
-import { verifyServiceToken } from '../worker/auth.js';
+import { verifyServiceJwt } from '../worker/auth.js';
 import { resolveSupabaseRestUrl, buildSupabaseHeaders } from '../worker/supabase.js';
 
 function normalizeNotificationRoles(notificationRoles, notificationRole) {
@@ -128,7 +128,7 @@ async function saveGuildSettingsToSupabase(env, supabaseUrl, payload, safeHeader
 }
 
 async function handleGuildSettingsFinalize(request, env, { safeHeaders }) {
-  if (!await verifyServiceToken(request, env)) {
+  if (!await verifyServiceJwt(request, env)) {
     return jsonResponse({ ok: false, error: 'unauthorized' }, 401, safeHeaders);
   }
 

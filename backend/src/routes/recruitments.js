@@ -1,5 +1,5 @@
 import { jsonResponse } from '../worker/http.js';
-import { verifyServiceToken } from '../worker/auth.js';
+import { verifyServiceJwt } from '../worker/auth.js';
 
 function normalizeRecruitmentPath(pathname) {
   if (pathname === '/api/recruitment' || pathname === '/api/recruitment/') {
@@ -30,7 +30,7 @@ async function forwardToDoOrExecute(store, doPath, method, body = null, headers 
 }
 
 async function requireAuth(request, env, safeHeaders) {
-  if (!await verifyServiceToken(request, env)) {
+  if (!await verifyServiceJwt(request, env)) {
     return jsonResponse({ ok: false, error: 'unauthorized' }, 401, safeHeaders);
   }
   return null;

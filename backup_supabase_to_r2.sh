@@ -41,10 +41,6 @@ BACKUP_PREFIX="${BACKUP_PREFIX:-${BACKUP_ENV}/}"
 RETENTION_DAYS_DEFAULT=30
 RETENTION_DAYS="${BACKUP_RETENTION_DAYS:-$RETENTION_DAYS_DEFAULT}"
 
-# R2 uses S3-compatible API; default to auto region and path-style addressing
-: "${AWS_DEFAULT_REGION:=auto}"
-: "${AWS_S3_ADDRESSING_STYLE:=path}"
-
 # 接続情報
 SUPABASE_DB_HOST="${SUPABASE_DB_HOST:-db.${SUPABASE_PROJECT_REF}.supabase.co}"
 SUPABASE_DB_PORT="${SUPABASE_DB_PORT:-5432}"
@@ -100,49 +96,16 @@ if ! command -v aws >/dev/null 2>&1; then
 fi
 AWS_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID" \
 AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY" \
-AWS_DEFAULT_REGION="$AWS_DEFAULT_REGION" \
-AWS_S3_ADDRESSING_STYLE="$AWS_S3_ADDRESSING_STYLE" \
 aws s3 cp "$BACKUP_GZ_PATH" "s3://${R2_BUCKET_NAME}/${BACKUP_PREFIX}${BACKUP_GZ}" \
-  --endpoint-url "$R2_ENDPOINT" \
-  --region "$AWS_DEFAULT_REGION"
+  --endpoint-url "$R2_ENDPOINT"
 log "✅ R2 アップロード成功: s3://${R2_BUCKET_NAME}/${BACKUP_PREFIX}${BACKUP_GZ}"
 
-# 4) R2 古いバックアップ削除
-log "Step 4: R2 古いバックアップ削除 (>${RETENTION_DAYS}日)"
-CUTOFF_TS=$(date -d "-${RETENTION_DAYS} days" +%s)
-AWS_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID" \
-AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY" \
-AWS_DEFAULT_REGION="$AWS_DEFAULT_REGION" \
-AWS_S3_ADDRESSING_STYLE="$AWS_S3_ADDRESSING_STYLE" \
-aws s3 ls "s3://${R2_BUCKET_NAME}/${BACKUP_PREFIX}" \
-  --endpoint-url "$R2_ENDPOINT" \
-  --region "$AWS_DEFAULT_REGION" | \
-  while read -r file_date file_time file_size file_key; do
-    [ -z "$file_key" ] && continue
-    case "$file_key" in
-      supabase_backup_*.sql.gz) ;;
-      *) continue ;;
-    esac
-    file_ts=$(date -d "${file_date} ${file_time}" +%s 2>/dev/null || echo 0)
-    if [ "$file_ts" -gt 0 ] && [ "$file_ts" -lt "$CUTOFF_TS" ]; then
-      log "  - deleting: ${BACKUP_PREFIX}${file_key}"
-      AWS_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID" \
-      AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY" \
-      AWS_DEFAULT_REGION="$AWS_DEFAULT_REGION" \
-      AWS_S3_ADDRESSING_STYLE="$AWS_S3_ADDRESSING_STYLE" \
-      aws s3 rm "s3://${R2_BUCKET_NAME}/${BACKUP_PREFIX}${file_key}" \
-        --endpoint-url "$R2_ENDPOINT" \
-        --region "$AWS_DEFAULT_REGION"
-    fi
-  done
-log "✅ R2 整理完了"
-
-# 5) ローカル古いファイル削除
-log "Step 5: ローカル古いバックアップ削除 (>${RETENTION_DAYS}日)"
+# 4) ローカル古いファイル削除
+log "Step 4: ローカル古いバックアップ削除 (>${RETENTION_DAYS}日)"
 find "$BACKUP_DIR" -type f -name 'supabase_backup_*.sql.gz' -mtime +"${RETENTION_DAYS}" -print -delete | sed 's/^/  - /' || true
 log "✅ ローカル整理完了"
 
-# 6) 完了
+# 5) 完了
 log "=========================================="
 log "✅ バックアップ完了"
 log "バックアップ: ${BACKUP_GZ}"

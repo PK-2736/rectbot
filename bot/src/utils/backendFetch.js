@@ -1,6 +1,7 @@
 // backendFetch (Worker unified)
 const API_BASE = process.env.WORKER_API_BASE_URL || process.env.PUBLIC_API_BASE_URL || process.env.BACKEND_API_URL || 'https://api.recrubo.net';
-const SERVICE_TOKEN = process.env.SERVICE_TOKEN || '';
+const SERVICE_TOKEN = process.env.SERVICE_TOKEN || process.env.BACKEND_SERVICE_TOKEN || '';
+const { fetchServiceJwt } = require('./serviceJwt');
 
 function buildRequestUrl(path) {
   return path.startsWith('http') ? path : `${API_BASE}${path}`;
@@ -14,8 +15,16 @@ function hasHeader(headers, headerName) {
   return Object.keys(headers).some(key => key.toLowerCase() === headerName.toLowerCase());
 }
 
-function ensureServiceHeaders(headers) {
+async function ensureServiceHeaders(headers) {
   if (!SERVICE_TOKEN) return headers;
+  if (!hasHeader(headers, 'authorization') && !hasHeader(headers, 'x-service-token')) {
+    try {
+      const jwt = await fetchServiceJwt();
+      if (jwt) headers.authorization = `Bearer ${jwt}`;
+    } catch (err) {
+      console.warn('[backendFetch] Failed to fetch service JWT, falling back to service token:', err?.message || err);
+    }
+  }
   if (!hasHeader(headers, 'authorization')) headers.authorization = `Bearer ${SERVICE_TOKEN}`;
   if (!hasHeader(headers, 'x-service-token')) headers['x-service-token'] = SERVICE_TOKEN;
   return headers;
@@ -29,7 +38,13 @@ function ensureJsonContentType(headers) {
 function logRequest(method, url, headers) {
   console.log(`[backendFetch] ${method} ${url}`);
   console.log(`[backendFetch] SERVICE_TOKEN present: ${!!SERVICE_TOKEN}, length: ${SERVICE_TOKEN ? SERVICE_TOKEN.length : 0}`);
-  console.log(`[backendFetch] Headers:`, JSON.stringify(headers, null, 2));
+  const safeHeaders = { ...headers };
+  for (const key of Object.keys(safeHeaders)) {
+    if (['authorization', 'x-service-token'].includes(key.toLowerCase())) {
+      safeHeaders[key] = '[redacted]';
+    }
+  }
+  console.log(`[backendFetch] Headers:`, JSON.stringify(safeHeaders, null, 2));
 }
 
 async function parseResponse(res) {
@@ -52,7 +67,7 @@ async function backendFetch(path, opts = {}) {
   const method = (init.method || 'GET').toUpperCase();
 
   init.headers = normalizeHeaders(init.headers);
-  ensureServiceHeaders(init.headers);
+  await ensureServiceHeaders(init.headers);
   ensureJsonContentType(init.headers);
 
   logRequest(method, url, init.headers);

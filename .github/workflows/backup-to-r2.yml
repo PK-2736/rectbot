@@ -40,9 +40,7 @@ jobs:
       - name: Create .env.backup file
         run: |
           TARGET_ENV="${{ github.event.inputs.target_env }}"
-          if [ "${{ github.event_name }}" = "schedule" ]; then
-            TARGET_ENV="prod"
-          elif [ -z "$TARGET_ENV" ]; then
+          if [ -z "$TARGET_ENV" ]; then
             TARGET_ENV="test"
           fi
 

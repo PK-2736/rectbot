@@ -42,16 +42,14 @@ jobs:
           OCI_USER: ${{ secrets.OCI_USER }}
           OCI_HOST: ${{ secrets.OCI_HOST }}
           SERVICE_TOKEN: ${{ secrets.SERVICE_TOKEN }}
+          SERVICE_JWT_SECRET: ${{ secrets.SERVICE_JWT_SECRET }}
+          SERVICE_JWT_TTL_SEC: ${{ secrets.SERVICE_JWT_TTL_SEC }}
           DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
           INTERNAL_SECRET: ${{ secrets.INTERNAL_SECRET }}
           BACKEND_API_URL: ${{ secrets.BACKEND_API_URL }}
           DISCORD_CLIENT_ID: ${{ secrets.DISCORD_CLIENT_ID }}
           REDIS_HOST: ${{ secrets.REDIS_HOST }}
           REDIS_PORT: ${{ secrets.REDIS_PORT }}
-          # メール送信設定
-          GMAIL_USER: ${{ secrets.GMAIL_USER }}
-          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
-          NOTIFICATION_EMAIL_TO: ${{ secrets.NOTIFICATION_EMAIL_TO }}
           # Backup 関連の環境変数
           SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
@@ -62,6 +60,8 @@ jobs:
         run: |
           ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no $OCI_USER@$OCI_HOST '
             export SERVICE_TOKEN="'"$SERVICE_TOKEN"'" || true; \
+            export SERVICE_JWT_SECRET="'"$SERVICE_JWT_SECRET"'" || true; \
+            export SERVICE_JWT_TTL_SEC="'"$SERVICE_JWT_TTL_SEC"'" || true; \
             export DISCORD_BOT_TOKEN="'"$DISCORD_BOT_TOKEN"'" || true; \
             export DISCORD_CLIENT_ID="'"$DISCORD_CLIENT_ID"'" || true; \
             export CLIENT_ID="'$DISCORD_CLIENT_ID'" || true; \
@@ -69,9 +69,6 @@ jobs:
             export BACKEND_API_URL="'"$BACKEND_API_URL"'" || true; \
             export REDIS_HOST="'"$REDIS_HOST"'" || true; \
             export REDIS_PORT="'"$REDIS_PORT"'" || true; \
-            export GMAIL_USER="'"$GMAIL_USER"'" || true; \
-            export GMAIL_APP_PASSWORD="'"$GMAIL_APP_PASSWORD"'" || true; \
-            export NOTIFICATION_EMAIL_TO="'"$NOTIFICATION_EMAIL_TO"'" || true; \
             source ~/.bashrc || true; \
             source ~/.nvm/nvm.sh || true; \
             cd ~/rectbot || exit 1; \
@@ -80,42 +77,16 @@ jobs:
             # Bot デプロイ（ディレクトリが存在する場合のみ）
             if [ -d ~/rectbot/bot ]; then \
               cd ~/rectbot/bot || exit 1; \
-              echo "Installing dependencies..."; \
-              npm install --production || true; \
-              echo "Writing environment variables to .env..."; \
-              echo "SERVICE_TOKEN=\"${SERVICE_TOKEN}\"" > .env; \
-              echo "DISCORD_BOT_TOKEN=\"${DISCORD_BOT_TOKEN}\"" >> .env; \
-              echo "DISCORD_CLIENT_ID=\"${DISCORD_CLIENT_ID}\"" >> .env; \
-              echo "CLIENT_ID=\"${CLIENT_ID}\"" >> .env; \
-              echo "INTERNAL_SECRET=\"${INTERNAL_SECRET}\"" >> .env; \
-              echo "BACKEND_API_URL=\"${BACKEND_API_URL}\"" >> .env; \
-              echo "REDIS_HOST=\"${REDIS_HOST}\"" >> .env; \
-              echo "REDIS_PORT=\"${REDIS_PORT}\"" >> .env; \
-              echo "GMAIL_USER=\"${GMAIL_USER}\"" >> .env; \
-              echo "GMAIL_APP_PASSWORD=\"${GMAIL_APP_PASSWORD}\"" >> .env; \
-              echo "NOTIFICATION_EMAIL_TO=\"${NOTIFICATION_EMAIL_TO}\"" >> .env; \
-              set -a; source .env; set +a; \
               node src/deploy-commands.js || true; \
               pm2 restart rectbot --update-env || pm2 start pm2-server.config.js --env production; \
             else \
               echo "Bot directory not found, skipping bot deployment"; \
             fi; \
             
-            # バックアップ設定のセットアップ
-            cd ~/rectbot || exit 1; \
-            echo "Setting up backup environment variables..."; \
-            echo "SUPABASE_PROJECT_REF='"$SUPABASE_PROJECT_REF"'" > .env.backup; \
-            echo "SUPABASE_DB_PASSWORD='"$SUPABASE_DB_PASSWORD"'" >> .env.backup; \
-            echo "R2_ACCOUNT_ID='"$R2_ACCOUNT_ID"'" >> .env.backup; \
-            echo "R2_ACCESS_KEY_ID='"$R2_ACCESS_KEY_ID"'" >> .env.backup; \
-            echo "R2_SECRET_ACCESS_KEY='"$R2_SECRET_ACCESS_KEY"'" >> .env.backup; \
-            echo "R2_BUCKET_NAME='"$R2_BUCKET_NAME"'" >> .env.backup; \
-            echo "BACKUP_RETENTION_DAYS=30" >> .env.backup; \
-            chmod 600 .env.backup; \
             chmod +x backup_supabase_to_r2.sh; \
             chmod +x restore_from_r2.sh; \
             mkdir -p backups; \
-            echo "Backup system configured successfully!"
+            echo "Backup scripts are ready (no .env.backup written)."
           '
     
 

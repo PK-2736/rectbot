@@ -5,14 +5,21 @@
 
 // 統合されたbackend Workerを使用（Friend Code APIも含む）
 const WORKER_URL = process.env.BACKEND_API_URL || process.env.BACKEND_URL || 'https://api.recrubo.net';
-const SERVICE_TOKEN = process.env.SERVICE_TOKEN || '';
+const SERVICE_TOKEN = process.env.SERVICE_TOKEN || process.env.BACKEND_SERVICE_TOKEN || '';
+const { fetchServiceJwt } = require('./serviceJwt');
 
 /**
  * 共通ヘッダーを生成
  */
-function getHeaders() {
+async function getHeaders() {
   const headers = { 'Content-Type': 'application/json' };
-  if (SERVICE_TOKEN) {
+  try {
+    const jwt = await fetchServiceJwt();
+    if (jwt) headers.Authorization = `Bearer ${jwt}`;
+  } catch (err) {
+    console.warn('[Worker API] Failed to fetch service JWT, falling back to service token:', err?.message || err);
+  }
+  if (!headers.Authorization && SERVICE_TOKEN) {
     headers['X-Service-Token'] = SERVICE_TOKEN;
   }
   return headers;
@@ -35,7 +42,7 @@ async function requestWorkerJson(path, options = {}) {
   try {
     const response = await fetch(buildWorkerUrl(path), {
       method,
-      headers: getHeaders(),
+      headers: await getHeaders(),
       body
     });
 

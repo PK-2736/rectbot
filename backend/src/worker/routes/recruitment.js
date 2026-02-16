@@ -1,6 +1,8 @@
 // Recruitment, DO proxy, and Grafana-related routes
 // Returns a Response if this router handled the request; otherwise returns null
 
+import { verifyServiceJwtToken } from '../jwt.js';
+
 function isGrafanaPath(pathname) {
   return (
     pathname === '/metrics' ||
@@ -146,24 +148,19 @@ function validateGrafanaListAccess(env, request, url, corsHeaders) {
   return null;
 }
 
-function getServiceToken(env) {
-  return env.SERVICE_TOKEN || '';
-}
-
-function extractServiceToken(request) {
+function extractBearerToken(request) {
   const authHeader = request.headers.get('authorization') || '';
-  const serviceTokenHeader = request.headers.get('x-service-token') || '';
-  if (serviceTokenHeader) return serviceTokenHeader.trim();
   if (authHeader && authHeader.toLowerCase().startsWith('bearer ')) {
     return authHeader.slice(7).trim();
   }
   return '';
 }
 
-function isAuthorizedServiceRequest(request, serviceToken) {
-  if (!serviceToken) return true;
-  const token = extractServiceToken(request);
-  return !!token && token === serviceToken;
+async function isAuthorizedJwtRequest(request, env) {
+  const token = extractBearerToken(request);
+  if (!token) return false;
+  const result = await verifyServiceJwtToken(token, env);
+  return result.ok === true;
 }
 
 async function readJsonBody(request) {
@@ -422,8 +419,8 @@ async function handleActiveRecruits({ request, env, url, corsHeaders, sendToSent
   if (url.pathname !== '/api/active-recruits' || request.method !== 'GET') return null;
 
   try {
-    const serviceToken = getServiceToken(env);
-    if (!isAuthorizedServiceRequest(request, serviceToken)) {
+    const authorized = await isAuthorizedJwtRequest(request, env);
+    if (!authorized) {
       console.warn('[active-recruits] Unauthorized access attempt');
       return new Response(JSON.stringify({ error: 'unauthorized' }), {
         status: 401,
@@ -457,16 +454,22 @@ function extractRequestMetadata(request) {
   return { userAgent, clientIP };
 }
 
-function validateServiceToken(serviceToken, request, clientIP, userAgent, corsHeaders) {
-  if (!serviceToken) {
+async function validateServiceJwt(request, env, clientIP, userAgent, corsHeaders) {
+  const token = extractBearerToken(request);
+  if (!token) {
+    return new Response(JSON.stringify({ error: 'unauthorized' }), { status: 401, headers: withJsonHeaders(corsHeaders) });
+  }
+
+  const result = await verifyServiceJwtToken(token, env);
+  if (result.reason === 'missing_secret') {
     return new Response(JSON.stringify({ error: 'service_unavailable' }), { status: 503, headers: withJsonHeaders(corsHeaders) });
   }
 
-  if (!isAuthorizedServiceRequest(request, serviceToken)) {
+  if (!result.ok) {
     console.warn(`[security] Unauthorized push attempt from IP: ${clientIP}, UA: ${userAgent}`);
     return new Response(JSON.stringify({ error: 'unauthorized' }), { status: 401, headers: withJsonHeaders(corsHeaders) });
   }
-  
+
   return null;
 }
 
@@ -500,10 +503,9 @@ async function handleRecruitmentPush({ request, env, url, corsHeaders }) {
   if (url.pathname !== '/api/recruitment/push' || request.method !== 'POST') return null;
 
   try {
-    const serviceToken = getServiceToken(env);
     const { userAgent, clientIP } = extractRequestMetadata(request);
 
-    const tokenValidation = validateServiceToken(serviceToken, request, clientIP, userAgent, corsHeaders);
+    const tokenValidation = await validateServiceJwt(request, env, clientIP, userAgent, corsHeaders);
     if (tokenValidation) return tokenValidation;
 
     const agentValidation = validateUserAgent(userAgent, clientIP, corsHeaders);

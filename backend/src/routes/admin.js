@@ -1,10 +1,10 @@
 import { jsonResponse } from '../worker/http.js';
-import { verifyServiceToken } from '../worker/auth.js';
+import { verifyServiceJwt } from '../worker/auth.js';
 import { generateGameEmbeddings } from '../utils/gameEmbeddings';
 
 async function handleAdminRoutes(request, env, { url, safeHeaders }) {
   if (url.pathname === '/api/admin/generate-games' && request.method === 'POST') {
-    if (!await verifyServiceToken(request, env)) {
+    if (!await verifyServiceJwt(request, env)) {
       return jsonResponse({ ok: false, error: 'unauthorized' }, 401, safeHeaders);
     }
 
