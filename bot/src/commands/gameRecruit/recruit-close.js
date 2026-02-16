@@ -151,14 +151,11 @@ async function generateClosedImageAttachment(context) {
 async function buildImageStyleLayout(context) {
   const closedAttachment = await generateClosedImageAttachment(context);
 
+  // 画像版の場合、締め切り画像のみを表示（テキスト情報は画像に含まれている）
   return {
     attachment: closedAttachment,
     components: closedAttachment ? [
-      { type: 'mediaGallery', url: 'attachment://recruit-card-closed.png' },
-      { type: 'separator', spacing: 'Small', divider: true },
-      { type: 'text', content: context.finalParticipantText },
-      { type: 'separator', spacing: 'Small', divider: true },
-      { type: 'text', content: context.footerText }
+      { type: 'mediaGallery', url: 'attachment://recruit-card-closed.png' }
     ] : [
       { type: 'text', content: context.finalParticipantText },
       { type: 'separator', spacing: 'Small', divider: true },

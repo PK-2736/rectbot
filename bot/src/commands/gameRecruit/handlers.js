@@ -747,72 +747,82 @@ async function processClose(interaction, messageId, savedRecruitData) {
     }
     
     // Closed header
-    disabledContainer.addTextDisplayComponents(
-      new TextDisplayBuilder().setContent('🎮✨ **募集締め切り済み** ✨🎮')
-    );
-    // Title inside component
-    if (data?.title) {
-      disabledContainer.addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(`📌 タイトル\n${String(data.title).slice(0,200)}`)
-      );
-    }
-    disabledContainer.addSeparatorComponents(
-      new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
-    );
-    // Image section if original had attachment (image style)
-    if (hasAttachment || closedAttachment) {
+    // 画像版の場合は画像のみを表示（テキスト情報は画像に含まれている）
+    if (closedAttachment) {
       disabledContainer.addMediaGalleryComponents(
         new MediaGalleryBuilder().addItems(
-          new MediaGalleryItemBuilder().setURL(closedAttachment ? 'attachment://recruit-card-closed.png' : originalMessage.attachments.first().url)
+          new MediaGalleryItemBuilder().setURL('attachment://recruit-card-closed.png')
         )
       );
+    } else {
+      // 画像がない場合のフォールバック表示
+      disabledContainer.addTextDisplayComponents(
+        new TextDisplayBuilder().setContent('🎮✨ **募集締め切り済み** ✨🎮')
+      );
+      // Title inside component
+      if (data?.title) {
+        disabledContainer.addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(`📌 タイトル\n${String(data.title).slice(0,200)}`)
+        );
+      }
       disabledContainer.addSeparatorComponents(
         new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
       );
-    }
-    // Details（募集中と同じく横一列・コンパクト表記）
-    const startLabel = data?.startTime ? `🕒 ${data.startTime}` : null;
-    const totalMembers = (typeof data?.participants === 'number') ? data.participants : (typeof data?.participant_count === 'number' ? data.participant_count : null);
-    const membersLabel = (typeof totalMembers === 'number') ? `👥 ${totalMembers}人` : null;
-    let voiceLabel = null;
-    if (typeof data?.vc === 'string') {
-      if (data.vc === 'あり(聞き専)') {
-        voiceLabel = data?.voicePlace ? `🎙 聞き専/${data.voicePlace}` : '🎙 聞き専';
-      } else if (data.vc === 'あり') {
+      // Image section if original had attachment (image style)
+      if (hasAttachment) {
+        disabledContainer.addMediaGalleryComponents(
+          new MediaGalleryBuilder().addItems(
+            new MediaGalleryItemBuilder().setURL(originalMessage.attachments.first().url)
+          )
+        );
+        disabledContainer.addSeparatorComponents(
+          new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+        );
+      }
+      // Details（募集中と同じく横一列・コンパクト表記）
+      const startLabel = data?.startTime ? `🕒 ${data.startTime}` : null;
+      const totalMembers = (typeof data?.participants === 'number') ? data.participants : (typeof data?.participant_count === 'number' ? data.participant_count : null);
+      const membersLabel = (typeof totalMembers === 'number') ? `👥 ${totalMembers}人` : null;
+      let voiceLabel = null;
+      if (typeof data?.vc === 'string') {
+        if (data.vc === 'あり(聞き専)') {
+          voiceLabel = data?.voicePlace ? `🎙 聞き専/${data.voicePlace}` : '🎙 聞き専';
+        } else if (data.vc === 'あり') {
+          voiceLabel = data?.voicePlace ? `🎙 あり/${data.voicePlace}` : '🎙 あり';
+        } else if (data.vc === 'なし') {
+          voiceLabel = '🎙 なし';
+        }
+      } else if (data?.voice === true) {
         voiceLabel = data?.voicePlace ? `🎙 あり/${data.voicePlace}` : '🎙 あり';
-      } else if (data.vc === 'なし') {
+      } else if (data?.voice === false) {
         voiceLabel = '🎙 なし';
       }
-    } else if (data?.voice === true) {
-      voiceLabel = data?.voicePlace ? `🎙 あり/${data.voicePlace}` : '🎙 あり';
-    } else if (data?.voice === false) {
-      voiceLabel = '🎙 なし';
+      const detailsText = [startLabel, membersLabel, voiceLabel].filter(Boolean).join(' | ');
+      if (detailsText) {
+        disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent(detailsText));
+      }
+      // Content (no divider between details and content)
+      const contentText = data?.content ? `📝 募集内容\n${String(data.content).slice(0,1500)}` : '';
+      if (contentText) {
+        disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent(contentText));
+      }
+      // Separator before participants
+      disabledContainer.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
+      // Final participants list
+      const finalParticipants = recruitParticipants.get(messageId) || [];
+      const totalSlots = totalMembers || finalParticipants.length;
+      const finalParticipantText = `📋 参加リスト (最終 ${finalParticipants.length}/${totalSlots}人)\n${finalParticipants.map(id => `<@${id}>`).join(' • ')}`;
+      disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent(finalParticipantText));
+      // Closed note
+      disabledContainer.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
+      disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent('🔒 **この募集は締め切られました** 🔒'));
+      const footerMessageId = interaction.message.interaction?.id || interaction.message.id;
+      disabledContainer.addSeparatorComponents(
+        new (require('discord.js').SeparatorBuilder)().setSpacing(require('discord.js').SeparatorSpacingSize.Small).setDivider(true)
+      ).addTextDisplayComponents(
+        new (require('discord.js').TextDisplayBuilder)().setContent(`募集ID：\`${footerMessageId.slice(-8)}\` | powered by **Recrubo**`)
+      );
     }
-    const detailsText = [startLabel, membersLabel, voiceLabel].filter(Boolean).join(' | ');
-    if (detailsText) {
-      disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent(detailsText));
-    }
-    // Content (no divider between details and content)
-    const contentText = data?.content ? `📝 募集内容\n${String(data.content).slice(0,1500)}` : '';
-    if (contentText) {
-      disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent(contentText));
-    }
-    // Separator before participants
-    disabledContainer.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
-    // Final participants list
-    const finalParticipants = recruitParticipants.get(messageId) || [];
-    const totalSlots = totalMembers || finalParticipants.length;
-    const finalParticipantText = `📋 参加リスト (最終 ${finalParticipants.length}/${totalSlots}人)\n${finalParticipants.map(id => `<@${id}>`).join(' • ')}`;
-    disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent(finalParticipantText));
-    // Closed note
-    disabledContainer.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
-    disabledContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent('🔒 **この募集は締め切られました** 🔒'));
-    const footerMessageId = interaction.message.interaction?.id || interaction.message.id;
-    disabledContainer.addSeparatorComponents(
-      new (require('discord.js').SeparatorBuilder)().setSpacing(require('discord.js').SeparatorSpacingSize.Small).setDivider(true)
-    ).addTextDisplayComponents(
-  new (require('discord.js').TextDisplayBuilder)().setContent(`募集ID：\`${footerMessageId.slice(-8)}\` | powered by **Recrubo**`)
-    );
     
     const editPayload = {
       components: [disabledContainer],

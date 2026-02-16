@@ -293,37 +293,36 @@ async function autoCloseRecruitment(client, guildId, channelId, messageId) {
         const disabledContainer = new ContainerBuilder();
         disabledContainer.setAccentColor(baseColor);
         
-        // ヘッダー
-        disabledContainer.addTextDisplayComponents(
-          new TextDisplayBuilder().setContent('🔒✨ **募集締め切り済み** ✨🔒')
-        );
-        disabledContainer.addSeparatorComponents(
-          new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
-        );
-        
-        // 画像を表示
-        disabledContainer.addMediaGalleryComponents(
-          new MediaGalleryBuilder().addItems(
-            new MediaGalleryItemBuilder().setURL('attachment://recruit-card-closed.png')
-          )
-        );
-        
-        disabledContainer.addSeparatorComponents(
-          new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
-        );
-        
-        // 締め切り状態メッセージ
-        disabledContainer.addTextDisplayComponents(
-          new TextDisplayBuilder().setContent('🔒 この募集は締め切られました。')
-        );
-        disabledContainer.addSeparatorComponents(
-          new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
-        );
-        
-        // フッター
-        disabledContainer.addTextDisplayComponents(
-          new TextDisplayBuilder().setContent(`募集ID：\`${recruitId}\` | powered by **Recrubo**`)
-        );
+        // 画像版の場合は画像のみを表示（テキスト情報は画像に含まれている）
+        if (closedAttachment) {
+          disabledContainer.addMediaGalleryComponents(
+            new MediaGalleryBuilder().addItems(
+              new MediaGalleryItemBuilder().setURL('attachment://recruit-card-closed.png')
+            )
+          );
+        } else {
+          // 画像がない場合のフォールバック表示
+          // ヘッダー
+          disabledContainer.addTextDisplayComponents(
+            new TextDisplayBuilder().setContent('🔒✨ **募集締め切り済み** ✨🔒')
+          );
+          disabledContainer.addSeparatorComponents(
+            new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+          );
+          
+          // 締め切り状態メッセージ
+          disabledContainer.addTextDisplayComponents(
+            new TextDisplayBuilder().setContent('🔒 この募集は締め切られました。')
+          );
+          disabledContainer.addSeparatorComponents(
+            new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+          );
+          
+          // フッター
+          disabledContainer.addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(`募集ID：\`${recruitId}\` | powered by **Recrubo**`)
+          );
+        }
 
         // 無効化されたボタンを追加
         const disabledButtons = new ActionRowBuilder()
