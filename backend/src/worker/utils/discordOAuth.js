@@ -1,6 +1,6 @@
 // utils/discordOAuth.js
 import { resolveSupabaseRestUrl, getSupabaseClient } from '../supabase.js';
-import { isAdmin, issueJWT } from './auth.js';
+import { isAdmin } from './auth.js';
 
 async function getDiscordToken(code, redirectUri, clientId, clientSecret) {
   const params = new URLSearchParams({
@@ -26,6 +26,49 @@ async function getDiscordUser(accessToken) {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   return res.json();
+}
+
+function resolveJwtIssuerUrl(env) {
+  if (env.JWT_ISSUER_URL) return env.JWT_ISSUER_URL;
+  return env.VPS_EXPRESS_URL || env.TUNNEL_URL || '';
+}
+
+async function requestJwtFromIssuer(userInfo, env) {
+  const issuerBase = resolveJwtIssuerUrl(env);
+  if (!issuerBase) {
+    throw new Error('JWT issuer is not configured');
+  }
+  if (!env.INTERNAL_SECRET) {
+    throw new Error('INTERNAL_SECRET is not configured');
+  }
+
+  const url = new URL('/internal/jwt/issue', issuerBase);
+  const headers = { 'Content-Type': 'application/json' };
+  headers['x-internal-secret'] = env.INTERNAL_SECRET;
+
+  const role = isAdmin(userInfo.id, env) ? 'admin' : 'user';
+  const payload = {
+    userId: userInfo.id,
+    username: userInfo.username,
+    role
+  };
+
+  const res = await fetch(url.toString(), {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(payload)
+  });
+
+  if (!res.ok) {
+    const detail = await res.text().catch(() => 'no response');
+    throw new Error(`JWT issuer error (${res.status}): ${detail}`);
+  }
+
+  const data = await res.json();
+  if (!data?.jwt) {
+    throw new Error('JWT issuer response missing jwt');
+  }
+  return data.jwt;
 }
 
 export async function handleDiscordCallback(code, env) {
@@ -60,6 +103,6 @@ export async function handleDiscordCallback(code, env) {
     console.error('Failed to save user to Supabase (non-fatal):', e);
   }
 
-  const jwt = await issueJWT(userInfo, env);
+  const jwt = await requestJwtFromIssuer(userInfo, env);
   return { jwt, userInfo };
 }

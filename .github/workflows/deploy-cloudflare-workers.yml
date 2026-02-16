@@ -25,7 +25,7 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           DISCORD_CLIENT_SECRET: ${{ secrets.DISCORD_CLIENT_SECRET }}
           JWT_PUBLIC_KEY: ${{ secrets.JWT_PUBLIC_KEY }}
-          JWT_PRIVATE_KEY: ${{ secrets.JWT_PRIVATE_KEY }}
+          JWT_ISSUER_URL: ${{ secrets.JWT_ISSUER_URL }}
           SERVICE_JWT_PUBLIC_KEY: ${{ secrets.SERVICE_JWT_PUBLIC_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
@@ -38,7 +38,7 @@ jobs:
         run: |
           echo "Checking GitHub Secrets for Workers..."
           missing=()
-          for v in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID SERVICE_JWT_PUBLIC_KEY JWT_PUBLIC_KEY JWT_PRIVATE_KEY SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY; do
+          for v in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID SERVICE_JWT_PUBLIC_KEY JWT_PUBLIC_KEY JWT_ISSUER_URL SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY; do
             if [ -z "${!v}" ]; then
               echo "ERROR: Required secret $v is not set"
               missing+=("$v")
@@ -48,7 +48,7 @@ jobs:
           done
 
           # recommended
-          for v in RECAPTCHA_SECRET SENTRY_DSN SUPPORT_EMAIL DISCORD_WEBHOOK_URL DISCORD_CLIENT_SECRET GRAFANA_TOKEN JWT_PUBLIC_KEY JWT_PRIVATE_KEY; do
+          for v in RECAPTCHA_SECRET SENTRY_DSN SUPPORT_EMAIL DISCORD_WEBHOOK_URL DISCORD_CLIENT_SECRET GRAFANA_TOKEN JWT_PUBLIC_KEY JWT_ISSUER_URL; do
             if [ -z "${!v}" ]; then
               echo "WARN: Recommended secret $v is not set"
             else
@@ -85,7 +85,7 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           DISCORD_CLIENT_SECRET: ${{ secrets.DISCORD_CLIENT_SECRET }}
           JWT_PUBLIC_KEY: ${{ secrets.JWT_PUBLIC_KEY }}
-          JWT_PRIVATE_KEY: ${{ secrets.JWT_PRIVATE_KEY }}
+          JWT_ISSUER_URL: ${{ secrets.JWT_ISSUER_URL }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           SERVICE_JWT_PUBLIC_KEY: ${{ secrets.SERVICE_JWT_PUBLIC_KEY }}
@@ -122,7 +122,7 @@ jobs:
           # register secrets (read from env variables passed to this step)
           register_secret DISCORD_CLIENT_SECRET DISCORD_CLIENT_SECRET
           register_secret JWT_PUBLIC_KEY JWT_PUBLIC_KEY
-          register_secret JWT_PRIVATE_KEY JWT_PRIVATE_KEY
+          register_secret JWT_ISSUER_URL JWT_ISSUER_URL
           # SUPABASE_URL は wrangler secret put で永続化されるため、ここでは登録不要
           register_secret SUPABASE_SERVICE_ROLE_KEY SUPABASE_SERVICE_ROLE_KEY
           register_secret SERVICE_JWT_PUBLIC_KEY SERVICE_JWT_PUBLIC_KEY

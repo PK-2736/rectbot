@@ -941,9 +941,9 @@ BACKEND_API_URL=                     # Worker API の内部エンドポイント
 PUBLIC_API_BASE_URL=                 # Public (Pagesなどから叩く用)
 NEXT_PUBLIC_API_BASE_URL=            # Frontend用APIエンドポイント
 
-INTERNAL_SECRET=                     # Bot ⇔ Worker 間で共通利用する内部トークン（JWT検証用）
+INTERNAL_SECRET=                     # Bot ⇔ Worker 間で共通利用する内部トークン（JWT発行API用）
 JWT_PUBLIC_KEY=                      # APIのJWT検証用（公開鍵）
-JWT_PRIVATE_KEY=                     # APIのJWT署名用（秘密鍵）
+JWT_ISSUER_URL=                      # OCIのJWT発行エンドポイント
 
 SERVICE_TOKEN=                       # Bot → Worker 通信用のサービス トークン
 

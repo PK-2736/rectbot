@@ -54,7 +54,7 @@ VPS_EXPRESS_URL = "http://localhost:3001"
 # - SUPABASE_URL (secretとして永続化)
 # - SUPABASE_SERVICE_ROLE_KEY (機密情報なのでsecretとして設定)
 # - JWT_PUBLIC_KEY
-# - JWT_PRIVATE_KEY
+# - JWT_ISSUER_URL
 # - SERVICE_JWT_PUBLIC_KEY
 # - SERVICE_TOKEN
 # - SENTRY_DSN

@@ -14,6 +14,13 @@ const TOKEN = process.env.DISCORD_BOT_TOKEN;
 const FAILOVER_ENABLED = String(process.env.FAILOVER_ENABLED || 'false').toLowerCase() === 'true';
 const SITE_ID = process.env.SITE_ID || 'oci'; // 'oci' or 'xserver'
 
+try {
+  const { startJwtIssuerServer } = require('./utils/jwtIssuerServer');
+  startJwtIssuerServer();
+} catch (e) {
+  console.warn('[jwt-issuer] Failed to start:', e?.message || e);
+}
+
 const { Client, GatewayIntentBits, Partials, ActivityType } = require("discord.js");
 const fs = require('fs');
 const path = require('path');
