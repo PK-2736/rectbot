@@ -36,7 +36,6 @@ fi
 : "${AWS_DEFAULT_REGION:=auto}"
 : "${AWS_S3_ADDRESSING_STYLE:=path}"
 : "${AWS_EC2_METADATA_DISABLED:=true}"
-: "${PGSSLMODE:=require}"
 
 log "=========================================="
 log "R2 復元スクリプトのテスト"
@@ -172,28 +171,35 @@ SUPABASE_DB_USER="${SUPABASE_DB_USER:-postgres}"
 SUPABASE_DB_NAME="${SUPABASE_DB_NAME:-postgres}"
 
 # IPv4 アドレスを取得
-log "  Supabase ホストの IPv4 アドレスを解決中..."
-SUPABASE_DB_HOST_IPV4=$(getent ahostsv4 "$SUPABASE_DB_HOST" 2>/dev/null | head -n 1 | awk '{print $1}')
-
-if [ -z "$SUPABASE_DB_HOST_IPV4" ]; then
-  log "  ⚠️ IPv4 アドレスの解決に失敗しました。ホスト名で接続を試みます..."
+if echo "$SUPABASE_DB_HOST" | grep -qi 'pooler'; then
+  log "  pooler ホストのため IPv4 解決をスキップします"
   SUPABASE_DB_HOST_IPV4="$SUPABASE_DB_HOST"
 else
-  log "  IPv4 アドレス: $SUPABASE_DB_HOST_IPV4"
+  log "  Supabase ホストの IPv4 アドレスを解決中..."
+  SUPABASE_DB_HOST_IPV4=$(getent ahostsv4 "$SUPABASE_DB_HOST" 2>/dev/null | head -n 1 | awk '{print $1}')
+
+  if [ -z "$SUPABASE_DB_HOST_IPV4" ]; then
+    log "  ⚠️ IPv4 アドレスの解決に失敗しました。ホスト名で接続を試みます..."
+    SUPABASE_DB_HOST_IPV4="$SUPABASE_DB_HOST"
+  else
+    log "  IPv4 アドレス: $SUPABASE_DB_HOST_IPV4"
+  fi
 fi
 
 export PGPASSWORD="$SUPABASE_DB_PASSWORD"
 
-if PGSSLMODE="$PGSSLMODE" psql \
+PSQL_OUTPUT=$(psql \
   -h "$SUPABASE_DB_HOST_IPV4" \
   -p "$SUPABASE_DB_PORT" \
   -U "$SUPABASE_DB_USER" \
   -d "$SUPABASE_DB_NAME" \
-  -c "SELECT version();" &> /dev/null; then
+  -c "SELECT version();" 2>&1) || true
+
+if echo "$PSQL_OUTPUT" | grep -qi 'version'; then
   success "Test 6: PASSED - Supabase データベースに接続できます"
   
   # データベースバージョンを取得
-  DB_VERSION=$(PGPASSWORD="$SUPABASE_DB_PASSWORD" PGSSLMODE="$PGSSLMODE" psql \
+  DB_VERSION=$(PGPASSWORD="$SUPABASE_DB_PASSWORD" psql \
     -h "$SUPABASE_DB_HOST_IPV4" \
     -p "$SUPABASE_DB_PORT" \
     -U "$SUPABASE_DB_USER" \
@@ -206,6 +212,7 @@ else
   error "  ポート: $SUPABASE_DB_PORT"
   error "  ユーザー: $SUPABASE_DB_USER"
   error "  データベース: $SUPABASE_DB_NAME"
+  error "  詳細: $PSQL_OUTPUT"
   unset PGPASSWORD
   exit 1
 fi
