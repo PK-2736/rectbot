@@ -15,15 +15,46 @@ function hasHeader(headers, headerName) {
   return Object.keys(headers).some(key => key.toLowerCase() === headerName.toLowerCase());
 }
 
-async function ensureServiceHeaders(headers) {
-  if (!hasHeader(headers, 'authorization') && !hasHeader(headers, 'x-service-token')) {
-    try {
-      const jwt = await fetchServiceJwt();
-      if (jwt) headers.authorization = `Bearer ${jwt}`;
-    } catch (err) {
-      console.warn('[backendFetch] Failed to fetch service JWT, falling back to service token:', err?.message || err);
+function getHeaderValue(headers, headerName) {
+  const key = Object.keys(headers).find(k => k.toLowerCase() === headerName.toLowerCase());
+  return key ? headers[key] : undefined;
+}
+
+function deleteHeader(headers, headerName) {
+  for (const key of Object.keys(headers)) {
+    if (key.toLowerCase() === headerName.toLowerCase()) {
+      delete headers[key];
     }
   }
+}
+
+function isLegacyServiceTokenAuth(headers) {
+  if (!SERVICE_TOKEN) return false;
+  const auth = getHeaderValue(headers, 'authorization');
+  if (!auth || typeof auth !== 'string') return false;
+  const match = auth.match(/^Bearer\s+(.+)$/i);
+  return match ? match[1] === SERVICE_TOKEN : false;
+}
+
+async function ensureServiceHeaders(headers) {
+  // Always drop legacy x-service-token headers.
+  deleteHeader(headers, 'x-service-token');
+
+  try {
+    const jwt = await fetchServiceJwt();
+    if (jwt) {
+      headers.authorization = `Bearer ${jwt}`;
+      return headers;
+    }
+  } catch (err) {
+    console.warn('[backendFetch] Failed to fetch service JWT:', err?.message || err);
+  }
+
+  if (isLegacyServiceTokenAuth(headers)) {
+    deleteHeader(headers, 'authorization');
+    console.warn('[backendFetch] Dropped legacy SERVICE_TOKEN auth header (JWT required).');
+  }
+
   return headers;
 }
 
