@@ -38,17 +38,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (response.ok) {
           // 認証成功 - 実際のユーザー情報を取得
           const data = await response.json();
+          const userPayload = data.user || data;
           const authUser: DiscordUser = {
-            id: data.id,
-            username: data.username,
+            id: userPayload.id,
+            username: userPayload.username,
             discriminator: '0',
             email: '',
           };
           setUser(authUser);
-          console.log('User authenticated:', data);
-          console.log('User ID:', data.id);
-          console.log('User role:', data.role);
-          console.log('Is admin:', data.isAdmin);
+          console.log('User authenticated:', userPayload);
+          console.log('User ID:', userPayload.id);
+          console.log('User role:', userPayload.role);
         } else if (response.status === 401) {
           // 認証失敗
           console.log('User not authenticated');

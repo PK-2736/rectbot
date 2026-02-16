@@ -2,7 +2,7 @@
 # 使い方: ./git.sh [コミットメッセージ]
 # 引数がない場合は自動的に "test" を使用
 
-COMMIT_MESSAGE="${1:-test}"
+COMMIT_MESSAGE="${1:-fixed bug}"
 
 git add .
 git commit -m "$COMMIT_MESSAGE"
