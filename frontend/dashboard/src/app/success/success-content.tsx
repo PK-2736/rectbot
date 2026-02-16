@@ -1,14 +1,16 @@
-import SuccessContent from './success-content';
+'use client';
 
-type SuccessPageProps = {
-  searchParams?: { session_id?: string };
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+
+type SuccessContentProps = {
+  sessionId: string | null;
 };
 
-export default function SuccessPage({ searchParams }: SuccessPageProps) {
-  return <SuccessContent sessionId={searchParams?.session_id || null} />;
-}
+export default function SuccessContent({ sessionId }: SuccessContentProps) {
+  const router = useRouter();
 
-    // 5秒後にダッシュボードにリダイレクト
+  useEffect(() => {
     const timer = setTimeout(() => {
       router.push('/');
     }, 5000);
@@ -62,13 +64,5 @@ export default function SuccessPage({ searchParams }: SuccessPageProps) {
         </p>
       </div>
     </div>
-  );
-}
-
-export default function SuccessPage() {
-  return (
-    <React.Suspense fallback={<div className="min-h-screen bg-gray-900 flex items-center justify-center text-white">読み込み中...</div>}>
-      <SuccessContent />
-    </React.Suspense>
   );
 }
