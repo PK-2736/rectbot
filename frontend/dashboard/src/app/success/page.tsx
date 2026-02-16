@@ -1,9 +1,16 @@
 import SuccessContent from './success-content';
 
-type SuccessPageProps = {
-  searchParams?: { session_id?: string };
+type SearchParams = {
+  [key: string]: string | string[] | undefined;
 };
 
-export default function SuccessPage({ searchParams }: SuccessPageProps) {
-  return <SuccessContent sessionId={searchParams?.session_id || null} />;
+type SuccessPageProps = {
+  searchParams?: Promise<SearchParams> | SearchParams;
+};
+
+export default async function SuccessPage({ searchParams }: SuccessPageProps) {
+  const resolved = await searchParams;
+  const raw = resolved?.session_id;
+  const sessionId = Array.isArray(raw) ? raw[0] : raw || null;
+  return <SuccessContent sessionId={sessionId} />;
 }
