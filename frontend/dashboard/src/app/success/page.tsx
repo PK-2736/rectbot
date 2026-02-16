@@ -5,7 +5,7 @@ type SearchParams = {
 };
 
 type SuccessPageProps = {
-  searchParams?: Promise<SearchParams> | SearchParams;
+  searchParams?: Promise<SearchParams>;
 };
 
 export default async function SuccessPage({ searchParams }: SuccessPageProps) {
