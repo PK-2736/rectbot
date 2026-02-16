@@ -23,7 +23,7 @@ jobs:
       - name: Setup PostgreSQL client
         run: |
           sudo apt-get update
-          sudo apt-get install -y postgresql-client
+          sudo apt-get install -y postgresql-client-17
 
       - name: Setup AWS CLI (R2)
         run: |
