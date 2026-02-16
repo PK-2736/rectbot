@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, Suspense } from 'react';
+import { useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
-function SuccessContentInner() {
+export default function SuccessContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const sessionId = searchParams.get('session_id');
@@ -62,17 +62,5 @@ function SuccessContentInner() {
         </p>
       </div>
     </div>
-  );
-}
-
-export default function SuccessContent() {
-  return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 flex items-center justify-center">
-        <div className="text-white">読み込み中...</div>
-      </div>
-    }>
-      <SuccessContentInner />
-    </Suspense>
   );
 }
