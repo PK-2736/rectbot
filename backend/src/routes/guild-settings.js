@@ -217,6 +217,9 @@ async function fetchGuildSettingsFromSupabase(guildId, env, safeHeaders) {
 }
 
 async function handleGuildSettingsGet(request, env, { url, safeHeaders }) {
+  if (!await verifyServiceJwt(request, env)) {
+    return jsonResponse({ ok: false, error: 'unauthorized' }, 401, safeHeaders);
+  }
   const guildId = url.pathname.split('/').pop();
 
   try {

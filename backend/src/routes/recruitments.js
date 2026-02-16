@@ -217,7 +217,11 @@ function prepareNormalizedPath(url) {
 }
 
 async function routeGetRequests(context) {
-  const { path, store, cors, safeHeaders } = context;
+  const { path, request, env, store, cors, safeHeaders } = context;
+  if (path === '/api/recruitments' || path === '/api/active-recruits' || path.startsWith('/api/recruitments/')) {
+    const authError = await requireAuth(request, env, safeHeaders);
+    if (authError) return authError;
+  }
   if (path === '/api/recruitments') {
     return handleListRecruits(store, cors, safeHeaders);
   }

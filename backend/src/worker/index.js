@@ -12,6 +12,16 @@ import { routeProxy } from './routes/proxy.js';
 import { routeBotInvite } from './routes/botInvite.js';
 import { sendToSentry } from './utils/sentry.js';
 
+let grafanaStartupLogged = false;
+
+function logGrafanaAuthStartup(env) {
+  if (grafanaStartupLogged) return;
+  grafanaStartupLogged = true;
+  const tokenLength = env?.GRAFANA_TOKEN?.length || 0;
+  const hasToken = tokenLength > 0;
+  console.log('[worker] Grafana auth startup', { hasToken, tokenLength });
+}
+
 // ----- Sentry minimal HTTP reporter for Cloudflare Worker when @sentry/cloudflare isn't used -----
 // Durable Object: RecruitsDO (singleton) for ephemeral recruitment cache with TTL
 export class RecruitsDO {
@@ -561,59 +571,6 @@ function handlePreflight(corsHeaders) {
   });
 }
 
-function isPublicPath(pathname) {
-  const skipTokenPaths = [
-    '/api/test',
-    '/api/discord/callback',
-    '/api/dashboard',
-    '/api/support',
-    '/metrics',
-    '/api/grafana/recruits',
-    '/api/bot-invite'
-  ];
-  return skipTokenPaths.some(path => pathname.startsWith(path));
-}
-
-function requiresServiceToken(pathname) {
-  const isApiPath = pathname.startsWith('/api');
-  return isApiPath && !isPublicPath(pathname);
-}
-
-function extractServiceToken(request) {
-  const authHeader = request.headers.get('authorization') || '';
-  const serviceTokenHeader = request.headers.get('x-service-token') || '';
-  
-  if (authHeader && authHeader.toLowerCase().startsWith('bearer ')) {
-    return authHeader.slice(7).trim();
-  }
-  
-  if (serviceTokenHeader) {
-    return serviceTokenHeader.trim();
-  }
-  
-  return '';
-}
-
-function validateServiceToken(request, env, url) {
-  const SERVICE_TOKEN = env.SERVICE_TOKEN || '';
-  
-  if (!requiresServiceToken(url.pathname)) {
-    return { valid: true };
-  }
-  
-  if (!SERVICE_TOKEN) {
-    return { valid: true };
-  }
-  
-  const token = extractServiceToken(request);
-  
-  if (!token || token !== SERVICE_TOKEN) {
-    console.warn(`[Auth] Unauthorized access attempt to ${url.pathname}`);
-    return { valid: false };
-  }
-  
-  return { valid: true };
-}
 
 function buildEnvLiteResponse(env, corsHeaders) {
   const sources = [
@@ -720,15 +677,9 @@ function handleDebugEndpoints(url, request, env, corsHeaders) {
   return null;
 }
 
-function handleUnauthorized(corsHeaders) {
-  return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-    status: 401,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-  });
-}
-
 export default {
   async fetch(request, env, ctx) {
+    logGrafanaAuthStartup(env);
     console.log(`Worker request: ${request.method} ${request.url}`);
     const url = new URL(request.url);
     const origin = request.headers.get('Origin') || '';
@@ -737,12 +688,6 @@ export default {
     // Handle CORS preflight
     if (request.method === 'OPTIONS') {
       return handlePreflight(corsHeaders);
-    }
-
-    // Validate service token for protected routes
-    const tokenValidation = validateServiceToken(request, env, url);
-    if (!tokenValidation.valid) {
-      return handleUnauthorized(corsHeaders);
     }
 
     // Handle debug endpoints

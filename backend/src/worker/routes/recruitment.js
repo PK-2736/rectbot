@@ -134,15 +134,17 @@ function validateGrafanaListAccess(env, request, url, corsHeaders) {
 
   logGrafanaTokenCheck({ grafanaToken, providedToken, request, url });
 
-  if (grafanaToken) {
-    if (!providedToken || providedToken !== grafanaToken) {
-      console.warn('[Grafana API] Unauthorized access attempt', { grafanaToken: !!grafanaToken, providedToken: !!providedToken });
-      return new Response(JSON.stringify({ error: 'unauthorized' }), { status: 401, headers: withJsonHeaders(corsHeaders) });
-    }
-    console.log('[Grafana API] Token validated successfully');
-  } else {
-    console.warn('[Grafana API] No GRAFANA_TOKEN env variable set - API is open to any request');
+  if (!grafanaToken) {
+    console.warn('[Grafana API] Missing GRAFANA_TOKEN env variable');
+    return new Response(JSON.stringify({ error: 'service_unavailable' }), { status: 503, headers: withJsonHeaders(corsHeaders) });
   }
+
+  if (!providedToken || providedToken !== grafanaToken) {
+    console.warn('[Grafana API] Unauthorized access attempt', { grafanaToken: !!grafanaToken, providedToken: !!providedToken });
+    return new Response(JSON.stringify({ error: 'unauthorized' }), { status: 401, headers: withJsonHeaders(corsHeaders) });
+  }
+
+  console.log('[Grafana API] Token validated successfully');
 
   logGrafanaRequestHeaders(request, url, !!grafanaToken);
   return null;
@@ -163,6 +165,17 @@ async function isAuthorizedJwtRequest(request, env) {
   return result.ok === true;
 }
 
+async function requireServiceJwt(request, env, corsHeaders) {
+  const authorized = await isAuthorizedJwtRequest(request, env);
+  if (!authorized) {
+    return new Response(JSON.stringify({ error: 'unauthorized' }), {
+      status: 401,
+      headers: withJsonHeaders(corsHeaders)
+    });
+  }
+  return null;
+}
+
 async function readJsonBody(request) {
   try {
     return await request.json();
@@ -173,7 +186,10 @@ async function readJsonBody(request) {
 
 function requireGrafanaAuth(env, request, corsHeaders, logContext) {
   const grafanaToken = env.GRAFANA_TOKEN;
-  if (!grafanaToken) return null;
+  if (!grafanaToken) {
+    console.warn('[Grafana API] Missing GRAFANA_TOKEN env variable');
+    return new Response(JSON.stringify({ error: 'service_unavailable' }), { status: 503, headers: withJsonHeaders(corsHeaders) });
+  }
   const providedToken = getGrafanaToken(request);
   if (!providedToken || providedToken !== grafanaToken) {
     if (logContext) console.warn(logContext);
@@ -589,10 +605,14 @@ async function handleRecruitmentCollection({ request, env, url, corsHeaders, rea
   const { setJson, ttlSec } = createRecruitmentCache(env);
 
   if (request.method === 'POST') {
+    const authError = await requireServiceJwt(request, env, corsHeaders);
+    if (authError) return authError;
     return handleRecruitmentPost(request, env, url, corsHeaders, setJson, ttlSec);
   }
 
   if (request.method === 'GET') {
+    const authError = await requireServiceJwt(request, env, corsHeaders);
+    if (authError) return authError;
     return handleRecruitmentGet(env, url, corsHeaders, readDoOnlyForGrafana);
   }
 
@@ -602,6 +622,9 @@ async function handleRecruitmentCollection({ request, env, url, corsHeaders, rea
 async function handleRecruitmentPatch({ request, env, url, corsHeaders }) {
   const isPatchPath = (url.pathname.startsWith('/api/recruitment/') || url.pathname.startsWith('/api/recruitments/')) && request.method === 'PATCH';
   if (!isPatchPath) return null;
+
+  const authError = await requireServiceJwt(request, env, corsHeaders);
+  if (authError) return authError;
 
   const messageId = getRecruitmentIdFromPath(url);
   if (!messageId) {
@@ -653,6 +676,9 @@ async function handleRecruitmentItemDelete(rid, request, env, url, corsHeaders, 
 async function handleRecruitmentItem({ request, env, url, corsHeaders, readDoOnlyForGrafana }) {
   const isRecruitmentPath = url.pathname.startsWith('/api/recruitment/') || url.pathname.startsWith('/api/recruitments/');
   if (!isRecruitmentPath || (request.method !== 'GET' && request.method !== 'DELETE')) return null;
+
+  const authError = await requireServiceJwt(request, env, corsHeaders);
+  if (authError) return authError;
 
   const rid = getRecruitmentIdFromPath(url);
   if (!rid) {

@@ -16,6 +16,16 @@ import { corsHeadersFor } from './worker/cors.js';
 import { jsonResponse } from './worker/http.js';
 import { createStore } from './worker/store.js';
 
+let grafanaStartupLogged = false;
+
+function logGrafanaAuthStartup(env) {
+  if (grafanaStartupLogged) return;
+  grafanaStartupLogged = true;
+  const tokenLength = env?.GRAFANA_TOKEN?.length || 0;
+  const hasToken = tokenLength > 0;
+  console.log('[backend] Grafana auth startup', { hasToken, tokenLength });
+}
+
 function isFriendCodeRequest(pathname) {
   return pathname.startsWith('/api/game/') || pathname.startsWith('/api/friend-code/');
 }
@@ -49,6 +59,7 @@ async function tryRouteHandlers(handlers) {
 
 export default {
   async fetch(request, env, _ctx) {
+    logGrafanaAuthStartup(env);
     const url = new URL(request.url);
     const origin = request.headers.get('Origin') || '';
     const cors = corsHeadersFor(origin, env);

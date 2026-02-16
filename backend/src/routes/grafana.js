@@ -26,19 +26,20 @@ function ensureGrafanaAuthorized(authContext, safeHeaders, prefix) {
     logGrafanaAuthStatus(prefix, authContext);
   }
 
-  if (authContext.grafanaToken) {
-    if (!authContext.providedToken || authContext.providedToken !== authContext.grafanaToken) {
-      console.warn(`${prefix} Unauthorized access attempt`, { 
-        grafanaToken: !!authContext.grafanaToken, 
-        providedToken: !!authContext.providedToken 
-      });
-      return { ok: false, response: jsonResponse({ error: 'unauthorized' }, 401, safeHeaders) };
-    }
-    if (prefix) console.log(`${prefix} Token validated successfully`);
-    return { ok: true };
+  if (!authContext.grafanaToken) {
+    if (prefix) console.warn(`${prefix} Missing GRAFANA_TOKEN env variable`);
+    return { ok: false, response: jsonResponse({ error: 'service_unavailable' }, 503, safeHeaders) };
   }
 
-  if (prefix) console.warn(`${prefix} No GRAFANA_TOKEN env variable set - API is open to any request`);
+  if (!authContext.providedToken || authContext.providedToken !== authContext.grafanaToken) {
+    console.warn(`${prefix} Unauthorized access attempt`, { 
+      grafanaToken: !!authContext.grafanaToken, 
+      providedToken: !!authContext.providedToken 
+    });
+    return { ok: false, response: jsonResponse({ error: 'unauthorized' }, 401, safeHeaders) };
+  }
+
+  if (prefix) console.log(`${prefix} Token validated successfully`);
   return { ok: true };
 }
 
