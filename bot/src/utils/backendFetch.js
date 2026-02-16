@@ -16,7 +16,6 @@ function hasHeader(headers, headerName) {
 }
 
 async function ensureServiceHeaders(headers) {
-  if (!SERVICE_TOKEN) return headers;
   if (!hasHeader(headers, 'authorization') && !hasHeader(headers, 'x-service-token')) {
     try {
       const jwt = await fetchServiceJwt();
@@ -25,8 +24,12 @@ async function ensureServiceHeaders(headers) {
       console.warn('[backendFetch] Failed to fetch service JWT, falling back to service token:', err?.message || err);
     }
   }
-  if (!hasHeader(headers, 'authorization')) headers.authorization = `Bearer ${SERVICE_TOKEN}`;
-  if (!hasHeader(headers, 'x-service-token')) headers['x-service-token'] = SERVICE_TOKEN;
+  if (!hasHeader(headers, 'authorization') && SERVICE_TOKEN) {
+    headers.authorization = `Bearer ${SERVICE_TOKEN}`;
+  }
+  if (!hasHeader(headers, 'authorization') && !hasHeader(headers, 'x-service-token') && SERVICE_TOKEN) {
+    headers['x-service-token'] = SERVICE_TOKEN;
+  }
   return headers;
 }
 
