@@ -4,8 +4,8 @@ const DEFAULT_AUD = 'cloudflare-worker';
 const DEFAULT_SCOPE = ['internal_api'];
 const CLOCK_SKEW_SEC = 30;
 
-function getJwtSecret(env) {
-  return (env.SERVICE_JWT_SECRET || env.JWT_SECRET || '').trim();
+function getJwtPublicKey(env) {
+  return (env.SERVICE_JWT_PUBLIC_KEY || '').trim();
 }
 
 function base64UrlDecode(str) {
@@ -16,37 +16,54 @@ function base64UrlDecode(str) {
   return bytes;
 }
 
-async function importHmacKey(secret) {
-  const keyData = new TextEncoder().encode(secret);
-  return crypto.subtle.importKey('raw', keyData, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign', 'verify']);
+function base64UrlDecodeJson(str) {
+  return JSON.parse(new TextDecoder().decode(base64UrlDecode(str)));
 }
 
-function timingSafeEqual(a, b) {
-  if (a.length !== b.length) return false;
-  let diff = 0;
-  for (let i = 0; i < a.length; i += 1) diff |= a[i] ^ b[i];
-  return diff === 0;
+function pemToArrayBuffer(pem) {
+  const b64 = pem.replace(/-----BEGIN PUBLIC KEY-----/g, '')
+    .replace(/-----END PUBLIC KEY-----/g, '')
+    .replace(/\s+/g, '');
+  return base64UrlDecode(b64.replace(/\+/g, '-').replace(/\//g, '_'));
+}
+
+async function importPublicKey(publicKeyPem) {
+  const keyData = pemToArrayBuffer(publicKeyPem);
+  return crypto.subtle.importKey(
+    'spki',
+    keyData,
+    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+    false,
+    ['verify']
+  );
 }
 
 function getNowSec() {
   return Math.floor(Date.now() / 1000);
 }
 
-async function verifyJwt(token, secret, expectedClaims = {}) {
+async function verifyJwt(token, publicKeyPem, expectedClaims = {}) {
   const parts = token.split('.');
   if (parts.length !== 3) return { ok: false, reason: 'invalid_format' };
   const [headerB64, payloadB64, sigB64] = parts;
 
+  let header;
+  try {
+    header = base64UrlDecodeJson(headerB64);
+  } catch (_err) {
+    return { ok: false, reason: 'bad_header' };
+  }
+  if (header?.alg !== 'RS256') return { ok: false, reason: 'bad_alg' };
+
   const data = new TextEncoder().encode(`${headerB64}.${payloadB64}`);
-  const key = await importHmacKey(secret);
-  const expectedSig = await crypto.subtle.sign('HMAC', key, data);
-  const expectedSigBytes = new Uint8Array(expectedSig);
   const providedSigBytes = base64UrlDecode(sigB64);
-  if (!timingSafeEqual(expectedSigBytes, providedSigBytes)) return { ok: false, reason: 'bad_signature' };
+  const key = await importPublicKey(publicKeyPem);
+  const isValid = await crypto.subtle.verify('RSASSA-PKCS1-v1_5', key, providedSigBytes, data);
+  if (!isValid) return { ok: false, reason: 'bad_signature' };
 
   let payload;
   try {
-    payload = JSON.parse(new TextDecoder().decode(base64UrlDecode(payloadB64)));
+    payload = base64UrlDecodeJson(payloadB64);
   } catch (_err) {
     return { ok: false, reason: 'bad_payload' };
   }
@@ -67,9 +84,9 @@ async function verifyJwt(token, secret, expectedClaims = {}) {
 }
 
 async function verifyServiceJwtToken(token, env) {
-  const secret = getJwtSecret(env);
-  if (!secret) return { ok: false, reason: 'missing_secret' };
-  return verifyJwt(token, secret, {
+  const publicKey = getJwtPublicKey(env);
+  if (!publicKey) return { ok: false, reason: 'missing_public_key' };
+  return verifyJwt(token, publicKey, {
     iss: DEFAULT_ISS,
     sub: DEFAULT_SUB,
     aud: DEFAULT_AUD,

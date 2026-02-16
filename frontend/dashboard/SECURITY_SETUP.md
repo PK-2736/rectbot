@@ -76,7 +76,8 @@ DISCORD_CLIENT_SECRET=your-discord-client-secret
 DISCORD_REDIRECT_URI=https://dash.recrubo.net/callback
 
 # JWT 認証
-JWT_SECRET=your-long-random-secret-256bit
+JWT_PUBLIC_KEY=your-rs256-public-key-pem
+JWT_PRIVATE_KEY=your-rs256-private-key-pem
 
 # 管理者設定
 ADMIN_DISCORD_ID=admin-discord-id-1,admin-discord-id-2
@@ -110,7 +111,7 @@ NEXT_PUBLIC_ADMIN_IDS=admin-discord-id-1,admin-discord-id-2
 
 **注意事項**:
 - ✅ これらの値はブラウザで見える（公開情報）
-- ❌ シークレット（JWT_SECRET、CLIENT_SECRET等）は含めない
+- ❌ シークレット（JWT_PRIVATE_KEY、CLIENT_SECRET等）は含めない
 - ✅ 秘密情報が必要な処理はすべてWorker経由で行う
 
 #### Bot (VPS) 用
@@ -177,7 +178,8 @@ jobs:
           cd backend
           # シークレットの登録
           echo "${{ secrets.DISCORD_CLIENT_SECRET }}" | npx wrangler secret put DISCORD_CLIENT_SECRET
-          echo "${{ secrets.JWT_SECRET }}" | npx wrangler secret put JWT_SECRET
+          echo "${{ secrets.JWT_PUBLIC_KEY }}" | npx wrangler secret put JWT_PUBLIC_KEY
+          echo "${{ secrets.JWT_PRIVATE_KEY }}" | npx wrangler secret put JWT_PRIVATE_KEY
           echo "${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" | npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY
           echo "${{ secrets.SERVICE_TOKEN }}" | npx wrangler secret put SERVICE_TOKEN
           

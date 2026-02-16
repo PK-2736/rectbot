@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 
-const JWT_SECRET = (process.env.SERVICE_JWT_SECRET || '').trim();
+const JWT_PRIVATE_KEY = (process.env.JWT_PRIVATE_KEY || '').trim();
 const JWT_TTL_SEC = Number(process.env.SERVICE_JWT_TTL_SEC || 600);
 
 let warnedMissingSecret = false;
@@ -17,19 +17,26 @@ function base64UrlEncode(obj) {
   return Buffer.from(JSON.stringify(obj)).toString('base64url');
 }
 
-function signJwt(payload, secret) {
-  const header = { alg: 'HS256', typ: 'JWT' };
+function base64UrlFromBase64(b64) {
+  return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+function signJwt(payload, privateKey) {
+  const header = { alg: 'RS256', typ: 'JWT' };
   const headerB64 = base64UrlEncode(header);
   const payloadB64 = base64UrlEncode(payload);
   const data = `${headerB64}.${payloadB64}`;
-  const sig = crypto.createHmac('sha256', secret).update(data).digest('base64url');
-  return `${data}.${sig}`;
+  const signer = crypto.createSign('RSA-SHA256');
+  signer.update(data);
+  signer.end();
+  const sig = signer.sign(privateKey, 'base64');
+  return `${data}.${base64UrlFromBase64(sig)}`;
 }
 
 async function fetchServiceJwt() {
-  if (!JWT_SECRET) {
+  if (!JWT_PRIVATE_KEY) {
     if (!warnedMissingSecret) {
-      console.warn('[serviceJwt] SERVICE_JWT_SECRET is not set; cannot sign JWT.');
+      console.warn('[serviceJwt] JWT_PRIVATE_KEY is not set; cannot sign JWT.');
       warnedMissingSecret = true;
     }
     return null;
@@ -47,7 +54,7 @@ async function fetchServiceJwt() {
       exp: nowSec + JWT_TTL_SEC,
       scope: ['internal_api']
     };
-    cachedToken = signJwt(payload, JWT_SECRET);
+    cachedToken = signJwt(payload, JWT_PRIVATE_KEY);
     cachedExpMs = payload.exp * 1000;
     return cachedToken;
   })();

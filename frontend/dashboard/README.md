@@ -16,7 +16,7 @@ NEXT_PUBLIC_API_BASE_URL=https://api.recrubo.net
 NEXT_PUBLIC_ADMIN_IDS=user_id_1,user_id_2,user_id_3
 ```
 
-> ⚠️ Secrets（DISCORD_CLIENT_SECRET や JWT_SECRET など）は Cloudflare Worker / GitHub Secrets に保存し、リポジトリへ含めないでください。
+> ⚠️ Secrets（DISCORD_CLIENT_SECRET や JWT_PRIVATE_KEY など）は Cloudflare Worker / GitHub Secrets に保存し、リポジトリへ含めないでください。
 
 ## 開発環境での実行
 

@@ -97,4 +97,4 @@ bot/
 ### 環境変数のポイント
 - `DISCORD_BOT_TOKEN`, `SERVICE_TOKEN`, `SUPABASE_SERVICE_ROLE_KEY` など機密値は `.env` もしくは GitHub Secrets で管理します。
 - `VPS_EXPRESS_URL` には Cloudflare Tunnel 経由の HTTPS エンドポイントを設定します。
-- `SENTRY_DSN` と `JWT_SECRET` を指定すると Worker との認証およびエラー監視が有効になります。
+- `SENTRY_DSN` と `JWT_PRIVATE_KEY` を指定すると Worker との認証およびエラー監視が有効になります。

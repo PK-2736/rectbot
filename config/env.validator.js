@@ -11,12 +11,15 @@ const requiredEnvVars = {
     'SUPABASE_URL',
     'SUPABASE_ANON_KEY',
     'BACKEND_API_URL',
-    'INTERNAL_SECRET'
+    'INTERNAL_SECRET',
+    'JWT_PRIVATE_KEY'
   ],
   backend: [
     'SUPABASE_URL',
     'SUPABASE_SERVICE_ROLE_KEY',
-    'JWT_SECRET',
+    'JWT_PUBLIC_KEY',
+    'JWT_PRIVATE_KEY',
+    'SERVICE_JWT_PUBLIC_KEY',
     'INTERNAL_SECRET',
     'CLOUDFLARE_ACCOUNT_ID'
   ],

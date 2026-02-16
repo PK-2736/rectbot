@@ -42,7 +42,7 @@ jobs:
           OCI_USER: ${{ secrets.OCI_USER }}
           OCI_HOST: ${{ secrets.OCI_HOST }}
           SERVICE_TOKEN: ${{ secrets.SERVICE_TOKEN }}
-          SERVICE_JWT_SECRET: ${{ secrets.SERVICE_JWT_SECRET }}
+          JWT_PRIVATE_KEY: ${{ secrets.JWT_PRIVATE_KEY }}
           SERVICE_JWT_TTL_SEC: ${{ secrets.SERVICE_JWT_TTL_SEC }}
           DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
           INTERNAL_SECRET: ${{ secrets.INTERNAL_SECRET }}
@@ -60,7 +60,7 @@ jobs:
         run: |
           ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no $OCI_USER@$OCI_HOST '
             export SERVICE_TOKEN="'"$SERVICE_TOKEN"'" || true; \
-            export SERVICE_JWT_SECRET="'"$SERVICE_JWT_SECRET"'" || true; \
+            export JWT_PRIVATE_KEY="'"$JWT_PRIVATE_KEY"'" || true; \
             export SERVICE_JWT_TTL_SEC="'"$SERVICE_JWT_TTL_SEC"'" || true; \
             export DISCORD_BOT_TOKEN="'"$DISCORD_BOT_TOKEN"'" || true; \
             export DISCORD_CLIENT_ID="'"$DISCORD_CLIENT_ID"'" || true; \

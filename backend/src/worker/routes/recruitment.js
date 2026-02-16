@@ -477,7 +477,7 @@ async function validateServiceJwt(request, env, clientIP, userAgent, corsHeaders
   }
 
   const result = await verifyServiceJwtToken(token, env);
-  if (result.reason === 'missing_secret') {
+  if (result.reason === 'missing_public_key') {
     return new Response(JSON.stringify({ error: 'service_unavailable' }), { status: 503, headers: withJsonHeaders(corsHeaders) });
   }
 
