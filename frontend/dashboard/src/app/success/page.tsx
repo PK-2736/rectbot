@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
-export default function SuccessPage() {
+function SuccessContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const sessionId = searchParams.get('session_id');
@@ -63,5 +63,13 @@ export default function SuccessPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function SuccessPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gray-900 flex items-center justify-center text-white">読み込み中...</div>}>
+      <SuccessContent />
+    </Suspense>
   );
 }
