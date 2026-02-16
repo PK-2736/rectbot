@@ -1,5 +1,7 @@
 import SuccessContent from './success-content';
 
+export const dynamic = 'force-dynamic';
+
 type SearchParams = {
   [key: string]: string | string[] | undefined;
 };
