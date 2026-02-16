@@ -1,14 +1,17 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 export default function SuccessContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const sessionId = searchParams.get('session_id');
+  const [sessionId, setSessionId] = useState<string | null>(null);
 
   useEffect(() => {
+    // クライアント側でクエリパラメータを解析
+    const params = new URLSearchParams(window.location.search);
+    setSessionId(params.get('session_id'));
+
     const timer = setTimeout(() => {
       router.push('/');
     }, 5000);
