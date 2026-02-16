@@ -24,12 +24,6 @@ async function ensureServiceHeaders(headers) {
       console.warn('[backendFetch] Failed to fetch service JWT, falling back to service token:', err?.message || err);
     }
   }
-  if (!hasHeader(headers, 'authorization') && SERVICE_TOKEN) {
-    headers.authorization = `Bearer ${SERVICE_TOKEN}`;
-  }
-  if (!hasHeader(headers, 'authorization') && !hasHeader(headers, 'x-service-token') && SERVICE_TOKEN) {
-    headers['x-service-token'] = SERVICE_TOKEN;
-  }
   return headers;
 }
 

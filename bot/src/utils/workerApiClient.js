@@ -19,9 +19,6 @@ async function getHeaders() {
   } catch (err) {
     console.warn('[Worker API] Failed to fetch service JWT, falling back to service token:', err?.message || err);
   }
-  if (!headers.Authorization && SERVICE_TOKEN) {
-    headers['X-Service-Token'] = SERVICE_TOKEN;
-  }
   return headers;
 }
 

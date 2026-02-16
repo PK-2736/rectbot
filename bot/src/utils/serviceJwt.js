@@ -1,7 +1,9 @@
 const crypto = require('crypto');
 
-const JWT_SECRET = (process.env.SERVICE_JWT_SECRET || process.env.JWT_SECRET || '').trim();
+const JWT_SECRET = (process.env.SERVICE_JWT_SECRET || '').trim();
 const JWT_TTL_SEC = Number(process.env.SERVICE_JWT_TTL_SEC || 600);
+
+let warnedMissingSecret = false;
 
 let cachedToken = null;
 let cachedExpMs = 0;
@@ -25,7 +27,13 @@ function signJwt(payload, secret) {
 }
 
 async function fetchServiceJwt() {
-  if (!JWT_SECRET) return null;
+  if (!JWT_SECRET) {
+    if (!warnedMissingSecret) {
+      console.warn('[serviceJwt] SERVICE_JWT_SECRET is not set; cannot sign JWT.');
+      warnedMissingSecret = true;
+    }
+    return null;
+  }
   if (isTokenValid()) return cachedToken;
   if (inflight) return inflight;
 
