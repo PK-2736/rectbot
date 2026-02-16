@@ -59,9 +59,17 @@ jobs:
           if [ "$TARGET_ENV" = "prod" ]; then
             SUPABASE_PROJECT_REF="$SUPABASE_PROJECT_REF_PROD"
             SUPABASE_DB_PASSWORD="$SUPABASE_DB_PASSWORD_PROD"
+            SUPABASE_DB_HOST="$SUPABASE_DB_HOST_PROD"
+            SUPABASE_DB_PORT="$SUPABASE_DB_PORT_PROD"
+            SUPABASE_DB_USER="$SUPABASE_DB_USER_PROD"
+            SUPABASE_DB_NAME="$SUPABASE_DB_NAME_PROD"
           else
             SUPABASE_PROJECT_REF="$SUPABASE_PROJECT_REF_TEST"
             SUPABASE_DB_PASSWORD="$SUPABASE_DB_PASSWORD_TEST"
+            SUPABASE_DB_HOST="$SUPABASE_DB_HOST_TEST"
+            SUPABASE_DB_PORT="$SUPABASE_DB_PORT_TEST"
+            SUPABASE_DB_USER="$SUPABASE_DB_USER_TEST"
+            SUPABASE_DB_NAME="$SUPABASE_DB_NAME_TEST"
           fi
 
           cat << EOF > .env.backup
@@ -84,10 +92,14 @@ jobs:
           SUPABASE_DB_PASSWORD_TEST: ${{ secrets.SUPABASE_DB_PASSWORD_TEST }}
           SUPABASE_PROJECT_REF_PROD: ${{ secrets.SUPABASE_PROJECT_REF }}
           SUPABASE_DB_PASSWORD_PROD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-          SUPABASE_DB_HOST: ${{ secrets.SUPABASE_DB_HOST_TEST }}
-          SUPABASE_DB_PORT: ${{ secrets.SUPABASE_DB_PORT_TEST }}
-          SUPABASE_DB_USER: ${{ secrets.SUPABASE_DB_USER_TEST }}
-          SUPABASE_DB_NAME: ${{ secrets.SUPABASE_DB_NAME_TEST }}
+          SUPABASE_DB_HOST_TEST: ${{ secrets.SUPABASE_DB_HOST_TEST }}
+          SUPABASE_DB_PORT_TEST: ${{ secrets.SUPABASE_DB_PORT_TEST }}
+          SUPABASE_DB_USER_TEST: ${{ secrets.SUPABASE_DB_USER_TEST }}
+          SUPABASE_DB_NAME_TEST: ${{ secrets.SUPABASE_DB_NAME_TEST }}
+          SUPABASE_DB_HOST_PROD: ${{ secrets.SUPABASE_DB_HOST_PROD }}
+          SUPABASE_DB_PORT_PROD: ${{ secrets.SUPABASE_DB_PORT_PROD }}
+          SUPABASE_DB_USER_PROD: ${{ secrets.SUPABASE_DB_USER_PROD }}
+          SUPABASE_DB_NAME_PROD: ${{ secrets.SUPABASE_DB_NAME_PROD }}
       
       - name: Run backup restore test
         id: test

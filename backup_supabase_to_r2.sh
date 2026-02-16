@@ -42,10 +42,10 @@ RETENTION_DAYS_DEFAULT=30
 RETENTION_DAYS="${BACKUP_RETENTION_DAYS:-$RETENTION_DAYS_DEFAULT}"
 
 # 接続情報
-SUPABASE_DB_HOST="db.${SUPABASE_PROJECT_REF}.supabase.co"
-SUPABASE_DB_PORT=5432
-SUPABASE_DB_USER="postgres"
-SUPABASE_DB_NAME="postgres"
+SUPABASE_DB_HOST="${SUPABASE_DB_HOST:-db.${SUPABASE_PROJECT_REF}.supabase.co}"
+SUPABASE_DB_PORT="${SUPABASE_DB_PORT:-5432}"
+SUPABASE_DB_USER="${SUPABASE_DB_USER:-postgres}"
+SUPABASE_DB_NAME="${SUPABASE_DB_NAME:-postgres}"
 
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 BACKUP_FILE="supabase_backup_${TIMESTAMP}.sql"
@@ -58,7 +58,16 @@ R2_ENDPOINT="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
 log "=========================================="
 log "Supabase バックアップ（OCI）開始"
 log "=========================================="
-log "接続先: ${SUPABASE_DB_HOST}:${SUPABASE_DB_PORT}"
+if echo "$SUPABASE_DB_HOST" | grep -qi 'pooler'; then
+  SUPABASE_DB_HOST_IPV4="$SUPABASE_DB_HOST"
+else
+  SUPABASE_DB_HOST_IPV4=$(getent ahostsv4 "$SUPABASE_DB_HOST" 2>/dev/null | head -n 1 | awk '{print $1}')
+  if [ -z "$SUPABASE_DB_HOST_IPV4" ]; then
+    SUPABASE_DB_HOST_IPV4="$SUPABASE_DB_HOST"
+  fi
+fi
+
+log "接続先: ${SUPABASE_DB_HOST_IPV4}:${SUPABASE_DB_PORT}"
 
 # 1) pg_dump
 log "Step 1: pg_dump 実行中..."
@@ -67,7 +76,7 @@ if ! command -v pg_dump >/dev/null 2>&1; then
   err "pg_dump が見つかりません（postgresql-client のインストールが必要）"; exit 1;
 fi
 pg_dump \
-  -h "$SUPABASE_DB_HOST" \
+  -h "$SUPABASE_DB_HOST_IPV4" \
   -p "$SUPABASE_DB_PORT" \
   -U "$SUPABASE_DB_USER" \
   -d "$SUPABASE_DB_NAME" \
