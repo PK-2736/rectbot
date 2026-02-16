@@ -49,6 +49,7 @@ jobs:
           # Dev bot secrets (別アプリのトークン/クライアントID/エンドポイントを想定)
           SERVICE_TOKEN_DEV: ${{ secrets.SERVICE_TOKEN }}
           JWT_PRIVATE_KEY: ${{ secrets.JWT_PRIVATE_KEY }}
+          SERVICE_JWT_PRIVATE_KEY: ${{ secrets.SERVICE_JWT_PRIVATE_KEY }}
           SERVICE_JWT_TTL_SEC: ${{ secrets.SERVICE_JWT_TTL_SEC }}
           DISCORD_BOT_TOKEN_DEV: ${{ secrets.DISCORD_BOT_TOKEN_DEV }}
           DISCORD_CLIENT_ID_DEV: ${{ secrets.DISCORD_CLIENT_ID_DEV }}
@@ -68,10 +69,12 @@ jobs:
           : "${DISCORD_CLIENT_ID_DEV:?Missing DISCORD_CLIENT_ID_DEV}"
           : "${BACKEND_API_URL:?Missing BACKEND_API_URL}"
           : "${JWT_PRIVATE_KEY:?Missing JWT_PRIVATE_KEY}"
+          : "${SERVICE_JWT_PRIVATE_KEY:?Missing SERVICE_JWT_PRIVATE_KEY}"
 
           ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no $OCI_USER@$OCI_HOST '
             export SERVICE_TOKEN_DEV="'"$SERVICE_TOKEN_DEV"'"; \
             export JWT_PRIVATE_KEY="'"$JWT_PRIVATE_KEY"'"; \
+            export SERVICE_JWT_PRIVATE_KEY="'"$SERVICE_JWT_PRIVATE_KEY"'"; \
             export SERVICE_JWT_TTL_SEC="'"$SERVICE_JWT_TTL_SEC"'"; \
             export DISCORD_BOT_TOKEN_DEV="'"$DISCORD_BOT_TOKEN_DEV"'"; \
             export DISCORD_CLIENT_ID_DEV="'"$DISCORD_CLIENT_ID_DEV"'"; \
@@ -85,6 +88,7 @@ jobs:
             export NOTIFICATION_EMAIL_TO="'"$NOTIFICATION_EMAIL_TO"'"; \
             export SERVICE_TOKEN="$SERVICE_TOKEN_DEV"; \
             export JWT_PRIVATE_KEY="$JWT_PRIVATE_KEY"; \
+            export SERVICE_JWT_PRIVATE_KEY="$SERVICE_JWT_PRIVATE_KEY"; \
             export SERVICE_JWT_TTL_SEC="$SERVICE_JWT_TTL_SEC"; \
             export DISCORD_BOT_TOKEN="$DISCORD_BOT_TOKEN_DEV"; \
             export DISCORD_CLIENT_ID="$DISCORD_CLIENT_ID_DEV"; \

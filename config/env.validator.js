@@ -12,7 +12,8 @@ const requiredEnvVars = {
     'SUPABASE_ANON_KEY',
     'BACKEND_API_URL',
     'INTERNAL_SECRET',
-    'JWT_PRIVATE_KEY'
+    'JWT_PRIVATE_KEY',
+    'SERVICE_JWT_PRIVATE_KEY'
   ],
   backend: [
     'SUPABASE_URL',
