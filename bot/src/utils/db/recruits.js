@@ -68,22 +68,10 @@ async function deleteRecruitFromRedis(recruitId) {
 }
 
 async function pushRecruitToWebAPI(recruitData) {
-  const url = `${config.BACKEND_API_URL.replace(/\/$/, '')}/api/recruitments`;
   try {
     const payload = JSON.stringify(recruitData);
-    const headers = { 'Content-Type': 'application/json' };
-    const svc = process.env.SERVICE_TOKEN || process.env.BACKEND_SERVICE_TOKEN || '';
-    if (svc) {
-      headers['Authorization'] = `Bearer ${svc}`;
-      headers['x-service-token'] = svc;
-    } else {
-      console.warn('[pushRecruitToWebAPI] SERVICE_TOKEN not set in bot environment; backend will likely return 401');
-    }
-    const resp = await fetch(url, { method: 'POST', headers, body: payload });
-    const text = await resp.text().catch(() => '');
-    let body; try { body = text ? JSON.parse(text) : null; } catch { body = text; }
-    if (!resp.ok) return { ok: false, status: resp.status, body };
-    return { ok: true, status: resp.status, body };
+    const body = await backendFetch('/api/recruitments', { method: 'POST', body: payload });
+    return { ok: true, status: 200, body };
   } catch (err) {
     console.error('pushRecruitToWebAPI error:', err?.message || err);
     return { ok: false, status: null, error: err?.message || String(err) };
