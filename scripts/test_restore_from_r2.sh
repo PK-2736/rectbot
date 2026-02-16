@@ -64,6 +64,9 @@ check_var "R2_ACCESS_KEY_ID"
 check_var "R2_SECRET_ACCESS_KEY"
 check_var "R2_BUCKET_NAME"
 
+BACKUP_ENV="${BACKUP_ENV:-prod}"
+BACKUP_PREFIX="${BACKUP_PREFIX:-${BACKUP_ENV}/}"
+
 if [ ${#MISSING_VARS[@]} -gt 0 ]; then
   error "以下の環境変数が不足しています: ${MISSING_VARS[*]}"
   error "Test 1: FAILED"
@@ -135,13 +138,13 @@ fi
 log ""
 
 # ===== テスト5: R2 内のバックアップファイル確認 =====
-log "Test 5: R2 内のバックアップファイルの存在確認..."
+log "Test 5: R2 内のバックアップファイルの存在確認... (prefix: ${BACKUP_PREFIX})"
 
 BACKUPS=$(AWS_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID" \
           AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY" \
           AWS_DEFAULT_REGION="$AWS_DEFAULT_REGION" \
           AWS_S3_ADDRESSING_STYLE="$AWS_S3_ADDRESSING_STYLE" \
-          aws s3 ls "s3://${R2_BUCKET_NAME}/" \
+          aws s3 ls "s3://${R2_BUCKET_NAME}/${BACKUP_PREFIX}" \
           --endpoint-url "$R2_ENDPOINT" \
           --region "$AWS_DEFAULT_REGION" | \
           grep 'supabase_backup_' | \

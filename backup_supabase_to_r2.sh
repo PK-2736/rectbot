@@ -35,6 +35,9 @@ fi
 : "${R2_SECRET_ACCESS_KEY:?R2_SECRET_ACCESS_KEY が未設定}"
 : "${R2_BUCKET_NAME:?R2_BUCKET_NAME が未設定}"
 
+BACKUP_ENV="${BACKUP_ENV:-prod}"
+BACKUP_PREFIX="${BACKUP_PREFIX:-${BACKUP_ENV}/}"
+
 RETENTION_DAYS_DEFAULT=30
 RETENTION_DAYS="${BACKUP_RETENTION_DAYS:-$RETENTION_DAYS_DEFAULT}"
 
@@ -78,15 +81,15 @@ gzip -9 "$BACKUP_PATH"
 log "✅ 圧縮成功: $BACKUP_GZ_PATH"
 
 # 3) R2 へアップロード
-log "Step 3: R2 へアップロード中..."
+log "Step 3: R2 へアップロード中... (prefix: ${BACKUP_PREFIX})"
 if ! command -v aws >/dev/null 2>&1; then
   err "aws CLI が見つかりません（インストールが必要）"; exit 1;
 fi
 AWS_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID" \
 AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY" \
-aws s3 cp "$BACKUP_GZ_PATH" "s3://${R2_BUCKET_NAME}/${BACKUP_GZ}" \
+aws s3 cp "$BACKUP_GZ_PATH" "s3://${R2_BUCKET_NAME}/${BACKUP_PREFIX}${BACKUP_GZ}" \
   --endpoint-url "$R2_ENDPOINT"
-log "✅ R2 アップロード成功: s3://${R2_BUCKET_NAME}/${BACKUP_GZ}"
+log "✅ R2 アップロード成功: s3://${R2_BUCKET_NAME}/${BACKUP_PREFIX}${BACKUP_GZ}"
 
 # 4) ローカル古いファイル削除
 log "Step 4: ローカル古いバックアップ削除 (>${RETENTION_DAYS}日)"

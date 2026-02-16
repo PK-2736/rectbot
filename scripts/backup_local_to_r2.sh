@@ -26,6 +26,9 @@ fi
 : "${R2_SECRET_ACCESS_KEY:?R2_SECRET_ACCESS_KEY が設定されていません}"
 : "${R2_BUCKET_NAME:?R2_BUCKET_NAME が設定されていません}"
 
+BACKUP_ENV="${BACKUP_ENV:-prod}"
+BACKUP_PREFIX="${BACKUP_PREFIX:-${BACKUP_ENV}/}"
+
 # ===== ログ関数 =====
 log() {
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG_FILE"
@@ -119,12 +122,13 @@ export R2_ACCOUNT_ID="${R2_ACCOUNT_ID}"
 export R2_ACCESS_KEY_ID="${R2_ACCESS_KEY_ID}"
 export R2_SECRET_ACCESS_KEY="${R2_SECRET_ACCESS_KEY}"
 export R2_BUCKET_NAME="${R2_BUCKET_NAME}"
+export BACKUP_PREFIX="${BACKUP_PREFIX}"
 
 R2_ENDPOINT="https://\${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
 
 AWS_ACCESS_KEY_ID="\${R2_ACCESS_KEY_ID}" \\
 AWS_SECRET_ACCESS_KEY="\${R2_SECRET_ACCESS_KEY}" \\
-aws s3 cp "backups/${BACKUP_GZ}" "s3://\${R2_BUCKET_NAME}/${BACKUP_GZ}" \\
+aws s3 cp "backups/${BACKUP_GZ}" "s3://\${R2_BUCKET_NAME}/\${BACKUP_PREFIX}${BACKUP_GZ}" \
   --endpoint-url "\${R2_ENDPOINT}"
 
 # ローカルバックアップを削除

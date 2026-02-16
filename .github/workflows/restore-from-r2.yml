@@ -59,6 +59,7 @@ jobs:
           R2_ACCESS_KEY_ID=${{ secrets.R2_ACCESS_KEY_ID }}
           R2_SECRET_ACCESS_KEY=${{ secrets.R2_SECRET_ACCESS_KEY }}
           R2_BUCKET_NAME=${{ secrets.R2_BUCKET_NAME }}
+          BACKUP_ENV=$TARGET_ENV
           EOF
 
           if [ -n "$SUPABASE_DB_HOST" ]; then echo "SUPABASE_DB_HOST=$SUPABASE_DB_HOST" >> .env.backup; fi
@@ -86,6 +87,7 @@ jobs:
       - name: Run restore
         run: |
           cd scripts
+          chmod +x restore_from_r2.sh
           printf "yes\n" | ./restore_from_r2.sh "${{ github.event.inputs.backup_index }}"
 
       - name: Upload restore log

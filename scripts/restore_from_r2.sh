@@ -29,6 +29,9 @@ fi
 : "${R2_SECRET_ACCESS_KEY:?R2_SECRET_ACCESS_KEY が設定されていません}"
 : "${R2_BUCKET_NAME:?R2_BUCKET_NAME が設定されていません}"
 
+BACKUP_ENV="${BACKUP_ENV:-prod}"
+BACKUP_PREFIX="${BACKUP_PREFIX:-${BACKUP_ENV}/}"
+
 # ===== Supabase 接続情報を構築 =====
 # Direct Connection (port 5432) を使用
 SUPABASE_DB_HOST="${SUPABASE_DB_HOST:-db.${SUPABASE_PROJECT_REF}.supabase.co}"
@@ -57,13 +60,13 @@ log "=========================================="
 
 # ===== 1. 利用可能なバックアップをリスト =====
 log ""
-log "Step 1: R2 から利用可能なバックアップを取得中..."
+log "Step 1: R2 から利用可能なバックアップを取得中... (prefix: ${BACKUP_PREFIX})"
 
 BACKUPS=$(AWS_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID" \
           AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY" \
           AWS_DEFAULT_REGION="$AWS_DEFAULT_REGION" \
           AWS_S3_ADDRESSING_STYLE="$AWS_S3_ADDRESSING_STYLE" \
-          aws s3 ls "s3://${R2_BUCKET_NAME}/" \
+          aws s3 ls "s3://${R2_BUCKET_NAME}/${BACKUP_PREFIX}" \
           --endpoint-url "$R2_ENDPOINT" \
           --region "$AWS_DEFAULT_REGION" | \
           grep 'supabase_backup_' | \
@@ -125,7 +128,7 @@ if AWS_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID" \
   AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY" \
   AWS_DEFAULT_REGION="$AWS_DEFAULT_REGION" \
   AWS_S3_ADDRESSING_STYLE="$AWS_S3_ADDRESSING_STYLE" \
-  aws s3 cp "s3://${R2_BUCKET_NAME}/${SELECTED_BACKUP}" "$DOWNLOAD_PATH" \
+  aws s3 cp "s3://${R2_BUCKET_NAME}/${BACKUP_PREFIX}${SELECTED_BACKUP}" "$DOWNLOAD_PATH" \
   --endpoint-url "$R2_ENDPOINT" \
   --region "$AWS_DEFAULT_REGION"; then
   log "✅ ダウンロード成功: $DOWNLOAD_PATH"
