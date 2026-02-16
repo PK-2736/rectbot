@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect } from 'react';
+import * as React from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 function SuccessContent() {
@@ -8,7 +8,7 @@ function SuccessContent() {
   const searchParams = useSearchParams();
   const sessionId = searchParams.get('session_id');
 
-  useEffect(() => {
+  React.useEffect(() => {
     // 5秒後にダッシュボードにリダイレクト
     const timer = setTimeout(() => {
       router.push('/');
@@ -68,8 +68,8 @@ function SuccessContent() {
 
 export default function SuccessPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-gray-900 flex items-center justify-center text-white">読み込み中...</div>}>
+    <React.Suspense fallback={<div className="min-h-screen bg-gray-900 flex items-center justify-center text-white">読み込み中...</div>}>
       <SuccessContent />
-    </Suspense>
+    </React.Suspense>
   );
 }
