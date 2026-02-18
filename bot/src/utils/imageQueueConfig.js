@@ -1,5 +1,6 @@
 const siteId = process.env.SITE_ID || 'default';
-const queueName = process.env.IMAGE_QUEUE_NAME || `rectbot:image:${siteId}`;
+const rawQueueName = process.env.IMAGE_QUEUE_NAME || `rectbot-image-${siteId}`;
+const queueName = String(rawQueueName).replace(/:/g, '-');
 
 const connectionOptions = {
   host: process.env.REDIS_HOST || 'localhost',
