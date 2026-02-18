@@ -3,7 +3,7 @@ const { recruitParticipants, pendingModalOptions } = require('./state');
 const { createErrorEmbed } = require('../../utils/embedHelpers');
 const { getGuildSettings, listRecruitsFromRedis, saveRecruitmentData, saveRecruitToRedis, saveParticipantsToRedis, pushRecruitToWebAPI, getCooldownRemaining, setCooldown } = require('../../utils/db');
 const { buildContainer, buildContainerSimple } = require('../../utils/recruitHelpers');
-const { generateRecruitCard } = require('../../utils/canvasRecruit');
+const { generateRecruitCardQueued } = require('../../utils/imageQueue');
 const { EXEMPT_GUILD_IDS } = require('./constants');
 const { handlePermissionError } = require('../../utils/handlePermissionError');
 const { formatVoiceLabel, fetchUserAvatarUrl } = require('./handlerUtils');
@@ -258,7 +258,7 @@ async function updateRecruitmentMessage({
   let updatedImage = null;
 
   if (styleForEdit === 'image') {
-    const updatedImageBuffer = await generateRecruitCard(
+    const updatedImageBuffer = await generateRecruitCardQueued(
       finalRecruitData,
       currentParticipants,
       interaction.client,
@@ -762,7 +762,7 @@ function calculateAccentColor(panelColor, guildSettings) {
 
 async function generateRecruitImage(style, recruitDataObj, currentParticipants, client, useColor) {
   if (style !== 'image') return null;
-  const buffer = await generateRecruitCard(recruitDataObj, currentParticipants, client, useColor);
+  const buffer = await generateRecruitCardQueued(recruitDataObj, currentParticipants, client, useColor);
   return new AttachmentBuilder(buffer, { name: 'recruit-card.png' });
 }
 

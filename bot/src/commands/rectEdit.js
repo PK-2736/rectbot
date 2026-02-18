@@ -11,7 +11,7 @@ const {
 const { updateRecruitmentData, getGuildSettingsFromRedis } = require('../utils/db');
 const { safeRespond } = require('../utils/interactionHandler');
 const { getActiveRecruits } = require('../utils/db/statusApi');
-const { generateRecruitCard } = require('../utils/canvasRecruit');
+const { generateRecruitCardQueued } = require('../utils/imageQueue');
 const { buildContainer, buildContainerSimple } = require('../utils/recruitHelpers');
 const backendFetch = require('../utils/backendFetch');
 const config = require('../config');
@@ -582,7 +582,7 @@ async function buildSimpleRecruitContainer({ recruitData, participants, interact
 
 async function buildImageRecruitContainer({ recruitData, participants, interaction, useColor, participantText, recruitId, accentColor }) {
   console.log('[rect-edit] Generating recruit card image...');
-  const imageBuffer = await generateRecruitCard(recruitData, participants, interaction.client, useColor);
+  const imageBuffer = await generateRecruitCardQueued(recruitData, participants, interaction.client, useColor);
   const image = new AttachmentBuilder(imageBuffer, { name: 'recruit-card.png' });
 
   console.log('[rect-edit] Building container...');

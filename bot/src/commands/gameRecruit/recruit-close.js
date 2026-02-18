@@ -115,11 +115,11 @@ async function fetchOriginalImageBuffer(originalMessage) {
 
 async function generateFallbackImageBuffer(data, finalParticipants, client) {
   try {
-    const { generateRecruitCard } = require('../../utils/canvasRecruit');
+    const { generateRecruitCardQueued } = require('../../utils/imageQueue');
     let useColor = data?.panelColor || '808080';
     if (typeof useColor === 'string' && useColor.startsWith('#')) useColor = useColor.slice(1);
     if (!/^[0-9A-Fa-f]{6}$/.test(useColor)) useColor = '808080';
-    return await generateRecruitCard(data, finalParticipants, client, useColor);
+    return await generateRecruitCardQueued(data, finalParticipants, client, useColor);
   } catch (imgErr) {
     console.warn('[processClose] Failed to generate base recruit image:', imgErr);
     return null;
@@ -127,7 +127,7 @@ async function generateFallbackImageBuffer(data, finalParticipants, client) {
 }
 
 async function generateClosedImageAttachment(context) {
-  const { generateClosedRecruitCard } = require('../../utils/canvasRecruit');
+  const { generateClosedRecruitCardQueued } = require('../../utils/imageQueue');
 
   let baseImageBuffer = await fetchOriginalImageBuffer(context.originalMessage);
 
@@ -140,7 +140,7 @@ async function generateClosedImageAttachment(context) {
   }
 
   try {
-    const closedImageBuffer = await generateClosedRecruitCard(baseImageBuffer);
+    const closedImageBuffer = await generateClosedRecruitCardQueued(baseImageBuffer);
     return new AttachmentBuilder(closedImageBuffer, { name: 'recruit-card-closed.png' });
   } catch (imgErr) {
     console.warn('[processClose] Failed to generate closed image:', imgErr);

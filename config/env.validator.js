@@ -33,7 +33,18 @@ const requiredEnvVars = {
 };
 
 const optionalEnvVars = {
-  bot: ['SENTRY_DSN', 'DISCORD_WEBHOOK_URL', 'REDIS_HOST'],
+  bot: [
+    'SENTRY_DSN',
+    'DISCORD_WEBHOOK_URL',
+    'REDIS_HOST',
+    'REDIS_PORT',
+    'REDIS_PASSWORD',
+    'REDIS_DB',
+    'IMAGE_QUEUE_NAME',
+    'IMAGE_QUEUE_TIMEOUT_MS',
+    'IMAGE_QUEUE_STRICT',
+    'IMAGE_QUEUE_DISABLED'
+  ],
   backend: ['SENTRY_DSN', 'R2_BUCKET_NAME', 'STRIPE_SECRET_KEY'],
   frontend: ['PUBLIC_RECAPTCHA_SITE_KEY', 'SENTRY_DSN']
 };

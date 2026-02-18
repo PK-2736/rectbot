@@ -4,7 +4,7 @@ const { safeReply } = require('../../utils/safeReply');
 const { createErrorEmbed, createSuccessEmbed, createWarningEmbed } = require('../../utils/embedHelpers');
 const { getGuildSettings, listRecruitsFromRedis, saveRecruitmentData, updateRecruitmentStatus, deleteRecruitmentData, saveRecruitToRedis, getRecruitFromRedis, saveParticipantsToRedis, getParticipantsFromRedis, deleteParticipantsFromRedis, pushRecruitToWebAPI, getCooldownRemaining, setCooldown } = require('../../utils/db');
 const { buildContainer } = require('../../utils/recruitHelpers');
-const { generateRecruitCard } = require('../../utils/canvasRecruit');
+const { generateRecruitCardQueued, generateClosedRecruitCardQueued } = require('../../utils/imageQueue');
 const { updateParticipantList, autoCloseRecruitment } = require('../../utils/recruitMessage');
 const { EXEMPT_GUILD_IDS } = require('./constants');
 const { handlePermissionError } = require('../../utils/handlePermissionError');
@@ -360,7 +360,7 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
     const styleForEdit = (guildSettings?.recruit_style === 'simple') ? 'simple' : 'image';
     let updatedImage = null;
     if (styleForEdit === 'image') {
-      const updatedImageBuffer = await generateRecruitCard(finalRecruitData, currentParticipants, interaction.client, finalUseColor);
+      const updatedImageBuffer = await generateRecruitCardQueued(finalRecruitData, currentParticipants, interaction.client, finalUseColor);
       updatedImage = new AttachmentBuilder(updatedImageBuffer, { name: 'recruit-card.png' });
     }
   const finalAccentColor = /^[0-9A-Fa-f]{6}$/.test(finalUseColor) ? parseInt(finalUseColor, 16) : 0x000000;
@@ -707,7 +707,7 @@ async function processClose(interaction, messageId, savedRecruitData) {
 
     // Disable UI (Components v2) — preserve info in closed view
     const { ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, SeparatorSpacingSize, MediaGalleryBuilder, MediaGalleryItemBuilder, AttachmentBuilder } = require('discord.js');
-    const { generateClosedRecruitCard, generateRecruitCard } = require('../../utils/canvasRecruit');
+    const { generateClosedRecruitCardQueued, generateRecruitCardQueued } = require('../../utils/imageQueue');
     const disabledContainer = new ContainerBuilder();
     disabledContainer.setAccentColor(0x808080);
     const originalMessage = interaction.message;
@@ -732,14 +732,14 @@ async function processClose(interaction, messageId, savedRecruitData) {
         if (typeof useColor === 'string' && useColor.startsWith('#')) useColor = useColor.slice(1);
         if (!/^[0-9A-Fa-f]{6}$/.test(useColor)) useColor = '808080';
         const currentParticipants = recruitParticipants.get(messageId) || [];
-        baseImageBuffer = await generateRecruitCard(data, currentParticipants, interaction.client, useColor);
+        baseImageBuffer = await generateRecruitCardQueued(data, currentParticipants, interaction.client, useColor);
       } catch (imgErr) {
         console.warn('[processClose] Failed to generate base recruit image:', imgErr);
       }
     }
     if (baseImageBuffer) {
       try {
-        const closedImageBuffer = await generateClosedRecruitCard(baseImageBuffer);
+        const closedImageBuffer = await generateClosedRecruitCardQueued(baseImageBuffer);
         closedAttachment = new AttachmentBuilder(closedImageBuffer, { name: 'recruit-card-closed.png' });
       } catch (imgErr) {
         console.warn('[processClose] Failed to generate closed image:', imgErr);
@@ -1028,7 +1028,7 @@ async function handleModalSubmit(interaction) {
     const style = (guildSettings?.recruit_style === 'simple') ? 'simple' : 'image';
     let image = null;
     if (style === 'image') {
-      const buffer = await generateRecruitCard(recruitDataObj, currentParticipants, interaction.client, useColor);
+      const buffer = await generateRecruitCardQueued(recruitDataObj, currentParticipants, interaction.client, useColor);
       image = new AttachmentBuilder(buffer, { name: 'recruit-card.png' });
     }
     

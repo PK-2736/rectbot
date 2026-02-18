@@ -80,8 +80,8 @@ async function updateParticipantList(interactionOrMessage, participants, savedRe
     const style = (guildSettings?.recruit_style === 'simple') ? 'simple' : 'image';
     let updatedImage = null;
     if (style === 'image') {
-      const { generateRecruitCard } = require('./canvasRecruit');
-      const buffer = await generateRecruitCard(savedRecruitData, participants, client, useColor);
+      const { generateRecruitCardQueued } = require('./imageQueue');
+      const buffer = await generateRecruitCardQueued(savedRecruitData, participants, client, useColor);
       updatedImage = new AttachmentBuilder(buffer, { name: 'recruit-card.png' });
     }
 
@@ -262,7 +262,7 @@ async function autoCloseRecruitment(client, guildId, channelId, messageId) {
     if (message) {
       try {
         const { ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, SeparatorSpacingSize, MediaGalleryBuilder, MediaGalleryItemBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder, MessageFlags } = require('discord.js');
-        const { generateClosedRecruitCard } = require('./canvasRecruit');
+        const { generateClosedRecruitCardQueued } = require('./imageQueue');
         
         const baseColor = (() => {
           const src = (savedRecruitData && savedRecruitData.panelColor) || '808080';
@@ -282,7 +282,7 @@ async function autoCloseRecruitment(client, guildId, channelId, messageId) {
             const originalImageBuffer = Buffer.from(arrayBuffer);
             
             // 締め切り画像を生成（灰色化 + CLOSED オーバーレイ）
-            const closedImageBuffer = await generateClosedRecruitCard(originalImageBuffer);
+            const closedImageBuffer = await generateClosedRecruitCardQueued(originalImageBuffer);
             closedAttachment = new AttachmentBuilder(closedImageBuffer, { name: 'recruit-card-closed.png' });
           } catch (imgErr) {
             console.warn('[autoClose] Failed to generate closed image:', imgErr);

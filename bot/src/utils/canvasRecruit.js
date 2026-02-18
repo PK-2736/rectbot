@@ -147,7 +147,7 @@ function drawFallbackAvatar(ctx, x, y, circleRadius, is2Rows, fontSize) {
 }
 
 async function drawParticipantAvatar(ctx, x, y, userId, options) {
-  const { circleRadius, is2Rows, client } = options;
+  const { circleRadius, is2Rows, client, avatarUrls } = options;
 
   if (!userId || userId === 'null' || userId === null || userId === undefined) {
     console.error(`Invalid userId provided: ${userId}`);
@@ -156,8 +156,15 @@ async function drawParticipantAvatar(ctx, x, y, userId, options) {
   }
 
   try {
-    const user = await client.users.fetch(userId);
-    const avatarURL = user.displayAvatarURL({ extension: 'png', size: 128 });
+    const urlFromMap = avatarUrls && avatarUrls[userId];
+    let avatarURL = urlFromMap;
+    if (!avatarURL && client) {
+      const user = await client.users.fetch(userId);
+      avatarURL = user.displayAvatarURL({ extension: 'png', size: 128 });
+    }
+    if (!avatarURL) {
+      throw new Error('avatar_url_missing');
+    }
     const avatar = await loadImage(avatarURL);
 
     ctx.save();
@@ -380,7 +387,7 @@ function drawEmptyParticipantSlot(ctx, x, y, circleRadius, is2Rows) {
   ctx.stroke();
 }
 
-async function drawParticipantCircles(ctx, participantIds, participantCount, layout, client) {
+async function drawParticipantCircles(ctx, participantIds, participantCount, layout, client, avatarUrls) {
   const { participantAreaX, participantAreaY, circleSpacing, rowSpacing, circleRadius, is2Rows, maxPerRow } = layout;
   
   for (let i = 0; i < participantCount; i++) {
@@ -393,7 +400,8 @@ async function drawParticipantCircles(ctx, participantIds, participantCount, lay
       await drawParticipantAvatar(ctx, circleX, circleY, participantIds[i], {
         circleRadius,
         is2Rows,
-        client
+        client,
+        avatarUrls
       });
     } else {
       drawEmptyParticipantSlot(ctx, circleX, circleY, circleRadius, is2Rows);
@@ -435,7 +443,7 @@ function applyShadowEffect(ctx) {
  * @param {Client} client Discordクライアント
  * @returns {Buffer} PNG画像バッファ
  */
-async function generateRecruitCard(recruitData, participantIds = [], client = null, accentColor = null) {
+async function generateRecruitCard(recruitData, participantIds = [], client = null, accentColor = null, avatarUrls = null) {
   const { canvas, ctx, width, height } = setupCanvas();
   
   drawBorder(ctx, width, height, accentColor);
@@ -453,7 +461,7 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
   const participantCount = getParticipantCount(currentMembers, maxMembers);
   const layout = getParticipantLayout(participantCount, boxX, boxY);
   
-  await drawParticipantCircles(ctx, participantIds, participantCount, layout, client);
+  await drawParticipantCircles(ctx, participantIds, participantCount, layout, client, avatarUrls);
   
   const content = recruitData.description || recruitData.content;
   drawContentTextSection(ctx, boxX, boxY, boxWidth, boxHeight, content);
