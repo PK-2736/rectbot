@@ -1,7 +1,7 @@
 const { MessageFlags } = require('discord.js');
-const { sendNotificationAsync, runInBackground } = require('./handlerUtils');
-const { logError, logCriticalError } = require('./reply-helpers');
-const { shouldUseDefaultNotification: shouldUseDefaultNotif, isDifferentChannel } = require('./validation-helpers');
+const { sendNotificationAsync, runInBackground } = require('../utils/handlerUtils');
+const { logError, logCriticalError } = require('../utils/reply-helpers');
+const { shouldUseDefaultNotification: shouldUseDefaultNotif, isDifferentChannel } = require('../validation/validation-helpers');
 
 function buildConfiguredNotificationRoleIds(guildSettings) {
   const roles = [];

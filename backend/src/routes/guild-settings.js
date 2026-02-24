@@ -74,6 +74,14 @@ function validateSupabaseConfig(env, safeHeaders) {
   return { valid: true, supabaseUrl };
 }
 
+// 条件付きで値を返すヘルパー
+function getConditionalValue(body, key) {
+  if (Object.prototype.hasOwnProperty.call(body, key)) {
+    return body[key] || null;
+  }
+  return undefined;
+}
+
 function buildGuildSettingsPayload(body, normalizedNotificationRoles, serializedNotificationRoleId) {
   const {
     guildId,
@@ -92,14 +100,14 @@ function buildGuildSettingsPayload(body, normalizedNotificationRoles, serialized
     recruit_channel_id: recruit_channel || null,
     recruit_channel_ids: Array.isArray(recruit_channels) 
       ? recruit_channels.filter(Boolean).map(String) 
-      : (Object.prototype.hasOwnProperty.call(body, 'recruit_channels') ? [] : undefined),
+      : getConditionalValue(body, 'recruit_channels', []),
     notification_role_id: serializedNotificationRoleId,
     update_channel_id: update_channel || null,
-    default_color: Object.prototype.hasOwnProperty.call(body, 'defaultColor') ? (defaultColor || null) : undefined,
+    default_color: getConditionalValue(body, 'defaultColor', defaultColor),
     default_title: defaultTitle || '参加者募集',
-    recruit_style: Object.prototype.hasOwnProperty.call(body, 'recruit_style') ? (recruit_style || null) : undefined,
+    recruit_style: getConditionalValue(body, 'recruit_style', recruit_style),
     enable_dedicated_channel: Object.prototype.hasOwnProperty.call(body, 'enable_dedicated_channel') ? !!enable_dedicated_channel : undefined,
-    dedicated_channel_category_id: Object.prototype.hasOwnProperty.call(body, 'dedicated_channel_category_id') ? (dedicated_channel_category_id || null) : undefined,
+    dedicated_channel_category_id: getConditionalValue(body, 'dedicated_channel_category_id', dedicated_channel_category_id),
     updated_at: new Date().toISOString()
   };
 }

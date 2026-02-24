@@ -1,11 +1,11 @@
 const { AttachmentBuilder, ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, SeparatorSpacingSize, MediaGalleryBuilder, MediaGalleryItemBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
-const { recruitParticipants } = require('./state');
+const { recruitParticipants } = require('../data/state');
 const { getRecruitFromRedis, getGuildSettings, updateRecruitmentStatus, deleteRecruitmentData, deleteParticipantsFromRedis } = require('../../utils/db');
 const { createErrorEmbed } = require('../../utils/embedHelpers');
 const { safeReply } = require('../../utils/safeReply');
-const { formatVoiceLabel, runInBackground } = require('./handlerUtils');
-const { replyEphemeral, logError, logCriticalError } = require('./reply-helpers');
-const { hexToIntColor } = require('./ui-builders');
+const { formatVoiceLabel, runInBackground } = require('../utils/handlerUtils');
+const { replyEphemeral, logError, logCriticalError } = require('../utils/reply-helpers');
+const { hexToIntColor } = require('../ui/ui-builders');
 
 function validateRecruiterPermission(interaction, data) {
   if (!data) {

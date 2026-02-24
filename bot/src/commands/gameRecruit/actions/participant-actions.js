@@ -1,12 +1,12 @@
 const { EmbedBuilder } = require('discord.js');
-const { recruitParticipants } = require('./state');
+const { recruitParticipants } = require('../data/state');
 const { createErrorEmbed } = require('../../utils/embedHelpers');
 const { getParticipantsFromRedis, getRecruitFromRedis, listRecruitsFromRedis, saveParticipantsToRedis } = require('../../utils/db');
 const { updateParticipantList } = require('../../utils/recruitMessage');
-const { runInBackground } = require('./handlerUtils');
-const { replyEphemeral, logError } = require('./reply-helpers');
-const { isRecruiter } = require('./validation-helpers');
-const { hexToIntColor } = require('./ui-builders');
+const { runInBackground } = require('../utils/handlerUtils');
+const { replyEphemeral, logError } = require('../utils/reply-helpers');
+const { isRecruiter } = require('../validation/validation-helpers');
+const { hexToIntColor } = require('../ui/ui-builders');
 
 async function saveAndUpdateParticipants(interaction, messageId, participants, savedRecruitData) {
   recruitParticipants.set(messageId, participants);
