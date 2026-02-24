@@ -1,19 +1,18 @@
-const { MessageFlags, EmbedBuilder, ComponentType, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, ActionRowBuilder, AttachmentBuilder, UserSelectMenuBuilder, PermissionsBitField } = require('discord.js');
+const { MessageFlags, EmbedBuilder, ComponentType, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, ActionRowBuilder, AttachmentBuilder, PermissionsBitField } = require('discord.js');
 const { recruitParticipants, pendingModalOptions } = require('./state');
 const { safeReply } = require('../../utils/safeReply');
-const { createErrorEmbed, createSuccessEmbed, createWarningEmbed } = require('../../utils/embedHelpers');
+const { createErrorEmbed } = require('../../utils/embedHelpers');
 const { getGuildSettings, listRecruitsFromRedis, saveRecruitmentData, updateRecruitmentStatus, deleteRecruitmentData, saveRecruitToRedis, getRecruitFromRedis, saveParticipantsToRedis, getParticipantsFromRedis, deleteParticipantsFromRedis, pushRecruitToWebAPI, getCooldownRemaining, setCooldown } = require('../../utils/db');
 const { buildContainer } = require('../../utils/recruitHelpers');
-const { generateRecruitCardQueued, generateClosedRecruitCardQueued } = require('../../utils/imageQueue');
-const { updateParticipantList, autoCloseRecruitment } = require('../../utils/recruitMessage');
+const { generateRecruitCardQueued } = require('../../utils/imageQueue');
+const { updateParticipantList } = require('../../utils/recruitMessage');
 const { EXEMPT_GUILD_IDS } = require('./constants');
 const { handlePermissionError } = require('../../utils/handlePermissionError');
 
-// ------------------------------
 // Helper utilities (behavior-preserving refactor)
-// ------------------------------
 
-const eightHoursMs = 8 * 60 * 60 * 1000;
+const MIN_PARTICIPANTS = 1;
+const MAX_PARTICIPANTS = 16;
 
 function computeDelayMs(targetTime, now = null) {
   if (!targetTime) return null;
@@ -23,8 +22,7 @@ function computeDelayMs(targetTime, now = null) {
 }
 
 // 満員DMの重複送信防止
-const fullNotifySent = new Set();
-
+const _fullNotifySent = new Set();
 // 開始時刻通知の重複送信防止
 const startNotifySent = new Set();
 
@@ -73,10 +71,10 @@ async function ensureNoActiveRecruit(interaction) {
 }
 
 function parseParticipantsNumFromModal(interaction) {
-  // pendingModalOptionsから取得
-  const pending = interaction.user && interaction.user.id ? pendingModalOptions.get(interaction.user.id) : null;
+  const pending = interaction.user?.id ? pendingModalOptions.get(interaction.user.id) : null;
   const participantsNum = pending?.participants;
-  if (!participantsNum || isNaN(participantsNum) || participantsNum < 1 || participantsNum > 16) {
+  
+  if (!participantsNum || isNaN(participantsNum) || participantsNum < MIN_PARTICIPANTS || participantsNum > MAX_PARTICIPANTS) {
     return null;
   }
   return participantsNum;
@@ -135,19 +133,18 @@ async function fetchValidNotificationRoles(interaction, configuredIds) {
   return valid;
 }
 
-async function selectNotificationRole(interaction, configuredIds) {
+async function _selectNotificationRole(interaction, configuredIds) {
   // 事前選択（pending）
   try {
-    const pending = interaction.user && interaction.user.id ? pendingModalOptions.get(interaction.user.id) : null;
-    const preSelected = pending && pending.notificationRoleId ? String(pending.notificationRoleId) : null;
+    const pending = interaction.user?.id ? pendingModalOptions.get(interaction.user.id) : null;
+    const preSelected = pending?.notificationRoleId ? String(pending.notificationRoleId) : null;
     if (preSelected) {
       if (configuredIds.includes(preSelected)) {
         pendingModalOptions.delete(interaction.user.id);
         return { roleId: preSelected, aborted: false };
-      } else {
-        await safeReply(interaction, { content: '❌ 指定された通知ロールは使用できません（設定に含まれていません）。', flags: MessageFlags.Ephemeral, allowedMentions: { roles: [], users: [] } });
-        return { roleId: null, aborted: true };
       }
+      await safeReply(interaction, { content: '❌ 指定された通知ロールは使用できません（設定に含まれていません）。', flags: MessageFlags.Ephemeral, allowedMentions: { roles: [], users: [] } });
+      return { roleId: null, aborted: true };
     }
   } catch (e) {
     console.warn('pendingModalOptions (notificationRoleId) read failed:', e?.message || e);
@@ -163,9 +160,10 @@ async function selectNotificationRole(interaction, configuredIds) {
   const selectMenu = new StringSelectMenuBuilder().setCustomId(`recruit_notification_role_select_${interaction.id}`).setPlaceholder('通知ロールを選択してください').setMinValues(1).setMaxValues(1).addOptions(options);
   const selectRow = new ActionRowBuilder().addComponents(selectMenu);
   const promptMessage = await safeReply(interaction, { content: '🔔 通知ロールを選択してください（任意）', components: [selectRow], flags: MessageFlags.Ephemeral, allowedMentions: { roles: [], users: [] } });
-  if (!promptMessage || typeof promptMessage.awaitMessageComponent !== 'function') {
+  if (!promptMessage?.awaitMessageComponent) {
     return { roleId: valid[0]?.id || null, aborted: false };
   }
+
   try {
     const selectInteraction = await promptMessage.awaitMessageComponent({ componentType: ComponentType.StringSelect, time: 60_000, filter: (i) => i.user.id === interaction.user.id });
     const choice = selectInteraction.values[0];
@@ -180,174 +178,185 @@ async function selectNotificationRole(interaction, configuredIds) {
   }
 }
 
-async function sendAnnouncements(interaction, selectedNotificationRole, configuredIds, image, container, guildSettings, user, extraComponents = []) {
-  const shouldUseDefaultNotification = !selectedNotificationRole && configuredIds.length === 0;
-  
-  // メンション用の通知メッセージを送信
-  if (selectedNotificationRole) {
-    if (selectedNotificationRole === 'everyone') {
-      (async () => { try { await interaction.channel.send({ content: '新しい募集が作成されました。@everyone', allowedMentions: { parse: ['everyone'] } }); } catch (e) { console.warn('通知送信失敗 (@everyone)', e?.message || e); } })();
-    } else if (selectedNotificationRole === 'here') {
-      (async () => { try { await interaction.channel.send({ content: '新しい募集が作成されました。@here', allowedMentions: { parse: ['everyone'] } }); } catch (e) { console.warn('通知送信失敗 (@here)', e?.message || e); } })();
-    } else {
-      (async () => { try { await interaction.channel.send({ content: `新しい募集が作成されました。<@&${selectedNotificationRole}>`, allowedMentions: { roles: [selectedNotificationRole] } }); } catch (e) { console.warn('通知送信失敗 (selected)', e?.message || e); } })();
-    }
-  } else if (shouldUseDefaultNotification) {
-    (async () => { try { await interaction.channel.send({ content: '新しい募集が作成されました。<@&1416797165769986161>', allowedMentions: { roles: ['1416797165769986161'] } }); } catch (e) { console.warn('通知送信失敗 (default)', e?.message || e); } })();
-  }
-
-  // 画像とUIの投稿 (Components V2使用、通知ロール情報はcontainer内に含まれる)
-  const baseOptions = { components: [container], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } };
-  // 送信時点で追加したいアクション行を同梱
+// ヘルパー関数: メッセージ送信オプションを構築
+function buildMessageOptions(container, image, extraComponents = []) {
+  const baseOptions = {
+    components: [container],
+    flags: MessageFlags.IsComponentsV2,
+    allowedMentions: { roles: [], users: [] }
+  };
   if (Array.isArray(extraComponents) && extraComponents.length > 0) {
     baseOptions.components.push(...extraComponents);
   }
   if (image) baseOptions.files = [image];
-  const followUpMessage = await interaction.channel.send(baseOptions);
+  return baseOptions;
+}
+
+// ヘルパー関数: 通知内容を作成
+function createNotificationContent(roleId) {
+  if (roleId === 'everyone') {
+    return { content: '新しい募集が作成されました。@everyone', mentions: { parse: ['everyone'] } };
+  }
+  if (roleId === 'here') {
+    return { content: '新しい募集が作成されました。@here', mentions: { parse: ['everyone'] } };
+  }
+  if (roleId) {
+    return { content: `新しい募集が作成されました。<@&${roleId}>`, mentions: { roles: [roleId] } };
+  }
+  return { content: '新しい募集が作成されました。<@&1416797165769986161>', mentions: { roles: ['1416797165769986161'] } };
+}
+
+// ヘルパー関数: 非同期で通知を送信
+function sendNotificationAsync(channel, roleId) {
+  (async () => {
+    try {
+      const { content, mentions } = createNotificationContent(roleId);
+      await channel.send({ content, allowedMentions: mentions });
+    } catch (e) {
+      console.warn('通知送信失敗:', e?.message || e);
+    }
+  })();
+}
+
+// 募集案内を送信（オプションベースのシグネチャ）
+async function sendAnnouncements(interaction, options = {}) {
+  const { selectedNotificationRole, configuredIds = [], image, container, guildSettings, extraComponents = [] } = options;
+  const shouldUseDefaultNotification = !selectedNotificationRole && configuredIds.length === 0;
+  
+  // 通知を送信
+  if (selectedNotificationRole || shouldUseDefaultNotification) {
+    sendNotificationAsync(interaction.channel, selectedNotificationRole || null);
+  }
+
+  // メイン投稿
+  const messageOptions = buildMessageOptions(container, image, extraComponents);
+  const followUpMessage = await interaction.channel.send(messageOptions);
   let secondaryMessage = null;
 
-  // 別チャンネルにも投稿（募集専用チャンネルの最初のもののみ）
+  // 別チャンネルにも投稿
   const primaryRecruitChannelId = Array.isArray(guildSettings.recruit_channels) && guildSettings.recruit_channels.length > 0
     ? guildSettings.recruit_channels[0]
     : guildSettings.recruit_channel;
 
-  if (primaryRecruitChannelId && primaryRecruitChannelId !== interaction.channelId) {
+  if (!primaryRecruitChannelId || primaryRecruitChannelId === interaction.channelId) {
+    return { mainMessage: followUpMessage, secondaryMessage: null };
+  }
+
+  try {
+    const recruitChannel = await interaction.guild.channels.fetch(primaryRecruitChannelId);
+    if (!recruitChannel?.isTextBased()) {
+      return { mainMessage: followUpMessage, secondaryMessage: null };
+    }
+
+    // 別チャンネルでも通知を送信
+    if (selectedNotificationRole || shouldUseDefaultNotification) {
+      sendNotificationAsync(recruitChannel, selectedNotificationRole || null);
+    }
+
+    // 募集メッセージ投稿
     try {
-      const recruitChannel = await interaction.guild.channels.fetch(primaryRecruitChannelId);
-      if (recruitChannel && recruitChannel.isTextBased()) {
-        if (selectedNotificationRole) {
-          if (selectedNotificationRole === 'everyone') {
-            (async () => { try { await recruitChannel.send({ content: '新しい募集が作成されました。@everyone', allowedMentions: { parse: ['everyone'] } }); } catch (e) { console.warn('通知送信失敗 (指定ch, @everyone):', e?.message || e); } })();
-          } else if (selectedNotificationRole === 'here') {
-            (async () => { try { await recruitChannel.send({ content: '新しい募集が作成されました。@here', allowedMentions: { parse: ['everyone'] } }); } catch (e) { console.warn('通知送信失敗 (指定ch, @here):', e?.message || e); } })();
-          } else {
-            (async () => { try { await recruitChannel.send({ content: `新しい募集が作成されました。<@&${selectedNotificationRole}>`, allowedMentions: { roles: [selectedNotificationRole] } }); } catch (e) { console.warn('通知送信失敗 (指定ch, selected):', e?.message || e); } })();
-          }
-        } else if (shouldUseDefaultNotification) {
-          (async () => { try { await recruitChannel.send({ content: '新しい募集が作成されました。<@&1416797165769986161>', allowedMentions: { roles: ['1416797165769986161'] } }); } catch (e) { console.warn('通知送信失敗 (指定ch, default):', e?.message || e); } })();
-        }
-        
-        // 募集メッセージ投稿 (通知ロール情報はcontainer内に含まれる)
-        try {
-          const secondaryOptions = { 
-            components: [container], 
-            flags: MessageFlags.IsComponentsV2, 
-            allowedMentions: { roles: [], users: [] }
-          };
-          if (image) secondaryOptions.files = [image];
-          if (Array.isArray(extraComponents) && extraComponents.length > 0) {
-            secondaryOptions.components.push(...extraComponents);
-          }
-          secondaryMessage = await recruitChannel.send(secondaryOptions);
-        } catch (e) { console.warn('募集メッセージ送信失敗(指定ch):', e?.message || e); }
-      }
-    } catch (channelError) { console.error('指定チャンネルへの送信でエラー:', channelError); }
+      const secondaryOptions = buildMessageOptions(container, image, extraComponents);
+      secondaryMessage = await recruitChannel.send(secondaryOptions);
+    } catch (e) {
+      console.warn('募集メッセージ送信失敗(指定ch):', e?.message || e);
+    }
+  } catch (channelError) {
+    console.error('指定チャンネルへの送信でエラー:', channelError);
   }
 
   return { mainMessage: followUpMessage, secondaryMessage };
+}
+
+// ユーザーアバターを取得
+async function fetchUserAvatarUrl(interaction) {
+  try {
+    const fetched = await interaction.client.users.fetch(interaction.user.id).catch(() => null);
+    if (fetched?.displayAvatarURL) {
+      return fetched.displayAvatarURL({ size: 128, extension: 'png' });
+    }
+  } catch (_) {}
+  return null;
+}
+
+// 最終的なRecruitDataを作成
+function createFinalRecruitData(actualRecruitId, actualMessageId, recruitDataObj, interaction) {
+  return {
+    ...recruitDataObj,
+    recruitId: actualRecruitId,
+    ownerId: recruitDataObj.recruiterId || interaction.user.id,
+    guildId: interaction.guildId,
+    channelId: interaction.channelId,
+    message_id: actualMessageId,
+    status: 'recruiting',
+    start_time: new Date().toISOString(),
+    startTimeNotified: false
+  };
+}
+
+// Webhook通知を送信
+async function sendWebhookNotification(finalRecruitData, interaction, actualRecruitId, actualMessageId, avatarUrl) {
+  try {
+    const webhookUrl = 'https://discord.com/api/webhooks/1426044588740710460/RElua00Jvi-937tbGtwv9wfq123mdff097HvaJgb-qILNsc79yzei9x8vZrM2OKYsETI';
+    const messageUrl = `https://discord.com/channels/${interaction.guildId}/${interaction.channelId}/${actualMessageId}`;
+
+    const webhookEmbed = {
+      title: '🎮 新しい募集が作成されました',
+      description: finalRecruitData.title || '募集タイトルなし',
+      color: parseInt(finalRecruitData.panelColor || '5865F2', 16),
+      fields: [
+        { name: '開始時間', value: finalRecruitData.startTime || '未設定', inline: true },
+        { name: '募集人数', value: `${finalRecruitData.participants || 0}人`, inline: true },
+        { name: '通話', value: finalRecruitData.vc || 'なし', inline: true },
+        { name: 'サーバー', value: interaction.guild?.name || 'Unknown', inline: true },
+        { name: 'チャンネル', value: `<#${interaction.channelId}>`, inline: true },
+        { name: 'リンク', value: `[募集を見る](${messageUrl})`, inline: true }
+      ],
+      author: { name: interaction.user.username, icon_url: avatarUrl || interaction.user.displayAvatarURL() },
+      timestamp: new Date().toISOString()
+    };
+
+    if (finalRecruitData.content) {
+      webhookEmbed.fields.push({
+        name: '募集内容',
+        value: String(finalRecruitData.content).slice(0, 1024)
+      });
+    }
+
+    await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ embeds: [webhookEmbed] })
+    });
+    console.log('[webhook] 募集通知を送信しました:', actualRecruitId);
+  } catch (err) {
+    console.error('[webhook] 募集通知の送信に失敗:', err?.message || err);
+  }
+}
+
+// RecruitDataを保存
+async function shouldSaveRecruitData(finalRecruitData, actualRecruitId, interaction) {
+  try {
+    await saveRecruitToRedis(actualRecruitId, finalRecruitData);
+    const pushRes = await pushRecruitToWebAPI(finalRecruitData);
+    if (!pushRes?.ok) console.error('Worker API push failed:', pushRes);
+    try {
+      const workerSave = await saveRecruitmentData(interaction.guildId, interaction.channelId, finalRecruitData.message_id, interaction.guild?.name, interaction.channel?.name, finalRecruitData);
+      if (!workerSave?.ok) console.error('[worker-sync] DO 保存失敗:', workerSave);
+    } catch (saveErr) { console.error('[worker-sync] saveRecruitmentData error:', saveErr?.message || saveErr); }
+  } catch (err) {
+    console.error('Redis保存またはAPI pushエラー:', err);
+  }
 }
 
 async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettings, user, participantText, subHeaderText, followUpMessage, currentParticipants }) {
   const actualMessage = followUpMessage;
   const actualMessageId = actualMessage.id;
   const actualRecruitId = actualMessageId.slice(-8);
-  const finalRecruitData = { 
-    ...recruitDataObj,
-    recruitId: actualRecruitId,
-    ownerId: recruitDataObj.recruiterId || interaction.user.id,
-    guildId: interaction.guildId, 
-    channelId: interaction.channelId, 
-    message_id: actualMessageId, 
-    status: 'recruiting', 
-    start_time: new Date().toISOString(),
-    startTimeNotified: false // 開始時間通知フラグを初期化
-  };
+  const finalRecruitData = createFinalRecruitData(actualRecruitId, actualMessageId, recruitDataObj, interaction);
+  const avatarUrl = await fetchUserAvatarUrl(interaction);
 
-  // 右上サムネイル用アバターURL（client経由で確実に取得）
-  let avatarUrl = null;
-  try {
-    const fetched = await interaction.client.users.fetch(interaction.user.id).catch(() => null);
-    if (fetched && typeof fetched.displayAvatarURL === 'function') {
-      avatarUrl = fetched.displayAvatarURL({ size: 128, extension: 'png' });
-    }
-  } catch (_) {}
-
-  try {
-    await saveRecruitToRedis(actualRecruitId, finalRecruitData);
-    const pushRes = await pushRecruitToWebAPI(finalRecruitData);
-    if (!pushRes || !pushRes.ok) console.error('Worker API push failed:', pushRes);
-    try {
-      const workerSave = await saveRecruitmentData(interaction.guildId, interaction.channelId, actualMessageId, interaction.guild?.name, interaction.channel?.name, finalRecruitData);
-      if (!workerSave?.ok) console.error('[worker-sync] DO 保存失敗:', workerSave);
-    } catch (saveErr) { console.error('[worker-sync] saveRecruitmentData error:', saveErr?.message || saveErr); }
-    
-    // Webhook通知を送信
-    try {
-      const webhookUrl = 'https://discord.com/api/webhooks/1426044588740710460/RElua00Jvi-937tbGtwv9wfq123mdff097HvaJgb-qILNsc79yzei9x8vZrM2OKYsETI';
-      const messageUrl = `https://discord.com/channels/${interaction.guildId}/${interaction.channelId}/${actualMessageId}`;
-      
-      const webhookEmbed = {
-        title: '🎮 新しい募集が作成されました',
-        description: finalRecruitData.title || '募集タイトルなし',
-        color: parseInt(finalRecruitData.panelColor || '5865F2', 16),
-        fields: [
-          {
-            name: '開始時間',
-            value: finalRecruitData.startTime || '未設定',
-            inline: true
-          },
-          {
-            name: '募集人数',
-            value: `${finalRecruitData.participants || 0}人`,
-            inline: true
-          },
-          {
-            name: '通話',
-            value: finalRecruitData.vc || 'なし',
-            inline: true
-          },
-          {
-            name: 'サーバー',
-            value: interaction.guild?.name || 'Unknown',
-            inline: true
-          },
-          {
-            name: 'チャンネル',
-            value: `<#${interaction.channelId}>`,
-            inline: true
-          },
-          {
-            name: 'リンク',
-            value: `[募集を見る](${messageUrl})`,
-            inline: true
-          }
-        ],
-        author: {
-          name: interaction.user.username,
-          icon_url: avatarUrl || interaction.user.displayAvatarURL()
-        },
-        timestamp: new Date().toISOString()
-      };
-
-      if (finalRecruitData.content) {
-        webhookEmbed.fields.push({
-          name: '募集内容',
-          value: String(finalRecruitData.content).slice(0, 1024)
-        });
-      }
-
-      await fetch(webhookUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          embeds: [webhookEmbed]
-        })
-      });
-      console.log('[webhook] 募集通知を送信しました:', actualRecruitId);
-    } catch (webhookErr) {
-      console.error('[webhook] 募集通知の送信に失敗:', webhookErr?.message || webhookErr);
-    }
-  } catch (err) { console.error('Redis保存またはAPI pushエラー:', err); }
+  await shouldSaveRecruitData(finalRecruitData, actualRecruitId, interaction);
+  await sendWebhookNotification(finalRecruitData, interaction, actualRecruitId, actualMessageId, avatarUrl);
 
   // 参加者保存（既存参加者を含む）
   recruitParticipants.set(actualMessageId, currentParticipants);
@@ -439,7 +448,7 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
       const editPayload = { components: [updatedContainer], flags: MessageFlags.IsComponentsV2, allowedMentions: { roles: [], users: [] } };
 
       if (updatedImage) editPayload.files = [updatedImage];
-      const editedMsg = await actualMessage.edit(editPayload);
+      await actualMessage.edit(editPayload);
     } catch (editError) { console.error('メッセージ更新エラー:', editError?.message || editError); }
 
   // 自動締切タイマー（8h）— 一時的に無効化
@@ -949,7 +958,7 @@ async function handleModalSubmit(interaction) {
         });
         // keep silent
       }
-    } catch (e) {
+    } catch (_e) {
       // no existing members selected
       existingMembers = [];
     }
@@ -974,7 +983,7 @@ async function handleModalSubmit(interaction) {
           // role selected
         }
       }
-    } catch (e) {
+    } catch (_e) {
       // no notification role selected
       selectedNotificationRole = null;
     }
@@ -1135,7 +1144,14 @@ async function handleModalSubmit(interaction) {
     // ここで投稿を行う（通知・画像・UI含む）
     let followUpMessage, secondaryMessage;
     try {
-      const announceRes = await sendAnnouncements(interaction, selectedNotificationRole, configuredNotificationRoleIds, image, container, guildSettings, user);
+      const announceRes = await sendAnnouncements(interaction, {
+        selectedNotificationRole,
+        configuredIds: configuredNotificationRoleIds,
+        image,
+        container,
+        guildSettings,
+        user
+      });
       followUpMessage = announceRes.mainMessage;
       secondaryMessage = announceRes.secondaryMessage;
     } catch (e) {
@@ -1248,7 +1264,7 @@ async function handleModalSubmit(interaction) {
       await followUpMessage.edit(editPayload);
       // もう一つの投稿がある場合も同様に編集
       if (secondaryMessage && secondaryMessage.id) {
-        const secondaryRecruitId = secondaryMessage.id.slice(-8);
+        const _secondaryRecruitId = secondaryMessage.id.slice(-8);
         // ボタンのcustomIdはrecruitIdに依存するため再構築
         const secondaryPayload = { ...editPayload };
         secondaryPayload.components = [immediateContainer];
