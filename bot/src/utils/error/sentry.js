@@ -1,6 +1,13 @@
 // P1修正: CommonJS形式に変更してbot/src/index.jsから簡単にrequireできるようにする
 const Sentry = require("@sentry/node");
-const { nodeProfilingIntegration } = require("@sentry/profiling-node");
+
+// Profile integration は optional
+let nodeProfilingIntegration = null;
+try {
+  nodeProfilingIntegration = require("@sentry/profiling-node").nodeProfilingIntegration;
+} catch (_e) {
+  console.warn("⚠️ @sentry/profiling-node not installed, profiling disabled");
+}
 
 /**
  * Sentry初期化（Discord Bot用）
@@ -12,14 +19,17 @@ function initSentry() {
     return;
   }
 
+  const integrations = [];
+  if (nodeProfilingIntegration) {
+    integrations.push(nodeProfilingIntegration());
+  }
+
   Sentry.init({
     dsn: process.env.SENTRY_DSN,
     environment: process.env.NODE_ENV || "production",
     
     // パフォーマンス監視
-    integrations: [
-      nodeProfilingIntegration(),
-    ],
+    integrations: integrations,
     
     // トレースサンプリング（100%）
     tracesSampleRate: 1.0,
@@ -31,7 +41,7 @@ function initSentry() {
     initialScope: {
       tags: {
         service: "discord-bot",
-  bot_name: "Recrubo",
+        bot_name: "Recrubo",
       },
     },
   });

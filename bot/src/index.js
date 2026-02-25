@@ -15,7 +15,7 @@ const FAILOVER_ENABLED = String(process.env.FAILOVER_ENABLED || 'false').toLower
 const SITE_ID = process.env.SITE_ID || 'oci'; // 'oci' or 'xserver'
 
 try {
-  const { startJwtIssuerServer } = require('./utils/jwtIssuerServer');
+  const { startJwtIssuerServer } = require('./utils/auth/jwtIssuerServer');
   startJwtIssuerServer();
 } catch (e) {
   console.warn('[jwt-issuer] Failed to start:', e?.message || e);
