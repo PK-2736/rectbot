@@ -1,5 +1,5 @@
 const { MessageFlags, ModalBuilder, TextInputBuilder, TextInputStyle, LabelBuilder, UserSelectMenuBuilder, StringSelectMenuBuilder } = require('discord.js');
-const { pendingModalOptions } = require('./state');
+const { pendingModalOptions } = require('./data/state');
 const { safeReply } = require('../../utils/safeReply');
 const { createErrorEmbed } = require('../../utils/embedHelpers');
 const { listRecruitsFromRedis, getCooldownRemaining, getGuildSettings } = require('../../utils/database');
