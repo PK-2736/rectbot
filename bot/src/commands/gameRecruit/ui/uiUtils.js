@@ -1,5 +1,5 @@
 const { EmbedBuilder } = require('discord.js');
-const { getGuildSettings } = require('../utils/database');
+const { getGuildSettings } = require('../../utils/db');
 
 function normalizeHex(hexStr) {
   if (!hexStr || typeof hexStr !== 'string') return null;

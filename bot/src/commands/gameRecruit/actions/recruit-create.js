@@ -1,7 +1,7 @@
 const { MessageFlags, AttachmentBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { recruitParticipants, pendingModalOptions } = require('../data/state');
 const { createErrorEmbed } = require('../../../utils/embedHelpers');
-const { getGuildSettings, listRecruitsFromRedis, saveRecruitmentData, saveRecruitToRedis, saveParticipantsToRedis, pushRecruitToWebAPI, getCooldownRemaining, setCooldown } = require('../utils/database');
+const { getGuildSettings, listRecruitsFromRedis, saveRecruitmentData, saveRecruitToRedis, saveParticipantsToRedis, pushRecruitToWebAPI, getCooldownRemaining, setCooldown } = require('../../utils/db');
 const { buildContainer, buildContainerSimple } = require('../../../utils/recruitHelpers');
 const { generateRecruitCardQueued } = require('../../../utils/imageQueue');
 const { EXEMPT_GUILD_IDS } = require('../data/constants');

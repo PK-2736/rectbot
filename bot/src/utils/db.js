@@ -1,5 +1,5 @@
 /**
  * 後方互換性プロキシ
- * データベース を database モジュールから再エクスポート
+ * Database モジュールを database フォルダから再エクスポート
  */
 module.exports = require('./database');

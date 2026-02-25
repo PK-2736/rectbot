@@ -1,7 +1,7 @@
 const { EmbedBuilder } = require('discord.js');
 const { recruitParticipants } = require('../data/state');
 const { createErrorEmbed } = require('../../../utils/embedHelpers');
-const { getParticipantsFromRedis, getRecruitFromRedis, listRecruitsFromRedis, saveParticipantsToRedis } = require('../utils/database');
+const { getParticipantsFromRedis, getRecruitFromRedis, listRecruitsFromRedis, saveParticipantsToRedis } = require('../../utils/db');
 const { updateParticipantList } = require('../../../utils/recruitMessage');
 const { runInBackground } = require('../utils/handlerUtils');
 const { replyEphemeral, logError } = require('../utils/reply-helpers');

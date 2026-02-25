@@ -1,6 +1,6 @@
 const { buildStartTimeNotificationEmbed, buildStartTimeNotificationComponents } = require('../ui/ui-builders');
 const { isValidStartDelay, isImmediateStartTime, hasValidParticipants } = require('../validation/validation-helpers');
-const { getParticipantsFromRedis } = require('../utils/database');
+const { getParticipantsFromRedis } = require('../../utils/db');
 const { recruitParticipants } = require('../data/state');
 const { logError } = require('../utils/reply-helpers');
 
