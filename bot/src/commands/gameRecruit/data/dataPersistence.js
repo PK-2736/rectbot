@@ -1,5 +1,5 @@
 const { EmbedBuilder } = require('discord.js');
-const { logToChannel } = require('../../utils/logToChannel');
+const { logToChannel } = require('../../../utils/logToChannel');
 const { 
   saveRecruitDataToRedis, 
   saveRecruitIntoWebhook, 

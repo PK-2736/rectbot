@@ -4,8 +4,8 @@
  */
 
 const { MessageFlags, AttachmentBuilder } = require('discord.js');
-const { generateRecruitCardQueued } = require('../../utils/imageQueue');
-const { buildContainerSimple, buildContainer } = require('../../utils/recruitHelpers');
+const { generateRecruitCardQueued } = require('../../../utils/imageQueue');
+const { buildContainerSimple, buildContainer } = require('../../../utils/recruitHelpers');
 const { buildSimpleDetailsText, buildContentText, buildStartVCButton } = require('../ui/text-builders');
 
 /**

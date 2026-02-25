@@ -8,7 +8,7 @@ const {
   ModalBuilder, TextInputBuilder, TextInputStyle
 } = require('discord.js');
 
-const { getGuildSettingsFromRedis, listTemplates } = require('../utils/database');
+const { getGuildSettingsFromRedis, listTemplates } = require('../../utils/database');
 const { safeRespond } = require('../../utils/interactionHandler');
 
 // 設定カテゴリ定義

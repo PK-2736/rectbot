@@ -1,5 +1,5 @@
 const { PermissionsBitField, EmbedBuilder, MessageFlags } = require('discord.js');
-const { safeReply } = require('../../utils/safeReply');
+const { safeReply } = require('../../../utils/safeReply');
 const { getGuildSettings, getRecruitFromRedis, getParticipantsFromRedis } = require('../utils/database');
 
 async function validateDedicatedChannelFeature(interaction, guildSettings) {
@@ -15,7 +15,7 @@ async function validateDedicatedChannelFeature(interaction, guildSettings) {
 }
 
 async function checkExistingDedicatedChannel(interaction, recruitId) {
-  const { getDedicatedChannel } = require('../../utils/db/dedicatedChannels');
+  const { getDedicatedChannel } = require('../../../utils/db/dedicatedChannels');
   const existingChannelId = await getDedicatedChannel(recruitId).catch(() => null);
 
   if (existingChannelId) {
@@ -187,7 +187,7 @@ async function createDedicatedChannel(interaction, { guildSettings, participants
 
 async function persistDedicatedChannel(recruitId, channelId) {
   try {
-    const { saveDedicatedChannel } = require('../../utils/db/dedicatedChannels');
+    const { saveDedicatedChannel } = require('../../../utils/db/dedicatedChannels');
     await saveDedicatedChannel(recruitId, channelId, 86400);
   } catch (error) {
     console.warn('[processCreateDedicatedChannel] saveDedicatedChannel failed:', error);

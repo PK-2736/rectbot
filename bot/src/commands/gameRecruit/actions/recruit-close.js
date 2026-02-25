@@ -1,8 +1,8 @@
 const { AttachmentBuilder, ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, SeparatorSpacingSize, MediaGalleryBuilder, MediaGalleryItemBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const { recruitParticipants } = require('../data/state');
 const { getRecruitFromRedis, getGuildSettings, updateRecruitmentStatus, deleteRecruitmentData, deleteParticipantsFromRedis } = require('../utils/database');
-const { createErrorEmbed } = require('../../utils/embedHelpers');
-const { safeReply } = require('../../utils/safeReply');
+const { createErrorEmbed } = require('../../../utils/embedHelpers');
+const { safeReply } = require('../../../utils/safeReply');
 const { formatVoiceLabel, runInBackground } = require('../utils/handlerUtils');
 const { replyEphemeral, logError, logCriticalError } = require('../utils/reply-helpers');
 const { hexToIntColor } = require('../ui/ui-builders');
@@ -115,7 +115,7 @@ async function fetchOriginalImageBuffer(originalMessage) {
 
 async function generateFallbackImageBuffer(data, finalParticipants, client) {
   try {
-    const { generateRecruitCardQueued } = require('../../utils/imageQueue');
+    const { generateRecruitCardQueued } = require('../../../utils/imageQueue');
     let useColor = data?.panelColor || '808080';
     if (typeof useColor === 'string' && useColor.startsWith('#')) useColor = useColor.slice(1);
     if (!/^[0-9A-Fa-f]{6}$/.test(useColor)) useColor = '808080';
@@ -127,7 +127,7 @@ async function generateFallbackImageBuffer(data, finalParticipants, client) {
 }
 
 async function generateClosedImageAttachment(context) {
-  const { generateClosedRecruitCardQueued } = require('../../utils/imageQueue');
+  const { generateClosedRecruitCardQueued } = require('../../../utils/imageQueue');
 
   let baseImageBuffer = await fetchOriginalImageBuffer(context.originalMessage);
 
@@ -280,7 +280,7 @@ async function deleteDedicatedChannelAfterDelay(interaction, dedicatedChannelId,
       if (channel) {
         await channel.delete();
       }
-      const { deleteDedicatedChannel } = require('../../utils/db/dedicatedChannels');
+      const { deleteDedicatedChannel } = require('../../../utils/db/dedicatedChannels');
       await deleteDedicatedChannel(recruitId);
     } catch (e) {
       console.warn(`[processClose] Failed to delete channel ${dedicatedChannelId}:`, e?.message || e);
@@ -290,7 +290,7 @@ async function deleteDedicatedChannelAfterDelay(interaction, dedicatedChannelId,
 
 function scheduleDedicatedChannelCleanup(interaction, data, messageId) {
   runInBackground(async () => {
-    const { getDedicatedChannel } = require('../../utils/db/dedicatedChannels');
+    const { getDedicatedChannel } = require('../../../utils/db/dedicatedChannels');
     const recruitId = data?.recruitId || String(messageId).slice(-8);
     const dedicatedChannelId = await getDedicatedChannel(recruitId).catch(() => null);
 

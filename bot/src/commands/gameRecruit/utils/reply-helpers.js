@@ -4,7 +4,7 @@
  */
 
 const { MessageFlags } = require('discord.js');
-const { safeReply } = require('../../utils/safeReply');
+const { safeReply } = require('../../../utils/safeReply');
 
 /**
  * Sends an ephemeral reply with no mentions allowed

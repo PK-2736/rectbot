@@ -1,8 +1,8 @@
 const { EmbedBuilder } = require('discord.js');
 const { recruitParticipants } = require('../data/state');
-const { createErrorEmbed } = require('../../utils/embedHelpers');
+const { createErrorEmbed } = require('../../../utils/embedHelpers');
 const { getParticipantsFromRedis, getRecruitFromRedis, listRecruitsFromRedis, saveParticipantsToRedis } = require('../utils/database');
-const { updateParticipantList } = require('../../utils/recruitMessage');
+const { updateParticipantList } = require('../../../utils/recruitMessage');
 const { runInBackground } = require('../utils/handlerUtils');
 const { replyEphemeral, logError } = require('../utils/reply-helpers');
 const { isRecruiter } = require('../validation/validation-helpers');
@@ -113,7 +113,7 @@ async function sendJoinNotificationToChannel(interaction, messageId, savedRecrui
   if (!savedRecruitData?.recruiterId || !savedRecruitData?.channelId) return;
 
   runInBackground(async () => {
-    const { getDedicatedChannel } = require('../../utils/db/dedicatedChannels');
+    const { getDedicatedChannel } = require('../../../utils/db/dedicatedChannels');
     const recruitId = savedRecruitData.recruitId || messageId.slice(-8);
     const dedicatedChannelId = await getDedicatedChannel(recruitId).catch(() => null);
 

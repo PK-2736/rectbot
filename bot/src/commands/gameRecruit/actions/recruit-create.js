@@ -1,11 +1,11 @@
 const { MessageFlags, AttachmentBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { recruitParticipants, pendingModalOptions } = require('../data/state');
-const { createErrorEmbed } = require('../../utils/embedHelpers');
+const { createErrorEmbed } = require('../../../utils/embedHelpers');
 const { getGuildSettings, listRecruitsFromRedis, saveRecruitmentData, saveRecruitToRedis, saveParticipantsToRedis, pushRecruitToWebAPI, getCooldownRemaining, setCooldown } = require('../utils/database');
-const { buildContainer, buildContainerSimple } = require('../../utils/recruitHelpers');
-const { generateRecruitCardQueued } = require('../../utils/imageQueue');
+const { buildContainer, buildContainerSimple } = require('../../../utils/recruitHelpers');
+const { generateRecruitCardQueued } = require('../../../utils/imageQueue');
 const { EXEMPT_GUILD_IDS } = require('../data/constants');
-const { handlePermissionError } = require('../../utils/handlePermissionError');
+const { handlePermissionError } = require('../../../utils/handlePermissionError');
 const { formatVoiceLabel, fetchUserAvatarUrl } = require('../utils/handlerUtils');
 const { replyEphemeral, logError, logCriticalError } = require('../utils/reply-helpers');
 const { isValidParticipantsNumber, isPermissionError, isUnknownInteractionError } = require('../validation/validation-helpers');

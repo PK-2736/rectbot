@@ -465,7 +465,7 @@
 //     const message = await interaction.channel.messages.fetch(messageId);
     
 //     // 新しい画像を生成
-//     const { generateRecruitCard } = require('../utils/canvasRecruit');
+//     const { generateRecruitCard } = require('../../utils/canvasRecruit');
 //     const participants = gameRecruit.getParticipants(messageId) || [];
 //     const buffer = await generateRecruitCard(newRecruitData, participants, interaction.client);
     
@@ -555,7 +555,7 @@
 
 //     // DB上の募集データも更新（エラーハンドリングを追加）
 //     try {
-//       const { updateRecruitmentData } = require('../utils/database');
+//       const { updateRecruitmentData } = require('../../utils/database');
 //       await updateRecruitmentData(messageId, newRecruitData);
 //       console.log('データベースの募集データを更新しました');
 //     } catch (dbError) {

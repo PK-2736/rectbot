@@ -1,6 +1,6 @@
 const { PermissionsBitField, EmbedBuilder, MessageFlags } = require('discord.js');
 const { getGuildSettings, getRecruitFromRedis, getParticipantsFromRedis } = require('../utils/database');
-const { safeReply } = require('../../utils/safeReply');
+const { safeReply } = require('../../../utils/safeReply');
 
 async function processCreateDedicatedChannel(interaction, recruitId) {
   try {
@@ -62,7 +62,7 @@ async function validateDedicatedChannelSetup(interaction, recruitId) {
     return { guildSettings: null, existingChannelId: null };
   }
 
-  const { getDedicatedChannel } = require('../../utils/db/dedicatedChannels');
+  const { getDedicatedChannel } = require('../../../utils/db/dedicatedChannels');
   const existingChannelId = await getDedicatedChannel(recruitId).catch(() => null);
   if (existingChannelId) {
     const existingChannel = await interaction.guild.channels.fetch(existingChannelId).catch(() => null);
@@ -127,7 +127,7 @@ async function validateBotPermissions(interaction) {
 }
 
 async function createAndSetupDedicatedChannel(interaction, recruitId, recruit, participants, guildSettings) {
-  const { saveDedicatedChannel } = require('../../utils/db/dedicatedChannels');
+  const { saveDedicatedChannel } = require('../../../utils/db/dedicatedChannels');
   const channelName = recruit?.title ? `${recruit.title}`.slice(0, 100) : `recruit-${recruitId}`;
   
   const permissionOverwrites = [

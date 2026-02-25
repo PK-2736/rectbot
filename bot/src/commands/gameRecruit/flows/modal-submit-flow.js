@@ -5,8 +5,8 @@
 
 const { MessageFlags, EmbedBuilder, ActionRowBuilder } = require('discord.js');
 const { recruitParticipants, pendingModalOptions, startNotifySent } = require('../data/state');
-const { safeReply } = require('../../utils/safeReply');
-const { createErrorEmbed } = require('../../utils/embedHelpers');
+const { safeReply } = require('../../../utils/safeReply');
+const { createErrorEmbed } = require('../../../utils/embedHelpers');
 const { getGuildSettings, saveRecruitToRedis, saveParticipantsToRedis, setCooldown, getParticipantsFromRedis } = require('../utils/database');
 const { EXEMPT_GUILD_IDS } = require('../data/constants');
 const { hexToIntColor } = require('../actions/buttonActions');

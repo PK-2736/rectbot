@@ -4,7 +4,7 @@
  */
 
 const { MessageFlags } = require('discord.js');
-const { handlePermissionError } = require('../../utils/handlePermissionError');
+const { handlePermissionError } = require('../../../utils/handlePermissionError');
 const { buildConfiguredNotificationRoleIds } = require('../notifications/notification-role-selector');
 
 /**

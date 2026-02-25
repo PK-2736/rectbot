@@ -6,8 +6,8 @@
 
 const { MessageFlags, ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, SeparatorSpacingSize, MediaGalleryBuilder, MediaGalleryItemBuilder } = require('discord.js');
 const { recruitParticipants } = require('../data/state');
-const { safeReply } = require('../../utils/safeReply');
-const { createErrorEmbed } = require('../../utils/embedHelpers');
+const { safeReply } = require('../../../utils/safeReply');
+const { createErrorEmbed } = require('../../../utils/embedHelpers');
 const { 
   updateRecruitmentStatus, 
   deleteRecruitmentData, 
@@ -16,7 +16,7 @@ const {
   getRecruitFromRedis,
   deleteRecruitFromRedis 
 } = require('../utils/database');
-const { updateParticipantList } = require('../../utils/recruitMessage');
+const { updateParticipantList } = require('../../../utils/recruitMessage');
 
 // Helper modules
 const { 
@@ -79,7 +79,7 @@ async function processJoin(interaction, messageId, participants, savedRecruitDat
   let dedicatedChannelId = null;
   if (savedRecruitData?.recruitId) {
     try {
-      const { getDedicatedChannel } = require('../../utils/db/dedicatedChannels');
+      const { getDedicatedChannel } = require('../../../utils/db/dedicatedChannels');
       dedicatedChannelId = await getDedicatedChannel(savedRecruitData.recruitId).catch(() => null);
     } catch (e) {
       console.warn('getDedicatedChannel failed:', e?.message || e);

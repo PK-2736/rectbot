@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, ButtonBuilder, ButtonStyle, MessageFlags } = require('discord.js');
-const { safeReply, safeUpdate } = require('../utils/safeReply');
+const { safeReply, safeUpdate } = require('../../utils/safeReply');
 
 const HELP_MENU_OPTIONS = [
   { label: '🎮 rect', description: 'ゲーム募集を作成する', value: 'rect', emoji: '🎮' },

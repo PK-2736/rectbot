@@ -1,7 +1,7 @@
 const { ButtonBuilder, ButtonStyle, ActionRowBuilder } = require('discord.js');
 
 function buildSimpleStyleContainer(actualRecruitId, finalRecruitData, user, participantText, subHeaderText, finalAccentColor, avatarUrl) {
-  const { buildContainerSimple } = require('../../utils/recruitHelpers');
+  const { buildContainerSimple } = require('../../../utils/recruitHelpers');
   const detailsText = buildSimpleDetailsText(finalRecruitData);
   const contentText = buildContentText(finalRecruitData);
   const extraButtonsFinalSimple = buildStartVCButton(actualRecruitId, finalRecruitData);
@@ -21,7 +21,7 @@ function buildSimpleStyleContainer(actualRecruitId, finalRecruitData, user, part
 }
 
 function buildImageStyleContainer(actualRecruitId, finalRecruitData, user, participantText, subHeaderText, finalAccentColor, _avatarUrl) {
-  const { buildContainer } = require('../../utils/recruitHelpers');
+  const { buildContainer } = require('../../../utils/recruitHelpers');
   const contentText = buildContentText(finalRecruitData);
   const extraButtonsFinalImg = buildStartVCButton(actualRecruitId, finalRecruitData);
 

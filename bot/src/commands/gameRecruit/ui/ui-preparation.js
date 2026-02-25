@@ -4,8 +4,8 @@
  */
 
 const { AttachmentBuilder } = require('discord.js');
-const { generateRecruitCardQueued } = require('../../utils/imageQueue');
-const { buildContainerSimple, buildContainer } = require('../../utils/recruitHelpers');
+const { generateRecruitCardQueued } = require('../../../utils/imageQueue');
+const { buildContainerSimple, buildContainer } = require('../../../utils/recruitHelpers');
 const { normalizeHex } = require('../ui/message-updater');
 const { buildVoiceLabel, buildDetailsText, buildExtraCreateVCButtons, buildSubHeaderText } = require('../ui/text-builders');
 const { fetchUserAvatarUrl } = require('../data/data-loader');

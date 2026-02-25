@@ -1,7 +1,7 @@
 const { SlashCommandBuilder } = require('discord.js');
 // externalized shared state and helpers
 const { recruitParticipants, __hydrateParticipants } = require('./gameRecruit/data/state');
-const { autoCloseRecruitment } = require('../utils/recruitMessage');
+const { autoCloseRecruitment } = require('../../utils/recruitMessage');
 
 // hydrateRecruitData moved to utils/recruitMessage
 
@@ -10,7 +10,7 @@ const { autoCloseRecruitment } = require('../utils/recruitMessage');
 // safeReply moved to ../utils/safeReply
 
 // Redis専用 募集データAPI
-const { saveRecruitToRedis, getRecruitFromRedis, listRecruitsFromRedis } = require('../utils/database');
+const { saveRecruitToRedis, getRecruitFromRedis, listRecruitsFromRedis } = require('../../utils/database');
 
 // updateParticipantList moved to ../utils/recruitMessage
 

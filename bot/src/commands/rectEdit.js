@@ -8,12 +8,12 @@ const {
   AttachmentBuilder,
 } = require('discord.js');
 
-const { updateRecruitmentData, getGuildSettingsFromRedis } = require('../utils/database');
-const { safeRespond } = require('../utils/interactionHandler');
-const { getActiveRecruits } = require('../utils/db/statusApi');
-const { generateRecruitCardQueued } = require('../utils/imageQueue');
-const { buildContainer, buildContainerSimple } = require('../utils/recruitHelpers');
-const backendFetch = require('../utils/backendFetch');
+const { updateRecruitmentData, getGuildSettingsFromRedis } = require('../../utils/database');
+const { safeRespond } = require('../../utils/interactionHandler');
+const { getActiveRecruits } = require('../../utils/db/statusApi');
+const { generateRecruitCardQueued } = require('../../utils/imageQueue');
+const { buildContainer, buildContainerSimple } = require('../../utils/recruitHelpers');
+const backendFetch = require('../../utils/backendFetch');
 const config = require('../config');
 
 async function fetchRecruitById(recruitId) {

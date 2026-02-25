@@ -5,7 +5,7 @@
 
 const { MessageFlags, ComponentType, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, ActionRowBuilder } = require('discord.js');
 const { pendingModalOptions } = require('../data/state');
-const { safeReply } = require('../../utils/safeReply');
+const { safeReply } = require('../../../utils/safeReply');
 
 /**
  * 設定済み通知ロールIDリストを構築
