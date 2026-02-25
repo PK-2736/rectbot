@@ -15,7 +15,7 @@ const {
   deleteParticipantsFromRedis, 
   getRecruitFromRedis,
   deleteRecruitFromRedis 
-} = require('../../utils/db');
+} = require('../../../utils/database');
 const { updateParticipantList } = require('../../../utils/recruitMessage');
 
 // Helper modules

@@ -5,7 +5,7 @@ const {
   saveRecruitIntoWebhook, 
   saveAllParticipants, 
   saveParticipantsOnce 
-} = require('../../utils/db');
+} = require('../../../utils/database');
 
 function shouldSaveRecruitData(recruitData) {
   if (!recruitData?.guildId || !recruitData?.channelId || !recruitData?.messageId) return false;

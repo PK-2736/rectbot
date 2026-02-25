@@ -2,7 +2,7 @@ const {
   getRecruitDataFromRedis, 
   getParticipantsFromRedis, 
   listAllParticipantsFromRedis 
-} = require('../../utils/db');
+} = require('../../../utils/database');
 
 async function hydrateParticipants(recruitData) {
   const { guildId, channelId, messageId } = recruitData;

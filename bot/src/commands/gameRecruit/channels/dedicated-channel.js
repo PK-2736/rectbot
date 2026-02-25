@@ -1,6 +1,6 @@
 const { PermissionsBitField, EmbedBuilder, MessageFlags } = require('discord.js');
 const { safeReply } = require('../../../utils/safeReply');
-const { getGuildSettings, getRecruitFromRedis, getParticipantsFromRedis } = require('../../utils/db');
+const { getGuildSettings, getRecruitFromRedis, getParticipantsFromRedis } = require('../../../utils/database');
 
 async function validateDedicatedChannelFeature(interaction, guildSettings) {
   if (!guildSettings?.enable_dedicated_channel) {

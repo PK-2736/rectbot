@@ -1,6 +1,6 @@
 const { AttachmentBuilder, ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, SeparatorSpacingSize, MediaGalleryBuilder, MediaGalleryItemBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const { recruitParticipants } = require('../data/state');
-const { getRecruitFromRedis, getGuildSettings, updateRecruitmentStatus, deleteRecruitmentData, deleteParticipantsFromRedis } = require('../../utils/db');
+const { getRecruitFromRedis, getGuildSettings, updateRecruitmentStatus, deleteRecruitmentData, deleteParticipantsFromRedis } = require('../../../utils/database');
 const { createErrorEmbed } = require('../../../utils/embedHelpers');
 const { safeReply } = require('../../../utils/safeReply');
 const { formatVoiceLabel, runInBackground } = require('../utils/handlerUtils');
@@ -56,7 +56,7 @@ async function tryDeleteRecruitFromCache(messageId, data) {
   try {
     const rid = data?.recruitId || String(messageId).slice(-8);
     if (rid) {
-      const { deleteRecruitFromRedis } = require('../../utils/db');
+      const { deleteRecruitFromRedis } = require('../../../utils/database');
       await deleteRecruitFromRedis(rid);
     }
   } catch (e) {

@@ -7,7 +7,7 @@ const { MessageFlags, EmbedBuilder, ActionRowBuilder } = require('discord.js');
 const { recruitParticipants, pendingModalOptions, startNotifySent } = require('../data/state');
 const { safeReply } = require('../../../utils/safeReply');
 const { createErrorEmbed } = require('../../../utils/embedHelpers');
-const { getGuildSettings, saveRecruitToRedis, saveParticipantsToRedis, setCooldown, getParticipantsFromRedis } = require('../../utils/db');
+const { getGuildSettings, saveRecruitToRedis, saveParticipantsToRedis, setCooldown, getParticipantsFromRedis } = require('../../../utils/database');
 const { EXEMPT_GUILD_IDS } = require('../data/constants');
 const { hexToIntColor } = require('../actions/buttonActions');
 const { createFinalRecruitData, fetchUserAvatarUrl } = require('../data/data-loader');
@@ -28,7 +28,7 @@ function isGuildExempt(guildId) {
  * クールダウンを強制
  */
 async function enforceCooldown(interaction) {
-  const { getCooldownRemaining } = require('../../utils/db');
+  const { getCooldownRemaining } = require('../../../utils/database');
   try {
     if (isGuildExempt(interaction.guildId)) return true;
     const remaining = await getCooldownRemaining(`rect:${interaction.guildId}`);
@@ -54,7 +54,7 @@ async function enforceCooldown(interaction) {
  */
 async function ensureNoActiveRecruit(interaction) {
   if (isGuildExempt(interaction.guildId)) return true;
-  const { listRecruitsFromRedis } = require('../../utils/db');
+  const { listRecruitsFromRedis } = require('../../../utils/database');
   try {
     const allRecruits = await listRecruitsFromRedis();
     const guildIdStr = String(interaction.guildId);

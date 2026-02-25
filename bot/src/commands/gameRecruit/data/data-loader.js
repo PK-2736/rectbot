@@ -4,7 +4,7 @@
  */
 
 const { recruitParticipants } = require('../data/state');
-const { getParticipantsFromRedis, getRecruitFromRedis, listRecruitsFromRedis } = require('../../utils/db');
+const { getParticipantsFromRedis, getRecruitFromRedis, listRecruitsFromRedis } = require('../../../utils/database');
 
 /**
  * 参加者リストをRedisから復元（ハイドレーション）
