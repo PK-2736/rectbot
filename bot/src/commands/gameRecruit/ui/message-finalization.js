@@ -15,8 +15,12 @@ async function finalizeMessageAndUIFlow(interaction, followUpMessage, secondaryM
   const recruitId = followUpMessage.id.slice(-8);
   
   try {
+    // 画像が実際に利用可能か確認
+    const hasImage = image && style === 'image';
+    
     // RecruitIDを含む最終コンテナを構築
-    const immediateContainer = style === 'simple'
+    // 画像なしまたはStypeがsimpleの場合は常にシンプルコンテナを使用
+    const immediateContainer = !hasImage
       ? await buildSimpleContainerForCreate(recruitDataObj, interaction, user, participantText, subHeaderText, accentColor, recruitId)
       : buildImageContainerForCreate(recruitDataObj, interaction, participantText, subHeaderText, accentColor, recruitId);
 
@@ -31,8 +35,8 @@ async function finalizeMessageAndUIFlow(interaction, followUpMessage, secondaryM
       editPayload.components.push(container.__pendingButtonRow);
     }
     
-    // Image style の場合は画像を追加
-    if (style === 'image' && image) {
+    // 実際に画像がある場合のみ添付
+    if (hasImage) {
       editPayload.files = [image];
     }
 

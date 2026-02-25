@@ -10,8 +10,8 @@ const { hydrateParticipants, loadSavedRecruitData } = require('./data/data-loade
 const { validateModalSubmission } = require('./flows/modal-submit-flow');
 const { buildRecruitDataFromModal } = require('./flows/modal-data-extractor');
 
-// UI準備モジュールの関数をインポート（後で作成予定）
-const { prepareUIComponentsForCreate, generateAndUpdateImageAsync } = require('./ui/ui-preparation');
+// UI準備モジュールの関数をインポート
+const { prepareUIComponentsForCreate } = require('./ui/ui-preparation');
 const { sendRecruitmentAnnouncementsFlow } = require('./notifications/announcement-flow');
 const { finalizeMessageAndUIFlow } = require('./ui/message-finalization');
 const { finalizePersistAndEdit } = require('./flows/modal-submit-flow');
@@ -85,9 +85,6 @@ async function handleModalSubmit(interaction) {
       followUpMessage,
       currentParticipants: uiData.currentParticipants
     });
-
-    // 画像生成を非同期で実行（タイムアウト防止のため）
-    generateAndUpdateImageAsync(recruitDataObj, uiData.currentParticipants, interaction, uiData.style, uiData.useColor, followUpMessage, guildSettings);
 
     // 完了
     try {
