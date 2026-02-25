@@ -3,7 +3,7 @@
  * Handles command execution routing
  */
 
-const { safeRespond } = require('../../utils/interactionHandler');
+const { handleCommandSafely } = require('../../utils/interactionHandler');
 
 /**
  * Route and execute slash commands
@@ -13,11 +13,11 @@ async function routeCommand(interaction, client) {
   if (!command) return;
   
   const deferNeeded = !command.noDefer;
-  await safeRespond(
-    interaction, 
+  await handleCommandSafely(
+    interaction,
     async (inter) => {
       await command.execute(inter);
-    }, 
+    },
     { 
       defer: deferNeeded, 
       deferOptions: { ephemeral: true } 
