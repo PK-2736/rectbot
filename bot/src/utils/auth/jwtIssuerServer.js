@@ -1,5 +1,5 @@
+const cryptoModule = require('crypto');
 const http = require('http');
-
 
 const JWT_PRIVATE_KEY = (process.env.JWT_PRIVATE_KEY || '').trim();
 const INTERNAL_SECRET = (process.env.INTERNAL_SECRET || '').trim();
@@ -20,7 +20,7 @@ function signJwt(payload, privateKey) {
   const headerB64 = base64UrlEncode(header);
   const payloadB64 = base64UrlEncode(payload);
   const data = `${headerB64}.${payloadB64}`;
-  const signer = crypto.createSign('RSA-SHA256');
+  const signer = cryptoModule.createSign('RSA-SHA256');
   signer.update(data);
   signer.end();
   const sig = signer.sign(privateKey, 'base64');

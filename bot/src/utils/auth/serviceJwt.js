@@ -1,4 +1,6 @@
 
+// crypto はビルトイングローバルですが、互換性のため明示的にロード
+const cryptoModule = require('crypto');
 
 const SERVICE_JWT_PRIVATE_KEY = (process.env.SERVICE_JWT_PRIVATE_KEY || '').trim();
 const JWT_TTL_SEC = Number(process.env.SERVICE_JWT_TTL_SEC || 600);
@@ -26,7 +28,7 @@ function signJwt(payload, privateKey) {
   const headerB64 = base64UrlEncode(header);
   const payloadB64 = base64UrlEncode(payload);
   const data = `${headerB64}.${payloadB64}`;
-  const signer = crypto.createSign('RSA-SHA256');
+  const signer = cryptoModule.createSign('RSA-SHA256');
   signer.update(data);
   signer.end();
   const sig = signer.sign(privateKey, 'base64');
