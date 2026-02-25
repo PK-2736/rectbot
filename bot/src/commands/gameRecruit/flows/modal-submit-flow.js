@@ -7,7 +7,7 @@ const { MessageFlags, EmbedBuilder, ActionRowBuilder } = require('discord.js');
 const { recruitParticipants, pendingModalOptions, startNotifySent } = require('../data/state');
 const { safeReply } = require('../../../utils/safeReply');
 const { createErrorEmbed } = require('../../../utils/embedHelpers');
-const { getGuildSettings, saveRecruitToRedis, saveParticipantsToRedis, setCooldown, getParticipantsFromRedis } = require('../../../utils/database');
+const { getGuildSettings, saveRecruitToRedis, saveParticipantsToRedis, setCooldown, getParticipantsFromRedis, saveRecruitmentData } = require('../../../utils/database');
 const { EXEMPT_GUILD_IDS } = require('../data/constants');
 const { hexToIntColor } = require('../actions/buttonActions');
 const { createFinalRecruitData, fetchUserAvatarUrl } = require('../data/data-loader');
@@ -173,6 +173,21 @@ async function initializeAndPersistData(actualRecruitId, actualMessageId, recrui
 
   await shouldSaveRecruitData(finalRecruitData, actualRecruitId, interaction);
   await sendWebhookNotification(finalRecruitData, interaction, actualRecruitId, actualMessageId, avatarUrl);
+
+  // ✅ バックエンドAPIに募集データを保存
+  try {
+    await saveRecruitmentData(
+      interaction.guildId,
+      interaction.channelId,
+      actualMessageId,
+      interaction.guild?.name,
+      interaction.channel?.name,
+      finalRecruitData
+    );
+    console.log(`[Backend] 募集保存成功: ${actualRecruitId}`);
+  } catch (err) {
+    console.error('[Backend] 募集保存失敗:', err?.message || err);
+  }
 
   recruitParticipants.set(actualMessageId, currentParticipants);
   try {
