@@ -1,6 +1,6 @@
 const { SlashCommandBuilder } = require('discord.js');
 // externalized shared state and helpers
-const { recruitParticipants, __hydrateParticipants } = require('./gameRecruit/state');
+const { recruitParticipants, __hydrateParticipants } = require('./gameRecruit/data/state');
 const { autoCloseRecruitment } = require('../utils/recruitMessage');
 
 // hydrateRecruitData moved to utils/recruitMessage
