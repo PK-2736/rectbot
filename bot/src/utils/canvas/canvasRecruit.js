@@ -1,6 +1,6 @@
 // Canvas画像生成用ユーティリティ
 const { createCanvas, registerFont, loadImage } = require('canvas');
-registerFont(__dirname + '/../../data/Corporate-Logo-Rounded-Bold-ver3.otf', { family: 'CorporateRounded' });
+registerFont(__dirname + '/../../../data/Corporate-Logo-Rounded-Bold-ver3.otf', { family: 'CorporateRounded' });
 
 function truncateText(ctx, text, maxWidth) {
   let result = text;
