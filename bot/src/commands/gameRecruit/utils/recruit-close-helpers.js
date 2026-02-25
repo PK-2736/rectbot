@@ -3,9 +3,9 @@
  * 募集締切処理のヘルパー関数
  */
 
-const { MessageFlags, AttachmentBuilder, EmbedBuilder } = require('discord.js');
+const { _MessageFlags, AttachmentBuilder, EmbedBuilder } = require('discord.js');
 const { safeReply } = require('../../../utils/safeReply');
-const { createErrorEmbed } = require('../../../utils/embedHelpers');
+const { _createErrorEmbed } = require('../../../utils/embedHelpers');
 const { generateRecruitCardQueued, generateClosedRecruitCardQueued } = require('../../../utils/imageQueue');
 
 /**
@@ -19,7 +19,7 @@ function hexToIntColor(hex, fallbackInt) {
 /**
  * 募集主の権限を検証
  */
-async function validateRecruiterPermission(data, userId, messageId) {
+async function validateRecruiterPermission(data, userId, _messageId) {
   if (!data) {
     return { valid: false, error: '募集データが見つかりません。' };
   }
@@ -34,7 +34,7 @@ async function validateRecruiterPermission(data, userId, messageId) {
 /**
  * 元の画像を取得（メッセージアタッチメント）
  */
-async function fetchOriginalImage(originalMessage) {
+async function fetchOriginalImage(originalMessage, _messageId) {
   if (!originalMessage?.attachments?.size) return null;
   
   try {
@@ -50,7 +50,7 @@ async function fetchOriginalImage(originalMessage) {
 /**
  * 新規募集画像を生成
  */
-async function generateNewClosedImage(recruitData, participants, client, messageId) {
+async function generateNewClosedImage(recruitData, participants, client, _messageId) {
   try {
     let useColor = recruitData?.panelColor || '808080';
     if (typeof useColor === 'string' && useColor.startsWith('#')) useColor = useColor.slice(1);
@@ -98,7 +98,7 @@ async function getClosedImageAttachment(recruitData, participants, client, origi
 /**
  * 募集主への締切通知を送信
  */
-async function notifyRecruiterOfClose(interaction, recruitData, finalParticipants, messageId) {
+async function notifyRecruiterOfClose(interaction, recruitData, finalParticipants, _messageId) {
   if (!recruitData?.recruiterId) return;
   
   try {

@@ -1,5 +1,5 @@
 const { EmbedBuilder } = require('discord.js');
-const { normalizeGameNameWithWorker, getFriendCodesFromWorker } = require('../utils/workerApiClient');
+const { _normalizeGameNameWithWorker, getFriendCodesFromWorker } = require('../utils/workerApiClient');
 const nodemailer = require('nodemailer');
 const config = require('../config');
 
@@ -38,7 +38,7 @@ async function sendBumpNotification(channelName, content = '') {
 
 module.exports = {
   name: 'messageCreate',
-  async execute(message, client) {
+  async execute(message, _client) {
     // DMは無視
     if (!message.guild) return;
 

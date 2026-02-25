@@ -395,12 +395,13 @@ function buildSettingPayload(settingKey, value) {
     case 'notification_roles':
       return normalizeNotificationRoles(value);
     
-    case 'notification_role':
+    case 'notification_role': {
       const roleId = value ? String(value) : null;
       return { 
         notification_role: roleId, 
         notification_roles: roleId ? [roleId] : [] 
       };
+    }
     
     case 'recruit_channels':
       return normalizeRecruitChannels(value);

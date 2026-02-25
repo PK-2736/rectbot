@@ -5,7 +5,7 @@
 
 // 統合されたbackend Workerを使用（Friend Code APIも含む）
 const WORKER_URL = process.env.BACKEND_API_URL || process.env.BACKEND_URL || 'https://api.recrubo.net';
-const SERVICE_TOKEN = process.env.SERVICE_TOKEN || process.env.BACKEND_SERVICE_TOKEN || '';
+const _SERVICE_TOKEN = process.env.SERVICE_TOKEN || process.env.BACKEND_SERVICE_TOKEN || '';
 const { fetchServiceJwt } = require('../auth/serviceJwt');
 
 /**

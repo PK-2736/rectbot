@@ -21,7 +21,7 @@ async function handleCallback(request, env, { safeHeaders }) {
   }
 
   try {
-    const { jwt, userInfo } = await handleDiscordCallback(code, env);
+    const { jwt, _userInfo } = await handleDiscordCallback(code, env);
 
     // Set JWT cookie and redirect to dashboard
     const frontendUrl = env.FRONTEND_URL || 'https://dash.recrubo.net';

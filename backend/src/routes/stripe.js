@@ -148,7 +148,7 @@ async function handleCheckoutSessionCompleted(session, env) {
   }
 }
 
-async function handleSubscriptionUpdated(subscription, env) {
+async function handleSubscriptionUpdated(subscription, _env) {
   console.log('Subscription updated:', subscription.id);
   
   // サブスクリプション情報を更新
@@ -170,7 +170,7 @@ async function handleSubscriptionDeleted(subscription, env) {
   }
 }
 
-async function getUserFromRequest(request, env) {
+async function getUserFromRequest(request, _env) {
   try {
     // Cookie から JWT を取得
     const cookies = request.headers.get('Cookie') || '';

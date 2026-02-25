@@ -87,7 +87,7 @@ async function _fetchRecruitmentMessage(client, channelId, messageId) {
  */
 async function _updateMessageToClosed(message, recruitData, recruitId) {
   try {
-    const baseColor = _resolveBaseColor(recruitData);
+    const _baseColor = _resolveBaseColor(recruitData);
     const closedAttachment = await _buildClosureImage(message);
     const disabledContainer = _buildClosureContainer(recruitData, recruitId, closedAttachment);
     const disabledButtons = _buildDisabledButtons();

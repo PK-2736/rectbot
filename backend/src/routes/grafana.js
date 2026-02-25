@@ -184,7 +184,7 @@ async function safeHandle(handler, options) {
 
 // Grafanaルーティング
 async function handleGrafanaRoutes(request, env, { url, safeHeaders, store }) {
-  const { pathname } = url;
+  const { pathname: _pathname } = url;
   const { method } = request;
   const context = { url, safeHeaders, store };
 

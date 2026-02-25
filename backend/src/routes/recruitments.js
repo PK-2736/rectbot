@@ -150,7 +150,7 @@ async function handleJoinRecruit(request, store, id, cors, safeHeaders) {
   const { userId } = await request.json().catch(() => ({}));
   if (!userId) return jsonResponse({ ok: false, error: 'invalid_user' }, 400, safeHeaders);
   
-  const context = { store, cors, safeHeaders };
+  const _context = { store, cors, safeHeaders };
   try {
     const result = await forwardToDoOrExecute(
       store,

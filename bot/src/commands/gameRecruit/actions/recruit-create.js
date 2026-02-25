@@ -459,16 +459,6 @@ function buildRecruitTitleText(recruitDataObj) {
   return recruitDataObj?.title ? `## ${String(recruitDataObj.title).slice(0,200)}` : '';
 }
 
-async function fetchUserAvatar(interaction) {
-  try {
-    const fetchedUser = await interaction.client.users.fetch(interaction.user.id).catch(() => null);
-    if (fetchedUser && typeof fetchedUser.displayAvatarURL === 'function') {
-      return fetchedUser.displayAvatarURL({ size: 128, extension: 'png' });
-    }
-  } catch (_) {}
-  return null;
-}
-
 async function buildSimpleStyleContainer({ recruitDataObj, user, participantText, subHeaderText, interaction, accentColor, recruitIdText }) {
   const detailsText = buildRecruitDetailsLine(recruitDataObj);
   const contentText = buildRecruitContentText(recruitDataObj);

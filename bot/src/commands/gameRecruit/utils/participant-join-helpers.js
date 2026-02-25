@@ -3,8 +3,8 @@
  * 参加・キャンセル処理の通知ロジック
  */
 
-const { MessageFlags, EmbedBuilder } = require('discord.js');
-const { safeReply } = require('../../../utils/safeReply');
+const { _MessageFlags, EmbedBuilder } = require('discord.js');
+const { _safeReply } = require('../../../utils/safeReply');
 
 /**
  * Hex色を整数に変換

@@ -38,7 +38,7 @@ const {
   buildVoiceLabel,
   buildRecruitDetailsLine,
   buildFinalParticipantText,
-  buildClosedRecruitText
+  _buildClosedRecruitText
 } = require('../utils/ui-text-helpers');
 
 // Utility: Convert hex color to integer
