@@ -1,5 +1,4 @@
 const { EmbedBuilder } = require('discord.js');
-const { logToChannel } = require('../../../utils/logToChannel');
 const { 
   saveRecruitDataToRedis, 
   saveRecruitIntoWebhook, 
@@ -35,7 +34,6 @@ async function initializeAndPersistData(interaction, recruitData) {
       console.log(`[DATA_PERSIST] Saved recruitId=${recruitData.messageId} to Redis+Webhook+Participants`);
     } catch (error) {
       console.error('[DATA_PERSIST_ERROR]', error);
-      await logToChannel('日報', `募集データ保存エラー (recruitId=${recruitData.messageId}): ${error.message}`, 'システム');
     }
   } else {
     console.warn('[SKIP_DATA_PERSIST] recruitData invalid or incomplete', {

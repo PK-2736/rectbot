@@ -15,7 +15,7 @@ async function validateDedicatedChannelFeature(interaction, guildSettings) {
 }
 
 async function checkExistingDedicatedChannel(interaction, recruitId) {
-  const { getDedicatedChannel } = require('../../../utils/db/dedicatedChannels');
+  const { getDedicatedChannel } = require('../../../utils/database/db/dedicatedChannels');
   const existingChannelId = await getDedicatedChannel(recruitId).catch(() => null);
 
   if (existingChannelId) {
@@ -187,7 +187,7 @@ async function createDedicatedChannel(interaction, { guildSettings, participants
 
 async function persistDedicatedChannel(recruitId, channelId) {
   try {
-    const { saveDedicatedChannel } = require('../../../utils/db/dedicatedChannels');
+    const { saveDedicatedChannel } = require('../../../utils/database/db/dedicatedChannels');
     await saveDedicatedChannel(recruitId, channelId, 86400);
   } catch (error) {
     console.warn('[processCreateDedicatedChannel] saveDedicatedChannel failed:', error);

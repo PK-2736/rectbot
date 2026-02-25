@@ -280,7 +280,7 @@ async function deleteDedicatedChannelAfterDelay(interaction, dedicatedChannelId,
       if (channel) {
         await channel.delete();
       }
-      const { deleteDedicatedChannel } = require('../../../utils/db/dedicatedChannels');
+      const { deleteDedicatedChannel } = require('../../../utils/database/db/dedicatedChannels');
       await deleteDedicatedChannel(recruitId);
     } catch (e) {
       console.warn(`[processClose] Failed to delete channel ${dedicatedChannelId}:`, e?.message || e);
@@ -290,7 +290,7 @@ async function deleteDedicatedChannelAfterDelay(interaction, dedicatedChannelId,
 
 function scheduleDedicatedChannelCleanup(interaction, data, messageId) {
   runInBackground(async () => {
-    const { getDedicatedChannel } = require('../../../utils/db/dedicatedChannels');
+    const { getDedicatedChannel } = require('../../../utils/database/db/dedicatedChannels');
     const recruitId = data?.recruitId || String(messageId).slice(-8);
     const dedicatedChannelId = await getDedicatedChannel(recruitId).catch(() => null);
 

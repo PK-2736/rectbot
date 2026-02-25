@@ -79,7 +79,7 @@ async function processJoin(interaction, messageId, participants, savedRecruitDat
   let dedicatedChannelId = null;
   if (savedRecruitData?.recruitId) {
     try {
-      const { getDedicatedChannel } = require('../../../utils/db/dedicatedChannels');
+      const { getDedicatedChannel } = require('../../../utils/database/db/dedicatedChannels');
       dedicatedChannelId = await getDedicatedChannel(savedRecruitData.recruitId).catch(() => null);
     } catch (e) {
       console.warn('getDedicatedChannel failed:', e?.message || e);

@@ -129,7 +129,7 @@ async function notifyRecruiterOfClose(interaction, recruitData, finalParticipant
 function deleteDedicatedChannelAsync(interaction, recruitData, delayMs) {
   (async () => {
     try {
-      const { getDedicatedChannel, deleteDedicatedChannel } = require('../../../utils/db/dedicatedChannels');
+      const { getDedicatedChannel, deleteDedicatedChannel } = require('../../../utils/database/db/dedicatedChannels');
       const recruitId = recruitData?.recruitId || String(interaction.message?.id).slice(-8);
       const dedicatedChannelId = await getDedicatedChannel(recruitId).catch(() => null);
 

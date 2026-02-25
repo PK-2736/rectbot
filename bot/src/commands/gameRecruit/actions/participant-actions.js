@@ -113,7 +113,7 @@ async function sendJoinNotificationToChannel(interaction, messageId, savedRecrui
   if (!savedRecruitData?.recruiterId || !savedRecruitData?.channelId) return;
 
   runInBackground(async () => {
-    const { getDedicatedChannel } = require('../../../utils/db/dedicatedChannels');
+    const { getDedicatedChannel } = require('../../../utils/database/db/dedicatedChannels');
     const recruitId = savedRecruitData.recruitId || messageId.slice(-8);
     const dedicatedChannelId = await getDedicatedChannel(recruitId).catch(() => null);
 
