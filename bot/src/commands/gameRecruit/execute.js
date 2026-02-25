@@ -3,7 +3,7 @@ const { pendingModalOptions } = require('./data/state');
 const { safeReply } = require('../../utils/safeReply');
 const { createErrorEmbed } = require('../../utils/embedHelpers');
 const { listRecruitsFromRedis, getCooldownRemaining, getGuildSettings } = require('../../utils/database');
-const { EXEMPT_GUILD_IDS } = require('./constants');
+const { EXEMPT_GUILD_IDS } = require('./data/constants');
 
 const START_TIME_REGEX = /^\s*(\d{1,2}):(\d{2})\s*$/;
 const START_TIME_NOW_REGEX = /^\s*(今から|now)\s*$/i;
