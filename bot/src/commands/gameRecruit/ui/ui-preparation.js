@@ -71,6 +71,7 @@ function buildImageContainerForCreate(recruitDataObj, interaction, participantTe
 /**
  * UIコンポーネントを準備（全体フロー）
  * 画像生成は非同期で実行（タイムアウト防止）
+ * 最初のメッセージ送信時はテキスト版、画像完成後に更新時はイメージスタイル
  */
 async function prepareUIComponentsForCreate(recruitDataObj, interaction, guildSettings) {
   const currentParticipants = [interaction.user.id, ...recruitDataObj.existingMembers.filter(id => id !== interaction.user.id)];
@@ -87,9 +88,9 @@ async function prepareUIComponentsForCreate(recruitDataObj, interaction, guildSe
   const subHeaderText = buildSubHeaderText(recruitDataObj.notificationRoleId);
   const accentColor = buildAccentColor(recruitDataObj.panelColor, guildSettings.defaultColor);
 
-  const container = style === 'simple'
-    ? await buildSimpleContainerForCreate(recruitDataObj, interaction, user, participantText, subHeaderText, accentColor, '(作成中)')
-    : buildImageContainerForCreate(recruitDataObj, interaction, participantText, subHeaderText, accentColor, '(作成中)');
+  // 最初のメッセージ送信時は常にシンプルコンテナ（画像参照なし）
+  // 画像完成後に更新するときにイメージスタイルへ切り替え
+  const container = await buildSimpleContainerForCreate(recruitDataObj, interaction, user, participantText, subHeaderText, accentColor, '(作成中)');
 
   return { image, container, participantText, subHeaderText, accentColor, currentParticipants, user, style, useColor };
 }
