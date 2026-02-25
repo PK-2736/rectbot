@@ -1,7 +1,7 @@
 const { SlashCommandBuilder, MessageFlags } = require('discord.js');
-const { listRecruitsFromRedis, getParticipantsFromRedis } = require('../../utils/database');
-const { autoCloseRecruitment } = require('../../utils/recruitMessage');
-const { safeReply } = require('../../utils/safeReply');
+const { listRecruitsFromRedis, getParticipantsFromRedis } = require('../utils/database');
+const { autoCloseRecruitment } = require('../utils/recruitMessage');
+const { safeReply } = require('../utils/safeReply');
 
 module.exports = {
   data: new SlashCommandBuilder()

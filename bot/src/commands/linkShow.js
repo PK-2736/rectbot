@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
-const { getFriendCodesFromWorker } = require('../../utils/workerApiClient');
+const { getFriendCodesFromWorker } = require('../utils/workerApiClient');
 
 module.exports = {
   data: new SlashCommandBuilder()

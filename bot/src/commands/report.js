@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, EmbedBuilder, ButtonBuilder, ButtonStyle, MessageFlags } = require('discord.js');
-const { safeReply } = require('../../utils/safeReply');
+const { safeReply } = require('../utils/safeReply');
 
 const REPORT_CHANNEL_ID = '1414750896507719680';
 
