@@ -8,7 +8,7 @@ const {
   AttachmentBuilder,
 } = require('discord.js');
 
-const { updateRecruitmentData, getGuildSettingsFromRedis } = require('../utils/db');
+const { updateRecruitmentData, getGuildSettingsFromRedis } = require('../utils/database');
 const { safeRespond } = require('../utils/interactionHandler');
 const { getActiveRecruits } = require('../utils/db/statusApi');
 const { generateRecruitCardQueued } = require('../utils/imageQueue');

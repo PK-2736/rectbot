@@ -1,5 +1,5 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-const { setDiscordClient } = require('../utils/db');
+const { setDiscordClient } = require('../utils/database');
 
 module.exports = {
   name: 'clientReady',

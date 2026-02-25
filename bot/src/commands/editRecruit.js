@@ -555,7 +555,7 @@
 
 //     // DB上の募集データも更新（エラーハンドリングを追加）
 //     try {
-//       const { updateRecruitmentData } = require('../utils/db');
+//       const { updateRecruitmentData } = require('../utils/database');
 //       await updateRecruitmentData(messageId, newRecruitData);
 //       console.log('データベースの募集データを更新しました');
 //     } catch (dbError) {

@@ -1,5 +1,5 @@
 const { PermissionsBitField, EmbedBuilder, MessageFlags } = require('discord.js');
-const { getGuildSettings, getRecruitFromRedis, getParticipantsFromRedis } = require('../../utils/db');
+const { getGuildSettings, getRecruitFromRedis, getParticipantsFromRedis } = require('../utils/database');
 const { safeReply } = require('../../utils/safeReply');
 
 async function processCreateDedicatedChannel(interaction, recruitId) {

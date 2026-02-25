@@ -5,7 +5,7 @@ const {
   ChannelType,
 } = require('discord.js');
 
-const { saveGuildSettingsToRedis, getGuildSettingsFromRedis, getGuildSettingsSmart, finalizeGuildSettings, upsertTemplate } = require('../../utils/db');
+const { saveGuildSettingsToRedis, getGuildSettingsFromRedis, getGuildSettingsSmart, finalizeGuildSettings, upsertTemplate } = require('../utils/database');
 const { safeReply } = require('../../utils/safeReply');
 const { createErrorEmbed, createSuccessEmbed } = require('../../utils/embedHelpers');
 const {

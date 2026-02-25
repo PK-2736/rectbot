@@ -8,7 +8,7 @@
  */
 async function getTitleSuggestions(interaction) {
   try {
-    const { getGuildSettings } = require('../../utils/db');
+    const { getGuildSettings } = require('../utils/database');
     const settings = await getGuildSettings(interaction.guildId).catch(() => null);
     const focused = interaction.options.getFocused(true);
     

@@ -1,5 +1,5 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
-const { saveGuildSettingsToRedis } = require('../utils/db');
+const { saveGuildSettingsToRedis } = require('../utils/database');
 
 module.exports = {
   name: 'guildCreate',

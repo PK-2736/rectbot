@@ -10,7 +10,7 @@ const { autoCloseRecruitment } = require('../utils/recruitMessage');
 // safeReply moved to ../utils/safeReply
 
 // Redis専用 募集データAPI
-const { saveRecruitToRedis, getRecruitFromRedis, listRecruitsFromRedis } = require('../utils/db');
+const { saveRecruitToRedis, getRecruitFromRedis, listRecruitsFromRedis } = require('../utils/database');
 
 // updateParticipantList moved to ../utils/recruitMessage
 

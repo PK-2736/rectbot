@@ -1,5 +1,5 @@
-const config = require('../../config');
-const backendFetch = require('../backendFetch');
+const config = require('../../../config');
+const backendFetch = require('../../common/backendFetch');
 const { normalizeRecruitId } = require('./utils');
 
 async function saveRecruitStatus(serverId, channelId, messageId, startTime) {

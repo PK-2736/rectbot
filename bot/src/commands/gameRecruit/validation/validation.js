@@ -2,7 +2,7 @@ const { MessageFlags } = require('discord.js');
 const { pendingModalOptions } = require('../data/state');
 const { safeReply } = require('../../utils/safeReply');
 const { createErrorEmbed } = require('../../utils/embedHelpers');
-const { getGuildSettings, listRecruitsFromRedis, getCooldownRemaining } = require('../../utils/db');
+const { getGuildSettings, listRecruitsFromRedis, getCooldownRemaining } = require('../utils/database');
 const { EXEMPT_GUILD_IDS } = require('../data/constants');
 
 const MIN_PARTICIPANTS = 1;
