@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, EmbedBuilder, ButtonBuilder, ButtonStyle, MessageFlags } = require('discord.js');
+const { SlashCommandBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, EmbedBuilder, ButtonBuilder, ButtonStyle, MessageFlags, PermissionsBitField } = require('discord.js');
 const { safeReply } = require('../utils/safeReply');
 
 const REPORT_CHANNEL_ID = '1414750896507719680';
@@ -21,8 +21,12 @@ module.exports = {
       const title = interaction.fields.getTextInputValue('report_title');
       const content = interaction.fields.getTextInputValue('report_content');
 
-      const reportChannel = await getReportChannel(interaction.client);
+      const reportChannel = await getReportChannel(interaction.client, interaction);
       if (!reportChannel) {
+        console.error('[report] No writable report channel found', {
+          guildId: interaction.guildId,
+          configured: process.env.REPORT_CHANNEL_ID || REPORT_CHANNEL_ID
+        });
         await safeReply(interaction, {
           content: '❌ 報告を送信できませんでした。管理者に連絡してください。',
           flags: MessageFlags.Ephemeral
@@ -82,8 +86,40 @@ function buildReportModal(userId) {
   return modal;
 }
 
-async function getReportChannel(client) {
-  return client.channels.fetch(REPORT_CHANNEL_ID).catch(() => null);
+function canSendToChannel(channel, clientUserId) {
+  if (!channel || typeof channel.send !== 'function') return false;
+  if (!channel.isTextBased || !channel.isTextBased()) return false;
+
+  // DM / Group DM は権限チェック不要
+  if (channel.isDMBased && channel.isDMBased()) return true;
+
+  const perms = channel.permissionsFor?.(clientUserId);
+  if (!perms) return false;
+  return perms.has(PermissionsBitField.Flags.SendMessages);
+}
+
+async function getReportChannel(client, interaction) {
+  const configuredIds = [process.env.REPORT_CHANNEL_ID, REPORT_CHANNEL_ID].filter(Boolean);
+  const clientUserId = client.user?.id;
+
+  for (const channelId of configuredIds) {
+    const channel = await client.channels.fetch(channelId).catch(() => null);
+    if (canSendToChannel(channel, clientUserId)) {
+      return channel;
+    }
+  }
+
+  // フォールバック1: 実行されたチャンネル
+  if (canSendToChannel(interaction.channel, clientUserId)) {
+    return interaction.channel;
+  }
+
+  // フォールバック2: 同一ギルド内で送信可能な最初のテキストチャンネル
+  const guild = interaction.guild;
+  if (!guild?.channels?.cache) return null;
+
+  const candidate = guild.channels.cache.find(ch => canSendToChannel(ch, clientUserId));
+  return candidate || null;
 }
 
 function buildReportEmbed({ interaction, title, content }) {
