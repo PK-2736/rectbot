@@ -5,7 +5,9 @@ const {
   defaultJobOptions,
   queueTimeoutMs,
   queueStrict,
-  queueDisabled
+  queueDisabled,
+  queueDirectFirst,
+  queueBacklogThreshold
 } = require('./imageQueueConfig');
 
 const queue = new Queue(queueName, { connection: connectionOptions });
@@ -42,6 +44,26 @@ async function waitForJobResult(job) {
   return await job.waitUntilFinished(queueEvents, queueTimeoutMs);
 }
 
+async function shouldEnqueue(jobLabel) {
+  if (queueDisabled) return false;
+  if (!queueDirectFirst) return true;
+
+  try {
+    const counts = await queue.getJobCounts('active', 'waiting', 'delayed', 'prioritized');
+    const backlog = (counts.active || 0) + (counts.waiting || 0) + (counts.delayed || 0) + (counts.prioritized || 0);
+    const useQueue = backlog > queueBacklogThreshold;
+
+    if (useQueue) {
+      console.log(`[imageQueue] ${jobLabel}: backlog=${backlog} > threshold=${queueBacklogThreshold}, enqueue`);
+    }
+
+    return useQueue;
+  } catch (err) {
+    console.warn(`[imageQueue] failed to inspect backlog for ${jobLabel}, fallback to queue:`, err?.message || err);
+    return true;
+  }
+}
+
 async function runWithFallback(label, handler, fallback) {
   try {
     return await handler();
@@ -59,11 +81,16 @@ async function generateRecruitCardQueued(recruitData, participantIds = [], clien
     return await generateRecruitCard(recruitData, participantIds, client, accentColor);
   }
 
-  const avatarUrls = await buildAvatarUrlMap(client, participantIds);
+  const useQueue = await shouldEnqueue('recruit-card');
+  if (!useQueue) {
+    const { generateRecruitCard } = require('./canvasRecruit');
+    return await generateRecruitCard(recruitData, participantIds, client, accentColor);
+  }
 
   return await runWithFallback(
     'recruit-card',
     async () => {
+      const avatarUrls = await buildAvatarUrlMap(client, participantIds);
       const job = await queue.add('recruit-card', {
         recruitData,
         participantIds,
@@ -89,6 +116,12 @@ async function generateClosedRecruitCardQueued(originalImageBuffer) {
 
   if (queueDisabled) {
     if (queueStrict) throw new Error('image queue disabled');
+    const { generateClosedRecruitCard } = require('./canvasRecruit');
+    return await generateClosedRecruitCard(originalImageBuffer);
+  }
+
+  const useQueue = await shouldEnqueue('recruit-card-closed');
+  if (!useQueue) {
     const { generateClosedRecruitCard } = require('./canvasRecruit');
     return await generateClosedRecruitCard(originalImageBuffer);
   }

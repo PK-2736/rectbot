@@ -57,19 +57,6 @@ async function deferCloseInteraction(interaction) {
   }
 }
 
-async function getClosedImageAttachmentFast(data, finalParticipants, interaction, messageId, timeoutMs = 2500) {
-  try {
-    const imagePromise = getClosedImageAttachment(data, finalParticipants, interaction.client, interaction.message, messageId);
-    const timeoutPromise = new Promise((resolve) => {
-      setTimeout(() => resolve(null), timeoutMs);
-    });
-    return await Promise.race([imagePromise, timeoutPromise]);
-  } catch (e) {
-    console.warn('[processClose] image generation failed:', e?.message || e);
-    return null;
-  }
-}
-
 /**
  * Process user joining a recruitment
  */
@@ -209,7 +196,7 @@ async function processClose(interaction, messageId, savedRecruitData) {
     const finalParticipants = recruitParticipants.get(messageId) || [];
 
     // Generate closed image and display
-    const closedAttachment = await getClosedImageAttachmentFast(data, finalParticipants, interaction, messageId);
+    const closedAttachment = await getClosedImageAttachment(data, finalParticipants, interaction.client, interaction.message, messageId);
     const disabledContainer = closedAttachment
       ? buildClosedContainerWithImage(closedAttachment, messageId, finalParticipants, data)
       : buildClosedContainerWithoutImage(messageId, data, interaction.message);

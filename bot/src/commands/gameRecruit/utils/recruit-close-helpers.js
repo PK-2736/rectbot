@@ -113,10 +113,16 @@ async function notifyRecruiterOfClose(interaction, recruitData, finalParticipant
         inline: false
       });
     
+    const recruiterUser = await interaction.client.users.fetch(recruitData.recruiterId).catch(() => null);
+    if (recruiterUser) {
+      await recruiterUser.send({ embeds: [closeEmbed] }).catch(() => null);
+      return;
+    }
+
+    // Fallback: interaction follow-up (content only to avoid Components V2 field conflicts)
     await safeReply(interaction, {
-      content: `<@${recruitData.recruiterId}>`,
-      embeds: [closeEmbed],
-      allowedMentions: { users: [recruitData.recruiterId] }
+      content: `🔒 募集を締め切りました（${finalParticipants.length}/${recruitData.participants}人）`,
+      allowedMentions: { users: [] }
     });
   } catch (e) {
     console.warn('safeReply failed during close:', e?.message || e);
