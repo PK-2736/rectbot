@@ -8,7 +8,7 @@ const {
   AttachmentBuilder,
 } = require('discord.js');
 
-const { updateRecruitmentData, getGuildSettingsFromRedis } = require('../utils/database');
+const { updateRecruitmentData, getGuildSettingsFromRedis, listRecruitsFromRedis } = require('../utils/database');
 const { safeRespond } = require('../utils/interactionHandler');
 const { getActiveRecruits } = require('../utils/database/db/statusApi');
 const { generateRecruitCardQueued } = require('../utils/canvas/imageQueue');
@@ -272,17 +272,32 @@ module.exports = {
   },
 
   filterRecruitingStatus(list) {
-    return list.filter(r => (r.status || 'recruiting') === 'recruiting');
+    return list.filter(r => {
+      const status = String(r?.status || 'recruiting').toLowerCase();
+      return status === 'recruiting' || status === 'active';
+    });
   },
 
   filterByGuild(list, guildId) {
     if (!guildId) return list;
-    return list.filter(r => r.metadata?.guildId === guildId);
+    return list.filter(r => {
+      const gid = String(r?.metadata?.guildId ?? r?.guildId ?? r?.guild_id ?? '');
+      return gid === String(guildId);
+    });
   },
 
   filterByOwner(list, userId) {
     if (!userId) return list;
-    return list.filter(r => String(r.ownerId || r.owner_id) === String(userId));
+    return list.filter(r => {
+      const owner = String(
+        r?.ownerId ??
+        r?.owner_id ??
+        r?.recruiterId ??
+        r?.metadata?.raw?.recruiterId ??
+        ''
+      );
+      return owner === String(userId);
+    });
   },
 
   mapToAutocompleteFormat(list) {
@@ -297,7 +312,13 @@ module.exports = {
 
   async fetchAndFilterRecruits(guildId, userId) {
     const res = await getActiveRecruits();
-    const list = Array.isArray(res?.body) ? res.body : [];
+    let list = Array.isArray(res?.body) ? res.body : [];
+
+    // backend active list が空の場合は Redis からフォールバック
+    if (list.length === 0) {
+      list = await listRecruitsFromRedis().catch(() => []);
+    }
+
     console.log(`[rect-edit autocomplete] Found ${list.length} total recruits`);
     
     const recruitingOnly = this.filterRecruitingStatus(list);
