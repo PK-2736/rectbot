@@ -67,23 +67,20 @@ async function handleModalSubmit(interaction) {
     );
     if (!followUpMessage?.id) return;
 
-    // ステップ5: メッセージとUI確定
-    await finalizeMessageAndUIFlow(interaction, followUpMessage, secondaryMessage, {
-      recruitDataObj,
-      guildSettings,
-      ...uiData
-    });
-
-    // ステップ6: 最終化と永続化
+    // ステップ5: 先に永続化（締めボタン先押しによる404を防止）
     await finalizePersistAndEdit({
       interaction,
       recruitDataObj,
       guildSettings,
-      user: uiData.user,
-      participantText: uiData.participantText,
-      subHeaderText: uiData.subHeaderText,
       followUpMessage,
       currentParticipants: uiData.currentParticipants
+    });
+
+    // ステップ6: メッセージとUI確定
+    await finalizeMessageAndUIFlow(interaction, followUpMessage, secondaryMessage, {
+      recruitDataObj,
+      guildSettings,
+      ...uiData
     });
 
     // 完了

@@ -47,6 +47,29 @@ function hexToIntColor(hex, fallbackInt) {
   return /^[0-9A-Fa-f]{6}$/.test(cleaned) ? parseInt(cleaned, 16) : fallbackInt;
 }
 
+async function deferCloseInteraction(interaction) {
+  try {
+    if (!interaction.deferred && !interaction.replied) {
+      await interaction.deferUpdate();
+    }
+  } catch (e) {
+    console.warn('[processClose] deferUpdate failed:', e?.message || e);
+  }
+}
+
+async function getClosedImageAttachmentFast(data, finalParticipants, interaction, messageId, timeoutMs = 2500) {
+  try {
+    const imagePromise = getClosedImageAttachment(data, finalParticipants, interaction.client, interaction.message, messageId);
+    const timeoutPromise = new Promise((resolve) => {
+      setTimeout(() => resolve(null), timeoutMs);
+    });
+    return await Promise.race([imagePromise, timeoutPromise]);
+  } catch (e) {
+    console.warn('[processClose] image generation failed:', e?.message || e);
+    return null;
+  }
+}
+
 /**
  * Process user joining a recruitment
  */
@@ -151,6 +174,9 @@ async function processCancel(interaction, messageId, participants, savedRecruitD
  */
 async function processClose(interaction, messageId, savedRecruitData) {
   try {
+    // まずインタラクションを即時ACKして「応答なし」を防ぐ
+    await deferCloseInteraction(interaction);
+
     // Validate recruiter permission
     const validation = await validateRecruiterPermission(savedRecruitData, interaction.user.id, messageId);
     if (!validation.valid) {
@@ -183,7 +209,7 @@ async function processClose(interaction, messageId, savedRecruitData) {
     const finalParticipants = recruitParticipants.get(messageId) || [];
 
     // Generate closed image and display
-    const closedAttachment = await getClosedImageAttachment(data, finalParticipants, interaction.client, interaction.message, messageId);
+    const closedAttachment = await getClosedImageAttachmentFast(data, finalParticipants, interaction, messageId);
     const disabledContainer = closedAttachment
       ? buildClosedContainerWithImage(closedAttachment, messageId, finalParticipants, data)
       : buildClosedContainerWithoutImage(messageId, data, interaction.message);

@@ -12,7 +12,6 @@ const { EXEMPT_GUILD_IDS } = require('../data/constants');
 const { hexToIntColor } = require('../actions/buttonActions');
 const { createFinalRecruitData, fetchUserAvatarUrl } = require('../data/data-loader');
 const { buildStartVCButton } = require('../ui/text-builders');
-const { normalizeHex, updateMessageWithStyle } = require('../ui/message-updater');
 
 /** 満員DMの重複送信防止 */
 const _fullNotifySent = new Set();
@@ -168,7 +167,7 @@ async function shouldSaveRecruitData(finalRecruitData, actualRecruitId, _interac
 /**
  * 初期化＆永続化処理
  */
-async function initializeAndPersistData(actualRecruitId, actualMessageId, recruitDataObj, interaction, currentParticipants, user, avatarUrl) {
+async function initializeAndPersistData(actualRecruitId, actualMessageId, recruitDataObj, interaction, currentParticipants, _user, avatarUrl) {
   const finalRecruitData = createFinalRecruitData(actualRecruitId, actualMessageId, recruitDataObj, interaction);
 
   await shouldSaveRecruitData(finalRecruitData, actualRecruitId, interaction);
@@ -176,7 +175,7 @@ async function initializeAndPersistData(actualRecruitId, actualMessageId, recrui
 
   // ✅ バックエンドAPIに募集データを保存
   try {
-    await saveRecruitmentData(
+    const backendSaveResult = await saveRecruitmentData(
       interaction.guildId,
       interaction.channelId,
       actualMessageId,
@@ -184,7 +183,16 @@ async function initializeAndPersistData(actualRecruitId, actualMessageId, recrui
       interaction.channel?.name,
       finalRecruitData
     );
-    console.log(`[Backend] 募集保存成功: ${actualRecruitId}`);
+
+    if (backendSaveResult?.ok) {
+      console.log(`[Backend] 募集保存成功: ${actualRecruitId}`);
+    } else {
+      console.warn('[Backend] 募集保存警告:', {
+        recruitId: actualRecruitId,
+        status: backendSaveResult?.status,
+        error: backendSaveResult?.error || backendSaveResult?.body || 'unknown'
+      });
+    }
   } catch (err) {
     console.error('[Backend] 募集保存失敗:', err?.message || err);
   }
@@ -278,23 +286,19 @@ function setupStartTimeNotification(actualRecruitId, actualMessageId, finalRecru
 /**
  * 最終化＆永続化処理（finalizePersistAndEdit）
  */
-async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettings, user, participantText, subHeaderText, followUpMessage, currentParticipants }) {
-  const actualMessage = followUpMessage;
-  const actualMessageId = actualMessage.id;
+async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettings, followUpMessage, currentParticipants }) {
+  const actualMessageId = followUpMessage.id;
   const actualRecruitId = actualMessageId.slice(-8);
   const avatarUrl = await fetchUserAvatarUrl(interaction);
 
   // ステップ1: 最終データの初期化と永続化
-  await initializeAndPersistData(actualRecruitId, actualMessageId, recruitDataObj, interaction, currentParticipants, user, avatarUrl);
+  await initializeAndPersistData(actualRecruitId, actualMessageId, recruitDataObj, interaction, currentParticipants, null, avatarUrl);
 
-  // ステップ2: 最終データの取得と色の正規化
+  // ステップ2: 最終データの取得
   const finalRecruitData = createFinalRecruitData(actualRecruitId, actualMessageId, recruitDataObj, interaction);
-  const finalUseColor = normalizeHex(finalRecruitData.panelColor || guildSettings.defaultColor || '000000', '000000');
-  const finalAccentColor = /^[0-9A-Fa-f]{6}$/.test(finalUseColor) ? parseInt(finalUseColor, 16) : 0x000000;
 
-  // ステップ3: スタイル別コンテナの生成と送信
-  const styleForEdit = (guildSettings?.recruit_style === 'simple') ? 'simple' : 'image';
-  await updateMessageWithStyle(actualMessage, actualRecruitId, styleForEdit, finalRecruitData, guildSettings, user, participantText, subHeaderText, finalUseColor, finalAccentColor, avatarUrl, interaction);
+  // ステップ3: メッセージ更新は finalizeMessageAndUIFlow 側で実施
+  // ここで再度画像生成するとキュー待ちが増えるためスキップ
 
   // ステップ4: 開始時刻通知の設定
   setupStartTimeNotification(actualRecruitId, actualMessageId, finalRecruitData, guildSettings, interaction);
