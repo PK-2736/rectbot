@@ -4,8 +4,27 @@ const { getFriendCodesFromWorker, deleteFriendCodeFromWorker } = require('../uti
 const GAME_META_PREFIX = '__GAME_META__:';
 
 function parseStoredGameMeta(code) {
-  const gameName = String(code?.game_name || '').trim();
+  let gameName = String(code?.game_name || '').trim();
   const rawOriginal = String(code?.original_game_name || '').trim();
+
+  // game_nameにメタデータプレフィックスが含まれている場合は除去(データ整合性のため)
+  if (gameName.startsWith(GAME_META_PREFIX)) {
+    try {
+      const parsed = JSON.parse(gameName.slice(GAME_META_PREFIX.length));
+      gameName = String(parsed?.name || '').trim() || gameName;
+    } catch (_e) {
+      // パース失敗時はそのまま使用
+    }
+  } else if (gameName.includes('GAME_META:')) {
+    // プレフィックスなしでメタデータが含まれている場合も処理
+    try {
+      const metaStart = gameName.indexOf('GAME_META:');
+      const parsed = JSON.parse(gameName.slice(metaStart + 10));
+      gameName = String(parsed?.name || '').trim() || gameName;
+    } catch (_e) {
+      // パース失敗時はそのまま使用
+    }
+  }
 
   if (!rawOriginal.startsWith(GAME_META_PREFIX)) {
     return { displayName: rawOriginal || gameName, triggerWords: [] };
