@@ -9,6 +9,7 @@
     "validate-env": "node -e \"require('../config/env.validator').validateEnv('bot')\"",
     "deploy-commands": "node src/deploy-commands.js",
     "deploy-commands-guild": "node src/deploy-commands-guild.js",
+    "deploy-commands-guild:target": "node src/deploy-commands-guild.js $TARGET_GUILD_ID",
     "clear-commands": "node src/clear-commands.js"
   },
   "dependencies": {

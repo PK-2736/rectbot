@@ -8,6 +8,7 @@ const HELP_MENU_OPTIONS = [
   { label: '➕ id_add', description: 'フレンドコードを登録する', value: 'id_add', emoji: '➕' },
   { label: '👁️ id_show', description: 'フレンドコードを表示する', value: 'id_show', emoji: '👁️' },
   { label: '🗑️ id_delete', description: 'フレンドコードを削除する', value: 'id_delete', emoji: '🗑️' },
+  { label: '💳 subscription', description: 'サブスク決済/状態確認/管理', value: 'subscription', emoji: '💳' },
   { label: '⚙️ setting', description: 'ギルドの募集設定を管理する（管理者）', value: 'setting', emoji: '⚙️' },
   { label: '❓ help', description: 'このヘルプを表示する', value: 'help', emoji: '❓' },
   { label: '🔗 invite', description: '公式サーバーとボット招待リンクを表示', value: 'invite', emoji: '🔗' }
@@ -102,6 +103,16 @@ const COMMAND_DETAILS = {
       { name: '🎯 削除方法', value: '1. コマンド実行\n2. 登録済みゲームから選択\n3. 確認して削除', inline: false },
       { name: '⚠️ 注意', value: '削除したコードは復元できません', inline: false }
     ]
+  },
+  subscription: {
+    title: '💳 subscription コマンド',
+    description: 'サブスクリプションの支払い・状態確認・契約管理を行うコマンドです。',
+    usage: '`/subscription pay` `|` `/subscription status` `|` `/subscription manage`',
+    examples: '`/subscription pay` → 決済URLを発行\n`/subscription status` → 契約状態を確認',
+    fields: [
+      { name: '🧾 サブコマンド', value: '• **pay**: Stripe決済ページを開く\n• **status**: 契約状態を確認\n• **manage**: Stripe管理ページを開く', inline: false },
+      { name: '🔐 表示範囲', value: 'すべての応答は実行者のみが見えるエフェメラルで返されます', inline: false }
+    ]
   }
 };
 
@@ -116,6 +127,7 @@ function buildHelpEmbed(interaction) {
     .addFields(
       { name: '🎮 募集管理', value: '`/rect` - ゲーム募集を作成\n`/rect_edit` - 募集を編集\n`/rect_close` - 募集を締切', inline: false },
       { name: '🔗 フレンドコード', value: '`/id_add` - フレンドコードを登録\n`/id_show` - フレンドコードを表示\n`/id_delete` - フレンドコードを削除', inline: false },
+      { name: '💳 サブスク', value: '`/subscription pay` - 決済ページ\n`/subscription status` - 契約状態\n`/subscription manage` - 契約管理ページ', inline: false },
       { name: '⚙️ その他', value: '`/setting` - ギルドの募集設定（管理者のみ）\n`/invite` - 公式サーバーとボット招待リンク\n`/help` - このヘルプを表示', inline: false }
     )
     .setFooter({
@@ -209,6 +221,7 @@ module.exports = {
           { name: 'id_add', value: 'id_add' },
           { name: 'id_show', value: 'id_show' },
           { name: 'id_delete', value: 'id_delete' },
+          { name: 'subscription', value: 'subscription' },
           { name: 'setting', value: 'setting' },
           { name: 'help', value: 'help' },
           { name: 'invite', value: 'invite' }

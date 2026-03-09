@@ -38,8 +38,14 @@ function isBotApiRequest(pathname) {
          pathname.startsWith('/api/bot-invite/');
 }
 
-function shouldAllowWithoutCors(request, isFriendCode, isBotApi) {
-  return request.method === 'GET' || isFriendCode || isBotApi;
+function isInternalStripeNoCorsRequest(request, pathname) {
+  if (pathname === '/api/stripe/webhook' && request.method === 'POST') return true;
+  if (pathname.startsWith('/api/stripe/bot/')) return true;
+  return false;
+}
+
+function shouldAllowWithoutCors(request, pathname, isFriendCode, isBotApi) {
+  return request.method === 'GET' || isFriendCode || isBotApi || isInternalStripeNoCorsRequest(request, pathname);
 }
 
 function isHealthCheckPath(pathname) {
@@ -75,7 +81,7 @@ export default {
     const isFriendCode = isFriendCodeRequest(url.pathname);
     const isBotApi = isBotApiRequest(url.pathname);
 
-    if (!cors && !shouldAllowWithoutCors(request, isFriendCode, isBotApi)) {
+    if (!cors && !shouldAllowWithoutCors(request, url.pathname, isFriendCode, isBotApi)) {
       return new Response('Forbidden', { status: 403 });
     }
 
