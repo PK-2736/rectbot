@@ -13,7 +13,7 @@ const { safeRespond } = require('../utils/interactionHandler');
 const { getActiveRecruits } = require('../utils/database/db/statusApi');
 const { generateRecruitCardQueued } = require('../utils/canvas/imageQueue');
 const { buildContainer, buildContainerSimple } = require('../utils/recruit/recruitHelpers');
-const backendFetch = require('../utils/backendFetch');
+const backendFetch = require('../utils/common/backendFetch');
 const config = require('../config');
 
 async function fetchRecruitById(recruitId) {
