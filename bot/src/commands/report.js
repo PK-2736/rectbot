@@ -98,7 +98,7 @@ function canSendToChannel(channel, clientUserId) {
   return perms.has(PermissionsBitField.Flags.SendMessages);
 }
 
-async function getReportChannel(client, interaction) {
+async function getReportChannel(client, _interaction) {
   const configuredIds = [process.env.REPORT_CHANNEL_ID, REPORT_CHANNEL_ID].filter(Boolean);
   const clientUserId = client.user?.id;
 
@@ -109,17 +109,8 @@ async function getReportChannel(client, interaction) {
     }
   }
 
-  // フォールバック1: 実行されたチャンネル
-  if (canSendToChannel(interaction.channel, clientUserId)) {
-    return interaction.channel;
-  }
-
-  // フォールバック2: 同一ギルド内で送信可能な最初のテキストチャンネル
-  const guild = interaction.guild;
-  if (!guild?.channels?.cache) return null;
-
-  const candidate = guild.channels.cache.find(ch => canSendToChannel(ch, clientUserId));
-  return candidate || null;
+  // 指定チャンネル以外へは送信しない
+  return null;
 }
 
 function buildReportEmbed({ interaction, title, content }) {
