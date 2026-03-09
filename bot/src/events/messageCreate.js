@@ -50,11 +50,7 @@ function isGameNameMatched(inputLower, code) {
     .map(v => String(v || '').toLowerCase().trim())
     .filter(Boolean);
 
-  return candidates.some(candidate => (
-    candidate === inputLower ||
-    candidate.includes(inputLower) ||
-    inputLower.includes(candidate)
-  ));
+  return candidates.some(candidate => candidate === inputLower);
 }
 
 // 2時間後のメール送信タイマーを管理
@@ -166,7 +162,7 @@ module.exports = {
       }
 
       if (!friendCodes || friendCodes.length === 0) {
-        await message.reply(`❌ **${gameName}** のフレンドコードが登録されていません。\n\`/id_add\` コマンドで登録してください。`);
+        // 完全一致しない場合は反応せずスルー
         return;
       }
 
