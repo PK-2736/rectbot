@@ -196,9 +196,12 @@ async function processClose(interaction, messageId, savedRecruitData) {
     await updateRecruitmentStatusAndDelete(messageId, data.recruiterId, data, interaction);
     const finalParticipants = recruitParticipants.get(messageId) || [];
 
-    // Generate closed image and display
-    const closedAttachment = await getClosedImageAttachment(data, finalParticipants, interaction.client, interaction.message, messageId);
-    const disabledContainer = closedAttachment
+    // シンプル募集は画像締めにしない（元メッセージに画像がある場合のみ画像締め）
+    const hasOriginalImage = !!interaction.message?.attachments?.size;
+    const closedAttachment = hasOriginalImage
+      ? await getClosedImageAttachment(data, finalParticipants, interaction.client, interaction.message, messageId)
+      : null;
+    const disabledContainer = (hasOriginalImage && closedAttachment)
       ? buildClosedContainerWithImage(closedAttachment, messageId, finalParticipants, data)
       : buildClosedContainerWithoutImage(messageId, data, interaction.message);
 
