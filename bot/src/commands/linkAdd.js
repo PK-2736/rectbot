@@ -8,7 +8,7 @@ function parseTriggerWords(input, gameName) {
   if (!raw) return [];
 
   const parts = raw
-    .split(/[\n,、，;；|]+/)
+    .split(/\n+/)
     .map(s => String(s || '').trim())
     .filter(Boolean)
     .slice(0, 20);
@@ -64,7 +64,7 @@ module.exports = {
       .setCustomId('trigger_words')
       .setLabel('反応ワード（任意・複数可）')
       .setStyle(TextInputStyle.Paragraph)
-      .setPlaceholder('例: えぺ, apex, apex legends（改行/カンマ区切り）')
+      .setPlaceholder('例:\nえぺ\napex\napex legends\n（改行区切り）')
       .setRequired(false)
       .setMaxLength(300);
 
@@ -96,7 +96,7 @@ module.exports = {
       }
 
       // フレンドコード/IDを検証
-      await interaction.editReply({ content: '🔍 AIがフレンドコード/IDを検証中...' });
+      await interaction.editReply({ content: '🔍 フレンドコード/IDを検証中...' });
 
       const validation = await validateFriendCodeWithWorker(gameName, friendCode);
 
