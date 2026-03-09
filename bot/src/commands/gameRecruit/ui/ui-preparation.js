@@ -10,6 +10,15 @@ const { normalizeHex } = require('../ui/message-updater');
 const { buildVoiceLabel, buildDetailsText, buildExtraCreateVCButtons, buildSubHeaderText } = require('../ui/text-builders');
 const { fetchUserAvatarUrl } = require('../data/data-loader');
 
+const CREATE_IMAGE_TIMEOUT_MS = Number(process.env.RECRUIT_CREATE_IMAGE_TIMEOUT_MS || 900);
+
+async function withTimeout(promise, timeoutMs, timeoutMessage) {
+  return await Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error(timeoutMessage)), timeoutMs))
+  ]);
+}
+
 /**
  * アクセントカラーを構築（パネル色 → デフォルト色）
  */
@@ -84,7 +93,11 @@ async function prepareUIComponentsForCreate(recruitDataObj, interaction, guildSe
   if (style === 'image') {
     try {
       console.log('[prepareUIComponentsForCreate] Generating recruitment image...');
-      const buffer = await generateRecruitCardQueued(recruitDataObj, currentParticipants, interaction.client, useColor);
+      const buffer = await withTimeout(
+        generateRecruitCardQueued(recruitDataObj, currentParticipants, interaction.client, useColor),
+        CREATE_IMAGE_TIMEOUT_MS,
+        `recruit create image timed out (${CREATE_IMAGE_TIMEOUT_MS}ms)`
+      );
       image = new AttachmentBuilder(buffer, { name: 'recruit-card.png' });
       console.log('[prepareUIComponentsForCreate] Image generated successfully');
     } catch (e) {

@@ -11,6 +11,7 @@ const { createErrorEmbed } = require('../../../utils/embedHelpers');
 const { 
   updateRecruitmentStatus, 
   deleteRecruitmentData, 
+  saveRecruitmentData,
   saveParticipantsToRedis, 
   deleteParticipantsFromRedis, 
   getRecruitFromRedis,
@@ -192,7 +193,7 @@ async function processClose(interaction, messageId, savedRecruitData) {
     }
 
     // Update status and get final participants
-    await updateRecruitmentStatusAndDelete(messageId, data.recruiterId);
+    await updateRecruitmentStatusAndDelete(messageId, data.recruiterId, data, interaction);
     const finalParticipants = recruitParticipants.get(messageId) || [];
 
     // Generate closed image and display
@@ -232,11 +233,41 @@ async function processClose(interaction, messageId, savedRecruitData) {
 /**
  * Update recruitment status and delete data
  */
-async function updateRecruitmentStatusAndDelete(messageId, recruiterId) {
+async function updateRecruitmentStatusAndDelete(messageId, recruiterId, recruitData = null, interaction = null) {
   let statusUpdateSuccess = false;
   
   try {
-    const statusResult = await updateRecruitmentStatus(messageId, 'ended', new Date().toISOString());
+    let statusResult = await updateRecruitmentStatus(messageId, 'ended', new Date().toISOString());
+
+    // 404 の場合は、バックエンド未保存レコードを作成してから再試行
+    if (!statusResult?.ok && statusResult?.status === 404 && recruitData && interaction) {
+      try {
+        const seedData = {
+          ...recruitData,
+          recruitId: recruitData.recruitId || String(messageId).slice(-8),
+          ownerId: recruitData.ownerId || recruitData.recruiterId,
+          recruiterId: recruitData.recruiterId || recruitData.ownerId,
+          message_id: messageId,
+          status: recruitData.status || 'recruiting'
+        };
+
+        const seedResult = await saveRecruitmentData(
+          interaction.guildId,
+          interaction.channelId,
+          messageId,
+          interaction.guild?.name,
+          interaction.channel?.name,
+          seedData
+        );
+
+        if (seedResult?.ok) {
+          statusResult = await updateRecruitmentStatus(messageId, 'ended', new Date().toISOString());
+        }
+      } catch (seedErr) {
+        console.warn('管理ページの募集データ自己修復に失敗:', seedErr?.message || seedErr);
+      }
+    }
+
     statusUpdateSuccess = statusResult?.ok;
     if (!statusUpdateSuccess) {
       console.warn('管理ページの募集ステータス更新が警告:', statusResult);
