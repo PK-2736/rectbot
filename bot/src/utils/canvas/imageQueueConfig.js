@@ -23,7 +23,7 @@ const queueTimeoutMs = Number(process.env.IMAGE_QUEUE_TIMEOUT_MS || 45000);
 const queueStrict = String(process.env.IMAGE_QUEUE_STRICT || 'false').toLowerCase() === 'true';
 const queueDisabled = String(process.env.IMAGE_QUEUE_DISABLED || 'false').toLowerCase() === 'true';
 const queueDirectFirst = String(process.env.IMAGE_QUEUE_DIRECT_FIRST || 'true').toLowerCase() === 'true';
-const queueBacklogThreshold = Number(process.env.IMAGE_QUEUE_BACKLOG_THRESHOLD || 2);
+const queueParallelThreshold = Number(process.env.IMAGE_QUEUE_PARALLEL_THRESHOLD || 2);
 
 module.exports = {
   queueName,
@@ -33,5 +33,5 @@ module.exports = {
   queueStrict,
   queueDisabled,
   queueDirectFirst,
-  queueBacklogThreshold
+  queueParallelThreshold
 };
