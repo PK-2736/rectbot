@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
-const { normalizeGameNameWithWorker, validateFriendCodeWithWorker, addFriendCodeToWorker } = require('../utils/workerApiClient');
+const { validateFriendCodeWithWorker, addFriendCodeToWorker } = require('../utils/workerApiClient');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -42,30 +42,24 @@ module.exports = {
 
     try {
       const gameNameInput = interaction.fields.getTextInputValue('game_name');
+      const gameName = String(gameNameInput || '').trim();
       const friendCode = interaction.fields.getTextInputValue('friend_code');
       const userId = interaction.user.id;
       const guildId = interaction.guild.id;
 
-      // Workers AI でゲーム名を正規化
-      await interaction.editReply({ content: '🤖 AIがゲーム名を判定中...' });
-
-      const result = await normalizeGameNameWithWorker(gameNameInput, userId, guildId);
-      const normalized = result.normalized;
-      const confidence = result.confidence;
-
-      if (!normalized) {
+      if (!gameName) {
         return interaction.editReply({
-          content: '❌ ゲーム名を認識できませんでした。もう一度お試しください。'
+          content: '❌ ゲーム名を入力してください。'
         });
       }
 
       // フレンドコード/IDを検証
       await interaction.editReply({ content: '🔍 AIがフレンドコード/IDを検証中...' });
 
-      const validation = await validateFriendCodeWithWorker(normalized, friendCode);
+      const validation = await validateFriendCodeWithWorker(gameName, friendCode);
 
       if (!validation.isValid) {
-        let errorMessage = `❌ **${normalized}** のフレンドコード/IDの形式が正しくない可能性があります。\n\n`;
+        let errorMessage = `❌ **${gameName}** のフレンドコード/IDの形式が正しくない可能性があります。\n\n`;
         errorMessage += `**入力値:** \`${friendCode}\`\n`;
         errorMessage += `**理由:** ${validation.message}\n`;
         
@@ -80,25 +74,10 @@ module.exports = {
       }
 
       // Worker API 経由で D1 に保存
-      await addFriendCodeToWorker(userId, guildId, normalized, friendCode, gameNameInput);
+      await addFriendCodeToWorker(userId, guildId, gameName, friendCode, gameName);
 
       // 結果メッセージ
-      let message = `✅ **${normalized}** のフレンドコードを登録しました！\n\`\`\`${friendCode}\`\`\``;
-
-      if (result.method === 'ai') {
-        message += `\n\n🤖 AI判定: 「${gameNameInput}」→「${normalized}」`;
-        
-        if (confidence < 0.9) {
-          message += `\n信頼度: ${(confidence * 100).toFixed(0)}%`;
-        }
-
-        if (result.matches && result.matches.length > 1) {
-          const alternatives = result.matches.slice(1, 3).map(m => m.gameName).join(', ');
-          message += `\n\n類似ゲーム: ${alternatives}`;
-        }
-      } else if (result.method === 'cache') {
-        message += `\n\n💾 キャッシュから取得`;
-      }
+      const message = `✅ **${gameName}** のフレンドコードを登録しました！\n\`\`\`${friendCode}\`\`\``;
 
       await interaction.editReply({ content: message });
 

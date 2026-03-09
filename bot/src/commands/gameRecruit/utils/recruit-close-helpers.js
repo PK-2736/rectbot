@@ -3,18 +3,10 @@
  * 募集締切処理のヘルパー関数
  */
 
-const { _MessageFlags, AttachmentBuilder, EmbedBuilder } = require('discord.js');
+const { _MessageFlags, AttachmentBuilder } = require('discord.js');
 const { safeReply } = require('../../../utils/safeReply');
 const { _createErrorEmbed } = require('../../../utils/embedHelpers');
 const { generateRecruitCardQueued, generateClosedRecruitCardQueued } = require('../../../utils/imageQueue');
-
-/**
- * Hex色を整数に変換
- */
-function hexToIntColor(hex, fallbackInt) {
-  const cleaned = (typeof hex === 'string' && hex.startsWith('#')) ? hex.slice(1) : hex;
-  return /^[0-9A-Fa-f]{6}$/.test(cleaned) ? parseInt(cleaned, 16) : fallbackInt;
-}
 
 /**
  * 募集主の権限を検証
@@ -102,24 +94,7 @@ async function notifyRecruiterOfClose(interaction, recruitData, finalParticipant
   if (!recruitData?.recruiterId) return;
   
   try {
-    const closeColor = hexToIntColor(recruitData?.panelColor || '808080', 0x808080);
-    const closeEmbed = new EmbedBuilder()
-      .setColor(closeColor)
-      .setTitle('🔒 募集締切')
-      .setDescription(`**${recruitData.title}** の募集を締め切りました。`)
-      .addFields({
-        name: '最終参加者数',
-        value: `${finalParticipants.length}/${recruitData.participants}人`,
-        inline: false
-      });
-    
-    const recruiterUser = await interaction.client.users.fetch(recruitData.recruiterId).catch(() => null);
-    if (recruiterUser) {
-      await recruiterUser.send({ embeds: [closeEmbed] }).catch(() => null);
-      return;
-    }
-
-    // Fallback: interaction follow-up (content only to avoid Components V2 field conflicts)
+    // DM送信は行わず、インタラクションの応答でのみ通知する
     await safeReply(interaction, {
       content: `🔒 募集を締め切りました（${finalParticipants.length}/${recruitData.participants}人）`,
       allowedMentions: { users: [] }
