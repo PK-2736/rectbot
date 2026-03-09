@@ -1,5 +1,38 @@
 const { SlashCommandBuilder } = require('discord.js');
-const { getFriendCodesFromWorker, deleteFriendCodeFromWorker, normalizeGameNameWithWorker } = require('../utils/workerApiClient');
+const { getFriendCodesFromWorker, deleteFriendCodeFromWorker } = require('../utils/workerApiClient');
+
+const GAME_META_PREFIX = '__GAME_META__:';
+
+function parseStoredGameMeta(code) {
+  const gameName = String(code?.game_name || '').trim();
+  const rawOriginal = String(code?.original_game_name || '').trim();
+
+  if (!rawOriginal.startsWith(GAME_META_PREFIX)) {
+    return { displayName: rawOriginal || gameName, triggerWords: [] };
+  }
+
+  try {
+    const parsed = JSON.parse(rawOriginal.slice(GAME_META_PREFIX.length));
+    const displayName = String(parsed?.name || gameName || '').trim() || gameName;
+    const triggerWords = Array.isArray(parsed?.triggerWords)
+      ? parsed.triggerWords.map(w => String(w || '').trim()).filter(Boolean)
+      : [];
+    return { displayName, triggerWords };
+  } catch (_e) {
+    return { displayName: gameName, triggerWords: [] };
+  }
+}
+
+function resolveDeleteTarget(allCodes, gameNameInput) {
+  const inputLower = String(gameNameInput || '').toLowerCase().trim();
+  return (allCodes || []).find(code => {
+    const { displayName, triggerWords } = parseStoredGameMeta(code);
+    const candidates = [displayName, code.game_name, ...triggerWords]
+      .map(v => String(v || '').toLowerCase().trim())
+      .filter(Boolean);
+    return candidates.includes(inputLower);
+  });
+}
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -21,10 +54,7 @@ module.exports = {
       const allCodes = await getFriendCodesFromWorker(userId, guildId);
 
       // ゲーム名のリストを作成（重複を除去）
-      const gameNames = [...new Set(allCodes.map(code => {
-        // 登録時の名前があればそれを優先、なければ正規化後の名前
-        return code.original_game_name || code.game_name;
-      }))];
+      const gameNames = [...new Set(allCodes.map(code => parseStoredGameMeta(code).displayName))];
 
       // 「すべて削除」オプションを追加
       const options = [{ name: '🗑️ すべて削除', value: '__DELETE_ALL__' }];
@@ -65,7 +95,7 @@ module.exports = {
         }
 
         const count = allCodes.length;
-        const gameList = [...new Set(allCodes.map(code => code.original_game_name || code.game_name))].join(', ');
+        const gameList = [...new Set(allCodes.map(code => parseStoredGameMeta(code).displayName))].join(', ');
 
         // すべて削除を実行
         let deletedCount = 0;
@@ -79,29 +109,27 @@ module.exports = {
         });
       }
 
-      // 個別のゲームを削除
+      // 個別のゲームを削除（表示名・反応ワード・保存名のいずれでも指定可）
+      const allCodes = await getFriendCodesFromWorker(userId, guildId);
+      const target = resolveDeleteTarget(allCodes, gameNameInput);
 
-      // Worker AI でゲーム名を正規化
-      const result = await normalizeGameNameWithWorker(gameNameInput, userId, guildId);
-      const normalized = result.normalized;
-
-      if (!normalized) {
+      if (!target) {
         return interaction.editReply({
-          content: '❌ ゲーム名を認識できませんでした。'
+          content: `❌ **${gameNameInput}** のフレンドコードは登録されていません。`
         });
       }
 
-      // Worker API 経由で削除
-      const success = await deleteFriendCodeFromWorker(userId, guildId, normalized);
+      const success = await deleteFriendCodeFromWorker(userId, guildId, target.game_name);
 
       if (!success) {
         return interaction.editReply({
-          content: `❌ **${normalized}** のフレンドコードは登録されていません。`
+          content: `❌ **${gameNameInput}** のフレンドコードは登録されていません。`
         });
       }
 
+      const displayName = parseStoredGameMeta(target).displayName;
       await interaction.editReply({
-        content: `✅ **${normalized}** のフレンドコードを削除しました。`
+        content: `✅ **${displayName}** のフレンドコードを削除しました。`
       });
     } catch (error) {
       console.error('[link-delete] Error:', error);

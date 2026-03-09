@@ -1,7 +1,42 @@
 const { EmbedBuilder } = require('discord.js');
-const { _normalizeGameNameWithWorker, getFriendCodesFromWorker } = require('../utils/workerApiClient');
+const { getFriendCodesFromWorker } = require('../utils/workerApiClient');
 const nodemailer = require('nodemailer');
 const config = require('../config');
+
+const GAME_META_PREFIX = '__GAME_META__:';
+
+function parseStoredGameMeta(code) {
+  const gameName = String(code?.game_name || '').trim();
+  const rawOriginal = String(code?.original_game_name || '').trim();
+
+  if (!rawOriginal.startsWith(GAME_META_PREFIX)) {
+    return { displayName: rawOriginal || gameName, triggerWords: [] };
+  }
+
+  try {
+    const parsed = JSON.parse(rawOriginal.slice(GAME_META_PREFIX.length));
+    const displayName = String(parsed?.name || gameName || '').trim() || gameName;
+    const triggerWords = Array.isArray(parsed?.triggerWords)
+      ? parsed.triggerWords.map(w => String(w || '').trim()).filter(Boolean)
+      : [];
+    return { displayName, triggerWords };
+  } catch (_e) {
+    return { displayName: gameName, triggerWords: [] };
+  }
+}
+
+function isGameNameMatched(inputLower, code) {
+  const { displayName, triggerWords } = parseStoredGameMeta(code);
+  const candidates = [displayName, code?.game_name, ...triggerWords]
+    .map(v => String(v || '').toLowerCase().trim())
+    .filter(Boolean);
+
+  return candidates.some(candidate => (
+    candidate === inputLower ||
+    candidate.includes(inputLower) ||
+    inputLower.includes(candidate)
+  ));
+}
 
 // 2時間後のメール送信タイマーを管理
 let bumpReminderTimer = null;
@@ -103,16 +138,7 @@ module.exports = {
           // 登録済みゲーム名から入力値とマッチするものを探す
           // 大文字小文字を区別しない検索
           const inputLower = gameName.toLowerCase();
-          const matched = allCodes.filter(code => {
-            const gameLower = (code.original_game_name || code.game_name || '').toLowerCase();
-            const normalizedLower = (code.game_name || '').toLowerCase();
-            
-            // 完全一致、部分一致、正規化後の一致をチェック
-            return gameLower === inputLower || 
-                   normalizedLower === inputLower ||
-                   gameLower.includes(inputLower) ||
-                   inputLower.includes(gameLower);
-          });
+          const matched = allCodes.filter(code => isGameNameMatched(inputLower, code));
           
           if (matched.length > 0) {
             friendCodes = matched;
@@ -128,8 +154,8 @@ module.exports = {
       const friendCode = friendCodes[0];
       const user = message.author;
 
-      // タイトルを作成: 登録されたゲーム名をそのまま使用
-      const gameDisplayName = friendCode.original_game_name || friendCode.game_name;
+      // タイトルを作成: 登録されたゲーム名（メタ情報対応）
+      const { displayName: gameDisplayName } = parseStoredGameMeta(friendCode);
       const titleGameName = `🎮 ${gameDisplayName}`;
 
       // Embed を作成

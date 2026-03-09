@@ -1,6 +1,28 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const { getFriendCodesFromWorker } = require('../utils/workerApiClient');
 
+const GAME_META_PREFIX = '__GAME_META__:';
+
+function parseStoredGameMeta(code) {
+  const gameName = String(code?.game_name || '').trim();
+  const rawOriginal = String(code?.original_game_name || '').trim();
+
+  if (!rawOriginal.startsWith(GAME_META_PREFIX)) {
+    return { displayName: rawOriginal || gameName, triggerWords: [] };
+  }
+
+  try {
+    const parsed = JSON.parse(rawOriginal.slice(GAME_META_PREFIX.length));
+    const displayName = String(parsed?.name || gameName || '').trim() || gameName;
+    const triggerWords = Array.isArray(parsed?.triggerWords)
+      ? parsed.triggerWords.map(w => String(w || '').trim()).filter(Boolean)
+      : [];
+    return { displayName, triggerWords };
+  } catch (_e) {
+    return { displayName: gameName, triggerWords: [] };
+  }
+}
+
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('id_show')
@@ -35,12 +57,13 @@ module.exports = {
         .setTimestamp();
 
       for (const fc of friendCodes) {
-        const displayName = fc.original_game_name && fc.original_game_name !== fc.game_name
-          ? `${fc.game_name} (登録名: ${fc.original_game_name})`
-          : fc.game_name;
-        
+        const { displayName, triggerWords } = parseStoredGameMeta(fc);
+        const label = triggerWords.length > 0
+          ? `${displayName} (反応: ${triggerWords.join(', ')})`
+          : displayName;
+
         embed.addFields({
-          name: `📌 ${displayName}`,
+          name: `📌 ${label}`.slice(0, 256),
           value: `\`\`\`${fc.friend_code}\`\`\``,
           inline: false
         });
