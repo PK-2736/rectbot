@@ -62,6 +62,9 @@ jobs:
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           NOTIFICATION_EMAIL_TO: ${{ secrets.NOTIFICATION_EMAIL_TO }}
           DISCORD_GUILD_ID_DEV: ${{ secrets.DISCORD_GUILD_ID_DEV }}
+          # Stripe設定（サブスクリプション機能用）
+          STRIPE_PREMIUM_PRICE_ID: ${{ secrets.STRIPE_PREMIUM_PRICE_ID }}
+          STRIPE_PRICE_ID: ${{ secrets.STRIPE_PRICE_ID }}
         run: |
           # 必須シークレットの最低限チェック
           : "${SERVICE_TOKEN_DEV:?Missing SERVICE_TOKEN_DEV}"
@@ -86,6 +89,8 @@ jobs:
             export GMAIL_USER="'"$GMAIL_USER"'"; \
             export GMAIL_APP_PASSWORD="'"$GMAIL_APP_PASSWORD"'"; \
             export NOTIFICATION_EMAIL_TO="'"$NOTIFICATION_EMAIL_TO"'"; \
+            export STRIPE_PREMIUM_PRICE_ID="'"$STRIPE_PREMIUM_PRICE_ID"'"; \
+            export STRIPE_PRICE_ID="'"$STRIPE_PRICE_ID"'"; \
             export SERVICE_TOKEN="$SERVICE_TOKEN_DEV"; \
             export JWT_PRIVATE_KEY="$JWT_PRIVATE_KEY"; \
             export SERVICE_JWT_PRIVATE_KEY="$SERVICE_JWT_PRIVATE_KEY"; \

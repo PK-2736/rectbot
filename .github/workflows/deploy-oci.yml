@@ -58,6 +58,9 @@ jobs:
           R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
           R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+          # Stripe 関連の環境変数
+          STRIPE_PREMIUM_PRICE_ID: ${{ secrets.STRIPE_PREMIUM_PRICE_ID }}
+          STRIPE_PRICE_ID: ${{ secrets.STRIPE_PRICE_ID }}
         run: |
           ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no $OCI_USER@$OCI_HOST '
             export SERVICE_TOKEN="'"$SERVICE_TOKEN"'" || true; \
@@ -71,6 +74,8 @@ jobs:
             export BACKEND_API_URL="'"$BACKEND_API_URL"'" || true; \
             export REDIS_HOST="'"$REDIS_HOST"'" || true; \
             export REDIS_PORT="'"$REDIS_PORT"'" || true; \
+            export STRIPE_PREMIUM_PRICE_ID="'"$STRIPE_PREMIUM_PRICE_ID"'" || true; \
+            export STRIPE_PRICE_ID="'"$STRIPE_PRICE_ID"'" || true; \
             source ~/.bashrc || true; \
             source ~/.nvm/nvm.sh || true; \
             cd ~/rectbot || exit 1; \
