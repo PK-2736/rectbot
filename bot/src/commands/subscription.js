@@ -12,6 +12,14 @@ const { safeReply } = require('../utils/safeReply');
 const DASHBOARD_URL = process.env.DASHBOARD_URL || 'https://dash.recrubo.net';
 const STRIPE_PREMIUM_PRICE_ID = process.env.STRIPE_PREMIUM_PRICE_ID || process.env.STRIPE_PRICE_ID || null;
 
+// 起動時に環境変数の状態をログ出力（デバッグ用）
+console.log('[subscription] Environment variables check:', {
+  STRIPE_PREMIUM_PRICE_ID_exists: !!process.env.STRIPE_PREMIUM_PRICE_ID,
+  STRIPE_PRICE_ID_exists: !!process.env.STRIPE_PRICE_ID,
+  resolved_value: STRIPE_PREMIUM_PRICE_ID ? `${STRIPE_PREMIUM_PRICE_ID.slice(0, 15)}...` : 'null',
+  DASHBOARD_URL_exists: !!process.env.DASHBOARD_URL
+});
+
 function getStatusLabel(status) {
   const normalized = String(status || '').toLowerCase();
   if (normalized === 'active') return '有効';
@@ -72,8 +80,12 @@ module.exports = {
     try {
       if (subcommand === 'pay') {
         if (!STRIPE_PREMIUM_PRICE_ID) {
+          console.error('[subscription pay] STRIPE_PREMIUM_PRICE_ID not set:', {
+            STRIPE_PREMIUM_PRICE_ID: process.env.STRIPE_PREMIUM_PRICE_ID,
+            STRIPE_PRICE_ID: process.env.STRIPE_PRICE_ID
+          });
           await safeReply(interaction, {
-            content: '❌ `STRIPE_PREMIUM_PRICE_ID` が未設定です。管理者に連絡してください。',
+            content: '❌ `STRIPE_PREMIUM_PRICE_ID` または `STRIPE_PRICE_ID` が未設定です。管理者に連絡してください。\n\n環境変数を `.env` に追加後、Botを再起動してください。',
             flags: MessageFlags.Ephemeral
           });
           return;
