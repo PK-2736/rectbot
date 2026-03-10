@@ -66,7 +66,7 @@ function getStripePriceId(env, bodyPriceId) {
 
 async function createStripeClient(env) {
   if (!env.STRIPE_SECRET_KEY) {
-    throw new Error('Stripe configuration error');
+    throw new Error('STRIPE_SECRET_KEY is not configured. Please set it in Cloudflare Workers secrets.');
   }
 
   const Stripe = (await import('stripe')).default;
@@ -117,7 +117,12 @@ async function createCheckoutLinkForBot(request, env) {
     });
   } catch (error) {
     console.error('Error creating checkout link for bot:', error);
-    return jsonResponse({ error: 'Failed to create checkout link' }, 500);
+    const errorMessage = error.message || 'Failed to create checkout link';
+    const errorDetails = {
+      error: errorMessage,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    };
+    return jsonResponse(errorDetails, 500);
   }
 }
 
