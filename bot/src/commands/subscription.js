@@ -10,9 +10,13 @@ const backendFetch = require('../utils/common/backendFetch');
 const { safeReply } = require('../utils/safeReply');
 
 const DASHBOARD_URL = process.env.DASHBOARD_URL || 'https://dash.recrubo.net';
+const SITE_BASE_URL = process.env.SITE_BASE_URL || 'https://recrubo.net';
+const TERMS_URL = process.env.TERMS_URL || `${SITE_BASE_URL}/terms`;
+const PRIVACY_POLICY_URL = process.env.PRIVACY_POLICY_URL || `${SITE_BASE_URL}/privacy`;
+const COMMERCE_POLICY_URL = process.env.COMMERCE_POLICY_URL || TERMS_URL;
 const STRIPE_PREMIUM_PRICE_ID = process.env.STRIPE_PREMIUM_PRICE_ID || process.env.STRIPE_PRICE_ID || null;
 
-// 起動時に環境変数の状態をログ出力（デバッグ用）
+// Price IDは最終的にbackend側の環境変数を正とする（test/live不一致対策）。
 console.log('[subscription] Environment variables check:', {
   STRIPE_PREMIUM_PRICE_ID_exists: !!process.env.STRIPE_PREMIUM_PRICE_ID,
   STRIPE_PRICE_ID_exists: !!process.env.STRIPE_PRICE_ID,
@@ -30,11 +34,102 @@ function getStatusLabel(status) {
   return status || '不明';
 }
 
+function buildPreCheckoutEmbed() {
+  return new EmbedBuilder()
+    .setColor(0x1D4ED8)
+    .setTitle('📘 ご確認ください')
+    .setDescription('決済ページへ進む前に、以下の内容をご確認ください。')
+    .addFields(
+      { name: '確認必須', value: '・商品取り扱い\n・利用規約\n・プライバシーポリシー' },
+      { name: '同意方法', value: '内容確認後に「同意して決済ページへ進む」を押してください。' }
+    )
+    .setFooter({ text: '同意ボタン押下後にStripe Checkout URLを発行します。' })
+    .setTimestamp();
+}
+
+function buildPreCheckoutComponents(userId) {
+  const links = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel('商品取り扱い').setURL(COMMERCE_POLICY_URL),
+    new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel('利用規約').setURL(TERMS_URL),
+    new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel('プライバシーポリシー').setURL(PRIVACY_POLICY_URL)
+  );
+
+  const actions = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`subscription_pay_agree_${userId}`)
+      .setStyle(ButtonStyle.Success)
+      .setLabel('同意して決済ページへ進む'),
+    new ButtonBuilder()
+      .setCustomId(`subscription_pay_cancel_${userId}`)
+      .setStyle(ButtonStyle.Secondary)
+      .setLabel('キャンセル')
+  );
+
+  return [links, actions];
+}
+
+function buildCheckoutEmbed() {
+  return new EmbedBuilder()
+    .setColor(0x5865F2)
+    .setTitle('💳 サブスクリプション決済')
+    .setDescription('以下のボタンからStripeの決済ページへ進んでください。')
+    .addFields(
+      { name: 'プラン', value: 'プレミアムプラン', inline: true },
+      { name: '決済方式', value: 'Stripe Checkout', inline: true }
+    )
+    .setFooter({ text: '決済完了後、Webhook経由で自動反映されます。' })
+    .setTimestamp();
+}
+
+async function handlePayAgreement(interaction) {
+  const ownerUserId = String(interaction.customId || '').replace('subscription_pay_agree_', '');
+  if (!ownerUserId || ownerUserId !== interaction.user.id) {
+    await interaction.reply({
+      content: '⚠️ このボタンはコマンド実行者のみ操作できます。',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  const result = await createCheckoutLink(interaction.user.id, interaction.guildId || 'dm');
+  if (!result?.checkoutUrl) {
+    throw new Error('checkoutUrl is missing');
+  }
+
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setStyle(ButtonStyle.Link)
+      .setLabel('決済ページを開く')
+      .setURL(result.checkoutUrl)
+  );
+
+  await interaction.update({
+    embeds: [buildCheckoutEmbed()],
+    components: [row]
+  });
+}
+
+async function handlePayCancel(interaction) {
+  const ownerUserId = String(interaction.customId || '').replace('subscription_pay_cancel_', '');
+  if (!ownerUserId || ownerUserId !== interaction.user.id) {
+    await interaction.reply({
+      content: '⚠️ このボタンはコマンド実行者のみ操作できます。',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  await interaction.update({
+    content: '⛔ 決済手続きをキャンセルしました。',
+    embeds: [],
+    components: []
+  });
+}
+
 async function createCheckoutLink(userId, guildId) {
   const payload = {
     userId,
-    guildId,
-    priceId: STRIPE_PREMIUM_PRICE_ID
+    guildId
   };
 
   return backendFetch('/api/stripe/bot/create-checkout-link', {
@@ -79,44 +174,9 @@ module.exports = {
 
     try {
       if (subcommand === 'pay') {
-        if (!STRIPE_PREMIUM_PRICE_ID) {
-          console.error('[subscription pay] STRIPE_PREMIUM_PRICE_ID not set:', {
-            STRIPE_PREMIUM_PRICE_ID: process.env.STRIPE_PREMIUM_PRICE_ID,
-            STRIPE_PRICE_ID: process.env.STRIPE_PRICE_ID
-          });
-          await safeReply(interaction, {
-            content: '❌ `STRIPE_PREMIUM_PRICE_ID` または `STRIPE_PRICE_ID` が未設定です。管理者に連絡してください。\n\n環境変数を `.env` に追加後、Botを再起動してください。',
-            flags: MessageFlags.Ephemeral
-          });
-          return;
-        }
-
-        const result = await createCheckoutLink(interaction.user.id, interaction.guildId || 'dm');
-        if (!result?.checkoutUrl) {
-          throw new Error('checkoutUrl is missing');
-        }
-
-        const embed = new EmbedBuilder()
-          .setColor(0x5865F2)
-          .setTitle('💳 サブスクリプション決済')
-          .setDescription('以下のボタンからStripeの決済ページへ進んでください。')
-          .addFields(
-            { name: 'プラン', value: 'プレミアムプラン', inline: true },
-            { name: '決済方式', value: 'Stripe Checkout', inline: true }
-          )
-          .setFooter({ text: '決済完了後、Webhook経由で自動反映されます。' })
-          .setTimestamp();
-
-        const row = new ActionRowBuilder().addComponents(
-          new ButtonBuilder()
-            .setStyle(ButtonStyle.Link)
-            .setLabel('決済ページを開く')
-            .setURL(result.checkoutUrl)
-        );
-
         await safeReply(interaction, {
-          embeds: [embed],
-          components: [row],
+          embeds: [buildPreCheckoutEmbed()],
+          components: buildPreCheckoutComponents(interaction.user.id),
           flags: MessageFlags.Ephemeral
         });
         return;
@@ -183,5 +243,18 @@ module.exports = {
         flags: MessageFlags.Ephemeral
       });
     }
+  }
+};
+
+module.exports.handleButton = async function handleButton(interaction) {
+  if (!interaction?.isButton?.()) return;
+
+  if (interaction.customId?.startsWith('subscription_pay_agree_')) {
+    await handlePayAgreement(interaction);
+    return;
+  }
+
+  if (interaction.customId?.startsWith('subscription_pay_cancel_')) {
+    await handlePayCancel(interaction);
   }
 };

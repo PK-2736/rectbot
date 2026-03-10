@@ -64,6 +64,64 @@ function getStripePriceId(env, bodyPriceId) {
   return bodyPriceId || env.STRIPE_PREMIUM_PRICE_ID || env.STRIPE_PRICE_ID || null;
 }
 
+function getStripePriceIdForBot(env, bodyPriceId) {
+  // Internal bot route should prioritize backend env to avoid cross-service mode drift.
+  return env.STRIPE_PREMIUM_PRICE_ID || env.STRIPE_PRICE_ID || bodyPriceId || null;
+}
+
+function detectStripeKeyMode(secretKey) {
+  if (typeof secretKey !== 'string') return 'unknown';
+  if (secretKey.startsWith('sk_test_')) return 'test';
+  if (secretKey.startsWith('sk_live_')) return 'live';
+  return 'unknown';
+}
+
+function mapStripeError(error, env) {
+  const statusCode = Number(error?.statusCode || 0);
+  const message = String(error?.message || '');
+  const lowerMessage = message.toLowerCase();
+  const keyMode = detectStripeKeyMode(env?.STRIPE_SECRET_KEY);
+
+  if (lowerMessage.includes('no such price')) {
+    if (lowerMessage.includes('live mode') && keyMode === 'test') {
+      return {
+        status: 400,
+        payload: {
+          error: 'Stripe mode mismatch: live price ID is being requested with a test secret key.',
+          hint: 'Set STRIPE_SECRET_KEY and STRIPE_PREMIUM_PRICE_ID/STRIPE_PRICE_ID to the same mode (both test or both live).'
+        }
+      };
+    }
+
+    if (lowerMessage.includes('test mode') && keyMode === 'live') {
+      return {
+        status: 400,
+        payload: {
+          error: 'Stripe mode mismatch: test price ID is being requested with a live secret key.',
+          hint: 'Set STRIPE_SECRET_KEY and STRIPE_PREMIUM_PRICE_ID/STRIPE_PRICE_ID to the same mode (both test or both live).'
+        }
+      };
+    }
+
+    return {
+      status: statusCode || 400,
+      payload: {
+        error: message || 'Invalid Stripe price ID.',
+        hint: 'Verify STRIPE_PREMIUM_PRICE_ID/STRIPE_PRICE_ID exists in the same Stripe account/mode as STRIPE_SECRET_KEY.'
+      }
+    };
+  }
+
+  if (statusCode >= 400 && statusCode < 500) {
+    return {
+      status: statusCode,
+      payload: { error: message || 'Stripe request failed.' }
+    };
+  }
+
+  return null;
+}
+
 async function createStripeClient(env) {
   if (!env.STRIPE_SECRET_KEY) {
     throw new Error('STRIPE_SECRET_KEY is not configured. Please set it in Cloudflare Workers secrets.');
@@ -84,7 +142,7 @@ async function createCheckoutLinkForBot(request, env) {
     const body = await request.json().catch(() => ({}));
     const userId = String(body?.userId || '').trim();
     const guildId = String(body?.guildId || '').trim();
-    const priceId = getStripePriceId(env, body?.priceId);
+    const priceId = getStripePriceIdForBot(env, body?.priceId);
     const dashboardUrl = getDashboardUrl(env);
 
     if (!userId) {
@@ -117,6 +175,11 @@ async function createCheckoutLinkForBot(request, env) {
     });
   } catch (error) {
     console.error('Error creating checkout link for bot:', error);
+    const stripeMappedError = mapStripeError(error, env);
+    if (stripeMappedError) {
+      return jsonResponse(stripeMappedError.payload, stripeMappedError.status);
+    }
+
     const errorMessage = error.message || 'Failed to create checkout link';
     const errorDetails = {
       error: errorMessage,
