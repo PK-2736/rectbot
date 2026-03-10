@@ -35,6 +35,9 @@ jobs:
           SUPPORT_EMAIL: ${{ secrets.SUPPORT_EMAIL }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           GRAFANA_TOKEN: ${{ secrets.GRAFANA_TOKEN }}
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          STRIPE_PREMIUM_PRICE_ID: ${{ secrets.STRIPE_PREMIUM_PRICE_ID }}
         run: |
           echo "Checking GitHub Secrets for Workers..."
           missing=()
@@ -48,7 +51,7 @@ jobs:
           done
 
           # recommended
-          for v in RECAPTCHA_SECRET SENTRY_DSN SUPPORT_EMAIL DISCORD_WEBHOOK_URL DISCORD_CLIENT_SECRET GRAFANA_TOKEN JWT_PUBLIC_KEY JWT_ISSUER_URL; do
+          for v in RECAPTCHA_SECRET SENTRY_DSN SUPPORT_EMAIL DISCORD_WEBHOOK_URL DISCORD_CLIENT_SECRET GRAFANA_TOKEN JWT_PUBLIC_KEY JWT_ISSUER_URL STRIPE_SECRET_KEY STRIPE_WEBHOOK_SECRET STRIPE_PREMIUM_PRICE_ID; do
             if [ -z "${!v}" ]; then
               echo "WARN: Recommended secret $v is not set"
             else
@@ -95,6 +98,9 @@ jobs:
           RECAPTCHA_SECRET: ${{ secrets.RECAPTCHA_SECRET }}
           MAILCHANNELS_API_KEY: ${{ secrets.MAILCHANNELS_API_KEY }}
           GRAFANA_TOKEN: ${{ secrets.GRAFANA_TOKEN }}
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          STRIPE_PREMIUM_PRICE_ID: ${{ secrets.STRIPE_PREMIUM_PRICE_ID }}
         run: |
           cd backend
           set -euo pipefail
@@ -132,6 +138,9 @@ jobs:
           register_secret RECAPTCHA_SECRET RECAPTCHA_SECRET
           register_secret MAILCHANNELS_API_KEY MAILCHANNELS_API_KEY
           register_secret GRAFANA_ACCESS_TOKEN GRAFANA_TOKEN
+          register_secret STRIPE_SECRET_KEY STRIPE_SECRET_KEY
+          register_secret STRIPE_WEBHOOK_SECRET STRIPE_WEBHOOK_SECRET
+          register_secret STRIPE_PREMIUM_PRICE_ID STRIPE_PREMIUM_PRICE_ID
 
       - name: List registered wrangler secrets (for debug)
         run: |
