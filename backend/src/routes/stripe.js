@@ -52,7 +52,7 @@ function resolveSupabaseServiceKey(env) {
 }
 
 const BASE_SUBSCRIPTION_SELECT = 'user_id, stripe_subscription_id, stripe_customer_id, status, created_at, updated_at';
-const EXTENDED_SUBSCRIPTION_SELECT = `${BASE_SUBSCRIPTION_SELECT}, checkout_session_id, stripe_price_id, currency, amount, billing_interval, current_period_start, current_period_end, cancel_at_period_end, last_checkout_at`;
+const EXTENDED_SUBSCRIPTION_SELECT = `${BASE_SUBSCRIPTION_SELECT}, purchased_guild_id, checkout_session_id, stripe_price_id, currency, amount, billing_interval, current_period_start, current_period_end, cancel_at_period_end, last_checkout_at`;
 
 function isMissingDbColumnError(error) {
   const message = String(error?.message || '').toLowerCase();
@@ -167,6 +167,9 @@ async function createCheckoutLinkForBot(request, env) {
     if (!userId) {
       return jsonResponse({ error: 'userId is required' }, 400);
     }
+    if (!guildId || guildId === 'dm') {
+      return jsonResponse({ error: 'guildId is required for subscription purchase' }, 400);
+    }
     if (!priceId) {
       return jsonResponse({ error: 'priceId is required (or set STRIPE_PREMIUM_PRICE_ID)' }, 400);
     }
@@ -252,20 +255,79 @@ async function fetchLatestPurchaseByUserId(userId, env) {
 
   const { data, error } = await supabase
     .from('subscription_purchases')
-    .select('user_id, stripe_checkout_session_id, stripe_subscription_id, stripe_customer_id, stripe_price_id, amount, currency, billing_interval, purchased_at')
+    .select('user_id, purchased_guild_id, stripe_checkout_session_id, stripe_subscription_id, stripe_customer_id, stripe_price_id, amount, currency, billing_interval, purchased_at')
     .eq('user_id', userId)
     .order('purchased_at', { ascending: false })
     .limit(1)
     .maybeSingle();
 
   if (error) {
-    if (!isMissingDbRelationError(error)) {
+    if (!isMissingDbRelationError(error) && !isMissingDbColumnError(error)) {
       console.error('[stripe] Failed to fetch latest purchase:', error);
     }
     return null;
   }
 
   return data || null;
+}
+
+async function fetchGuildSubscriptionStatus(guildId, env) {
+  const supabase = await createSupabaseClient(env);
+  if (!supabase) return null;
+
+  const { data, error } = await supabase
+    .from('guild_settings')
+    .select('guild_id, premium_enabled, premium_subscription_id, premium_updated_at, enable_dedicated_channel')
+    .eq('guild_id', guildId)
+    .maybeSingle();
+
+  if (error) {
+    if (!isMissingDbColumnError(error) && !isMissingDbRelationError(error)) {
+      console.error('[stripe] Failed to fetch guild subscription status:', error);
+    }
+    return null;
+  }
+
+  return data || null;
+}
+
+async function setGuildSubscriptionState(guildId, subscriptionId, enabled, env) {
+  if (!guildId) return;
+
+  const supabase = await createSupabaseClient(env);
+  if (!supabase) return;
+
+  const nowIso = new Date().toISOString();
+  const fullPayload = {
+    guild_id: guildId,
+    premium_enabled: !!enabled,
+    premium_subscription_id: subscriptionId || null,
+    premium_updated_at: nowIso,
+    enable_dedicated_channel: !!enabled,
+    updated_at: nowIso,
+  };
+
+  const { error } = await supabase
+    .from('guild_settings')
+    .upsert(fullPayload, { onConflict: 'guild_id' });
+
+  if (error && isMissingDbColumnError(error)) {
+    const fallbackPayload = {
+      guild_id: guildId,
+      enable_dedicated_channel: !!enabled,
+      updated_at: nowIso,
+    };
+
+    const fallback = await supabase
+      .from('guild_settings')
+      .upsert(fallbackPayload, { onConflict: 'guild_id' });
+
+    if (fallback.error) {
+      console.error('[stripe] Failed to update guild subscription state (fallback):', fallback.error);
+    }
+  } else if (error) {
+    console.error('[stripe] Failed to update guild subscription state:', error);
+  }
 }
 
 function isPremiumStatus(status) {
@@ -280,18 +342,21 @@ async function getSubscriptionStatusForBot(request, url, env) {
     }
 
     const userId = String(url.searchParams.get('userId') || '').trim();
+    const guildId = String(url.searchParams.get('guildId') || '').trim();
     if (!userId) {
       return jsonResponse({ error: 'userId is required' }, 400);
     }
 
     const subscription = await fetchLatestSubscriptionByUserId(userId, env);
     const latestPurchase = await fetchLatestPurchaseByUserId(userId, env);
+    const guildSubscription = guildId ? await fetchGuildSubscriptionStatus(guildId, env) : null;
     if (!subscription) {
       return jsonResponse({
         hasSubscription: false,
         isPremium: false,
         status: 'none',
-        latestPurchase: latestPurchase || null
+        latestPurchase: latestPurchase || null,
+        guildSubscription: guildSubscription || null
       });
     }
 
@@ -300,7 +365,8 @@ async function getSubscriptionStatusForBot(request, url, env) {
       isPremium: isPremiumStatus(subscription.status),
       status: subscription.status,
       subscription: subscription,
-      latestPurchase: latestPurchase || null
+      latestPurchase: latestPurchase || null,
+      guildSubscription: guildSubscription || null
     });
   } catch (error) {
     console.error('Error getting subscription status for bot:', error);
@@ -430,6 +496,7 @@ async function handleCheckoutSessionCompleted(session, env, stripe) {
   // サブスクリプション情報をデータベースに保存
   // TODO: Supabase または Durable Object を使用してサブスクリプション情報を保存
   const userId = session.client_reference_id || session.metadata?.userId;
+  const purchasedGuildId = String(session.metadata?.guildId || '').trim() || null;
   const subscriptionId = typeof session.subscription === 'string' ? session.subscription : session.subscription?.id;
   
   console.log(`User ${userId} subscribed with subscription ${subscriptionId}`);
@@ -485,6 +552,7 @@ async function handleCheckoutSessionCompleted(session, env, stripe) {
 
   const fullPayload = {
     user_id: userId,
+    purchased_guild_id: purchasedGuildId,
     stripe_subscription_id: subscriptionId,
     stripe_customer_id: customerId,
     status: stripeSubscription?.status || 'active',
@@ -522,6 +590,7 @@ async function handleCheckoutSessionCompleted(session, env, stripe) {
 
   const purchasePayload = {
     user_id: userId,
+    purchased_guild_id: purchasedGuildId,
     stripe_checkout_session_id: checkoutSessionId,
     stripe_subscription_id: subscriptionId,
     stripe_customer_id: customerId,
@@ -536,6 +605,8 @@ async function handleCheckoutSessionCompleted(session, env, stripe) {
   if (purchaseInsert.error && !isMissingDbRelationError(purchaseInsert.error)) {
     console.error('[stripe] Failed to insert subscription purchase:', purchaseInsert.error);
   }
+
+  await setGuildSubscriptionState(purchasedGuildId, subscriptionId, true, env);
 }
 
 async function retrieveCheckoutSession(stripe, sessionId) {
@@ -591,15 +662,24 @@ async function handleSubscriptionUpdated(subscription, env) {
 
 async function handleSubscriptionDeleted(subscription, env) {
   console.log('Subscription deleted:', subscription.id);
-  
-  // サブスクリプションを無効化
-  // TODO: データベースを更新
+
   const supabase = await createSupabaseClient(env);
   if (supabase) {
-    
+    let purchasedGuildId = null;
+
+    const { data: existing } = await supabase
+      .from('subscriptions')
+      .select('purchased_guild_id')
+      .eq('stripe_subscription_id', subscription.id)
+      .maybeSingle();
+
+    purchasedGuildId = String(existing?.purchased_guild_id || '').trim() || null;
+
     await supabase.from('subscriptions')
       .update({ status: 'canceled', cancel_at_period_end: false, updated_at: new Date().toISOString() })
       .eq('stripe_subscription_id', subscription.id);
+
+    await setGuildSubscriptionState(purchasedGuildId, subscription.id, false, env);
   }
 }
 
