@@ -51,6 +51,25 @@ function resolveSupabaseServiceKey(env) {
   return env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_SERVICE_KEY || null;
 }
 
+const BASE_SUBSCRIPTION_SELECT = 'user_id, stripe_subscription_id, stripe_customer_id, status, created_at, updated_at';
+const EXTENDED_SUBSCRIPTION_SELECT = `${BASE_SUBSCRIPTION_SELECT}, checkout_session_id, stripe_price_id, currency, amount, billing_interval, current_period_start, current_period_end, cancel_at_period_end, last_checkout_at`;
+
+function isMissingDbColumnError(error) {
+  const message = String(error?.message || '').toLowerCase();
+  return message.includes('column') && message.includes('does not exist');
+}
+
+function isMissingDbRelationError(error) {
+  const message = String(error?.message || '').toLowerCase();
+  return message.includes('relation') && message.includes('does not exist');
+}
+
+function toIsoOrNull(unixSeconds) {
+  const n = Number(unixSeconds);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return new Date(n * 1000).toISOString();
+}
+
 async function createSupabaseClient(env) {
   const supabaseUrl = env.SUPABASE_URL;
   const supabaseServiceKey = resolveSupabaseServiceKey(env);
@@ -193,16 +212,56 @@ async function fetchLatestSubscriptionByUserId(userId, env) {
   const supabase = await createSupabaseClient(env);
   if (!supabase) return null;
 
-  const { data, error } = await supabase
+  const extended = await supabase
     .from('subscriptions')
-    .select('user_id, stripe_subscription_id, stripe_customer_id, status, created_at, updated_at')
+    .select(EXTENDED_SUBSCRIPTION_SELECT)
     .eq('user_id', userId)
     .order('updated_at', { ascending: false })
     .limit(1)
     .maybeSingle();
 
+  if (!extended.error) {
+    return extended.data || null;
+  }
+
+  if (!isMissingDbColumnError(extended.error)) {
+    console.error('[stripe] Failed to fetch subscription status:', extended.error);
+    return null;
+  }
+
+  // Fallback for environments where migration has not been applied yet.
+  const base = await supabase
+    .from('subscriptions')
+    .select(BASE_SUBSCRIPTION_SELECT)
+    .eq('user_id', userId)
+    .order('updated_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (base.error) {
+    console.error('[stripe] Failed to fetch subscription status (fallback):', base.error);
+    return null;
+  }
+
+  return base.data || null;
+}
+
+async function fetchLatestPurchaseByUserId(userId, env) {
+  const supabase = await createSupabaseClient(env);
+  if (!supabase) return null;
+
+  const { data, error } = await supabase
+    .from('subscription_purchases')
+    .select('user_id, stripe_checkout_session_id, stripe_subscription_id, stripe_customer_id, stripe_price_id, amount, currency, billing_interval, purchased_at')
+    .eq('user_id', userId)
+    .order('purchased_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
   if (error) {
-    console.error('[stripe] Failed to fetch subscription status:', error);
+    if (!isMissingDbRelationError(error)) {
+      console.error('[stripe] Failed to fetch latest purchase:', error);
+    }
     return null;
   }
 
@@ -226,11 +285,13 @@ async function getSubscriptionStatusForBot(request, url, env) {
     }
 
     const subscription = await fetchLatestSubscriptionByUserId(userId, env);
+    const latestPurchase = await fetchLatestPurchaseByUserId(userId, env);
     if (!subscription) {
       return jsonResponse({
         hasSubscription: false,
         isPremium: false,
-        status: 'none'
+        status: 'none',
+        latestPurchase: latestPurchase || null
       });
     }
 
@@ -238,7 +299,8 @@ async function getSubscriptionStatusForBot(request, url, env) {
       hasSubscription: true,
       isPremium: isPremiumStatus(subscription.status),
       status: subscription.status,
-      subscription: subscription
+      subscription: subscription,
+      latestPurchase: latestPurchase || null
     });
   } catch (error) {
     console.error('Error getting subscription status for bot:', error);
@@ -343,7 +405,7 @@ async function handleStripeWebhook(request, env) {
     // イベントの処理
     switch (event.type) {
       case 'checkout.session.completed':
-        await handleCheckoutSessionCompleted(event.data.object, env);
+        await handleCheckoutSessionCompleted(event.data.object, env, stripe);
         break;
       case 'customer.subscription.updated':
         await handleSubscriptionUpdated(event.data.object, env);
@@ -362,36 +424,169 @@ async function handleStripeWebhook(request, env) {
   }
 }
 
-async function handleCheckoutSessionCompleted(session, env) {
+async function handleCheckoutSessionCompleted(session, env, stripe) {
   console.log('Checkout session completed:', session.id);
   
   // サブスクリプション情報をデータベースに保存
   // TODO: Supabase または Durable Object を使用してサブスクリプション情報を保存
   const userId = session.client_reference_id || session.metadata?.userId;
-  const subscriptionId = session.subscription;
+  const subscriptionId = typeof session.subscription === 'string' ? session.subscription : session.subscription?.id;
   
   console.log(`User ${userId} subscribed with subscription ${subscriptionId}`);
   
   // 例: Supabase に保存
   const supabase = await createSupabaseClient(env);
-  if (supabase) {
-    
-    await supabase.from('subscriptions').upsert({
-      user_id: userId,
-      stripe_subscription_id: subscriptionId,
-      stripe_customer_id: session.customer,
-      status: 'active',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    });
+  if (!supabase || !userId || !subscriptionId) {
+    return;
+  }
+
+  let fullSession = session;
+  let stripeSubscription = null;
+  let stripePriceId = null;
+  let amount = null;
+  let currency = null;
+  let billingInterval = null;
+  let currentPeriodStart = null;
+  let currentPeriodEnd = null;
+  let cancelAtPeriodEnd = false;
+
+  try {
+    if (session?.id) {
+      fullSession = await retrieveCheckoutSession(stripe, session.id);
+    }
+  } catch (error) {
+    console.warn('[stripe] Failed to retrieve checkout session details:', error?.message || error);
+  }
+
+  try {
+    if (subscriptionId) {
+      stripeSubscription = await retrieveSubscription(stripe, subscriptionId);
+    }
+  } catch (error) {
+    console.warn('[stripe] Failed to retrieve subscription details:', error?.message || error);
+  }
+
+  const firstLine = fullSession?.line_items?.data?.[0] || null;
+  const linePrice = firstLine?.price || null;
+
+  stripePriceId = linePrice?.id || stripeSubscription?.items?.data?.[0]?.price?.id || null;
+  amount = linePrice?.unit_amount ?? stripeSubscription?.items?.data?.[0]?.price?.unit_amount ?? null;
+  currency = linePrice?.currency || stripeSubscription?.currency || null;
+  billingInterval = linePrice?.recurring?.interval || stripeSubscription?.items?.data?.[0]?.price?.recurring?.interval || null;
+  currentPeriodStart = toIsoOrNull(stripeSubscription?.current_period_start);
+  currentPeriodEnd = toIsoOrNull(stripeSubscription?.current_period_end);
+  cancelAtPeriodEnd = !!stripeSubscription?.cancel_at_period_end;
+
+  const nowIso = new Date().toISOString();
+  const checkoutSessionId = fullSession?.id || session.id || null;
+  const customerId = typeof fullSession?.customer === 'string'
+    ? fullSession.customer
+    : (typeof session.customer === 'string' ? session.customer : null);
+
+  const fullPayload = {
+    user_id: userId,
+    stripe_subscription_id: subscriptionId,
+    stripe_customer_id: customerId,
+    status: stripeSubscription?.status || 'active',
+    checkout_session_id: checkoutSessionId,
+    stripe_price_id: stripePriceId,
+    currency,
+    amount,
+    billing_interval: billingInterval,
+    current_period_start: currentPeriodStart,
+    current_period_end: currentPeriodEnd,
+    cancel_at_period_end: cancelAtPeriodEnd,
+    last_checkout_at: nowIso,
+    created_at: nowIso,
+    updated_at: nowIso,
+  };
+
+  const basePayload = {
+    user_id: userId,
+    stripe_subscription_id: subscriptionId,
+    stripe_customer_id: customerId,
+    status: stripeSubscription?.status || 'active',
+    created_at: nowIso,
+    updated_at: nowIso,
+  };
+
+  const subscriptionUpsert = await supabase.from('subscriptions').upsert(fullPayload, { onConflict: 'stripe_subscription_id' });
+  if (subscriptionUpsert.error && isMissingDbColumnError(subscriptionUpsert.error)) {
+    const fallbackUpsert = await supabase.from('subscriptions').upsert(basePayload, { onConflict: 'stripe_subscription_id' });
+    if (fallbackUpsert.error) {
+      console.error('[stripe] Failed to upsert subscriptions (fallback):', fallbackUpsert.error);
+    }
+  } else if (subscriptionUpsert.error) {
+    console.error('[stripe] Failed to upsert subscriptions:', subscriptionUpsert.error);
+  }
+
+  const purchasePayload = {
+    user_id: userId,
+    stripe_checkout_session_id: checkoutSessionId,
+    stripe_subscription_id: subscriptionId,
+    stripe_customer_id: customerId,
+    stripe_price_id: stripePriceId,
+    amount,
+    currency,
+    billing_interval: billingInterval,
+    purchased_at: nowIso,
+  };
+
+  const purchaseInsert = await supabase.from('subscription_purchases').insert(purchasePayload);
+  if (purchaseInsert.error && !isMissingDbRelationError(purchaseInsert.error)) {
+    console.error('[stripe] Failed to insert subscription purchase:', purchaseInsert.error);
   }
 }
 
-async function handleSubscriptionUpdated(subscription, _env) {
+async function retrieveCheckoutSession(stripe, sessionId) {
+  return stripe.checkout.sessions.retrieve(sessionId, {
+    expand: ['line_items.data.price']
+  });
+}
+
+async function retrieveSubscription(stripe, subscriptionId) {
+  return stripe.subscriptions.retrieve(subscriptionId);
+}
+
+async function handleSubscriptionUpdated(subscription, env) {
   console.log('Subscription updated:', subscription.id);
-  
-  // サブスクリプション情報を更新
-  // TODO: データベースを更新
+
+  const supabase = await createSupabaseClient(env);
+  if (!supabase) return;
+
+  const price = subscription?.items?.data?.[0]?.price || null;
+  const updatePayload = {
+    status: subscription?.status || 'active',
+    stripe_price_id: price?.id || null,
+    amount: price?.unit_amount ?? null,
+    currency: price?.currency || null,
+    billing_interval: price?.recurring?.interval || null,
+    current_period_start: toIsoOrNull(subscription?.current_period_start),
+    current_period_end: toIsoOrNull(subscription?.current_period_end),
+    cancel_at_period_end: !!subscription?.cancel_at_period_end,
+    updated_at: new Date().toISOString(),
+  };
+
+  const { error } = await supabase
+    .from('subscriptions')
+    .update(updatePayload)
+    .eq('stripe_subscription_id', subscription.id);
+
+  if (error && isMissingDbColumnError(error)) {
+    const fallback = await supabase
+      .from('subscriptions')
+      .update({
+        status: subscription?.status || 'active',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('stripe_subscription_id', subscription.id);
+
+    if (fallback.error) {
+      console.error('[stripe] Failed to update subscription (fallback):', fallback.error);
+    }
+  } else if (error) {
+    console.error('[stripe] Failed to update subscription:', error);
+  }
 }
 
 async function handleSubscriptionDeleted(subscription, env) {
@@ -403,7 +598,7 @@ async function handleSubscriptionDeleted(subscription, env) {
   if (supabase) {
     
     await supabase.from('subscriptions')
-      .update({ status: 'canceled', updated_at: new Date().toISOString() })
+      .update({ status: 'canceled', cancel_at_period_end: false, updated_at: new Date().toISOString() })
       .eq('stripe_subscription_id', subscription.id);
   }
 }

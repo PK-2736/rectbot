@@ -34,6 +34,20 @@ function getStatusLabel(status) {
   return status || '不明';
 }
 
+function formatDateTime(value) {
+  if (!value) return '未記録';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '未記録';
+  return d.toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
+}
+
+function formatAmount(amount, currency) {
+  if (amount == null) return '未記録';
+  const value = Number(amount) / 100;
+  const upperCurrency = String(currency || 'JPY').toUpperCase();
+  return `${value.toLocaleString('ja-JP')} ${upperCurrency}`;
+}
+
 function buildPreCheckoutEmbed() {
   return new EmbedBuilder()
     .setColor(0x1D4ED8)
@@ -185,14 +199,34 @@ module.exports = {
       if (subcommand === 'status') {
         const status = await fetchSubscriptionStatus(interaction.user.id);
         const label = getStatusLabel(status?.status);
+        const subscription = status?.subscription || null;
+        const latestPurchase = status?.latestPurchase || null;
+
+        const fields = [
+          { name: '状態', value: label, inline: true },
+          { name: 'プレミアム', value: status?.isPremium ? '有効' : '無効', inline: true }
+        ];
+
+        if (subscription?.current_period_end) {
+          fields.push({ name: '次回更新日', value: formatDateTime(subscription.current_period_end), inline: false });
+        }
+
+        if (latestPurchase) {
+          fields.push({
+            name: '最終購入',
+            value: `${formatDateTime(latestPurchase.purchased_at)}\n金額: ${formatAmount(latestPurchase.amount, latestPurchase.currency)}\nプラン: ${latestPurchase.billing_interval || '未記録'}`,
+            inline: false
+          });
+        }
+
+        if (subscription?.stripe_subscription_id) {
+          fields.push({ name: 'Subscription ID', value: subscription.stripe_subscription_id, inline: false });
+        }
 
         const embed = new EmbedBuilder()
           .setColor(status?.isPremium ? 0x22C55E : 0xF97316)
           .setTitle('📊 サブスクリプション状態')
-          .addFields(
-            { name: '状態', value: label, inline: true },
-            { name: 'プレミアム', value: status?.isPremium ? '有効' : '無効', inline: true }
-          )
+          .addFields(fields)
           .setTimestamp();
 
         await safeReply(interaction, {

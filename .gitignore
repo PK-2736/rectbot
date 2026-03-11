@@ -16,6 +16,7 @@ backups/
 backup.log
 *.sql
 *.sql.gz
+!migrations/*.sql
 
 # 追加: 開発・ビルド生成物や一時ファイル
 frontend/build/
