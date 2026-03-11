@@ -602,7 +602,7 @@ async function handleCheckoutSessionCompleted(session, env, stripe) {
   };
 
   const purchaseInsert = await supabase.from('subscription_purchases').insert(purchasePayload);
-  if (purchaseInsert.error && !isMissingDbRelationError(purchaseInsert.error)) {
+  if (purchaseInsert.error && !isMissingDbRelationError(purchaseInsert.error) && !isMissingDbColumnError(purchaseInsert.error)) {
     console.error('[stripe] Failed to insert subscription purchase:', purchaseInsert.error);
   }
 
@@ -624,6 +624,14 @@ async function handleSubscriptionUpdated(subscription, env) {
 
   const supabase = await createSupabaseClient(env);
   if (!supabase) return;
+
+  let purchasedGuildId = null;
+  const { data: existing } = await supabase
+    .from('subscriptions')
+    .select('purchased_guild_id')
+    .eq('stripe_subscription_id', subscription.id)
+    .maybeSingle();
+  purchasedGuildId = String(existing?.purchased_guild_id || '').trim() || null;
 
   const price = subscription?.items?.data?.[0]?.price || null;
   const updatePayload = {
@@ -658,6 +666,9 @@ async function handleSubscriptionUpdated(subscription, env) {
   } else if (error) {
     console.error('[stripe] Failed to update subscription:', error);
   }
+
+  const active = isPremiumStatus(subscription?.status);
+  await setGuildSubscriptionState(purchasedGuildId, subscription.id, active, env);
 }
 
 async function handleSubscriptionDeleted(subscription, env) {

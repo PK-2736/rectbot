@@ -37,6 +37,15 @@ async function handleStringSelectMenu(interaction, client) {
     if (helpCommand?.handleSelectMenu) {
       await handleComponentSafely(interaction, () => helpCommand.handleSelectMenu(interaction));
     }
+    return;
+  }
+
+  // Subscription guild select menu
+  if (interaction.customId?.startsWith('subscription_guild_select:')) {
+    const subscriptionCommand = client.commands.get('subscription');
+    if (subscriptionCommand?.handleSelectMenu) {
+      await handleComponentSafely(interaction, () => subscriptionCommand.handleSelectMenu(interaction));
+    }
   }
 }
 

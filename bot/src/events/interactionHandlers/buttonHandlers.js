@@ -158,7 +158,7 @@ async function handleButtonInteraction(interaction, client) {
         return await handleComponentSafely(interaction, () => helpCommand.handleButton(interaction));
       }
     }
-    if (id.startsWith('subscription_pay_agree_') || id.startsWith('subscription_pay_cancel_')) {
+    if (id.startsWith('subscription_pay_agree:') || id.startsWith('subscription_pay_cancel:')) {
       const subscriptionCommand = client.commands.get('subscription');
       if (subscriptionCommand && typeof subscriptionCommand.handleButton === 'function') {
         return await handleComponentSafely(interaction, () => subscriptionCommand.handleButton(interaction));

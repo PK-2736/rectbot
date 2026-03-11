@@ -20,6 +20,7 @@ CREATE INDEX IF NOT EXISTS idx_subscriptions_stripe_subscription_id
   ON subscriptions(stripe_subscription_id);
 
 ALTER TABLE subscriptions
+  ADD COLUMN IF NOT EXISTS purchased_guild_id TEXT,
   ADD COLUMN IF NOT EXISTS checkout_session_id TEXT,
   ADD COLUMN IF NOT EXISTS stripe_price_id TEXT,
   ADD COLUMN IF NOT EXISTS currency TEXT,
@@ -33,6 +34,7 @@ ALTER TABLE subscriptions
 CREATE TABLE IF NOT EXISTS subscription_purchases (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id TEXT NOT NULL,
+  purchased_guild_id TEXT,
   stripe_checkout_session_id TEXT UNIQUE,
   stripe_subscription_id TEXT,
   stripe_customer_id TEXT,
@@ -49,3 +51,8 @@ CREATE INDEX IF NOT EXISTS idx_subscription_purchases_user_id
 
 CREATE INDEX IF NOT EXISTS idx_subscription_purchases_subscription_id
   ON subscription_purchases(stripe_subscription_id);
+
+ALTER TABLE guild_settings
+  ADD COLUMN IF NOT EXISTS premium_enabled BOOLEAN DEFAULT FALSE,
+  ADD COLUMN IF NOT EXISTS premium_subscription_id TEXT,
+  ADD COLUMN IF NOT EXISTS premium_updated_at TIMESTAMPTZ;
