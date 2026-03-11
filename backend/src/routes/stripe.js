@@ -183,6 +183,13 @@ async function createCheckoutLinkForBot(request, env) {
       cancel_url: `${dashboardUrl}/cancel`,
       client_reference_id: userId,
       allow_promotion_codes: true,
+      subscription_data: {
+        metadata: {
+          userId,
+          guildId,
+          source: 'discord_bot'
+        }
+      },
       metadata: {
         userId,
         guildId,
@@ -330,9 +337,109 @@ async function setGuildSubscriptionState(guildId, subscriptionId, enabled, env) 
   }
 }
 
-function isPremiumStatus(status) {
+function isActiveOrTrialing(status) {
   const normalized = String(status || '').toLowerCase();
   return normalized === 'active' || normalized === 'trialing';
+}
+
+async function upsertSubscriptionFromStripe({ subscription, userId, guildId, env }) {
+  const supabase = await createSupabaseClient(env);
+  if (!supabase || !subscription?.id || !userId) return;
+
+  const price = subscription?.items?.data?.[0]?.price || null;
+  const nowIso = new Date().toISOString();
+  const purchasedGuildId = String(guildId || subscription?.metadata?.guildId || '').trim() || null;
+  const customerId = typeof subscription?.customer === 'string' ? subscription.customer : null;
+
+  const fullPayload = {
+    user_id: userId,
+    purchased_guild_id: purchasedGuildId,
+    stripe_subscription_id: subscription.id,
+    stripe_customer_id: customerId,
+    status: subscription.status || 'active',
+    stripe_price_id: price?.id || null,
+    amount: price?.unit_amount ?? null,
+    currency: price?.currency || null,
+    billing_interval: price?.recurring?.interval || null,
+    current_period_start: toIsoOrNull(subscription?.current_period_start),
+    current_period_end: toIsoOrNull(subscription?.current_period_end),
+    cancel_at_period_end: !!subscription?.cancel_at_period_end,
+    updated_at: nowIso,
+  };
+
+  const basePayload = {
+    user_id: userId,
+    stripe_subscription_id: subscription.id,
+    stripe_customer_id: customerId,
+    status: subscription.status || 'active',
+    updated_at: nowIso,
+  };
+
+  const upsertRes = await supabase
+    .from('subscriptions')
+    .upsert(fullPayload, { onConflict: 'stripe_subscription_id' });
+
+  if (upsertRes.error && isMissingDbColumnError(upsertRes.error)) {
+    const fallbackRes = await supabase
+      .from('subscriptions')
+      .upsert(basePayload, { onConflict: 'stripe_subscription_id' });
+    if (fallbackRes.error) {
+      console.error('[stripe] Failed to upsert subscription from Stripe (fallback):', fallbackRes.error);
+    }
+  } else if (upsertRes.error) {
+    console.error('[stripe] Failed to upsert subscription from Stripe:', upsertRes.error);
+  }
+
+  await setGuildSubscriptionState(purchasedGuildId, subscription.id, isActiveOrTrialing(subscription.status), env);
+}
+
+async function reconcileSubscriptionFromStripe(userId, guildId, env) {
+  const stripe = await createStripeClient(env);
+  const normalizedGuildId = String(guildId || '').trim();
+
+  try {
+    if (typeof stripe.subscriptions.search === 'function') {
+      const escapedUserId = userId.replace(/'/g, "\\'");
+      const query = `metadata['userId']:'${escapedUserId}'`;
+      const result = await stripe.subscriptions.search({ query, limit: 10 });
+      const match = (result?.data || []).find((sub) => {
+        if (!isActiveOrTrialing(sub?.status)) return false;
+        if (!normalizedGuildId) return true;
+        return String(sub?.metadata?.guildId || '').trim() === normalizedGuildId;
+      });
+
+      if (match) {
+        await upsertSubscriptionFromStripe({ subscription: match, userId, guildId: normalizedGuildId || match?.metadata?.guildId, env });
+        return true;
+      }
+    }
+  } catch (error) {
+    console.warn('[stripe] subscriptions.search reconciliation failed:', error?.message || error);
+  }
+
+  for (const status of ['active', 'trialing']) {
+    try {
+      const listed = await stripe.subscriptions.list({ status, limit: 100 });
+      const match = (listed?.data || []).find((sub) => {
+        if (String(sub?.metadata?.userId || '') !== String(userId)) return false;
+        if (!normalizedGuildId) return true;
+        return String(sub?.metadata?.guildId || '').trim() === normalizedGuildId;
+      });
+
+      if (match) {
+        await upsertSubscriptionFromStripe({ subscription: match, userId, guildId: normalizedGuildId || match?.metadata?.guildId, env });
+        return true;
+      }
+    } catch (error) {
+      console.warn(`[stripe] subscriptions.list(${status}) reconciliation failed:`, error?.message || error);
+    }
+  }
+
+  return false;
+}
+
+function isPremiumStatus(status) {
+  return isActiveOrTrialing(status);
 }
 
 async function getSubscriptionStatusForBot(request, url, env) {
@@ -351,6 +458,25 @@ async function getSubscriptionStatusForBot(request, url, env) {
     const latestPurchase = await fetchLatestPurchaseByUserId(userId, env);
     const guildSubscription = guildId ? await fetchGuildSubscriptionStatus(guildId, env) : null;
     if (!subscription) {
+      const reconciled = await reconcileSubscriptionFromStripe(userId, guildId, env);
+      if (reconciled) {
+        const recoveredSubscription = await fetchLatestSubscriptionByUserId(userId, env);
+        const recoveredLatestPurchase = await fetchLatestPurchaseByUserId(userId, env);
+        const recoveredGuildSubscription = guildId ? await fetchGuildSubscriptionStatus(guildId, env) : null;
+
+        if (recoveredSubscription) {
+          return jsonResponse({
+            hasSubscription: true,
+            isPremium: isPremiumStatus(recoveredSubscription.status),
+            status: recoveredSubscription.status,
+            subscription: recoveredSubscription,
+            latestPurchase: recoveredLatestPurchase || null,
+            guildSubscription: recoveredGuildSubscription || null,
+            reconciledFromStripe: true
+          });
+        }
+      }
+
       return jsonResponse({
         hasSubscription: false,
         isPremium: false,
@@ -436,6 +562,13 @@ async function createCheckoutSession(request, env) {
       cancel_url: `${env.DASHBOARD_URL || 'https://dash.recrubo.net'}/cancel`,
       client_reference_id: user.id,
       customer_email: user.email,
+      subscription_data: {
+        metadata: {
+          userId: user.id,
+          username: user.username,
+          source: 'dashboard'
+        }
+      },
       metadata: {
         userId: user.id,
         username: user.username,

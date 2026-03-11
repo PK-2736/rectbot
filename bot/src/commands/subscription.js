@@ -306,6 +306,7 @@ module.exports = {
         const subscription = status?.subscription || null;
         const latestPurchase = status?.latestPurchase || null;
         const guildSubscription = status?.guildSubscription || null;
+        const guildOn = !!(guildSubscription?.premium_enabled || guildSubscription?.enable_dedicated_channel);
 
         const fields = [
           { name: '状態', value: label, inline: true },
@@ -313,7 +314,6 @@ module.exports = {
         ];
 
         if (interaction.guildId && guildSubscription) {
-          const guildOn = guildSubscription.premium_enabled || guildSubscription.enable_dedicated_channel;
           fields.push({ name: 'このサーバーの有効状態', value: guildOn ? '有効' : '無効', inline: false });
         }
 
@@ -340,6 +340,9 @@ module.exports = {
           .setTimestamp();
 
         await safeReply(interaction, {
+          content: guildOn
+            ? '✅ このサーバー内でサブスクリプションが有効化されました。詳しくは `/subscription status` コマンドを確認してください。'
+            : undefined,
           embeds: [embed],
           flags: MessageFlags.Ephemeral,
         });
