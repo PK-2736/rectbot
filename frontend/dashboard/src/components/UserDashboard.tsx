@@ -8,9 +8,11 @@ type StripeCheckout = {
   redirectToCheckout: (options: { sessionId: string }) => Promise<{ error?: { message?: string } }>;
 };
 
-const stripePromise = loadStripe(
-  process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || ''
-);
+const STRIPE_PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '';
+const STRIPE_PUBLISHABLE_KEY_VALID = /^pk_(test|live)_/.test(STRIPE_PUBLISHABLE_KEY);
+const stripePromise = STRIPE_PUBLISHABLE_KEY_VALID
+  ? loadStripe(STRIPE_PUBLISHABLE_KEY)
+  : Promise.resolve(null);
 
 const PREMIUM_PRICE_ID = process.env.NEXT_PUBLIC_STRIPE_PREMIUM_PRICE_ID || process.env.NEXT_PUBLIC_STRIPE_PRICE_ID || '';
 
@@ -21,6 +23,13 @@ export default function UserDashboard() {
   const handleSubscribe = async () => {
     try {
       setLoading(true);
+
+      if (!STRIPE_PUBLISHABLE_KEY_VALID) {
+        throw new Error(
+          `Stripe公開鍵が不正です。NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY を確認してください (length=${STRIPE_PUBLISHABLE_KEY.length}, prefix=${STRIPE_PUBLISHABLE_KEY.slice(0, 7) || 'empty'})`
+        );
+      }
+
       const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://api.recrubo.net';
       
       // Stripe Checkout セッションを作成
@@ -56,7 +65,7 @@ export default function UserDashboard() {
       const stripe = (await stripePromise) as StripeCheckout | null;
       
       if (!stripe) {
-        throw new Error('Stripeの初期化に失敗しました。NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY を確認してください。');
+        throw new Error('Stripeの初期化に失敗しました。ブラウザ拡張/CSP/ネットワークで https://js.stripe.com の読込がブロックされていないか確認してください。');
       }
 
       // Stripe Checkout ページにリダイレクト
@@ -109,6 +118,15 @@ export default function UserDashboard() {
           <p className="text-xl text-gray-300">
             月額500円で募集機能を無制限化
           </p>
+          {!STRIPE_PUBLISHABLE_KEY_VALID && (
+            <div className="mt-4 mx-auto max-w-3xl rounded-lg border border-red-500/40 bg-red-950/30 p-4 text-left">
+              <p className="text-red-200 text-sm font-semibold">Stripe設定エラー</p>
+              <p className="text-red-100 text-sm mt-1">
+                NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY が未設定または不正形式です。
+                値は <code>pk_test_</code> または <code>pk_live_</code> で始まる必要があります。
+              </p>
+            </div>
+          )}
         </div>
 
         {/* プランカード */}
