@@ -23,12 +23,24 @@ export class DiscordAuth {
       : []; // セキュリティのため、デフォルトは空
   }
 
-  getAuthUrl(): string {
+  getAuthUrl(returnTo: string = '/subscription'): string {
+    const safeReturnTo = returnTo.startsWith('/') ? returnTo : '/subscription';
+    const statePayload = {
+      returnTo: safeReturnTo,
+      ts: Date.now(),
+    };
+
+    const state = btoa(JSON.stringify(statePayload))
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/g, '');
+
     const params = new URLSearchParams({
       client_id: this.clientId,
       redirect_uri: this.redirectUri,
       response_type: 'code',
       scope: 'identify email',
+      state,
     });
     
     return `https://discord.com/api/oauth2/authorize?${params.toString()}`;

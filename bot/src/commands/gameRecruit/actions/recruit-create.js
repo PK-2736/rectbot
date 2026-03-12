@@ -11,9 +11,35 @@ const { replyEphemeral, logError, logCriticalError } = require('../utils/reply-h
 const { isValidParticipantsNumber, isPermissionError, isUnknownInteractionError } = require('../validation/validation-helpers');
 const { buildConfiguredNotificationRoleIds, sendAnnouncements } = require('../notifications/announcements');
 const { scheduleStartTimeNotification } = require('../utils/start-time');
+const backendFetch = require('../../../utils/common/backendFetch');
 
 function isGuildExempt(guildId) {
   return EXEMPT_GUILD_IDS.has(String(guildId));
+}
+
+function isPremiumEnabled(guildSettings) {
+  return !!(guildSettings?.premium_enabled || guildSettings?.enable_dedicated_channel);
+}
+
+async function hasPremiumSubscription(userId, guildId) {
+  if (!userId) return false;
+  try {
+    const params = new URLSearchParams({ userId: String(userId) });
+    if (guildId) params.set('guildId', String(guildId));
+
+    const status = await backendFetch(`/api/stripe/bot/subscription-status?${params.toString()}`, {
+      method: 'GET'
+    });
+
+    return !!(
+      status?.isPremium ||
+      status?.guildSubscription?.premium_enabled ||
+      status?.guildSubscription?.enable_dedicated_channel
+    );
+  } catch (error) {
+    logError('[recruit-create] failed to fetch subscription status', error);
+    return false;
+  }
 }
 
 async function enforceCooldown(interaction) {
@@ -51,8 +77,13 @@ async function notifyRecruitLimit(interaction) {
   });
 }
 
-async function ensureNoActiveRecruit(interaction) {
+async function ensureNoActiveRecruit(interaction, guildSettings) {
   if (isGuildExempt(interaction.guildId)) return true;
+  if (isPremiumEnabled(guildSettings)) return true;
+
+  const premiumBySubscription = await hasPremiumSubscription(interaction.user?.id, interaction.guildId);
+  if (premiumBySubscription) return true;
+
   try {
     const allRecruits = await listRecruitsFromRedis();
     const guildIdStr = String(interaction.guildId);
@@ -120,7 +151,9 @@ function generateRecruitId(messageId) {
   return messageId.slice(-8);
 }
 
-function prepareFinalRecruitData(recruitDataObj, actualRecruitId, interaction, actualMessageId) {
+function prepareFinalRecruitData(recruitDataObj, actualRecruitId, interaction, actualMessageId, guildSettings, premiumEnabled) {
+  const veryFarFuture = new Date(Date.now() + 10 * 365 * 24 * 60 * 60 * 1000).toISOString();
+
   return {
     ...recruitDataObj,
     recruitId: actualRecruitId,
@@ -129,6 +162,8 @@ function prepareFinalRecruitData(recruitDataObj, actualRecruitId, interaction, a
     channelId: interaction.channelId,
     message_id: actualMessageId,
     status: 'recruiting',
+    expiresAt: premiumEnabled ? veryFarFuture : null,
+    premiumEnabled,
     start_time: new Date().toISOString(),
     startTimeNotified: false
   };
@@ -316,7 +351,11 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
   const actualMessageId = actualMessage.id;
   const actualRecruitId = generateRecruitId(actualMessageId);
 
-  const finalRecruitData = prepareFinalRecruitData(recruitDataObj, actualRecruitId, interaction, actualMessageId);
+  const premiumByGuild = isPremiumEnabled(guildSettings);
+  const premiumBySubscription = await hasPremiumSubscription(interaction.user?.id, interaction.guildId);
+  const premiumEnabled = premiumByGuild || premiumBySubscription;
+
+  const finalRecruitData = prepareFinalRecruitData(recruitDataObj, actualRecruitId, interaction, actualMessageId, guildSettings, premiumEnabled);
 
   const avatarUrl = await fetchUserAvatarUrl(interaction.client, interaction.user.id);
 
@@ -788,9 +827,9 @@ async function handleRecruitModalError(interaction, error) {
 
 async function validateAndPrepareRecruitCreation(interaction) {
   if (!(await enforceCooldown(interaction))) return null;
-  if (!(await ensureNoActiveRecruit(interaction))) return null;
 
   const guildSettings = await getGuildSettings(interaction.guildId);
+  if (!(await ensureNoActiveRecruit(interaction, guildSettings))) return null;
   const participantsNum = parseParticipantsNumFromModal(interaction);
 
   if (participantsNum === null) {

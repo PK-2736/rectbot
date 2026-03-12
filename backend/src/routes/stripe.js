@@ -1,6 +1,7 @@
 // Stripe 決済ルート
 import { jsonResponse } from '../worker/http.js';
 import { verifyInternalAuth } from '../worker/auth.js';
+import { verifyJWT } from '../worker/utils/auth.js';
 
 export async function handleStripeRoutes(request, url, env) {
   const pathname = url.pathname;
@@ -73,7 +74,14 @@ function toIsoOrNull(unixSeconds) {
 async function createSupabaseClient(env) {
   const supabaseUrl = env.SUPABASE_URL;
   const supabaseServiceKey = resolveSupabaseServiceKey(env);
-  if (!supabaseUrl || !supabaseServiceKey) return null;
+  if (!supabaseUrl || !supabaseServiceKey) {
+    console.error('[stripe] Supabase is not configured:', {
+      SUPABASE_URL_exists: !!supabaseUrl,
+      SUPABASE_SERVICE_ROLE_KEY_exists: !!env.SUPABASE_SERVICE_ROLE_KEY,
+      SUPABASE_SERVICE_KEY_exists: !!env.SUPABASE_SERVICE_KEY
+    });
+    return null;
+  }
 
   const { createClient } = await import('@supabase/supabase-js');
   return createClient(supabaseUrl, supabaseServiceKey);
@@ -435,6 +443,34 @@ async function reconcileSubscriptionFromStripe(userId, guildId, env) {
     }
   }
 
+  // Fallback: recover from checkout sessions even when subscription metadata is missing.
+  try {
+    const sessions = await stripe.checkout.sessions.list({ limit: 100 });
+    const matchedSession = (sessions?.data || []).find((session) => {
+      if (session?.mode !== 'subscription') return false;
+      if (String(session?.client_reference_id || '') !== String(userId)) return false;
+      if (!normalizedGuildId) return true;
+      return String(session?.metadata?.guildId || '').trim() === normalizedGuildId;
+    });
+
+    const subscriptionId = typeof matchedSession?.subscription === 'string'
+      ? matchedSession.subscription
+      : matchedSession?.subscription?.id;
+
+    if (subscriptionId) {
+      const sub = await retrieveSubscription(stripe, subscriptionId);
+      await upsertSubscriptionFromStripe({
+        subscription: sub,
+        userId,
+        guildId: normalizedGuildId || matchedSession?.metadata?.guildId || sub?.metadata?.guildId,
+        env,
+      });
+      return true;
+    }
+  } catch (error) {
+    console.warn('[stripe] checkout.sessions reconciliation failed:', error?.message || error);
+  }
+
   return false;
 }
 
@@ -539,17 +575,17 @@ async function createCheckoutSession(request, env) {
       return jsonResponse({ error: 'Unauthorized' }, 401);
     }
 
-    const body = await request.json();
-    const { priceId } = body;
+    const body = await request.json().catch(() => ({}));
+    const priceId = getStripePriceId(env, body?.priceId);
 
     if (!priceId) {
-      return jsonResponse({ error: 'priceId is required' }, 400);
+      return jsonResponse({ error: 'priceId is required (or set STRIPE_PREMIUM_PRICE_ID)' }, 400);
     }
 
     const stripe = await createStripeClient(env);
 
     // Checkout セッションを作成
-    const session = await stripe.checkout.sessions.create({
+    const sessionPayload = {
       payment_method_types: ['card'],
       line_items: [
         {
@@ -573,11 +609,25 @@ async function createCheckoutSession(request, env) {
         userId: user.id,
         username: user.username,
       },
-    });
+    };
 
-    return jsonResponse({ sessionId: session.id });
+    if (user.email) {
+      sessionPayload.customer_email = user.email;
+    }
+
+    const session = await stripe.checkout.sessions.create(sessionPayload);
+
+    return jsonResponse({
+      sessionId: session.id,
+      checkoutUrl: session.url || null,
+      expiresAt: session.expires_at || null,
+    });
   } catch (error) {
     console.error('Error creating checkout session:', error);
+    const stripeMappedError = mapStripeError(error, env);
+    if (stripeMappedError) {
+      return jsonResponse(stripeMappedError.payload, stripeMappedError.status);
+    }
     return jsonResponse({ error: 'Failed to create checkout session' }, 500);
   }
 }
@@ -619,7 +669,7 @@ async function handleStripeWebhook(request, env) {
     return jsonResponse({ received: true });
   } catch (error) {
     console.error('Webhook error:', error);
-    return jsonResponse({ error: 'Webhook processing failed' }, 400);
+    return jsonResponse({ error: 'Webhook processing failed' }, 500);
   }
 }
 
@@ -637,7 +687,7 @@ async function handleCheckoutSessionCompleted(session, env, stripe) {
   // 例: Supabase に保存
   const supabase = await createSupabaseClient(env);
   if (!supabase || !userId || !subscriptionId) {
-    return;
+    throw new Error('[stripe] Cannot persist checkout result: missing supabase client, userId, or subscriptionId');
   }
 
   let fullSession = session;
@@ -716,9 +766,11 @@ async function handleCheckoutSessionCompleted(session, env, stripe) {
     const fallbackUpsert = await supabase.from('subscriptions').upsert(basePayload, { onConflict: 'stripe_subscription_id' });
     if (fallbackUpsert.error) {
       console.error('[stripe] Failed to upsert subscriptions (fallback):', fallbackUpsert.error);
+      throw new Error(`[stripe] Failed to upsert subscriptions (fallback): ${fallbackUpsert.error.message || fallbackUpsert.error}`);
     }
   } else if (subscriptionUpsert.error) {
     console.error('[stripe] Failed to upsert subscriptions:', subscriptionUpsert.error);
+    throw new Error(`[stripe] Failed to upsert subscriptions: ${subscriptionUpsert.error.message || subscriptionUpsert.error}`);
   }
 
   const purchasePayload = {
@@ -737,6 +789,7 @@ async function handleCheckoutSessionCompleted(session, env, stripe) {
   const purchaseInsert = await supabase.from('subscription_purchases').insert(purchasePayload);
   if (purchaseInsert.error && !isMissingDbRelationError(purchaseInsert.error) && !isMissingDbColumnError(purchaseInsert.error)) {
     console.error('[stripe] Failed to insert subscription purchase:', purchaseInsert.error);
+    throw new Error(`[stripe] Failed to insert subscription purchase: ${purchaseInsert.error.message || purchaseInsert.error}`);
   }
 
   await setGuildSubscriptionState(purchasedGuildId, subscriptionId, true, env);
@@ -829,21 +882,24 @@ async function handleSubscriptionDeleted(subscription, env) {
 
 async function getUserFromRequest(request, _env) {
   try {
-    // Cookie から JWT を取得
+    // Cookie から JWT(jwt=...) を取得
     const cookies = request.headers.get('Cookie') || '';
-    const authToken = cookies.split(';')
-      .find(c => c.trim().startsWith('auth_token='))
-      ?.split('=')[1];
+    const jwt = cookies.split(';')
+      .map((entry) => entry.trim())
+      .find((entry) => entry.startsWith('jwt='))
+      ?.slice(4);
 
-    if (!authToken) {
+    if (!jwt) {
       return null;
     }
 
-    // JWT を検証（簡易実装 - 本番では適切な検証を実装）
-    // TODO: JWT ライブラリを使用して検証
-    const payload = JSON.parse(atob(authToken.split('.')[1]));
+    const payload = await verifyJWT(decodeURIComponent(jwt), _env);
+    if (!payload?.userId) {
+      return null;
+    }
+
     return {
-      id: payload.sub || payload.id,
+      id: payload.userId,
       username: payload.username,
       email: payload.email,
     };

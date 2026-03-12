@@ -6,7 +6,7 @@ import { DiscordUser, discordAuth } from '@/lib/discord-auth';
 interface AuthContextType {
   user: DiscordUser | null;
   isAdmin: boolean;
-  login: () => void;
+  login: (returnTo?: string) => void;
   logout: () => void;
   isLoading: boolean;
 }
@@ -68,8 +68,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     checkAuth();
   }, []);
 
-  const login = () => {
-    const authUrl = discordAuth.getAuthUrl();
+  const login = (returnTo: string = '/subscription') => {
+    const authUrl = discordAuth.getAuthUrl(returnTo);
     window.location.href = authUrl;
   };
 

@@ -13,7 +13,7 @@ export default function SuccessContent() {
     setSessionId(params.get('session_id'));
 
     const timer = setTimeout(() => {
-      router.push('/');
+      router.push('/subscription');
     }, 5000);
 
     return () => clearTimeout(timer);
@@ -54,7 +54,7 @@ export default function SuccessContent() {
         </div>
 
         <button
-          onClick={() => router.push('/')}
+          onClick={() => router.push('/subscription')}
           className="w-full py-3 px-6 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-semibold transition-colors"
         >
           ダッシュボードに戻る

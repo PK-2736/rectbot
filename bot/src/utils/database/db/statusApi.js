@@ -75,6 +75,7 @@ function buildRecruitmentPayload(guildId, channelId, messageId, guildName, chann
     voice: normalizeVoiceValue(recruitData.vc ?? recruitData.voice),
     participants,
     status: (recruitData.status || 'recruiting'),
+    expiresAt: recruitData.expiresAt || undefined,
     metadata: {
       guildId,
       guildName: guildName ?? null,

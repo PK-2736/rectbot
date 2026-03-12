@@ -12,11 +12,13 @@ const stripePromise = loadStripe(
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || ''
 );
 
+const PREMIUM_PRICE_ID = process.env.NEXT_PUBLIC_STRIPE_PREMIUM_PRICE_ID || process.env.NEXT_PUBLIC_STRIPE_PRICE_ID || '';
+
 export default function UserDashboard() {
   const { user, logout } = useAuth();
   const [loading, setLoading] = useState(false);
 
-  const handleSubscribe = async (priceId: string) => {
+  const handleSubscribe = async () => {
     try {
       setLoading(true);
       const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://api.recrubo.net';
@@ -28,14 +30,20 @@ export default function UserDashboard() {
           'Content-Type': 'application/json',
         },
         credentials: 'include',
-        body: JSON.stringify({ priceId }),
+        body: JSON.stringify(PREMIUM_PRICE_ID ? { priceId: PREMIUM_PRICE_ID } : {}),
       });
 
       if (!response.ok) {
         throw new Error('決済セッションの作成に失敗しました');
       }
 
-      const { sessionId } = await response.json();
+      const { sessionId, checkoutUrl } = await response.json();
+
+      if (checkoutUrl) {
+        window.location.href = checkoutUrl;
+        return;
+      }
+
       const stripe = (await stripePromise) as StripeCheckout | null;
       
       if (!stripe) {
@@ -89,7 +97,7 @@ export default function UserDashboard() {
             Recruboをアップグレード
           </h2>
           <p className="text-xl text-gray-300">
-            プレミアムプランで、より多くの機能を使いこなそう
+            月額500円で募集機能を無制限化
           </p>
         </div>
 
@@ -122,6 +130,12 @@ export default function UserDashboard() {
                 <svg className="w-6 h-6 text-green-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
+                <span className="text-gray-300">募集期限: 8時間</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <svg className="w-6 h-6 text-green-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
                 <span className="text-gray-300">コミュニティサポート</span>
               </li>
             </ul>
@@ -143,7 +157,7 @@ export default function UserDashboard() {
             <div className="mb-6">
               <h3 className="text-2xl font-bold text-white mb-2">プレミアムプラン</h3>
               <div className="flex items-baseline gap-2">
-                <span className="text-4xl font-bold text-white">¥980</span>
+                <span className="text-4xl font-bold text-white">¥500</span>
                 <span className="text-purple-200">/月</span>
               </div>
             </div>
@@ -153,19 +167,13 @@ export default function UserDashboard() {
                 <svg className="w-6 h-6 text-yellow-300 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
-                <span className="text-white font-medium">無制限の募集作成</span>
+                <span className="text-white font-medium">募集数が無制限</span>
               </li>
               <li className="flex items-start gap-3">
                 <svg className="w-6 h-6 text-yellow-300 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
-                <span className="text-white font-medium">カスタムパネルカラー</span>
-              </li>
-              <li className="flex items-start gap-3">
-                <svg className="w-6 h-6 text-yellow-300 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-                <span className="text-white font-medium">高度な管理機能</span>
+                <span className="text-white font-medium">募集期限が無制限</span>
               </li>
               <li className="flex items-start gap-3">
                 <svg className="w-6 h-6 text-yellow-300 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -173,16 +181,10 @@ export default function UserDashboard() {
                 </svg>
                 <span className="text-white font-medium">優先サポート</span>
               </li>
-              <li className="flex items-start gap-3">
-                <svg className="w-6 h-6 text-yellow-300 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-                <span className="text-white font-medium">新機能への早期アクセス</span>
-              </li>
             </ul>
 
             <button
-              onClick={() => handleSubscribe('price_premium_monthly')}
+              onClick={handleSubscribe}
               disabled={loading}
               className="w-full py-3 px-6 bg-white hover:bg-gray-100 text-purple-600 rounded-lg font-bold text-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
@@ -205,7 +207,7 @@ export default function UserDashboard() {
               </div>
               <h4 className="text-lg font-bold text-white mb-2">無制限の募集</h4>
               <p className="text-gray-400">
-                募集数の上限なし。大規模なコミュニティでも安心してご利用いただけます。
+                同時募集数の上限が解除されます。大規模コミュニティでも安心です。
               </p>
             </div>
 
@@ -215,9 +217,9 @@ export default function UserDashboard() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
                 </svg>
               </div>
-              <h4 className="text-lg font-bold text-white mb-2">カスタマイズ</h4>
+              <h4 className="text-lg font-bold text-white mb-2">募集期限の無制限化</h4>
               <p className="text-gray-400">
-                募集パネルの色をサーバーのテーマに合わせてカスタマイズできます。
+                標準の8時間制限を解除し、長時間の募集運用ができます。
               </p>
             </div>
 
@@ -255,7 +257,7 @@ export default function UserDashboard() {
                 複数のサーバーで使えますか？
               </summary>
               <p className="mt-4 text-gray-400">
-                プレミアムプランは、サーバー単位での契約となります。複数のサーバーでご利用の場合は、それぞれのサーバーで契約が必要です。
+                プレミアムはサーバー単位での適用です。複数サーバーで利用する場合は各サーバーごとに契約が必要です。
               </p>
             </details>
 

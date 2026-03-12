@@ -3,6 +3,7 @@ const { pendingModalOptions } = require('./data/state');
 const { safeReply } = require('../../utils/safeReply');
 const { createErrorEmbed } = require('../../utils/embedHelpers');
 const { listRecruitsFromRedis, getCooldownRemaining, getGuildSettings } = require('../../utils/database');
+const backendFetch = require('../../utils/common/backendFetch');
 const { EXEMPT_GUILD_IDS } = require('./data/constants');
 
 const START_TIME_REGEX = /^\s*(\d{1,2}):(\d{2})\s*$/;
@@ -43,6 +44,31 @@ function logMatchedRecruits(matched) {
   console.log('[gameRecruit.execute] matched active recruits for guild:', recruitIds);
 }
 
+function isPremiumEnabled(guildSettings) {
+  return !!(guildSettings?.premium_enabled || guildSettings?.enable_dedicated_channel);
+}
+
+async function hasPremiumSubscription(userId, guildId) {
+  if (!userId) return false;
+  try {
+    const params = new URLSearchParams({ userId: String(userId) });
+    if (guildId) params.set('guildId', String(guildId));
+
+    const status = await backendFetch(`/api/stripe/bot/subscription-status?${params.toString()}`, {
+      method: 'GET'
+    });
+
+    return !!(
+      status?.isPremium ||
+      status?.guildSubscription?.premium_enabled ||
+      status?.guildSubscription?.enable_dedicated_channel
+    );
+  } catch (error) {
+    console.warn('[gameRecruit.execute] failed to fetch subscription status:', error?.message || error);
+    return false;
+  }
+}
+
 async function notifyRecruitLimitReached(interaction) {
   console.log('[gameRecruit.execute] blocking create due to 3 active recruits limit');
   await safeReply(interaction, {
@@ -52,8 +78,17 @@ async function notifyRecruitLimitReached(interaction) {
   });
 }
 
-async function enforceActiveRecruitLimit(interaction) {
+async function enforceActiveRecruitLimit(interaction, guildSettings) {
   if (EXEMPT_GUILD_IDS.has(String(interaction.guildId))) {
+    return true;
+  }
+
+  if (isPremiumEnabled(guildSettings)) {
+    return true;
+  }
+
+  const premiumBySubscription = await hasPremiumSubscription(interaction.user?.id, interaction.guildId);
+  if (premiumBySubscription) {
     return true;
   }
 
@@ -357,13 +392,13 @@ async function execute(interaction) {
   const cooldownOk = await enforceGuildCooldown(interaction);
   if (!cooldownOk) return;
 
-  const recruitLimitOk = await enforceActiveRecruitLimit(interaction);
-  if (!recruitLimitOk) return;
-
   try {
     // ギルド設定
     const guildSettings = await getGuildSettings(interaction.guildId);
     console.log('[gameRecruit.execute] guildSettings for', interaction.guildId, ':', guildSettings && { recruit_channel: guildSettings.recruit_channel, defaultTitle: guildSettings.defaultTitle });
+
+    const recruitLimitOk = await enforceActiveRecruitLimit(interaction, guildSettings);
+    if (!recruitLimitOk) return;
 
     // 募集チャンネル強制（複数対応）
     const channelAllowed = await enforceRecruitChannel(interaction, guildSettings);
