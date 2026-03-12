@@ -15,7 +15,7 @@ const stripePromise = loadStripe(
 const PREMIUM_PRICE_ID = process.env.NEXT_PUBLIC_STRIPE_PREMIUM_PRICE_ID || process.env.NEXT_PUBLIC_STRIPE_PRICE_ID || '';
 
 export default function UserDashboard() {
-  const { user, logout } = useAuth();
+  const { user, logout, login } = useAuth();
   const [loading, setLoading] = useState(false);
 
   const handleSubscribe = async () => {
@@ -34,7 +34,16 @@ export default function UserDashboard() {
       });
 
       if (!response.ok) {
-        throw new Error('決済セッションの作成に失敗しました');
+        const errorPayload = await response.json().catch(() => ({}));
+        const errorMessage = errorPayload?.error || '決済セッションの作成に失敗しました';
+
+        if (response.status === 401) {
+          alert('ログイン有効期限が切れました。再度Discordログインしてください。');
+          login('/subscription');
+          return;
+        }
+
+        throw new Error(errorMessage);
       }
 
       const { sessionId, checkoutUrl } = await response.json();
@@ -47,7 +56,7 @@ export default function UserDashboard() {
       const stripe = (await stripePromise) as StripeCheckout | null;
       
       if (!stripe) {
-        throw new Error('Stripeの初期化に失敗しました');
+        throw new Error('Stripeの初期化に失敗しました。NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY を確認してください。');
       }
 
       // Stripe Checkout ページにリダイレクト
@@ -59,7 +68,8 @@ export default function UserDashboard() {
       }
     } catch (error) {
       console.error('Subscription error:', error);
-      alert('エラーが発生しました。もう一度お試しください。');
+      const message = error instanceof Error ? error.message : 'エラーが発生しました。もう一度お試しください。';
+      alert(message);
     } finally {
       setLoading(false);
     }
