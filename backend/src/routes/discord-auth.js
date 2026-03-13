@@ -47,13 +47,13 @@ async function handleCallback(request, env, { safeHeaders }) {
   }
 
   try {
-    const { jwt, _userInfo } = await handleDiscordCallback(code, env);
+    const { jwt, _userInfo, accessToken, accessTokenExpiresIn } = await handleDiscordCallback(code, env);
     const redirectPath = resolveRedirectPath(url);
 
     const frontendUrl = env.FRONTEND_URL || 'https://dash.recrubo.net';
     const redirectUrl = new URL(redirectPath, frontendUrl);
     redirectUrl.searchParams.set('login', 'success');
-    const cookieOptions = [
+    const jwtCookieOptions = [
       `jwt=${jwt}`,
       'Path=/',
       'HttpOnly',
@@ -62,13 +62,26 @@ async function handleCallback(request, env, { safeHeaders }) {
       'Max-Age=604800'
     ].join('; ');
 
+    const tokenMaxAge = Number.isFinite(Number(accessTokenExpiresIn)) && Number(accessTokenExpiresIn) > 0
+      ? Math.floor(Number(accessTokenExpiresIn))
+      : 604800;
+    const discordTokenCookie = [
+      `discord_at=${encodeURIComponent(accessToken || '')}`,
+      'Path=/',
+      'HttpOnly',
+      'Secure',
+      'SameSite=Lax',
+      `Max-Age=${tokenMaxAge}`
+    ].join('; ');
+
+    const headers = new Headers(safeHeaders);
+    headers.set('Location', redirectUrl.toString());
+    headers.append('Set-Cookie', jwtCookieOptions);
+    headers.append('Set-Cookie', discordTokenCookie);
+
     return new Response(null, {
       status: 302,
-      headers: {
-        ...safeHeaders,
-        'Location': redirectUrl.toString(),
-        'Set-Cookie': cookieOptions
-      }
+      headers
     });
   } catch (error) {
     console.error('Discord OAuth callback error:', error);
@@ -110,17 +123,25 @@ async function handleGetGuilds(request, env, { safeHeaders }) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: jsonHeaders });
   }
 
-  let accessToken = null;
-  try {
-    const supabase = getSupabaseClient(env);
-    const { data } = await supabase
-      .from('users')
-      .select('discord_access_token')
-      .eq('user_id', payload.userId)
-      .maybeSingle();
-    accessToken = data?.discord_access_token || null;
-  } catch (e) {
-    console.error('[discord/guilds] Supabase error:', e);
+  const discordTokenFromCookie = cookies
+    .split(';')
+    .map(e => e.trim())
+    .find(e => e.startsWith('discord_at='))
+    ?.slice('discord_at='.length);
+
+  let accessToken = discordTokenFromCookie ? decodeURIComponent(discordTokenFromCookie) : null;
+  if (!accessToken) {
+    try {
+      const supabase = getSupabaseClient(env);
+      const { data } = await supabase
+        .from('users')
+        .select('discord_access_token')
+        .eq('user_id', payload.userId)
+        .maybeSingle();
+      accessToken = data?.discord_access_token || null;
+    } catch (e) {
+      console.error('[discord/guilds] Supabase error:', e);
+    }
   }
 
   if (!accessToken) {

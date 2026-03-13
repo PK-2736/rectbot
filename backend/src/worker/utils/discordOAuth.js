@@ -108,5 +108,10 @@ export async function handleDiscordCallback(code, env) {
   }
 
   const jwt = await requestJwtFromIssuer(userInfo, env);
-  return { jwt, userInfo };
+  return {
+    jwt,
+    userInfo,
+    accessToken: tokenData.access_token,
+    accessTokenExpiresIn: tokenData.expires_in,
+  };
 }

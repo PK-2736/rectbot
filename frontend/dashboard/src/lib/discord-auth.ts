@@ -40,6 +40,7 @@ export class DiscordAuth {
       redirect_uri: this.redirectUri,
       response_type: 'code',
       scope: 'identify email guilds',
+      prompt: 'consent',
       state,
     });
     
