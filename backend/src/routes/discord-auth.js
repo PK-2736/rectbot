@@ -135,13 +135,25 @@ async function handleGetGuilds(request, env, { safeHeaders }) {
   });
 
   if (!res.ok) {
-    if (res.status === 401) {
+    if (res.status === 401 || res.status === 403) {
       return new Response(
-        JSON.stringify({ error: 'NO_TOKEN', message: 'Discordトークンの有効期限が切れました。再ログインしてください。' }),
+        JSON.stringify({ error: 'NO_TOKEN', message: 'Discordトークンの有効期限切れ、または権限不足です。再ログインしてください。' }),
         { status: 401, headers: jsonHeaders }
       );
     }
-    return new Response(JSON.stringify({ error: 'Discord APIエラー' }), { status: 502, headers: jsonHeaders });
+
+    if (res.status === 429) {
+      return new Response(
+        JSON.stringify({ error: 'RATE_LIMIT', message: 'Discord APIのレート制限中です。少し待って再試行してください。' }),
+        { status: 429, headers: jsonHeaders }
+      );
+    }
+
+    const detail = await res.text().catch(() => 'unknown');
+    return new Response(
+      JSON.stringify({ error: 'DISCORD_API_ERROR', message: `Discord APIエラー (${res.status})`, detail }),
+      { status: 502, headers: jsonHeaders }
+    );
   }
 
   const guilds = await res.json();

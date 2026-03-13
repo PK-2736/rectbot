@@ -36,12 +36,24 @@ export default function UserDashboard() {
     const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://api.recrubo.net';
     fetch(`${apiBaseUrl}/api/discord/guilds`, { credentials: 'include' })
       .then(async (res) => {
-        if (res.status === 401) {
+        if (!res.ok) {
           const data = await res.json().catch(() => ({}));
-          setGuildsError(data?.error === 'NO_TOKEN' ? 'NO_TOKEN' : 'UNAUTH');
+          if (res.status === 401 && data?.error === 'NO_TOKEN') {
+            setGuildsError('NO_TOKEN');
+            return;
+          }
+          if (res.status === 401) {
+            setGuildsError('UNAUTH');
+            return;
+          }
+          if (res.status === 429 || data?.error === 'RATE_LIMIT') {
+            setGuildsError('RATE_LIMIT');
+            return;
+          }
+          setGuildsError(data?.message || 'FETCH_ERROR');
           return;
         }
-        if (!res.ok) throw new Error('guild fetch failed');
+
         const data: Guild[] = await res.json();
         setGuilds(data);
         if (data.length === 1) setSelectedGuildId(data[0].id);
@@ -266,8 +278,10 @@ export default function UserDashboard() {
                   </button>
                   してサーバー一覧を取得してください。
                 </div>
+              ) : guildsError === 'RATE_LIMIT' ? (
+                <div className="text-yellow-200 text-sm">Discord APIが混雑中です。30秒ほど待ってから再読み込みしてください。</div>
               ) : guildsError ? (
-                <div className="text-yellow-200 text-sm">サーバー一覧の取得に失敗しました。</div>
+                <div className="text-yellow-200 text-sm">サーバー一覧の取得に失敗しました。{guildsError}</div>
               ) : guilds.length === 0 ? (
                 <div className="text-purple-200 text-sm">管理権限のあるサーバーが見つかりません。</div>
               ) : (
