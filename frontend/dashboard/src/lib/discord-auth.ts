@@ -39,7 +39,7 @@ export class DiscordAuth {
       client_id: this.clientId,
       redirect_uri: this.redirectUri,
       response_type: 'code',
-      scope: 'identify email',
+      scope: 'identify email guilds',
       state,
     });
     

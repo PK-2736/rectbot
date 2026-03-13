@@ -569,7 +569,6 @@ async function createPortalLinkForBot(request, env) {
 
 async function createCheckoutSession(request, env) {
   try {
-    // 認証チェック（Cookie から JWT を検証）
     const user = await getUserFromRequest(request, env);
     if (!user) {
       return jsonResponse({ error: 'Unauthorized' }, 401);
@@ -577,37 +576,34 @@ async function createCheckoutSession(request, env) {
 
     const body = await request.json().catch(() => ({}));
     const priceId = getStripePriceId(env, body?.priceId);
+    const guildId = String(body?.guildId || '').trim();
 
     if (!priceId) {
       return jsonResponse({ error: 'priceId is required (or set STRIPE_PREMIUM_PRICE_ID)' }, 400);
     }
 
     const stripe = await createStripeClient(env);
+    const dashboardUrl = env.DASHBOARD_URL || 'https://dash.recrubo.net';
 
-    // Checkout セッションを作成
     const sessionPayload = {
       payment_method_types: ['card'],
-      line_items: [
-        {
-          price: priceId,
-          quantity: 1,
-        },
-      ],
+      line_items: [{ price: priceId, quantity: 1 }],
       mode: 'subscription',
-      success_url: `${env.DASHBOARD_URL || 'https://dash.recrubo.net'}/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${env.DASHBOARD_URL || 'https://dash.recrubo.net'}/cancel`,
+      success_url: `${dashboardUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${dashboardUrl}/cancel`,
       client_reference_id: user.id,
-      customer_email: user.email,
       subscription_data: {
         metadata: {
           userId: user.id,
           username: user.username,
-          source: 'dashboard'
-        }
+          source: 'dashboard',
+          ...(guildId ? { guildId } : {}),
+        },
       },
       metadata: {
         userId: user.id,
         username: user.username,
+        ...(guildId ? { guildId } : {}),
       },
     };
 

@@ -1,5 +1,7 @@
 // routes/discord-auth.js - Discord OAuth callback handler
 import { handleDiscordCallback } from '../worker/utils/discordOAuth.js';
+import { verifyJWT } from '../worker/utils/auth.js';
+import { getSupabaseClient } from '../worker/supabase.js';
 
 function decodeOAuthState(rawState) {
   if (!rawState) return null;
@@ -48,7 +50,6 @@ async function handleCallback(request, env, { safeHeaders }) {
     const { jwt, _userInfo } = await handleDiscordCallback(code, env);
     const redirectPath = resolveRedirectPath(url);
 
-    // Set JWT cookie and redirect to dashboard
     const frontendUrl = env.FRONTEND_URL || 'https://dash.recrubo.net';
     const redirectUrl = new URL(redirectPath, frontendUrl);
     redirectUrl.searchParams.set('login', 'success');
@@ -58,7 +59,7 @@ async function handleCallback(request, env, { safeHeaders }) {
       'HttpOnly',
       'Secure',
       'SameSite=Lax',
-      'Max-Age=604800' // 7 days
+      'Max-Age=604800'
     ].join('; ');
 
     return new Response(null, {
@@ -71,7 +72,7 @@ async function handleCallback(request, env, { safeHeaders }) {
     });
   } catch (error) {
     console.error('Discord OAuth callback error:', error);
-    
+
     const frontendUrl = env.FRONTEND_URL || 'https://dash.recrubo.net';
     const redirectPath = resolveRedirectPath(url);
     const redirectUrl = new URL(redirectPath, frontendUrl);
@@ -87,17 +88,85 @@ async function handleCallback(request, env, { safeHeaders }) {
 }
 
 /**
+ * Returns Discord guilds where the authenticated user has MANAGE_GUILD or
+ * ADMINISTRATOR permission. Requires discord_access_token in Supabase users table.
+ */
+async function handleGetGuilds(request, env, { safeHeaders }) {
+  const jsonHeaders = { ...safeHeaders, 'Content-Type': 'application/json' };
+
+  const cookies = request.headers.get('Cookie') || '';
+  const jwtToken = cookies.split(';').map(e => e.trim()).find(e => e.startsWith('jwt='))?.slice(4);
+  if (!jwtToken) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: jsonHeaders });
+  }
+
+  let payload;
+  try {
+    payload = await verifyJWT(decodeURIComponent(jwtToken), env);
+  } catch (_) {
+    return new Response(JSON.stringify({ error: 'Invalid token' }), { status: 401, headers: jsonHeaders });
+  }
+  if (!payload?.userId) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: jsonHeaders });
+  }
+
+  let accessToken = null;
+  try {
+    const supabase = getSupabaseClient(env);
+    const { data } = await supabase
+      .from('users')
+      .select('discord_access_token')
+      .eq('user_id', payload.userId)
+      .maybeSingle();
+    accessToken = data?.discord_access_token || null;
+  } catch (e) {
+    console.error('[discord/guilds] Supabase error:', e);
+  }
+
+  if (!accessToken) {
+    return new Response(
+      JSON.stringify({ error: 'NO_TOKEN', message: '再ログインが必要です' }),
+      { status: 401, headers: jsonHeaders }
+    );
+  }
+
+  const res = await fetch('https://discord.com/api/users/@me/guilds', {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+
+  if (!res.ok) {
+    if (res.status === 401) {
+      return new Response(
+        JSON.stringify({ error: 'NO_TOKEN', message: 'Discordトークンの有効期限が切れました。再ログインしてください。' }),
+        { status: 401, headers: jsonHeaders }
+      );
+    }
+    return new Response(JSON.stringify({ error: 'Discord APIエラー' }), { status: 502, headers: jsonHeaders });
+  }
+
+  const guilds = await res.json();
+
+  const MANAGE_GUILD = 0x20;
+  const ADMINISTRATOR = 0x8;
+  const manageableGuilds = guilds
+    .filter(g => g.owner || ((parseInt(g.permissions) & ADMINISTRATOR) !== 0) || ((parseInt(g.permissions) & MANAGE_GUILD) !== 0))
+    .map(g => ({ id: g.id, name: g.name, icon: g.icon }));
+
+  return new Response(JSON.stringify(manageableGuilds), { status: 200, headers: jsonHeaders });
+}
+
+/**
  * Routes Discord authentication requests
- * @param {Request} request 
- * @param {Object} env 
- * @param {Object} context - { url, safeHeaders }
- * @returns {Response|null}
  */
 export async function handleDiscordAuthRoutes(request, env, context) {
   const { url } = context;
 
   if (url.pathname === '/api/discord/callback') {
     return await handleCallback(request, env, context);
+  }
+
+  if (url.pathname === '/api/discord/guilds' && request.method === 'GET') {
+    return await handleGetGuilds(request, env, context);
   }
 
   return null;

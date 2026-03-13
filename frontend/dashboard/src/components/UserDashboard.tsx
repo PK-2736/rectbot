@@ -1,11 +1,18 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useAuth } from '@/components/AuthProvider';
 import { loadStripe } from '@stripe/stripe-js';
 
 type StripeCheckout = {
   redirectToCheckout: (options: { sessionId: string }) => Promise<{ error?: { message?: string } }>;
+};
+
+type Guild = {
+  id: string;
+  name: string;
+  icon: string | null;
 };
 
 const STRIPE_PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '';
@@ -19,6 +26,29 @@ const PREMIUM_PRICE_ID = process.env.NEXT_PUBLIC_STRIPE_PREMIUM_PRICE_ID || proc
 export default function UserDashboard() {
   const { user, logout, login } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [guilds, setGuilds] = useState<Guild[]>([]);
+  const [selectedGuildId, setSelectedGuildId] = useState('');
+  const [guildsLoading, setGuildsLoading] = useState(true);
+  const [guildsError, setGuildsError] = useState<string | null>(null);
+  const [agreed, setAgreed] = useState(false);
+
+  useEffect(() => {
+    const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://api.recrubo.net';
+    fetch(`${apiBaseUrl}/api/discord/guilds`, { credentials: 'include' })
+      .then(async (res) => {
+        if (res.status === 401) {
+          const data = await res.json().catch(() => ({}));
+          setGuildsError(data?.error === 'NO_TOKEN' ? 'NO_TOKEN' : 'UNAUTH');
+          return;
+        }
+        if (!res.ok) throw new Error('guild fetch failed');
+        const data: Guild[] = await res.json();
+        setGuilds(data);
+        if (data.length === 1) setSelectedGuildId(data[0].id);
+      })
+      .catch(() => setGuildsError('FETCH_ERROR'))
+      .finally(() => setGuildsLoading(false));
+  }, []);
 
   const handleSubscribe = async () => {
     try {
@@ -30,16 +60,24 @@ export default function UserDashboard() {
         );
       }
 
+      if (!selectedGuildId) {
+        throw new Error('適用するサーバーを選択してください。');
+      }
+
+      if (!agreed) {
+        throw new Error('特定商取引法に基づく表示・プライバシーポリシーへの同意が必要です。');
+      }
+
       const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://api.recrubo.net';
-      
-      // Stripe Checkout セッションを作成
+
       const response = await fetch(`${apiBaseUrl}/api/stripe/create-checkout-session`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify(PREMIUM_PRICE_ID ? { priceId: PREMIUM_PRICE_ID } : {}),
+        body: JSON.stringify({
+          ...(PREMIUM_PRICE_ID ? { priceId: PREMIUM_PRICE_ID } : {}),
+          guildId: selectedGuildId,
+        }),
       });
 
       if (!response.ok) {
@@ -63,14 +101,13 @@ export default function UserDashboard() {
       }
 
       const stripe = (await stripePromise) as StripeCheckout | null;
-      
+
       if (!stripe) {
         throw new Error('Stripeの初期化に失敗しました。ブラウザ拡張/CSP/ネットワークで https://js.stripe.com の読込がブロックされていないか確認してください。');
       }
 
-      // Stripe Checkout ページにリダイレクト
       const { error } = await stripe.redirectToCheckout({ sessionId });
-      
+
       if (error) {
         console.error('Stripe redirect error:', error);
         alert('決済ページへの遷移に失敗しました');
@@ -140,7 +177,7 @@ export default function UserDashboard() {
                 <span className="text-gray-400">/月</span>
               </div>
             </div>
-            
+
             <ul className="space-y-4 mb-8">
               <li className="flex items-start gap-3">
                 <svg className="w-6 h-6 text-green-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -181,7 +218,7 @@ export default function UserDashboard() {
             <div className="absolute top-4 right-4 bg-yellow-400 text-gray-900 px-3 py-1 rounded-full text-sm font-bold">
               おすすめ
             </div>
-            
+
             <div className="mb-6">
               <h3 className="text-2xl font-bold text-white mb-2">プレミアムプラン</h3>
               <div className="flex items-baseline gap-2">
@@ -189,8 +226,8 @@ export default function UserDashboard() {
                 <span className="text-purple-200">/月</span>
               </div>
             </div>
-            
-            <ul className="space-y-4 mb-8">
+
+            <ul className="space-y-4 mb-6">
               <li className="flex items-start gap-3">
                 <svg className="w-6 h-6 text-yellow-300 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -211,9 +248,69 @@ export default function UserDashboard() {
               </li>
             </ul>
 
+            {/* サーバー選択 */}
+            <div className="mb-4">
+              <label className="block text-purple-100 text-sm font-semibold mb-2">
+                適用するサーバー
+              </label>
+              {guildsLoading ? (
+                <div className="text-purple-200 text-sm">サーバー一覧を読み込み中...</div>
+              ) : guildsError === 'NO_TOKEN' || guildsError === 'UNAUTH' ? (
+                <div className="text-yellow-200 text-sm">
+                  <button
+                    type="button"
+                    onClick={() => login('/subscription')}
+                    className="underline hover:text-yellow-100"
+                  >
+                    再ログイン
+                  </button>
+                  してサーバー一覧を取得してください。
+                </div>
+              ) : guildsError ? (
+                <div className="text-yellow-200 text-sm">サーバー一覧の取得に失敗しました。</div>
+              ) : guilds.length === 0 ? (
+                <div className="text-purple-200 text-sm">管理権限のあるサーバーが見つかりません。</div>
+              ) : (
+                <select
+                  value={selectedGuildId}
+                  onChange={(e) => setSelectedGuildId(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg bg-white/20 text-white border border-purple-300/40 focus:outline-none focus:ring-2 focus:ring-purple-300"
+                >
+                  {guilds.length > 1 && (
+                    <option value="" className="text-gray-900">-- サーバーを選択 --</option>
+                  )}
+                  {guilds.map((g) => (
+                    <option key={g.id} value={g.id} className="text-gray-900">
+                      {g.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+
+            {/* 同意チェックボックス */}
+            <label className="mb-4 flex items-start gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={agreed}
+                onChange={(e) => setAgreed(e.target.checked)}
+                className="mt-1 w-4 h-4 rounded accent-purple-300 flex-shrink-0"
+              />
+              <span className="text-purple-100 text-sm leading-relaxed">
+                <Link href="/tokushoho" target="_blank" className="underline hover:text-white">
+                  特定商取引法に基づく表示
+                </Link>
+                および
+                <Link href="/privacy" target="_blank" className="underline hover:text-white">
+                  プライバシーポリシー
+                </Link>
+                に同意する
+              </span>
+            </label>
+
             <button
               onClick={handleSubscribe}
-              disabled={loading}
+              disabled={loading || !selectedGuildId || !agreed}
               className="w-full py-3 px-6 bg-white hover:bg-gray-100 text-purple-600 rounded-lg font-bold text-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? '処理中...' : 'プレミアムプランに登録'}
@@ -300,6 +397,18 @@ export default function UserDashboard() {
           </div>
         </div>
       </main>
+
+      {/* フッター */}
+      <footer className="py-8 border-t border-gray-800">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-wrap justify-center gap-6 text-sm text-gray-500">
+          <Link href="/tokushoho" className="hover:text-gray-300 transition-colors">
+            特定商取引法に基づく表示
+          </Link>
+          <Link href="/privacy" className="hover:text-gray-300 transition-colors">
+            プライバシーポリシー
+          </Link>
+        </div>
+      </footer>
     </div>
   );
 }

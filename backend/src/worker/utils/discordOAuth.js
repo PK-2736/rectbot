@@ -9,7 +9,7 @@ async function getDiscordToken(code, redirectUri, clientId, clientSecret) {
     grant_type: 'authorization_code',
     code,
     redirect_uri: redirectUri,
-    scope: 'identify email',
+    scope: 'identify email guilds',
   });
 
   const res = await fetch('https://discord.com/api/oauth2/token', {
@@ -101,6 +101,52 @@ export async function handleDiscordCallback(code, env) {
     }
   } catch (e) {
     console.error('Failed to save user to Supabase (non-fatal):', e);
+
+    // Attempt to store Discord access token for guild lookup (non-fatal)
+    if (tokenData.access_token) {
+      try {
+        const supabaseRestUrl = resolveSupabaseRestUrl(env);
+        if (supabaseRestUrl && env.SUPABASE_SERVICE_ROLE_KEY) {
+          const supabase = getSupabaseClient(env);
+          await supabase.from('users').upsert({
+            user_id: userInfo.id,
+            discord_id: userInfo.id,
+            username: userInfo.username,
+            discriminator: userInfo.discriminator || '0',
+            avatar: userInfo.avatar,
+            role: isAdmin(userInfo.id, env) ? 'admin' : 'user',
+            last_login: new Date().toISOString(),
+            discord_access_token: tokenData.access_token,
+            discord_token_expires_at: tokenData.expires_in
+              ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString()
+              : null,
+            try {
+              const supabaseRestUrl = resolveSupabaseRestUrl(env);
+              if (supabaseRestUrl && env.SUPABASE_SERVICE_ROLE_KEY) {
+                const supabase = getSupabaseClient(env);
+                await supabase.from('users').upsert({
+                  user_id: userInfo.id,
+                  discord_id: userInfo.id,
+                  username: userInfo.username,
+                  discriminator: userInfo.discriminator || '0',
+                  avatar: userInfo.avatar,
+                  role: isAdmin(userInfo.id, env) ? 'admin' : 'user',
+                  last_login: new Date().toISOString(),
+                  discord_access_token: tokenData.access_token,
+                  discord_token_expires_at: tokenData.expires_in
+                    ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString()
+                    : null,
+                });
+              }
+            } catch (e) {
+              console.error('Failed to save user to Supabase (non-fatal):', e);
+            }
+          });
+        }
+      } catch (e) {
+        console.error('Failed to save user to Supabase (non-fatal):', e);
+      }
+    }
   }
 
   const jwt = await requestJwtFromIssuer(userInfo, env);
