@@ -1,10 +1,50 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import UserDashboard from "@/components/UserDashboard";
+import SubscriptionManagement from "@/components/SubscriptionManagement";
+
+type SubscriptionStatus = {
+  hasSubscription: boolean;
+  isPremium: boolean;
+  status: string;
+  activeGuildId?: string | null;
+  subscription?: {
+    stripe_subscription_id?: string | null;
+    current_period_end?: string | null;
+    billing_interval?: string | null;
+    amount?: number | null;
+    currency?: string | null;
+  } | null;
+};
 
 export default function SubscriptionPage() {
   const { user, login, isLoading } = useAuth();
+  const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus | null>(null);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+
+    setSubscriptionLoading(true);
+    const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api.recrubo.net";
+
+    fetch(`${apiBaseUrl}/api/stripe/subscription-status`, { credentials: 'include' })
+      .then(async (res) => {
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err?.error || `status fetch failed (${res.status})`);
+        }
+        const data = await res.json();
+        setSubscriptionStatus(data);
+      })
+      .catch((err) => {
+        console.error('Failed to fetch subscription status:', err);
+        setSubscriptionStatus(null);
+      })
+      .finally(() => setSubscriptionLoading(false));
+  }, [user]);
 
   if (isLoading) {
     return (
@@ -36,6 +76,18 @@ export default function SubscriptionPage() {
         </div>
       </div>
     );
+  }
+
+  if (subscriptionLoading) {
+    return (
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <div className="text-white text-xl">サブスク状態を確認中...</div>
+      </div>
+    );
+  }
+
+  if (subscriptionStatus?.hasSubscription && subscriptionStatus?.isPremium) {
+    return <SubscriptionManagement status={subscriptionStatus} />;
   }
 
   return <UserDashboard />;

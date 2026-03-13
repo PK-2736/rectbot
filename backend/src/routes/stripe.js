@@ -21,6 +21,16 @@ export async function handleStripeRoutes(request, url, env) {
     return getSubscriptionStatusForBot(request, url, env);
   }
 
+  // Dashboard向け: サブスク状態取得（JWT認証）
+  if (pathname === '/api/stripe/subscription-status' && request.method === 'GET') {
+    return getSubscriptionStatusForDashboard(request, env);
+  }
+
+  // Dashboard向け: Billing Portal URL 作成（JWT認証）
+  if (pathname === '/api/stripe/create-portal-link' && request.method === 'POST') {
+    return createPortalLinkForDashboard(request, env);
+  }
+
   // Stripe Checkout セッション作成
   if (pathname === '/api/stripe/create-checkout-session' && request.method === 'POST') {
     return createCheckoutSession(request, env);
@@ -533,6 +543,95 @@ async function getSubscriptionStatusForBot(request, url, env) {
   } catch (error) {
     console.error('Error getting subscription status for bot:', error);
     return jsonResponse({ error: 'Failed to get subscription status' }, 500);
+  }
+}
+
+async function getSubscriptionStatusForDashboard(request, env) {
+  try {
+    const user = await getUserFromRequest(request, env);
+    if (!user?.id) {
+      return jsonResponse({ error: 'Unauthorized' }, 401);
+    }
+
+    const userId = String(user.id).trim();
+    let subscription = await fetchLatestSubscriptionByUserId(userId, env);
+    const latestPurchase = await fetchLatestPurchaseByUserId(userId, env);
+
+    if (!subscription) {
+      const reconciled = await reconcileSubscriptionFromStripe(userId, '', env);
+      if (reconciled) {
+        subscription = await fetchLatestSubscriptionByUserId(userId, env);
+      }
+    }
+
+    const activeGuildId = String(
+      subscription?.purchased_guild_id || latestPurchase?.purchased_guild_id || ''
+    ).trim() || null;
+    const guildSubscription = activeGuildId
+      ? await fetchGuildSubscriptionStatus(activeGuildId, env)
+      : null;
+
+    if (!subscription) {
+      return jsonResponse({
+        hasSubscription: false,
+        isPremium: false,
+        status: 'none',
+        activeGuildId,
+        latestPurchase: latestPurchase || null,
+        guildSubscription: guildSubscription || null,
+      });
+    }
+
+    return jsonResponse({
+      hasSubscription: true,
+      isPremium: isPremiumStatus(subscription.status),
+      status: subscription.status,
+      subscription,
+      activeGuildId,
+      latestPurchase: latestPurchase || null,
+      guildSubscription: guildSubscription || null,
+    });
+  } catch (error) {
+    console.error('Error getting subscription status for dashboard:', error);
+    return jsonResponse({ error: 'Failed to get subscription status' }, 500);
+  }
+}
+
+async function createPortalLinkForDashboard(request, env) {
+  try {
+    const user = await getUserFromRequest(request, env);
+    if (!user?.id) {
+      return jsonResponse({ error: 'Unauthorized' }, 401);
+    }
+
+    const userId = String(user.id).trim();
+    let subscription = await fetchLatestSubscriptionByUserId(userId, env);
+
+    if (!subscription?.stripe_customer_id) {
+      const reconciled = await reconcileSubscriptionFromStripe(userId, '', env);
+      if (reconciled) {
+        subscription = await fetchLatestSubscriptionByUserId(userId, env);
+      }
+    }
+
+    if (!subscription?.stripe_customer_id) {
+      return jsonResponse({ error: 'No customer found for user' }, 404);
+    }
+
+    const stripe = await createStripeClient(env);
+    const dashboardUrl = getDashboardUrl(env);
+    const body = await request.json().catch(() => ({}));
+    const returnUrl = String(body?.returnUrl || '').trim() || `${dashboardUrl}/subscription`;
+
+    const portal = await stripe.billingPortal.sessions.create({
+      customer: subscription.stripe_customer_id,
+      return_url: returnUrl,
+    });
+
+    return jsonResponse({ portalUrl: portal.url });
+  } catch (error) {
+    console.error('Error creating portal link for dashboard:', error);
+    return jsonResponse({ error: 'Failed to create portal link' }, 500);
   }
 }
 
