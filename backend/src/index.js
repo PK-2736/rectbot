@@ -103,7 +103,13 @@ export default {
       () => handleGrafanaRoutes(request, env, { url, safeHeaders, store }),
       () => handleRecruitmentRoutes(request, env, { url, safeHeaders, store, cors }),
       () => handleBotInviteRoutes(request, env, { url, safeHeaders }),
-      () => handleStripeRoutes(request, url, env)
+      async () => {
+        const resp = await handleStripeRoutes(request, url, env);
+        if (!resp || !cors) return resp;
+        const newHeaders = new Headers(resp.headers);
+        for (const [k, v] of Object.entries(cors)) newHeaders.set(k, v);
+        return new Response(resp.body, { status: resp.status, headers: newHeaders });
+      }
     ]);
 
     if (response) return response;
