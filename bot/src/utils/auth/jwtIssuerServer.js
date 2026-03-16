@@ -1,5 +1,6 @@
 const cryptoModule = require('crypto');
 const http = require('http');
+const { generateRecruitCard } = require('../canvas/canvasRecruit');
 
 const JWT_PRIVATE_KEY = (process.env.JWT_PRIVATE_KEY || '').trim();
 const INTERNAL_SECRET = (process.env.INTERNAL_SECRET || '').trim();
@@ -54,6 +55,44 @@ function sendJson(res, status, payload) {
   res.end(text);
 }
 
+function sendBinary(res, status, buffer, contentType = 'application/octet-stream') {
+  res.writeHead(status, {
+    'Content-Type': contentType,
+    'Content-Length': buffer.length,
+    'Cache-Control': 'no-store'
+  });
+  res.end(buffer);
+}
+
+function normalizeAccentColor(value) {
+  const raw = String(value || '').trim().replace(/^#/, '');
+  return /^[0-9a-fA-F]{6}$/.test(raw) ? raw.toUpperCase() : null;
+}
+
+function buildPreviewRecruitData(body) {
+  const form = body?.form || {};
+  const layout = body?.layout || null;
+  const voiceText = String(form.voicePlace || '').trim();
+  const normalizedVoice = voiceText.includes('なし') ? 'なし' : (voiceText ? 'あり' : '指定なし');
+
+  return {
+    title: form.title || '参加者募集',
+    description: form.content || 'ガチエリア / 初心者歓迎',
+    content: form.content || 'ガチエリア / 初心者歓迎',
+    startTime: form.startTimeText || '今から',
+    voice: normalizedVoice,
+    voicePlace: voiceText && !voiceText.includes('なし') ? voiceText : null,
+    maxMembers: Number(form.participants) || 4,
+    metadata: {
+      startLabel: form.startTimeText || '今から',
+    },
+    template: {
+      layout_json: layout,
+      background_image_url: form.backgroundImageUrl || null,
+    },
+  };
+}
+
 async function handleIssueJwt(req, res) {
   if (req.method !== 'POST') return sendJson(res, 405, { error: 'method_not_allowed' });
   if (!INTERNAL_SECRET) return sendJson(res, 503, { error: 'internal_secret_missing' });
@@ -87,9 +126,40 @@ async function handleIssueJwt(req, res) {
   return sendJson(res, 200, { jwt });
 }
 
+async function handleRecruitPreview(req, res) {
+  if (req.method !== 'POST') return sendJson(res, 405, { error: 'method_not_allowed' });
+  if (!INTERNAL_SECRET) return sendJson(res, 503, { error: 'internal_secret_missing' });
+
+  const provided = req.headers['x-internal-secret'] || '';
+  if (provided !== INTERNAL_SECRET) return sendJson(res, 401, { error: 'unauthorized' });
+
+  let body;
+  try {
+    body = await readJson(req);
+  } catch (err) {
+    return sendJson(res, 400, { error: 'invalid_json', detail: err.message });
+  }
+
+  try {
+    const recruitData = buildPreviewRecruitData(body);
+    const participantIds = ['preview-user'];
+    const avatarUrls = {
+      'preview-user': 'https://cdn.discordapp.com/embed/avatars/0.png'
+    };
+    const accentColor = normalizeAccentColor(body?.form?.color);
+    const buffer = await generateRecruitCard(recruitData, participantIds, null, accentColor, avatarUrls);
+    return sendBinary(res, 200, buffer, 'image/png');
+  } catch (err) {
+    return sendJson(res, 500, { error: 'preview_generation_failed', detail: err?.message || String(err) });
+  }
+}
+
 function requestHandler(req, res) {
   if (req.url === '/internal/jwt/issue') {
     return void handleIssueJwt(req, res);
+  }
+  if (req.url === '/internal/recruit-preview') {
+    return void handleRecruitPreview(req, res);
   }
   res.writeHead(404, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify({ error: 'not_found' }));

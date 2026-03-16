@@ -63,6 +63,10 @@ function buildPublicAssetUrl(env, objectKey) {
   return `${normalized}/${objectKey}`;
 }
 
+function resolveInternalBotBase(env) {
+  return String(env.JWT_ISSUER_URL || env.VPS_EXPRESS_URL || env.TUNNEL_URL || '').trim();
+}
+
 async function createSupabaseClient(env) {
   const url = env.SUPABASE_URL;
   const key = env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_SERVICE_KEY;
@@ -296,6 +300,47 @@ async function getTemplateForBot(request, url, env, safeHeaders) {
   return jsonResponse({ template: data || null }, 200, safeHeaders);
 }
 
+async function previewTemplate(request, env, safeHeaders) {
+  const user = await getUserFromRequest(request, env);
+  if (!user) return jsonResponse({ error: 'Unauthorized' }, 401, safeHeaders);
+
+  const body = await request.json().catch(() => ({}));
+  const guildId = String(body.guildId || '').trim();
+  if (!guildId) {
+    return jsonResponse({ error: 'guildId is required' }, 400, safeHeaders);
+  }
+
+  const hasPremium = await ensurePremiumForGuild(user.id, guildId, env);
+  if (!hasPremium) {
+    return jsonResponse({ error: 'Premium subscription is required for this guild' }, 403, safeHeaders);
+  }
+
+  const internalBase = resolveInternalBotBase(env);
+  if (!internalBase || !env.INTERNAL_SECRET) {
+    return jsonResponse({ error: 'Internal preview service is not configured' }, 503, safeHeaders);
+  }
+
+  const upstreamUrl = new URL('/internal/recruit-preview', internalBase);
+  const upstream = await fetch(upstreamUrl.toString(), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-internal-secret': env.INTERNAL_SECRET,
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!upstream.ok) {
+    const detail = await upstream.text().catch(() => 'no response');
+    return jsonResponse({ error: 'Preview generation failed', detail }, 502, safeHeaders);
+  }
+
+  const headers = new Headers(safeHeaders);
+  headers.set('Content-Type', 'image/png');
+  headers.set('Cache-Control', 'no-store');
+  return new Response(upstream.body, { status: 200, headers });
+}
+
 async function serveTemplateAsset(request, url, env) {
   if (!env.PLUS_TEMPLATES_R2) {
     return new Response('R2 not configured', { status: 503 });
@@ -335,6 +380,10 @@ export async function handlePlusTemplateRoutes(request, env, { url, safeHeaders 
 
   if (url.pathname === '/api/plus/bot/template' && request.method === 'GET') {
     return getTemplateForBot(request, url, env, safeHeaders);
+  }
+
+  if (url.pathname === '/api/plus/templates/preview' && request.method === 'POST') {
+    return previewTemplate(request, env, safeHeaders);
   }
 
   if (url.pathname.startsWith('/api/plus/assets/') && request.method === 'GET') {

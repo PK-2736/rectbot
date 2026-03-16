@@ -129,6 +129,8 @@ export default function PlusTemplatePage() {
   const [loadingTemplates, setLoadingTemplates] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewImageUrl, setPreviewImageUrl] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [dragTarget, setDragTarget] = useState<DraggableFieldKey | null>(null);
 
@@ -278,6 +280,46 @@ export default function PlusTemplatePage() {
     }
   };
 
+  useEffect(() => {
+    if (!user || !selectedGuildId) return;
+
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      setPreviewLoading(true);
+      try {
+        const res = await fetch(`${apiBaseUrl}/api/plus/templates/preview`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ guildId: selectedGuildId, form, layout }),
+          signal: controller.signal,
+        });
+
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data?.error || "プレビュー生成に失敗しました");
+        }
+
+        const blob = await res.blob();
+        const nextUrl = URL.createObjectURL(blob);
+        setPreviewImageUrl((prev) => {
+          if (prev) URL.revokeObjectURL(prev);
+          return nextUrl;
+        });
+      } catch (e) {
+        if (controller.signal.aborted) return;
+        setError(e instanceof Error ? e.message : "プレビュー生成に失敗しました");
+      } finally {
+        if (!controller.signal.aborted) setPreviewLoading(false);
+      }
+    }, 180);
+
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
+  }, [user, selectedGuildId, form, layout, apiBaseUrl]);
+
   if (isLoading) {
     return <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">読み込み中...</div>;
   }
@@ -407,41 +449,24 @@ export default function PlusTemplatePage() {
           <h2 className="text-lg font-semibold">募集プレビュー（/rect 生成画像と同一レイアウト）</h2>
 
           <div
-            className="relative w-full aspect-video overflow-hidden border-[6px] border-white/90 bg-black"
+            className="relative w-full aspect-video overflow-hidden rounded-lg border border-gray-600 bg-black"
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}
             onPointerLeave={onPointerUp}
           >
-            <div className="absolute left-[2.8%] top-[3.2%] h-7 w-7 rounded-full bg-emerald-500/90 ring-4 ring-emerald-500/20" />
-            <div className="absolute right-[2.8%] top-[3.2%] h-7 w-7 rounded-full bg-rose-500/90 ring-4 ring-rose-500/20" />
-
-            {layout.title.visible && (
-              <div
-                className="absolute px-7 py-2 bg-white/90 text-black font-extrabold rounded-sm cursor-move drop-shadow-[0_2px_0_rgba(0,0,0,0.45)]"
-                style={{
-                  left: `${(layout.title.x / layout.canvas.width) * 100}%`,
-                  top: `${(layout.title.y / layout.canvas.height) * 100}%`,
-                  fontSize: `${Math.max(22, layout.title.size / 2.2)}px`,
-                }}
-                onPointerDown={() => onPointerDown("title")}
-              >
-                {form.title || "参加者募集"}
-              </div>
+            {previewImageUrl ? (
+              <img src={previewImageUrl} alt="募集プレビュー" className="absolute inset-0 h-full w-full object-cover" />
+            ) : (
+              <div className="absolute inset-0 flex items-center justify-center text-sm text-gray-300">プレビュー生成待ち...</div>
             )}
 
-            <div className="absolute left-[9.3%] top-[18.5%] flex items-center gap-2.5">
-              <div className="h-12 w-12 rounded-full bg-gradient-to-br from-orange-300 to-orange-600 border-2 border-white/80" />
-              {Array.from({ length: 3 }).map((_, idx) => (
-                <div key={idx} className="h-12 w-12 rounded-full bg-white/15 border-4 border-white/65 relative">
-                  <div className="absolute left-1/2 top-1/2 h-7 w-[3px] -translate-x-1/2 -translate-y-1/2 bg-white/35" />
-                  <div className="absolute left-1/2 top-1/2 h-[3px] w-7 -translate-x-1/2 -translate-y-1/2 bg-white/35" />
-                </div>
-              ))}
-            </div>
+            {previewLoading && (
+              <div className="absolute right-3 top-3 rounded bg-black/70 px-2 py-1 text-xs text-white">更新中...</div>
+            )}
 
             {layout.contentBox.visible && (
               <div
-                className="absolute rounded-[28px] border-4 border-white/80 bg-black/75 cursor-move"
+                className="absolute rounded-[28px] border-2 border-cyan-300/80 bg-cyan-400/10 cursor-move"
                 style={{
                   left: `${(layout.contentBox.x / layout.canvas.width) * 100}%`,
                   top: `${(layout.contentBox.y / layout.canvas.height) * 100}%`,
@@ -449,12 +474,14 @@ export default function PlusTemplatePage() {
                   height: `${(layout.contentBox.height / layout.canvas.height) * 100}%`,
                 }}
                 onPointerDown={() => onPointerDown("contentBox")}
-              />
+              >
+                <span className="absolute left-2 top-2 rounded bg-cyan-950/80 px-1.5 py-0.5 text-[10px] text-cyan-100">contentBox</span>
+              </div>
             )}
 
             {layout.imageBox.visible && (
               <div
-                className="absolute rounded-xl border-2 border-cyan-100/80 bg-black/45 cursor-move overflow-hidden"
+                className="absolute rounded-xl border-2 border-amber-300/80 bg-amber-400/10 cursor-move"
                 style={{
                   left: `${(layout.imageBox.x / layout.canvas.width) * 100}%`,
                   top: `${(layout.imageBox.y / layout.canvas.height) * 100}%`,
@@ -463,60 +490,30 @@ export default function PlusTemplatePage() {
                 }}
                 onPointerDown={() => onPointerDown("imageBox")}
               >
-                {form.backgroundImageUrl ? (
-                  <div className="w-full h-full" style={{ backgroundImage: `url(${form.backgroundImageUrl})`, backgroundSize: "cover", backgroundPosition: "center" }} />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-xs text-cyan-100">埋め込み画像</div>
-                )}
+                <span className="absolute left-2 top-2 rounded bg-amber-950/80 px-1.5 py-0.5 text-[10px] text-amber-100">imageBox</span>
               </div>
             )}
 
-            {layout.content.visible && (
-              <div
-                className="absolute text-white cursor-move max-w-[44%]"
-                style={{ left: `${(layout.content.x / layout.canvas.width) * 100}%`, top: `${(layout.content.y / layout.canvas.height) * 100}%`, fontSize: `${Math.max(14, layout.content.size / 3)}px` }}
-                onPointerDown={() => onPointerDown("content")}
+            {([
+              ["title", layout.title],
+              ["members", layout.members],
+              ["time", layout.time],
+              ["content", layout.content],
+              ["voice", layout.voice],
+            ] as const).map(([fieldName, field]) => field.visible ? (
+              <button
+                key={fieldName}
+                type="button"
+                className="absolute -translate-x-1/2 -translate-y-1/2 rounded border border-cyan-200 bg-cyan-950/80 px-2 py-1 text-[10px] text-cyan-50 cursor-move"
+                style={{ left: `${(field.x / layout.canvas.width) * 100}%`, top: `${(field.y / layout.canvas.height) * 100}%` }}
+                onPointerDown={() => onPointerDown(fieldName)}
               >
-                <div className="font-bold text-[1.7em] mb-2">募集内容</div>
-                <div>{form.content || "ガチエリア / 初心者歓迎"}</div>
-              </div>
-            )}
-
-            {layout.members.visible && (
-              <div
-                className="absolute w-[34.3%] rounded-[14px] border-4 border-white/80 bg-black/72 px-4 py-3 text-white cursor-move"
-                style={{ left: `${(layout.members.x / layout.canvas.width) * 100}%`, top: `${(layout.members.y / layout.canvas.height) * 100}%`, fontSize: `${Math.max(14, layout.members.size / 3)}px` }}
-                onPointerDown={() => onPointerDown("members")}
-              >
-                <span className="text-gray-300 font-bold mr-2">人数:</span>
-                <span className="font-extrabold">1/{form.participants || "4"}人</span>
-              </div>
-            )}
-
-            {layout.time.visible && (
-              <div
-                className="absolute w-[34.3%] rounded-[14px] border-4 border-white/80 bg-black/72 px-4 py-3 text-white cursor-move"
-                style={{ left: `${(layout.time.x / layout.canvas.width) * 100}%`, top: `${(layout.time.y / layout.canvas.height) * 100}%`, fontSize: `${Math.max(14, layout.time.size / 3)}px` }}
-                onPointerDown={() => onPointerDown("time")}
-              >
-                <span className="text-gray-300 font-bold mr-2">時間:</span>
-                <span className="font-extrabold">{form.startTimeText || "今から"}~</span>
-              </div>
-            )}
-
-            {layout.voice.visible && (
-              <div
-                className="absolute w-[34.3%] rounded-[14px] border-4 border-white/80 bg-black/72 px-4 py-3 text-white cursor-move"
-                style={{ left: `${(layout.voice.x / layout.canvas.width) * 100}%`, top: `${(layout.voice.y / layout.canvas.height) * 100}%`, fontSize: `${Math.max(14, layout.voice.size / 3)}px` }}
-                onPointerDown={() => onPointerDown("voice")}
-              >
-                <span className="text-gray-300 font-bold mr-2">通話:</span>
-                <span className="font-extrabold">{form.voicePlace || "指定なし"}</span>
-              </div>
-            )}
+                {fieldName}
+              </button>
+            ) : null)}
           </div>
 
-          <p className="text-xs text-gray-400">/rect で実際に生成している座標・枠サイズに合わせて表示しています。ドラッグした要素位置はテンプレート座標として保存されます。</p>
+          <p className="text-xs text-gray-400">下の画像はサーバー側で bot と同じ描画関数から生成した PNG です。上に重ねたガイドをドラッグして座標を調整できます。</p>
 
           <div className="border border-gray-700 rounded-lg p-3">
             <h3 className="font-semibold mb-2">保存済みテンプレート</h3>
