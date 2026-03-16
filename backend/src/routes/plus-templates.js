@@ -296,6 +296,30 @@ async function getTemplateForBot(request, url, env, safeHeaders) {
   return jsonResponse({ template: data || null }, 200, safeHeaders);
 }
 
+async function serveTemplateAsset(request, url, env) {
+  if (!env.PLUS_TEMPLATES_R2) {
+    return new Response('R2 not configured', { status: 503 });
+  }
+
+  // /api/plus/assets/plus-templates/{guildId}/{filename}
+  const key = url.pathname.replace(/^\/api\/plus\/assets\//, '');
+  if (!key || key.includes('..')) {
+    return new Response('Bad Request', { status: 400 });
+  }
+
+  const obj = await env.PLUS_TEMPLATES_R2.get(key);
+  if (!obj) {
+    return new Response('Not Found', { status: 404 });
+  }
+
+  const headers = new Headers();
+  headers.set('Content-Type', obj.httpMetadata?.contentType || 'application/octet-stream');
+  headers.set('Cache-Control', 'public, max-age=86400');
+  headers.set('Access-Control-Allow-Origin', '*');
+
+  return new Response(obj.body, { status: 200, headers });
+}
+
 export async function handlePlusTemplateRoutes(request, env, { url, safeHeaders }) {
   if (url.pathname === '/api/plus/templates' && request.method === 'GET') {
     return listTemplates(request, env, safeHeaders);
@@ -311,6 +335,10 @@ export async function handlePlusTemplateRoutes(request, env, { url, safeHeaders 
 
   if (url.pathname === '/api/plus/bot/template' && request.method === 'GET') {
     return getTemplateForBot(request, url, env, safeHeaders);
+  }
+
+  if (url.pathname.startsWith('/api/plus/assets/') && request.method === 'GET') {
+    return serveTemplateAsset(request, url, env);
   }
 
   return null;

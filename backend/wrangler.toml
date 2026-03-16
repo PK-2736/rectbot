@@ -53,7 +53,7 @@ DISCORD_REDIRECT_URI = "https://api.recrubo.net/api/discord/callback"
 PUBLIC_RECAPTCHA_SITE_KEY = "placeholder"
 ADMIN_DISCORD_ID = "placeholder"
 VPS_EXPRESS_URL = "http://localhost:3001"
-R2_PUBLIC_BASE_URL = "https://assets.recrubo.net"
+R2_PUBLIC_BASE_URL = "https://api.recrubo.net/api/plus/assets"
 # SUPABASE_URL は wrangler secret put で設定されるため [vars] から削除
 # シークレットは wrangler secret put コマンドで設定されます:
 # - DISCORD_CLIENT_SECRET
