@@ -4,12 +4,12 @@ registerFont(__dirname + '/../../../data/Corporate-Logo-Rounded-Bold-ver3.otf', 
 
 const DEFAULT_TEMPLATE_LAYOUT = {
   canvas: { width: 1280, height: 720 },
-  title: { x: 140, y: 72, size: 56, visible: true },
-  members: { x: 940, y: 120, size: 42, visible: true },
-  time: { x: 940, y: 190, size: 36, visible: true },
-  content: { x: 140, y: 220, size: 34, visible: true },
-  voice: { x: 940, y: 260, size: 30, visible: true },
-  contentBox: { x: 120, y: 200, width: 730, height: 380, visible: false },
+  title: { x: 420, y: 36, size: 64, visible: true },
+  members: { x: 969, y: 302, size: 24, visible: true },
+  time: { x: 969, y: 446, size: 24, visible: true },
+  content: { x: 110, y: 389, size: 24, visible: true },
+  voice: { x: 969, y: 590, size: 24, visible: true },
+  contentBox: { x: 73, y: 281, width: 614, height: 360, visible: true },
   imageBox: { x: 880, y: 330, width: 300, height: 220, visible: false }
 };
 

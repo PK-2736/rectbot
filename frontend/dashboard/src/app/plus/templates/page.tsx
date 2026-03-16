@@ -65,12 +65,12 @@ type FormState = {
 
 const DEFAULT_LAYOUT: TemplateLayout = {
   canvas: { width: 1280, height: 720 },
-  title: { x: 140, y: 72, size: 56, visible: true },
-  members: { x: 940, y: 120, size: 42, visible: true },
-  time: { x: 940, y: 190, size: 36, visible: true },
-  content: { x: 140, y: 220, size: 34, visible: true },
-  voice: { x: 940, y: 260, size: 30, visible: true },
-  contentBox: { x: 120, y: 200, width: 730, height: 380, visible: false },
+  title: { x: 420, y: 36, size: 64, visible: true },
+  members: { x: 969, y: 302, size: 24, visible: true },
+  time: { x: 969, y: 446, size: 24, visible: true },
+  content: { x: 110, y: 389, size: 24, visible: true },
+  voice: { x: 969, y: 590, size: 24, visible: true },
+  contentBox: { x: 73, y: 281, width: 614, height: 360, visible: true },
   imageBox: { x: 880, y: 330, width: 300, height: 220, visible: false },
 };
 
@@ -404,7 +404,7 @@ export default function PlusTemplatePage() {
         </section>
 
         <section className="bg-gray-800/50 border border-gray-700 rounded-xl p-5 space-y-4">
-          <h2 className="text-lg font-semibold">募集プレビュー（/rect 生成画像と同構成）</h2>
+          <h2 className="text-lg font-semibold">募集プレビュー（/rect 生成画像と同一レイアウト）</h2>
 
           <div
             className="relative w-full aspect-video overflow-hidden border-[6px] border-white/90 bg-black"
@@ -429,7 +429,7 @@ export default function PlusTemplatePage() {
               </div>
             )}
 
-            <div className="absolute left-[5%] top-[15%] flex items-center gap-2.5">
+            <div className="absolute left-[9.3%] top-[18.5%] flex items-center gap-2.5">
               <div className="h-12 w-12 rounded-full bg-gradient-to-br from-orange-300 to-orange-600 border-2 border-white/80" />
               {Array.from({ length: 3 }).map((_, idx) => (
                 <div key={idx} className="h-12 w-12 rounded-full bg-white/15 border-4 border-white/65 relative">
@@ -471,8 +471,6 @@ export default function PlusTemplatePage() {
               </div>
             )}
 
-            <div className="absolute left-[4%] top-[37%] w-[50%] h-[50%] rounded-[28px] border-4 border-white/80 bg-black/65" />
-
             {layout.content.visible && (
               <div
                 className="absolute text-white cursor-move max-w-[44%]"
@@ -486,7 +484,7 @@ export default function PlusTemplatePage() {
 
             {layout.members.visible && (
               <div
-                className="absolute w-[35%] rounded-2xl border-4 border-white/80 bg-black/72 px-4 py-3 text-white cursor-move"
+                className="absolute w-[34.3%] rounded-[14px] border-4 border-white/80 bg-black/72 px-4 py-3 text-white cursor-move"
                 style={{ left: `${(layout.members.x / layout.canvas.width) * 100}%`, top: `${(layout.members.y / layout.canvas.height) * 100}%`, fontSize: `${Math.max(14, layout.members.size / 3)}px` }}
                 onPointerDown={() => onPointerDown("members")}
               >
@@ -497,7 +495,7 @@ export default function PlusTemplatePage() {
 
             {layout.time.visible && (
               <div
-                className="absolute w-[35%] rounded-2xl border-4 border-white/80 bg-black/72 px-4 py-3 text-white cursor-move"
+                className="absolute w-[34.3%] rounded-[14px] border-4 border-white/80 bg-black/72 px-4 py-3 text-white cursor-move"
                 style={{ left: `${(layout.time.x / layout.canvas.width) * 100}%`, top: `${(layout.time.y / layout.canvas.height) * 100}%`, fontSize: `${Math.max(14, layout.time.size / 3)}px` }}
                 onPointerDown={() => onPointerDown("time")}
               >
@@ -508,7 +506,7 @@ export default function PlusTemplatePage() {
 
             {layout.voice.visible && (
               <div
-                className="absolute w-[35%] rounded-2xl border-4 border-white/80 bg-black/72 px-4 py-3 text-white cursor-move"
+                className="absolute w-[34.3%] rounded-[14px] border-4 border-white/80 bg-black/72 px-4 py-3 text-white cursor-move"
                 style={{ left: `${(layout.voice.x / layout.canvas.width) * 100}%`, top: `${(layout.voice.y / layout.canvas.height) * 100}%`, fontSize: `${Math.max(14, layout.voice.size / 3)}px` }}
                 onPointerDown={() => onPointerDown("voice")}
               >
@@ -518,7 +516,7 @@ export default function PlusTemplatePage() {
             )}
           </div>
 
-          <p className="text-xs text-gray-400">通常の /rect 募集画像の構成をベースに表示しています。ドラッグした要素位置はテンプレート座標として保存されます。</p>
+          <p className="text-xs text-gray-400">/rect で実際に生成している座標・枠サイズに合わせて表示しています。ドラッグした要素位置はテンプレート座標として保存されます。</p>
 
           <div className="border border-gray-700 rounded-lg p-3">
             <h3 className="font-semibold mb-2">保存済みテンプレート</h3>
