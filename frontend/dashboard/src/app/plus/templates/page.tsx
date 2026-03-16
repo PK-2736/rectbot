@@ -13,6 +13,18 @@ type LayoutField = {
   visible: boolean;
 };
 
+type LayoutBox = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  visible: boolean;
+};
+
+type TextFieldKey = "title" | "members" | "time" | "content" | "voice";
+type BoxFieldKey = "contentBox" | "imageBox";
+type DraggableFieldKey = TextFieldKey | BoxFieldKey;
+
 type TemplateLayout = {
   canvas: { width: number; height: number };
   title: LayoutField;
@@ -20,6 +32,8 @@ type TemplateLayout = {
   time: LayoutField;
   content: LayoutField;
   voice: LayoutField;
+  contentBox: LayoutBox;
+  imageBox: LayoutBox;
 };
 
 type Template = {
@@ -56,6 +70,8 @@ const DEFAULT_LAYOUT: TemplateLayout = {
   time: { x: 940, y: 190, size: 36, visible: true },
   content: { x: 140, y: 220, size: 34, visible: true },
   voice: { x: 940, y: 260, size: 30, visible: true },
+  contentBox: { x: 120, y: 200, width: 730, height: 380, visible: true },
+  imageBox: { x: 880, y: 330, width: 300, height: 220, visible: true },
 };
 
 const INITIAL_FORM: FormState = {
@@ -98,6 +114,8 @@ function parseLayout(input: unknown): TemplateLayout {
     time: raw.time || DEFAULT_LAYOUT.time,
     content: raw.content || DEFAULT_LAYOUT.content,
     voice: raw.voice || DEFAULT_LAYOUT.voice,
+    contentBox: raw.contentBox || DEFAULT_LAYOUT.contentBox,
+    imageBox: raw.imageBox || DEFAULT_LAYOUT.imageBox,
   };
 }
 
@@ -112,7 +130,7 @@ export default function PlusTemplatePage() {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [dragTarget, setDragTarget] = useState<keyof Omit<TemplateLayout, "canvas"> | null>(null);
+  const [dragTarget, setDragTarget] = useState<DraggableFieldKey | null>(null);
 
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
   const [layout, setLayout] = useState<TemplateLayout>(DEFAULT_LAYOUT);
@@ -158,7 +176,7 @@ export default function PlusTemplatePage() {
 
   const selectedGuildName = guilds.find((g) => g.id === selectedGuildId)?.name || "";
 
-  const onPointerDown = (field: keyof Omit<TemplateLayout, "canvas">) => {
+  const onPointerDown = (field: DraggableFieldKey) => {
     setDragTarget(field);
   };
 
@@ -179,12 +197,23 @@ export default function PlusTemplatePage() {
 
   const onPointerUp = () => setDragTarget(null);
 
-  const setFieldVisible = (field: keyof Omit<TemplateLayout, "canvas">, visible: boolean) => {
+  const setFieldVisible = (field: TextFieldKey, visible: boolean) => {
     setLayout((prev) => ({ ...prev, [field]: { ...prev[field], visible } }));
   };
 
-  const setFieldSize = (field: keyof Omit<TemplateLayout, "canvas">, size: number) => {
+  const setFieldSize = (field: TextFieldKey, size: number) => {
     setLayout((prev) => ({ ...prev, [field]: { ...prev[field], size: clamp(size, 10, 128) } }));
+  };
+
+  const setBoxVisible = (field: BoxFieldKey, visible: boolean) => {
+    setLayout((prev) => ({ ...prev, [field]: { ...prev[field], visible } }));
+  };
+
+  const setBoxSize = (field: BoxFieldKey, key: "width" | "height", value: number) => {
+    setLayout((prev) => ({
+      ...prev,
+      [field]: { ...prev[field], [key]: clamp(value, 120, key === "width" ? 1200 : 620) },
+    }));
   };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -298,11 +327,11 @@ export default function PlusTemplatePage() {
 
             <div className="grid grid-cols-2 gap-3">
               <input className="bg-gray-900 border border-gray-600 rounded-lg px-3 py-2" placeholder="カード色 #RRGGBB" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} />
-              <input className="bg-gray-900 border border-gray-600 rounded-lg px-3 py-2" placeholder="背景URL（任意）" value={form.backgroundImageUrl} onChange={(e) => setForm({ ...form, backgroundImageUrl: e.target.value })} />
+              <input className="bg-gray-900 border border-gray-600 rounded-lg px-3 py-2" placeholder="埋め込み画像URL（任意）" value={form.backgroundImageUrl} onChange={(e) => setForm({ ...form, backgroundImageUrl: e.target.value })} />
             </div>
 
             <div className="flex items-center gap-3">
-              <label className="text-sm text-gray-300">背景画像アップロード:</label>
+              <label className="text-sm text-gray-300">埋め込み画像アップロード:</label>
               <input type="file" accept="image/*" onChange={(e) => {
                 const file = e.target.files?.[0];
                 if (file) uploadBackground(file);
@@ -332,6 +361,40 @@ export default function PlusTemplatePage() {
                   </label>
                 </div>
               ))}
+
+              <div className="pt-2 border-t border-gray-700 space-y-2">
+                <p className="text-sm text-gray-300">内容枠・画像枠</p>
+
+                <div className="grid grid-cols-3 gap-2 items-center text-sm">
+                  <label>内容枠 幅</label>
+                  <input type="range" min={180} max={1200} value={layout.contentBox.width} onChange={(e) => setBoxSize("contentBox", "width", Number(e.target.value))} />
+                  <label className="flex items-center gap-2 justify-end">
+                    <input type="checkbox" checked={layout.contentBox.visible} onChange={(e) => setBoxVisible("contentBox", e.target.checked)} />
+                    表示
+                  </label>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 items-center text-sm">
+                  <label>内容枠 高さ</label>
+                  <input type="range" min={140} max={620} value={layout.contentBox.height} onChange={(e) => setBoxSize("contentBox", "height", Number(e.target.value))} />
+                  <span className="text-right text-xs text-gray-400">{layout.contentBox.width} x {layout.contentBox.height}</span>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 items-center text-sm">
+                  <label>画像枠 幅</label>
+                  <input type="range" min={180} max={820} value={layout.imageBox.width} onChange={(e) => setBoxSize("imageBox", "width", Number(e.target.value))} />
+                  <label className="flex items-center gap-2 justify-end">
+                    <input type="checkbox" checked={layout.imageBox.visible} onChange={(e) => setBoxVisible("imageBox", e.target.checked)} />
+                    表示
+                  </label>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 items-center text-sm">
+                  <label>画像枠 高さ</label>
+                  <input type="range" min={140} max={620} value={layout.imageBox.height} onChange={(e) => setBoxSize("imageBox", "height", Number(e.target.value))} />
+                  <span className="text-right text-xs text-gray-400">{layout.imageBox.width} x {layout.imageBox.height}</span>
+                </div>
+              </div>
             </div>
 
             <button type="submit" disabled={saving || !selectedGuildId} className="px-4 py-2 bg-white text-gray-900 rounded-lg font-semibold disabled:opacity-50">{saving ? "保存中..." : "テンプレ保存"}</button>
@@ -342,71 +405,111 @@ export default function PlusTemplatePage() {
 
         <section className="bg-gray-800/50 border border-gray-700 rounded-xl p-5 space-y-4">
           <h2 className="text-lg font-semibold">Discordプレビュー（ドラッグで配置）</h2>
-          <div
-            className="relative w-full aspect-video rounded-lg overflow-hidden border border-gray-600 bg-black"
-            style={{
-              backgroundImage: form.backgroundImageUrl ? `url(${form.backgroundImageUrl})` : "none",
-              backgroundSize: "cover",
-              backgroundPosition: "center",
-            }}
-            onPointerMove={onPointerMove}
-            onPointerUp={onPointerUp}
-            onPointerLeave={onPointerUp}
-          >
-            <div className="absolute inset-0 bg-black/25" />
+          <div className="rounded-xl border border-[#3f4147] bg-[#313338] p-4 space-y-3">
+            <div className="flex items-start gap-3">
+              <div className="h-10 w-10 rounded-full bg-[#5865F2] flex items-center justify-center text-white text-xs font-bold">RB</div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-baseline gap-2">
+                  <span className="font-semibold text-[#f2f3f5]">Recrubo Bot</span>
+                  <span className="text-[11px] text-[#949ba4]">今日 12:34</span>
+                </div>
+                <p className="text-sm text-[#dbdee1]">募集画像を投稿しました</p>
 
-            {layout.title.visible && (
-              <div
-                className="absolute px-2 py-1 rounded bg-black/45 border border-white/20 cursor-move"
-                style={{ left: `${(layout.title.x / layout.canvas.width) * 100}%`, top: `${(layout.title.y / layout.canvas.height) * 100}%`, fontSize: `${layout.title.size / 3}px` }}
-                onPointerDown={() => onPointerDown("title")}
-              >
-                {form.title || "募集タイトル"}
-              </div>
-            )}
+                <div
+                  className="mt-2 relative w-full max-w-[680px] aspect-video rounded-md overflow-hidden border border-[#4e5058] bg-[#111214]"
+                  onPointerMove={onPointerMove}
+                  onPointerUp={onPointerUp}
+                  onPointerLeave={onPointerUp}
+                >
+                  <div className="absolute inset-0 bg-gradient-to-b from-[#16181d] to-[#0e0f11]" />
 
-            {layout.members.visible && (
-              <div
-                className="absolute px-2 py-1 rounded bg-black/45 border border-white/20 cursor-move"
-                style={{ left: `${(layout.members.x / layout.canvas.width) * 100}%`, top: `${(layout.members.y / layout.canvas.height) * 100}%`, fontSize: `${layout.members.size / 3}px` }}
-                onPointerDown={() => onPointerDown("members")}
-              >
-                👥 {form.participants || "4"}人
-              </div>
-            )}
+                  {layout.contentBox.visible && (
+                    <div
+                      className="absolute rounded-md border border-white/30 bg-black/50 cursor-move"
+                      style={{
+                        left: `${(layout.contentBox.x / layout.canvas.width) * 100}%`,
+                        top: `${(layout.contentBox.y / layout.canvas.height) * 100}%`,
+                        width: `${(layout.contentBox.width / layout.canvas.width) * 100}%`,
+                        height: `${(layout.contentBox.height / layout.canvas.height) * 100}%`,
+                      }}
+                      onPointerDown={() => onPointerDown("contentBox")}
+                    />
+                  )}
 
-            {layout.time.visible && (
-              <div
-                className="absolute px-2 py-1 rounded bg-black/45 border border-white/20 cursor-move"
-                style={{ left: `${(layout.time.x / layout.canvas.width) * 100}%`, top: `${(layout.time.y / layout.canvas.height) * 100}%`, fontSize: `${layout.time.size / 3}px` }}
-                onPointerDown={() => onPointerDown("time")}
-              >
-                🕒 {form.startTimeText || "今から"}
-              </div>
-            )}
+                  {layout.imageBox.visible && (
+                    <div
+                      className="absolute rounded-md border border-cyan-200/50 bg-[#1c1e22] cursor-move overflow-hidden"
+                      style={{
+                        left: `${(layout.imageBox.x / layout.canvas.width) * 100}%`,
+                        top: `${(layout.imageBox.y / layout.canvas.height) * 100}%`,
+                        width: `${(layout.imageBox.width / layout.canvas.width) * 100}%`,
+                        height: `${(layout.imageBox.height / layout.canvas.height) * 100}%`,
+                      }}
+                      onPointerDown={() => onPointerDown("imageBox")}
+                    >
+                      {form.backgroundImageUrl ? (
+                        <div className="w-full h-full" style={{ backgroundImage: `url(${form.backgroundImageUrl})`, backgroundSize: "cover", backgroundPosition: "center" }} />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-[11px] text-cyan-100/80">埋め込み画像枠</div>
+                      )}
+                    </div>
+                  )}
 
-            {layout.voice.visible && (
-              <div
-                className="absolute px-2 py-1 rounded bg-black/45 border border-white/20 cursor-move"
-                style={{ left: `${(layout.voice.x / layout.canvas.width) * 100}%`, top: `${(layout.voice.y / layout.canvas.height) * 100}%`, fontSize: `${layout.voice.size / 3}px` }}
-                onPointerDown={() => onPointerDown("voice")}
-              >
-                🎙 {form.voicePlace || "通話あり"}
-              </div>
-            )}
+                  {layout.title.visible && (
+                    <div
+                      className="absolute px-2 py-1 rounded bg-black/55 border border-white/25 cursor-move"
+                      style={{ left: `${(layout.title.x / layout.canvas.width) * 100}%`, top: `${(layout.title.y / layout.canvas.height) * 100}%`, fontSize: `${layout.title.size / 3}px` }}
+                      onPointerDown={() => onPointerDown("title")}
+                    >
+                      {form.title || "募集タイトル"}
+                    </div>
+                  )}
 
-            {layout.content.visible && (
-              <div
-                className="absolute px-2 py-1 rounded bg-black/45 border border-white/20 cursor-move max-w-[70%]"
-                style={{ left: `${(layout.content.x / layout.canvas.width) * 100}%`, top: `${(layout.content.y / layout.canvas.height) * 100}%`, fontSize: `${layout.content.size / 3}px` }}
-                onPointerDown={() => onPointerDown("content")}
-              >
-                {form.content || "募集内容を入力"}
+                  {layout.members.visible && (
+                    <div
+                      className="absolute px-2 py-1 rounded bg-black/55 border border-white/25 cursor-move"
+                      style={{ left: `${(layout.members.x / layout.canvas.width) * 100}%`, top: `${(layout.members.y / layout.canvas.height) * 100}%`, fontSize: `${layout.members.size / 3}px` }}
+                      onPointerDown={() => onPointerDown("members")}
+                    >
+                      👥 {form.participants || "4"}人
+                    </div>
+                  )}
+
+                  {layout.time.visible && (
+                    <div
+                      className="absolute px-2 py-1 rounded bg-black/55 border border-white/25 cursor-move"
+                      style={{ left: `${(layout.time.x / layout.canvas.width) * 100}%`, top: `${(layout.time.y / layout.canvas.height) * 100}%`, fontSize: `${layout.time.size / 3}px` }}
+                      onPointerDown={() => onPointerDown("time")}
+                    >
+                      🕒 {form.startTimeText || "今から"}
+                    </div>
+                  )}
+
+                  {layout.voice.visible && (
+                    <div
+                      className="absolute px-2 py-1 rounded bg-black/55 border border-white/25 cursor-move"
+                      style={{ left: `${(layout.voice.x / layout.canvas.width) * 100}%`, top: `${(layout.voice.y / layout.canvas.height) * 100}%`, fontSize: `${layout.voice.size / 3}px` }}
+                      onPointerDown={() => onPointerDown("voice")}
+                    >
+                      🎙 {form.voicePlace || "通話あり"}
+                    </div>
+                  )}
+
+                  {layout.content.visible && (
+                    <div
+                      className="absolute px-2 py-1 rounded bg-black/55 border border-white/25 cursor-move max-w-[70%]"
+                      style={{ left: `${(layout.content.x / layout.canvas.width) * 100}%`, top: `${(layout.content.y / layout.canvas.height) * 100}%`, fontSize: `${layout.content.size / 3}px` }}
+                      onPointerDown={() => onPointerDown("content")}
+                    >
+                      {form.content || "募集内容を入力"}
+                    </div>
+                  )}
+                </div>
               </div>
-            )}
+            </div>
           </div>
 
-          <p className="text-xs text-gray-400">要素をドラッグして配置すると、座標がそのままテンプレに保存されます。</p>
+          <p className="text-xs text-gray-400">黒ベースの募集画像に、内容枠と埋め込み画像枠を重ねる構成です。各要素をドラッグすると座標がテンプレに保存されます。</p>
 
           <div className="border border-gray-700 rounded-lg p-3">
             <h3 className="font-semibold mb-2">保存済みテンプレート</h3>

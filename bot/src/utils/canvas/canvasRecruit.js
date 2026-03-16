@@ -8,7 +8,9 @@ const DEFAULT_TEMPLATE_LAYOUT = {
   members: { x: 940, y: 120, size: 42, visible: true },
   time: { x: 940, y: 190, size: 36, visible: true },
   content: { x: 140, y: 220, size: 34, visible: true },
-  voice: { x: 940, y: 260, size: 30, visible: true }
+  voice: { x: 940, y: 260, size: 30, visible: true },
+  contentBox: { x: 120, y: 200, width: 730, height: 380, visible: true },
+  imageBox: { x: 880, y: 330, width: 300, height: 220, visible: true }
 };
 
 function truncateText(ctx, text, maxWidth) {
@@ -222,7 +224,9 @@ function toSafeLayout(layout) {
     members: layout.members || DEFAULT_TEMPLATE_LAYOUT.members,
     time: layout.time || DEFAULT_TEMPLATE_LAYOUT.time,
     content: layout.content || DEFAULT_TEMPLATE_LAYOUT.content,
-    voice: layout.voice || DEFAULT_TEMPLATE_LAYOUT.voice
+    voice: layout.voice || DEFAULT_TEMPLATE_LAYOUT.voice,
+    contentBox: layout.contentBox || DEFAULT_TEMPLATE_LAYOUT.contentBox,
+    imageBox: layout.imageBox || DEFAULT_TEMPLATE_LAYOUT.imageBox
   };
 }
 
@@ -246,6 +250,22 @@ function getTemplateBackgroundUrl(recruitData) {
     || recruitData?.backgroundImageUrl
     || recruitData?.metadata?.background_image_url
     || null;
+}
+
+function getScaledBox(box, layout, canvasSize, fallback) {
+  const baseWidth = layout.canvas?.width || DEFAULT_TEMPLATE_LAYOUT.canvas.width;
+  const baseHeight = layout.canvas?.height || DEFAULT_TEMPLATE_LAYOUT.canvas.height;
+  const scaleX = canvasSize.width / baseWidth;
+  const scaleY = canvasSize.height / baseHeight;
+  const safe = box || fallback;
+
+  return {
+    x: Math.round((safe.x || 0) * scaleX),
+    y: Math.round((safe.y || 0) * scaleY),
+    width: Math.max(16, Math.round((safe.width || 100) * scaleX)),
+    height: Math.max(16, Math.round((safe.height || 100) * scaleY)),
+    visible: safe.visible !== false
+  };
 }
 
 function drawTemplateTextNode(ctx, field, text, layout, canvasSize) {
@@ -290,49 +310,79 @@ function drawTemplateContentNode(ctx, field, text, layout, canvasSize) {
   const y = Math.round((field.y || 0) * scaleY);
   const sizePx = Math.max(12, Math.round(((field.size || 24) / 3) * ((scaleX + scaleY) / 2)));
   const contentText = text || '募集内容を入力';
+  const contentBox = getScaledBox(layout.contentBox, layout, canvasSize, DEFAULT_TEMPLATE_LAYOUT.contentBox);
 
   ctx.font = `${sizePx}px CorporateRounded`;
   ctx.textBaseline = 'top';
-  const maxWidth = Math.round(canvasSize.width * 0.66);
-  const lines = wrapTextLines(ctx, contentText, maxWidth).slice(0, 3);
+  const maxWidth = Math.max(120, contentBox.visible ? contentBox.width - 24 : Math.round(canvasSize.width * 0.66));
+  const lines = wrapTextLines(ctx, contentText, maxWidth).slice(0, 6);
   const lineHeight = Math.round(sizePx * 1.25);
-  const maxTextWidth = Math.max(...lines.map(line => Math.ceil(ctx.measureText(line).width)), 40);
+  const maxTextWidth = Math.min(maxWidth, Math.max(...lines.map(line => Math.ceil(ctx.measureText(line).width)), 40));
 
   const textPaddingX = Math.max(8, Math.round(sizePx * 0.25));
   const textPaddingY = Math.max(4, Math.round(sizePx * 0.2));
-  const rectWidth = maxTextWidth + textPaddingX * 2;
-  const rectHeight = lineHeight * lines.length + textPaddingY * 2;
+  const rectX = contentBox.visible ? contentBox.x : x;
+  const rectY = contentBox.visible ? contentBox.y : y;
+  const rectWidth = contentBox.visible ? contentBox.width : maxTextWidth + textPaddingX * 2;
+  const rectHeight = contentBox.visible ? contentBox.height : lineHeight * lines.length + textPaddingY * 2;
 
   ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
-  drawRoundedRect(ctx, x, y, rectWidth, rectHeight, Math.max(6, Math.round(sizePx * 0.2)), true, false);
+  drawRoundedRect(ctx, rectX, rectY, rectWidth, rectHeight, Math.max(6, Math.round(sizePx * 0.2)), true, false);
 
   ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
   ctx.lineWidth = 1;
-  drawRoundedRect(ctx, x, y, rectWidth, rectHeight, Math.max(6, Math.round(sizePx * 0.2)), false, true);
+  drawRoundedRect(ctx, rectX, rectY, rectWidth, rectHeight, Math.max(6, Math.round(sizePx * 0.2)), false, true);
 
   ctx.fillStyle = '#ffffff';
-  for (let i = 0; i < lines.length; i++) {
-    ctx.fillText(lines[i], x + textPaddingX, y + textPaddingY + i * lineHeight);
+  const startX = contentBox.visible ? rectX + 12 : x + textPaddingX;
+  const startY = contentBox.visible ? rectY + 12 : y + textPaddingY;
+  const maxLines = contentBox.visible
+    ? Math.max(1, Math.floor((rectHeight - 24) / lineHeight))
+    : lines.length;
+  const clipped = lines.slice(0, maxLines);
+  for (let i = 0; i < clipped.length; i++) {
+    ctx.fillText(clipped[i], startX, startY + i * lineHeight);
   }
 }
 
 async function drawTemplateModeCard(ctx, recruitData, layout, canvasSize, accentColor) {
   const bgUrl = getTemplateBackgroundUrl(recruitData);
 
-  if (bgUrl) {
-    try {
-      const bg = await loadImage(bgUrl);
-      ctx.drawImage(bg, 0, 0, canvasSize.width, canvasSize.height);
-    } catch (e) {
-      console.warn('[canvasRecruit] failed to load template background:', e?.message || e);
-      drawBorder(ctx, canvasSize.width, canvasSize.height, accentColor);
+  ctx.fillStyle = '#101114';
+  ctx.fillRect(0, 0, canvasSize.width, canvasSize.height);
+  drawBorder(ctx, canvasSize.width, canvasSize.height, accentColor);
+
+  const contentBox = getScaledBox(layout.contentBox, layout, canvasSize, DEFAULT_TEMPLATE_LAYOUT.contentBox);
+  const imageBox = getScaledBox(layout.imageBox, layout, canvasSize, DEFAULT_TEMPLATE_LAYOUT.imageBox);
+
+  if (imageBox.visible) {
+    ctx.fillStyle = 'rgba(18, 20, 24, 0.95)';
+    drawRoundedRect(ctx, imageBox.x, imageBox.y, imageBox.width, imageBox.height, 8, true, false);
+    ctx.strokeStyle = 'rgba(171, 230, 255, 0.5)';
+    ctx.lineWidth = 1;
+    drawRoundedRect(ctx, imageBox.x, imageBox.y, imageBox.width, imageBox.height, 8, false, true);
+
+    if (bgUrl) {
+      try {
+        const bg = await loadImage(bgUrl);
+        ctx.save();
+        drawRoundedRect(ctx, imageBox.x, imageBox.y, imageBox.width, imageBox.height, 8, false, false);
+        ctx.clip();
+        ctx.drawImage(bg, imageBox.x, imageBox.y, imageBox.width, imageBox.height);
+        ctx.restore();
+      } catch (e) {
+        console.warn('[canvasRecruit] failed to load template embedded image:', e?.message || e);
+      }
     }
-  } else {
-    drawBorder(ctx, canvasSize.width, canvasSize.height, accentColor);
   }
 
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.22)';
-  ctx.fillRect(0, 0, canvasSize.width, canvasSize.height);
+  if (contentBox.visible) {
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.56)';
+    drawRoundedRect(ctx, contentBox.x, contentBox.y, contentBox.width, contentBox.height, 8, true, false);
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.30)';
+    ctx.lineWidth = 1;
+    drawRoundedRect(ctx, contentBox.x, contentBox.y, contentBox.width, contentBox.height, 8, false, true);
+  }
 
   const currentMembers = getCurrentMembers(recruitData, []);
   const maxMembers = getMaxMembers(recruitData, currentMembers);
