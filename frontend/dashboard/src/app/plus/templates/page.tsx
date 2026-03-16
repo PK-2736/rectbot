@@ -153,6 +153,7 @@ export default function PlusTemplatePage() {
   useEffect(() => {
     if (!selectedGuildId) return;
     reloadTemplates(selectedGuildId);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedGuildId]);
 
   const selectedGuildName = guilds.find((g) => g.id === selectedGuildId)?.name || "";
@@ -161,6 +162,7 @@ export default function PlusTemplatePage() {
     setDragTarget(field);
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const onPointerMove = (e: any) => {
     if (!dragTarget) return;
     const rect = e.currentTarget.getBoundingClientRect();
@@ -185,6 +187,7 @@ export default function PlusTemplatePage() {
     setLayout((prev) => ({ ...prev, [field]: { ...prev[field], size: clamp(size, 10, 128) } }));
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const saveTemplate = async (e: any) => {
     e.preventDefault();
     if (!selectedGuildId) return;
