@@ -2,6 +2,15 @@
 const { createCanvas, registerFont, loadImage } = require('canvas');
 registerFont(__dirname + '/../../../data/Corporate-Logo-Rounded-Bold-ver3.otf', { family: 'CorporateRounded' });
 
+const DEFAULT_TEMPLATE_LAYOUT = {
+  canvas: { width: 1280, height: 720 },
+  title: { x: 140, y: 72, size: 56, visible: true },
+  members: { x: 940, y: 120, size: 42, visible: true },
+  time: { x: 940, y: 190, size: 36, visible: true },
+  content: { x: 140, y: 220, size: 34, visible: true },
+  voice: { x: 940, y: 260, size: 30, visible: true }
+};
+
 function truncateText(ctx, text, maxWidth) {
   let result = text;
   if (ctx.measureText(result).width > maxWidth) {
@@ -195,6 +204,147 @@ function wrapTextLines(ctx, text, maxWidth) {
   });
 
   return lines;
+}
+
+function getTemplateSource(recruitData) {
+  return recruitData?.template
+    || recruitData?.templateData
+    || recruitData?.metadata?.template
+    || recruitData?.metadata?.raw?.template
+    || null;
+}
+
+function toSafeLayout(layout) {
+  if (!layout || typeof layout !== 'object') return null;
+  return {
+    canvas: layout.canvas || DEFAULT_TEMPLATE_LAYOUT.canvas,
+    title: layout.title || DEFAULT_TEMPLATE_LAYOUT.title,
+    members: layout.members || DEFAULT_TEMPLATE_LAYOUT.members,
+    time: layout.time || DEFAULT_TEMPLATE_LAYOUT.time,
+    content: layout.content || DEFAULT_TEMPLATE_LAYOUT.content,
+    voice: layout.voice || DEFAULT_TEMPLATE_LAYOUT.voice
+  };
+}
+
+function resolveTemplateLayout(recruitData) {
+  const source = getTemplateSource(recruitData);
+  const layout = source?.layout_json
+    || source?.layout
+    || recruitData?.layout_json
+    || recruitData?.layout
+    || recruitData?.metadata?.layout_json
+    || recruitData?.metadata?.layout;
+
+  return toSafeLayout(layout);
+}
+
+function getTemplateBackgroundUrl(recruitData) {
+  const source = getTemplateSource(recruitData);
+  return source?.background_image_url
+    || source?.backgroundImageUrl
+    || recruitData?.background_image_url
+    || recruitData?.backgroundImageUrl
+    || recruitData?.metadata?.background_image_url
+    || null;
+}
+
+function drawTemplateTextNode(ctx, field, text, layout, canvasSize) {
+  if (!field?.visible || !text) return;
+
+  const baseWidth = layout.canvas?.width || DEFAULT_TEMPLATE_LAYOUT.canvas.width;
+  const baseHeight = layout.canvas?.height || DEFAULT_TEMPLATE_LAYOUT.canvas.height;
+  const scaleX = canvasSize.width / baseWidth;
+  const scaleY = canvasSize.height / baseHeight;
+  const x = Math.round((field.x || 0) * scaleX);
+  const y = Math.round((field.y || 0) * scaleY);
+  const sizePx = Math.max(12, Math.round(((field.size || 24) / 3) * ((scaleX + scaleY) / 2)));
+
+  ctx.font = `bold ${sizePx}px CorporateRounded`;
+  ctx.textBaseline = 'top';
+
+  const textPaddingX = Math.max(8, Math.round(sizePx * 0.25));
+  const textPaddingY = Math.max(4, Math.round(sizePx * 0.2));
+  const textWidth = Math.ceil(ctx.measureText(text).width);
+  const rectWidth = textWidth + textPaddingX * 2;
+  const rectHeight = sizePx + textPaddingY * 2;
+
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+  drawRoundedRect(ctx, x, y, rectWidth, rectHeight, Math.max(6, Math.round(sizePx * 0.2)), true, false);
+
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+  ctx.lineWidth = 1;
+  drawRoundedRect(ctx, x, y, rectWidth, rectHeight, Math.max(6, Math.round(sizePx * 0.2)), false, true);
+
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText(text, x + textPaddingX, y + textPaddingY);
+}
+
+function drawTemplateContentNode(ctx, field, text, layout, canvasSize) {
+  if (!field?.visible) return;
+
+  const baseWidth = layout.canvas?.width || DEFAULT_TEMPLATE_LAYOUT.canvas.width;
+  const baseHeight = layout.canvas?.height || DEFAULT_TEMPLATE_LAYOUT.canvas.height;
+  const scaleX = canvasSize.width / baseWidth;
+  const scaleY = canvasSize.height / baseHeight;
+  const x = Math.round((field.x || 0) * scaleX);
+  const y = Math.round((field.y || 0) * scaleY);
+  const sizePx = Math.max(12, Math.round(((field.size || 24) / 3) * ((scaleX + scaleY) / 2)));
+  const contentText = text || '募集内容を入力';
+
+  ctx.font = `${sizePx}px CorporateRounded`;
+  ctx.textBaseline = 'top';
+  const maxWidth = Math.round(canvasSize.width * 0.66);
+  const lines = wrapTextLines(ctx, contentText, maxWidth).slice(0, 3);
+  const lineHeight = Math.round(sizePx * 1.25);
+  const maxTextWidth = Math.max(...lines.map(line => Math.ceil(ctx.measureText(line).width)), 40);
+
+  const textPaddingX = Math.max(8, Math.round(sizePx * 0.25));
+  const textPaddingY = Math.max(4, Math.round(sizePx * 0.2));
+  const rectWidth = maxTextWidth + textPaddingX * 2;
+  const rectHeight = lineHeight * lines.length + textPaddingY * 2;
+
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+  drawRoundedRect(ctx, x, y, rectWidth, rectHeight, Math.max(6, Math.round(sizePx * 0.2)), true, false);
+
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+  ctx.lineWidth = 1;
+  drawRoundedRect(ctx, x, y, rectWidth, rectHeight, Math.max(6, Math.round(sizePx * 0.2)), false, true);
+
+  ctx.fillStyle = '#ffffff';
+  for (let i = 0; i < lines.length; i++) {
+    ctx.fillText(lines[i], x + textPaddingX, y + textPaddingY + i * lineHeight);
+  }
+}
+
+async function drawTemplateModeCard(ctx, recruitData, layout, canvasSize, accentColor) {
+  const bgUrl = getTemplateBackgroundUrl(recruitData);
+
+  if (bgUrl) {
+    try {
+      const bg = await loadImage(bgUrl);
+      ctx.drawImage(bg, 0, 0, canvasSize.width, canvasSize.height);
+    } catch (e) {
+      console.warn('[canvasRecruit] failed to load template background:', e?.message || e);
+      drawBorder(ctx, canvasSize.width, canvasSize.height, accentColor);
+    }
+  } else {
+    drawBorder(ctx, canvasSize.width, canvasSize.height, accentColor);
+  }
+
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.22)';
+  ctx.fillRect(0, 0, canvasSize.width, canvasSize.height);
+
+  const currentMembers = getCurrentMembers(recruitData, []);
+  const maxMembers = getMaxMembers(recruitData, currentMembers);
+  const startLabel = recruitData.metadata?.startLabel || recruitData.startTime || '今から';
+  const content = recruitData.description || recruitData.content || '';
+  const voiceText = formatVoiceInfo(recruitData);
+
+  drawTemplateTextNode(ctx, layout.title, recruitData.title || '募集タイトル', layout, canvasSize);
+  drawTemplateTextNode(ctx, layout.members, `👥 ${maxMembers}人`, layout, canvasSize);
+  drawTemplateTextNode(ctx, layout.time, `🕒 ${startLabel}`, layout, canvasSize);
+  drawTemplateTextNode(ctx, layout.voice, `🎙 ${voiceText}`, layout, canvasSize);
+  drawTemplateContentNode(ctx, layout.content, content, layout, canvasSize);
 }
 
 function extractVoicePlace(recruitData) {
@@ -445,6 +595,13 @@ function applyShadowEffect(ctx) {
  */
 async function generateRecruitCard(recruitData, participantIds = [], client = null, accentColor = null, avatarUrls = null) {
   const { canvas, ctx, width, height } = setupCanvas();
+  const templateLayout = resolveTemplateLayout(recruitData);
+
+  if (templateLayout) {
+    await drawTemplateModeCard(ctx, recruitData, templateLayout, { width, height }, accentColor);
+    applyShadowEffect(ctx);
+    return canvas.toBuffer('image/png', { compressionLevel: 3, filters: canvas.PNG_FILTER_NONE });
+  }
   
   drawBorder(ctx, width, height, accentColor);
   drawCardTitle(ctx, width, recruitData.title, accentColor);

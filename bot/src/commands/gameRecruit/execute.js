@@ -176,7 +176,8 @@ function parseRecruitOptions(interaction) {
   const voiceArg = readOption(interaction, 'string', '通話有無') ?? readOption(interaction, 'string', 'voice');
   const voiceChannel = readOption(interaction, 'channel', '通話場所');
   const legacyVoicePlace = readOption(interaction, 'string', 'voice_place');
-  
+  const templateName = readOption(interaction, 'string', 'テンプレート') ?? readOption(interaction, 'string', 'template');
+
   const voicePlaceArg = voiceChannel ? voiceChannel.name : (legacyVoicePlace || null);
   const voiceChannelId = voiceChannel?.id || null;
   const selectedColor = interaction.options.getString('色') || undefined;
@@ -188,7 +189,8 @@ function parseRecruitOptions(interaction) {
     voiceArg,
     voicePlaceArg,
     voiceChannelId,
-    selectedColor
+    selectedColor,
+    templateName: templateName || null
   };
 }
 
@@ -264,7 +266,8 @@ async function savePendingOptions(interaction, options) {
         startAt: options.startAtISO,
         voice: options.voiceArg || null,
         voicePlace: options.voicePlaceArg,
-        voiceChannelId: options.voiceChannelId
+        voiceChannelId: options.voiceChannelId,
+        templateName: options.templateName || null
       });
       console.log('[gameRecruit.execute] saved to pendingModalOptions:', {
         userId: interaction.user.id,

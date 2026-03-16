@@ -1,7 +1,7 @@
 const { MessageFlags, AttachmentBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { recruitParticipants, pendingModalOptions } = require('../data/state');
 const { createErrorEmbed } = require('../../../utils/embedHelpers');
-const { getGuildSettings, listRecruitsFromRedis, saveRecruitmentData, saveRecruitToRedis, saveParticipantsToRedis, pushRecruitToWebAPI, getCooldownRemaining, setCooldown } = require('../../../utils/database');
+const { getGuildSettings, listRecruitsFromRedis, saveRecruitmentData, saveRecruitToRedis, saveParticipantsToRedis, pushRecruitToWebAPI, getCooldownRemaining, setCooldown, getTemplateByName } = require('../../../utils/database');
 const { buildContainer, buildContainerSimple } = require('../../../utils/recruitHelpers');
 const { generateRecruitCardQueued } = require('../../../utils/imageQueue');
 const { EXEMPT_GUILD_IDS } = require('../data/constants');
@@ -749,27 +749,41 @@ async function updateRecruitMessages(followUpMessage, secondaryMessage, immediat
 }
 
 function extractRecruitTitle(pendingData) {
-  return (pendingData?.title && pendingData.title.trim().length > 0) ? pendingData.title : '参加者募集';
+  const templateTitle = pendingData?.template?.title;
+  if (pendingData?.title && pendingData.title.trim().length > 0) return pendingData.title;
+  if (typeof templateTitle === 'string' && templateTitle.trim().length > 0) return templateTitle;
+  return '参加者募集';
 }
 
 function resolveParticipantsCount(participantsNum, pendingData) {
-  return participantsNum || pendingData?.participants || 1;
+  const templateMembers = Number(pendingData?.template?.participants || 0) || 0;
+  return participantsNum || pendingData?.participants || templateMembers || 1;
+}
+
+function resolvePanelColorWithTemplate(panelColor, pendingData) {
+  const templateColor = pendingData?.template?.color;
+  if (panelColor && String(panelColor).trim()) return panelColor;
+  if (templateColor && String(templateColor).trim()) return String(templateColor).trim();
+  return panelColor;
 }
 
 function buildRecruitDataObject({ interaction, pendingData, participantsNum, panelColor, selectedNotificationRole, voiceChannelName }) {
+  const modalContent = interaction.fields.getTextInputValue('content');
   return {
     title: extractRecruitTitle(pendingData),
-    content: interaction.fields.getTextInputValue('content'),
+    content: modalContent || pendingData?.template?.content || '',
     participants: resolveParticipantsCount(participantsNum, pendingData),
-    startTime: pendingData?.startTime || '',
-    vc: pendingData?.voice || '',
-    voicePlace: pendingData?.voicePlace,
+    startTime: pendingData?.startTime || pendingData?.template?.start_time_text || '',
+    vc: pendingData?.voice || pendingData?.template?.voice_option || '',
+    voicePlace: pendingData?.voicePlace || pendingData?.template?.voice_place,
     voiceChannelId: pendingData?.voiceChannelId,
     voiceChannelName: voiceChannelName,
     recruiterId: interaction.user.id,
     recruitId: '',
-    panelColor,
-    notificationRoleId: selectedNotificationRole
+    panelColor: resolvePanelColorWithTemplate(panelColor, pendingData),
+    notificationRoleId: selectedNotificationRole,
+    template: pendingData?.template || null,
+    templateName: pendingData?.templateName || null
   };
 }
 
@@ -846,7 +860,17 @@ async function gatherRecruitmentInputs(interaction, guildSettings) {
   const panelColor = resolvePanelColor(interaction, guildSettings);
   const existingMembers = resolveExistingMembers(interaction);
   const selectedNotificationRole = resolveNotificationRole(interaction);
-  const pendingData = pendingModalOptions.get(interaction.user.id);
+  const pendingData = pendingModalOptions.get(interaction.user.id) || {};
+
+  if (pendingData?.templateName) {
+    try {
+      const template = await getTemplateByName(interaction.guildId, pendingData.templateName);
+      if (template) pendingData.template = template;
+    } catch (e) {
+      logError('[recruit-create] template load failed', e);
+    }
+  }
+
   const voiceChannelName = await resolveVoiceChannelName(interaction, pendingData?.voiceChannelId);
 
   return {

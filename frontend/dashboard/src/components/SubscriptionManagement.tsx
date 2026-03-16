@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useAuth } from '@/components/AuthProvider';
+import Link from 'next/link';
 
 type SubscriptionStatus = {
   hasSubscription: boolean;
@@ -140,13 +141,21 @@ export default function SubscriptionManagement({ status }: { status: Subscriptio
           <p className="text-gray-400 text-sm mb-4">
             プラン変更、支払い方法変更、解約はStripeのカスタマーポータルから実行できます。
           </p>
-          <button
-            onClick={openPortal}
-            disabled={openingPortal}
-            className="px-5 py-3 bg-white text-gray-900 font-semibold rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {openingPortal ? '起動中...' : 'サブスク管理を開く'}
-          </button>
+          <div className="flex flex-wrap gap-3">
+            <button
+              onClick={openPortal}
+              disabled={openingPortal}
+              className="px-5 py-3 bg-white text-gray-900 font-semibold rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {openingPortal ? '起動中...' : 'サブスク管理を開く'}
+            </button>
+            <Link
+              href="/plus/templates"
+              className="px-5 py-3 bg-indigo-500 text-white font-semibold rounded-lg hover:bg-indigo-400"
+            >
+              Plusテンプレ編集を開く
+            </Link>
+          </div>
         </div>
       </main>
     </div>

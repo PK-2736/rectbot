@@ -12,6 +12,7 @@ import { handleRecruitmentRoutes } from './routes/recruitments';
 import { handleBotInviteRoutes } from './routes/bot-invite';
 import { handleStripeRoutes } from './routes/stripe';
 import { handleDiscordAuthRoutes } from './routes/discord-auth';
+import { handlePlusTemplateRoutes } from './routes/plus-templates';
 import { routeAuth } from './worker/routes/auth.js';
 import { corsHeadersFor } from './worker/cors.js';
 import { jsonResponse } from './worker/http.js';
@@ -98,6 +99,7 @@ export default {
       () => handleDiscordAuthRoutes(request, env, { url, safeHeaders }),
       () => handleFriendCodeRoutes(request, env, { url, safeHeaders }),
       () => handleGuildSettingsRoutes(request, env, { url, safeHeaders }),
+      () => handlePlusTemplateRoutes(request, env, { url, safeHeaders }),
       () => handleAdminRoutes(request, env, { url, safeHeaders }),
       () => handleMetricsRoutes(request, env, { url, cors, safeHeaders, store }),
       () => handleGrafanaRoutes(request, env, { url, safeHeaders, store }),

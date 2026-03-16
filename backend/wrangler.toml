@@ -36,6 +36,11 @@ database_id = "9812daf1-55a9-4cdd-b924-f4b9adcd65b1"
 binding = "VECTORIZE"
 index_name = "game-names"
 
+# Recrubo Plus template background assets (R2)
+[[r2_buckets]]
+binding = "PLUS_TEMPLATES_R2"
+bucket_name = "recrubo-plus-templates"
+
 # Workers AI binding for LLM and embeddings
 [ai]
 binding = "AI"
@@ -48,6 +53,7 @@ DISCORD_REDIRECT_URI = "https://api.recrubo.net/api/discord/callback"
 PUBLIC_RECAPTCHA_SITE_KEY = "placeholder"
 ADMIN_DISCORD_ID = "placeholder"
 VPS_EXPRESS_URL = "http://localhost:3001"
+R2_PUBLIC_BASE_URL = "https://assets.recrubo.net"
 # SUPABASE_URL は wrangler secret put で設定されるため [vars] から削除
 # シークレットは wrangler secret put コマンドで設定されます:
 # - DISCORD_CLIENT_SECRET
