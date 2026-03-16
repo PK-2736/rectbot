@@ -404,112 +404,121 @@ export default function PlusTemplatePage() {
         </section>
 
         <section className="bg-gray-800/50 border border-gray-700 rounded-xl p-5 space-y-4">
-          <h2 className="text-lg font-semibold">Discordプレビュー（ドラッグで配置）</h2>
-          <div className="rounded-xl border border-[#3f4147] bg-[#313338] p-4 space-y-3">
-            <div className="flex items-start gap-3">
-              <div className="h-10 w-10 rounded-full bg-[#5865F2] flex items-center justify-center text-white text-xs font-bold">RB</div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-baseline gap-2">
-                  <span className="font-semibold text-[#f2f3f5]">Recrubo Bot</span>
-                  <span className="text-[11px] text-[#949ba4]">今日 12:34</span>
-                </div>
-                <p className="text-sm text-[#dbdee1]">募集画像を投稿しました</p>
+          <h2 className="text-lg font-semibold">募集プレビュー（/rect 生成画像と同構成）</h2>
 
-                <div
-                  className="mt-2 relative w-full max-w-[680px] aspect-video rounded-md overflow-hidden border border-[#4e5058] bg-[#111214]"
-                  onPointerMove={onPointerMove}
-                  onPointerUp={onPointerUp}
-                  onPointerLeave={onPointerUp}
-                >
-                  <div className="absolute inset-0 bg-gradient-to-b from-[#16181d] to-[#0e0f11]" />
+          <div
+            className="relative w-full aspect-video overflow-hidden border-[6px] border-white/90 bg-black"
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
+            onPointerLeave={onPointerUp}
+          >
+            <div className="absolute left-[2.8%] top-[3.2%] h-7 w-7 rounded-full bg-emerald-500/90 ring-4 ring-emerald-500/20" />
+            <div className="absolute right-[2.8%] top-[3.2%] h-7 w-7 rounded-full bg-rose-500/90 ring-4 ring-rose-500/20" />
 
-                  {layout.contentBox.visible && (
-                    <div
-                      className="absolute rounded-md border border-white/30 bg-black/50 cursor-move"
-                      style={{
-                        left: `${(layout.contentBox.x / layout.canvas.width) * 100}%`,
-                        top: `${(layout.contentBox.y / layout.canvas.height) * 100}%`,
-                        width: `${(layout.contentBox.width / layout.canvas.width) * 100}%`,
-                        height: `${(layout.contentBox.height / layout.canvas.height) * 100}%`,
-                      }}
-                      onPointerDown={() => onPointerDown("contentBox")}
-                    />
-                  )}
-
-                  {layout.imageBox.visible && (
-                    <div
-                      className="absolute rounded-md border border-cyan-200/50 bg-[#1c1e22] cursor-move overflow-hidden"
-                      style={{
-                        left: `${(layout.imageBox.x / layout.canvas.width) * 100}%`,
-                        top: `${(layout.imageBox.y / layout.canvas.height) * 100}%`,
-                        width: `${(layout.imageBox.width / layout.canvas.width) * 100}%`,
-                        height: `${(layout.imageBox.height / layout.canvas.height) * 100}%`,
-                      }}
-                      onPointerDown={() => onPointerDown("imageBox")}
-                    >
-                      {form.backgroundImageUrl ? (
-                        <div className="w-full h-full" style={{ backgroundImage: `url(${form.backgroundImageUrl})`, backgroundSize: "cover", backgroundPosition: "center" }} />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-[11px] text-cyan-100/80">埋め込み画像枠</div>
-                      )}
-                    </div>
-                  )}
-
-                  {layout.title.visible && (
-                    <div
-                      className="absolute px-2 py-1 rounded bg-black/55 border border-white/25 cursor-move"
-                      style={{ left: `${(layout.title.x / layout.canvas.width) * 100}%`, top: `${(layout.title.y / layout.canvas.height) * 100}%`, fontSize: `${layout.title.size / 3}px` }}
-                      onPointerDown={() => onPointerDown("title")}
-                    >
-                      {form.title || "募集タイトル"}
-                    </div>
-                  )}
-
-                  {layout.members.visible && (
-                    <div
-                      className="absolute px-2 py-1 rounded bg-black/55 border border-white/25 cursor-move"
-                      style={{ left: `${(layout.members.x / layout.canvas.width) * 100}%`, top: `${(layout.members.y / layout.canvas.height) * 100}%`, fontSize: `${layout.members.size / 3}px` }}
-                      onPointerDown={() => onPointerDown("members")}
-                    >
-                      👥 {form.participants || "4"}人
-                    </div>
-                  )}
-
-                  {layout.time.visible && (
-                    <div
-                      className="absolute px-2 py-1 rounded bg-black/55 border border-white/25 cursor-move"
-                      style={{ left: `${(layout.time.x / layout.canvas.width) * 100}%`, top: `${(layout.time.y / layout.canvas.height) * 100}%`, fontSize: `${layout.time.size / 3}px` }}
-                      onPointerDown={() => onPointerDown("time")}
-                    >
-                      🕒 {form.startTimeText || "今から"}
-                    </div>
-                  )}
-
-                  {layout.voice.visible && (
-                    <div
-                      className="absolute px-2 py-1 rounded bg-black/55 border border-white/25 cursor-move"
-                      style={{ left: `${(layout.voice.x / layout.canvas.width) * 100}%`, top: `${(layout.voice.y / layout.canvas.height) * 100}%`, fontSize: `${layout.voice.size / 3}px` }}
-                      onPointerDown={() => onPointerDown("voice")}
-                    >
-                      🎙 {form.voicePlace || "通話あり"}
-                    </div>
-                  )}
-
-                  {layout.content.visible && (
-                    <div
-                      className="absolute px-2 py-1 rounded bg-black/55 border border-white/25 cursor-move max-w-[70%]"
-                      style={{ left: `${(layout.content.x / layout.canvas.width) * 100}%`, top: `${(layout.content.y / layout.canvas.height) * 100}%`, fontSize: `${layout.content.size / 3}px` }}
-                      onPointerDown={() => onPointerDown("content")}
-                    >
-                      {form.content || "募集内容を入力"}
-                    </div>
-                  )}
-                </div>
+            {layout.title.visible && (
+              <div
+                className="absolute px-7 py-2 bg-white/90 text-black font-extrabold rounded-sm cursor-move drop-shadow-[0_2px_0_rgba(0,0,0,0.45)]"
+                style={{
+                  left: `${(layout.title.x / layout.canvas.width) * 100}%`,
+                  top: `${(layout.title.y / layout.canvas.height) * 100}%`,
+                  fontSize: `${Math.max(22, layout.title.size / 2.2)}px`,
+                }}
+                onPointerDown={() => onPointerDown("title")}
+              >
+                {form.title || "参加者募集"}
               </div>
+            )}
+
+            <div className="absolute left-[5%] top-[15%] flex items-center gap-2.5">
+              <div className="h-12 w-12 rounded-full bg-gradient-to-br from-orange-300 to-orange-600 border-2 border-white/80" />
+              {Array.from({ length: 3 }).map((_, idx) => (
+                <div key={idx} className="h-12 w-12 rounded-full bg-white/15 border-4 border-white/65 relative">
+                  <div className="absolute left-1/2 top-1/2 h-7 w-[3px] -translate-x-1/2 -translate-y-1/2 bg-white/35" />
+                  <div className="absolute left-1/2 top-1/2 h-[3px] w-7 -translate-x-1/2 -translate-y-1/2 bg-white/35" />
+                </div>
+              ))}
             </div>
+
+            {layout.contentBox.visible && (
+              <div
+                className="absolute rounded-[28px] border-4 border-white/80 bg-black/75 cursor-move"
+                style={{
+                  left: `${(layout.contentBox.x / layout.canvas.width) * 100}%`,
+                  top: `${(layout.contentBox.y / layout.canvas.height) * 100}%`,
+                  width: `${(layout.contentBox.width / layout.canvas.width) * 100}%`,
+                  height: `${(layout.contentBox.height / layout.canvas.height) * 100}%`,
+                }}
+                onPointerDown={() => onPointerDown("contentBox")}
+              />
+            )}
+
+            {layout.imageBox.visible && (
+              <div
+                className="absolute rounded-xl border-2 border-cyan-100/80 bg-black/45 cursor-move overflow-hidden"
+                style={{
+                  left: `${(layout.imageBox.x / layout.canvas.width) * 100}%`,
+                  top: `${(layout.imageBox.y / layout.canvas.height) * 100}%`,
+                  width: `${(layout.imageBox.width / layout.canvas.width) * 100}%`,
+                  height: `${(layout.imageBox.height / layout.canvas.height) * 100}%`,
+                }}
+                onPointerDown={() => onPointerDown("imageBox")}
+              >
+                {form.backgroundImageUrl ? (
+                  <div className="w-full h-full" style={{ backgroundImage: `url(${form.backgroundImageUrl})`, backgroundSize: "cover", backgroundPosition: "center" }} />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-xs text-cyan-100">埋め込み画像</div>
+                )}
+              </div>
+            )}
+
+            <div className="absolute left-[4%] top-[37%] w-[50%] h-[50%] rounded-[28px] border-4 border-white/80 bg-black/65" />
+
+            {layout.content.visible && (
+              <div
+                className="absolute text-white cursor-move max-w-[44%]"
+                style={{ left: `${(layout.content.x / layout.canvas.width) * 100}%`, top: `${(layout.content.y / layout.canvas.height) * 100}%`, fontSize: `${Math.max(14, layout.content.size / 3)}px` }}
+                onPointerDown={() => onPointerDown("content")}
+              >
+                <div className="font-bold text-[1.7em] mb-2">募集内容</div>
+                <div>{form.content || "ガチエリア / 初心者歓迎"}</div>
+              </div>
+            )}
+
+            {layout.members.visible && (
+              <div
+                className="absolute w-[35%] rounded-2xl border-4 border-white/80 bg-black/72 px-4 py-3 text-white cursor-move"
+                style={{ left: `${(layout.members.x / layout.canvas.width) * 100}%`, top: `${(layout.members.y / layout.canvas.height) * 100}%`, fontSize: `${Math.max(14, layout.members.size / 3)}px` }}
+                onPointerDown={() => onPointerDown("members")}
+              >
+                <span className="text-gray-300 font-bold mr-2">人数:</span>
+                <span className="font-extrabold">1/{form.participants || "4"}人</span>
+              </div>
+            )}
+
+            {layout.time.visible && (
+              <div
+                className="absolute w-[35%] rounded-2xl border-4 border-white/80 bg-black/72 px-4 py-3 text-white cursor-move"
+                style={{ left: `${(layout.time.x / layout.canvas.width) * 100}%`, top: `${(layout.time.y / layout.canvas.height) * 100}%`, fontSize: `${Math.max(14, layout.time.size / 3)}px` }}
+                onPointerDown={() => onPointerDown("time")}
+              >
+                <span className="text-gray-300 font-bold mr-2">時間:</span>
+                <span className="font-extrabold">{form.startTimeText || "今から"}~</span>
+              </div>
+            )}
+
+            {layout.voice.visible && (
+              <div
+                className="absolute w-[35%] rounded-2xl border-4 border-white/80 bg-black/72 px-4 py-3 text-white cursor-move"
+                style={{ left: `${(layout.voice.x / layout.canvas.width) * 100}%`, top: `${(layout.voice.y / layout.canvas.height) * 100}%`, fontSize: `${Math.max(14, layout.voice.size / 3)}px` }}
+                onPointerDown={() => onPointerDown("voice")}
+              >
+                <span className="text-gray-300 font-bold mr-2">通話:</span>
+                <span className="font-extrabold">{form.voicePlace || "指定なし"}</span>
+              </div>
+            )}
           </div>
 
-          <p className="text-xs text-gray-400">黒ベースの募集画像に、内容枠と埋め込み画像枠を重ねる構成です。各要素をドラッグすると座標がテンプレに保存されます。</p>
+          <p className="text-xs text-gray-400">通常の /rect 募集画像の構成をベースに表示しています。ドラッグした要素位置はテンプレート座標として保存されます。</p>
 
           <div className="border border-gray-700 rounded-lg p-3">
             <h3 className="font-semibold mb-2">保存済みテンプレート</h3>
