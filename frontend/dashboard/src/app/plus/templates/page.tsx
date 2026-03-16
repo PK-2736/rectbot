@@ -70,8 +70,8 @@ const DEFAULT_LAYOUT: TemplateLayout = {
   time: { x: 940, y: 190, size: 36, visible: true },
   content: { x: 140, y: 220, size: 34, visible: true },
   voice: { x: 940, y: 260, size: 30, visible: true },
-  contentBox: { x: 120, y: 200, width: 730, height: 380, visible: true },
-  imageBox: { x: 880, y: 330, width: 300, height: 220, visible: true },
+  contentBox: { x: 120, y: 200, width: 730, height: 380, visible: false },
+  imageBox: { x: 880, y: 330, width: 300, height: 220, visible: false },
 };
 
 const INITIAL_FORM: FormState = {

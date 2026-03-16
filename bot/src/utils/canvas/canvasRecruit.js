@@ -9,8 +9,8 @@ const DEFAULT_TEMPLATE_LAYOUT = {
   time: { x: 940, y: 190, size: 36, visible: true },
   content: { x: 140, y: 220, size: 34, visible: true },
   voice: { x: 940, y: 260, size: 30, visible: true },
-  contentBox: { x: 120, y: 200, width: 730, height: 380, visible: true },
-  imageBox: { x: 880, y: 330, width: 300, height: 220, visible: true }
+  contentBox: { x: 120, y: 200, width: 730, height: 380, visible: false },
+  imageBox: { x: 880, y: 330, width: 300, height: 220, visible: false }
 };
 
 function truncateText(ctx, text, maxWidth) {
@@ -240,6 +240,33 @@ function resolveTemplateLayout(recruitData) {
     || recruitData?.metadata?.layout;
 
   return toSafeLayout(layout);
+}
+
+function isSameTextField(a, b) {
+  return a?.x === b?.x
+    && a?.y === b?.y
+    && a?.size === b?.size
+    && (a?.visible !== false) === (b?.visible !== false);
+}
+
+function isSameBoxField(a, b) {
+  return a?.x === b?.x
+    && a?.y === b?.y
+    && a?.width === b?.width
+    && a?.height === b?.height
+    && (a?.visible !== false) === (b?.visible !== false);
+}
+
+function isDefaultTemplateLayout(layout) {
+  if (!layout) return false;
+
+  return isSameTextField(layout.title, DEFAULT_TEMPLATE_LAYOUT.title)
+    && isSameTextField(layout.members, DEFAULT_TEMPLATE_LAYOUT.members)
+    && isSameTextField(layout.time, DEFAULT_TEMPLATE_LAYOUT.time)
+    && isSameTextField(layout.content, DEFAULT_TEMPLATE_LAYOUT.content)
+    && isSameTextField(layout.voice, DEFAULT_TEMPLATE_LAYOUT.voice)
+    && isSameBoxField(layout.contentBox, DEFAULT_TEMPLATE_LAYOUT.contentBox)
+    && isSameBoxField(layout.imageBox, DEFAULT_TEMPLATE_LAYOUT.imageBox);
 }
 
 function getTemplateBackgroundUrl(recruitData) {
@@ -646,8 +673,11 @@ function applyShadowEffect(ctx) {
 async function generateRecruitCard(recruitData, participantIds = [], client = null, accentColor = null, avatarUrls = null) {
   const { canvas, ctx, width, height } = setupCanvas();
   const templateLayout = resolveTemplateLayout(recruitData);
+  const templateImageUrl = getTemplateBackgroundUrl(recruitData);
+  const shouldUseTemplateMode = Boolean(templateLayout)
+    && (!isDefaultTemplateLayout(templateLayout) || Boolean(templateImageUrl));
 
-  if (templateLayout) {
+  if (shouldUseTemplateMode) {
     await drawTemplateModeCard(ctx, recruitData, templateLayout, { width, height }, accentColor);
     applyShadowEffect(ctx);
     return canvas.toBuffer('image/png', { compressionLevel: 3, filters: canvas.PNG_FILTER_NONE });
