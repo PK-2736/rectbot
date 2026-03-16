@@ -321,14 +321,27 @@ async function previewTemplate(request, env, safeHeaders) {
   }
 
   const upstreamUrl = new URL('/internal/recruit-preview', internalBase);
-  const upstream = await fetch(upstreamUrl.toString(), {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-internal-secret': env.INTERNAL_SECRET,
-    },
-    body: JSON.stringify(body),
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+  let upstream;
+  try {
+    upstream = await fetch(upstreamUrl.toString(), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-internal-secret': env.INTERNAL_SECRET,
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+  } catch (err) {
+    clearTimeout(timeoutId);
+    const msg = err?.name === 'AbortError' ? 'Preview generation timeout (>30s)' : String(err?.message || err);
+    return jsonResponse({ error: 'Preview generation failed', detail: msg }, 502, safeHeaders);
+  }
+  
+  clearTimeout(timeoutId);
 
   if (!upstream.ok) {
     const detail = await upstream.text().catch(() => 'no response');

@@ -142,10 +142,8 @@ async function handleRecruitPreview(req, res) {
 
   try {
     const recruitData = buildPreviewRecruitData(body);
-    const participantIds = ['preview-user'];
-    const avatarUrls = {
-      'preview-user': 'https://cdn.discordapp.com/embed/avatars/0.png'
-    };
+    const participantIds = [];
+    const avatarUrls = null;
     const accentColor = normalizeAccentColor(body?.form?.color);
     const buffer = await generateRecruitCard(recruitData, participantIds, null, accentColor, avatarUrls);
     return sendBinary(res, 200, buffer, 'image/png');
