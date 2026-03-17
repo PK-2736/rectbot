@@ -327,8 +327,7 @@ export default function PlusTemplatePage() {
   };
 
   useEffect(() => {
-    // ドラッグ中は再生成せず、離したタイミングで1回だけ再生成する
-    if (!user || !selectedGuildId || dragState) return;
+    if (!user || !selectedGuildId) return;
 
     const controller = new AbortController();
     const timer = setTimeout(async () => {
@@ -365,7 +364,7 @@ export default function PlusTemplatePage() {
       controller.abort();
       clearTimeout(timer);
     };
-  }, [user, selectedGuildId, form, layout, apiBaseUrl, dragState]);
+  }, [user, selectedGuildId, form, layout, apiBaseUrl]);
 
   if (isLoading) {
     return <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">読み込み中...</div>;
