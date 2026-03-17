@@ -137,7 +137,6 @@ export default function PlusTemplatePage() {
   const [uploading, setUploading] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewImageUrl, setPreviewImageUrl] = useState("");
-  const [previewAspectRatio, setPreviewAspectRatio] = useState(7 / 5);
   const [error, setError] = useState<string | null>(null);
   const [dragState, setDragState] = useState<DragState | null>(null);
 
@@ -328,7 +327,8 @@ export default function PlusTemplatePage() {
   };
 
   useEffect(() => {
-    if (!user || !selectedGuildId) return;
+    // ドラッグ中は再生成せず、離したタイミングで1回だけ再生成する
+    if (!user || !selectedGuildId || dragState) return;
 
     const controller = new AbortController();
     const timer = setTimeout(async () => {
@@ -365,7 +365,7 @@ export default function PlusTemplatePage() {
       controller.abort();
       clearTimeout(timer);
     };
-  }, [user, selectedGuildId, form, layout, apiBaseUrl]);
+  }, [user, selectedGuildId, form, layout, apiBaseUrl, dragState]);
 
   if (isLoading) {
     return <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">読み込み中...</div>;
@@ -498,23 +498,13 @@ export default function PlusTemplatePage() {
           <div
             data-preview-canvas="1"
             className="relative w-full overflow-hidden rounded-lg border border-gray-600 bg-black"
-            style={{ aspectRatio: String(previewAspectRatio) }}
+            style={{ aspectRatio: "7 / 5" }}
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}
             onPointerLeave={onPointerUp}
           >
             {previewImageUrl ? (
-              <img
-                src={previewImageUrl}
-                alt="募集プレビュー"
-                className="absolute inset-0 h-full w-full object-contain"
-                onLoad={(e) => {
-                  const img = e.currentTarget;
-                  if (img.naturalWidth > 0 && img.naturalHeight > 0) {
-                    setPreviewAspectRatio(img.naturalWidth / img.naturalHeight);
-                  }
-                }}
-              />
+              <img src={previewImageUrl} alt="募集プレビュー" className="absolute inset-0 h-full w-full object-contain" />
             ) : (
               <div className="absolute inset-0 flex items-center justify-center text-sm text-gray-300">プレビュー生成待ち...</div>
             )}
