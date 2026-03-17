@@ -92,6 +92,8 @@ const INITIAL_FORM: FormState = {
   backgroundAssetKey: "",
 };
 
+const TEMPLATE_EDITOR_CACHE_PREFIX = "plus-template-editor-cache:";
+
 function toForm(t: Template): FormState {
   return {
     name: t.name || "",
@@ -159,6 +161,35 @@ export default function PlusTemplatePage() {
       .finally(() => setLoadingGuilds(false));
   }, [user, apiBaseUrl]);
 
+  const readEditorCache = (guildId: string): { form: FormState; layout: TemplateLayout } | null => {
+    try {
+      const raw = localStorage.getItem(`${TEMPLATE_EDITOR_CACHE_PREFIX}${guildId}`);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== "object") return null;
+      const cachedForm = parsed.form && typeof parsed.form === "object" ? parsed.form : null;
+      const cachedLayout = parsed.layout && typeof parsed.layout === "object" ? parsed.layout : null;
+      if (!cachedForm || !cachedLayout) return null;
+      return {
+        form: { ...INITIAL_FORM, ...cachedForm },
+        layout: parseLayout(cachedLayout),
+      };
+    } catch (_e) {
+      return null;
+    }
+  };
+
+  const writeEditorCache = (guildId: string, nextForm: FormState, nextLayout: TemplateLayout) => {
+    try {
+      localStorage.setItem(
+        `${TEMPLATE_EDITOR_CACHE_PREFIX}${guildId}`,
+        JSON.stringify({ form: nextForm, layout: nextLayout, updatedAt: Date.now() })
+      );
+    } catch (_e) {
+      // no-op: localStorage quota or unavailable
+    }
+  };
+
   const reloadTemplates = async (guildId: string) => {
     setLoadingTemplates(true);
     try {
@@ -169,6 +200,28 @@ export default function PlusTemplatePage() {
       if (!res.ok) throw new Error(data?.error || `template fetch failed (${res.status})`);
       const list = Array.isArray(data?.templates) ? data.templates : [];
       setTemplates(list);
+
+      // 1) guildごとの編集中キャッシュを優先
+      const cached = readEditorCache(guildId);
+      if (cached) {
+        setForm(cached.form);
+        setLayout(cached.layout);
+        return;
+      }
+
+      // 2) キャッシュがなければ最新保存テンプレートを自動ロード
+      if (list.length > 0) {
+        const latest = list[0] as Template;
+        const nextForm = toForm(latest);
+        const nextLayout = parseLayout(latest.layout_json);
+        setForm(nextForm);
+        setLayout(nextLayout);
+        writeEditorCache(guildId, nextForm, nextLayout);
+      } else {
+        // 3) 何もなければ初期値
+        setForm(INITIAL_FORM);
+        setLayout(DEFAULT_LAYOUT);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "テンプレート読み込みに失敗しました");
     } finally {
@@ -181,6 +234,11 @@ export default function PlusTemplatePage() {
     reloadTemplates(selectedGuildId);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedGuildId]);
+
+  useEffect(() => {
+    if (!selectedGuildId) return;
+    writeEditorCache(selectedGuildId, form, layout);
+  }, [selectedGuildId, form, layout]);
 
   const selectedGuildName = guilds.find((g) => g.id === selectedGuildId)?.name || "";
 
@@ -289,6 +347,7 @@ export default function PlusTemplatePage() {
       if (!res.ok) throw new Error(data?.error || "テンプレート保存に失敗しました");
 
       await reloadTemplates(selectedGuildId);
+      writeEditorCache(selectedGuildId, form, layout);
     } catch (e) {
       setError(e instanceof Error ? e.message : "保存に失敗しました");
     } finally {
@@ -576,8 +635,13 @@ export default function PlusTemplatePage() {
                     key={`${t.guild_id}:${t.name}`}
                     type="button"
                     onClick={() => {
-                      setForm(toForm(t));
-                      setLayout(parseLayout(t.layout_json));
+                      const nextForm = toForm(t);
+                      const nextLayout = parseLayout(t.layout_json);
+                      setForm(nextForm);
+                      setLayout(nextLayout);
+                      if (selectedGuildId) {
+                        writeEditorCache(selectedGuildId, nextForm, nextLayout);
+                      }
                     }}
                     className="w-full text-left border border-gray-700 rounded-lg p-3 hover:bg-gray-700/40 transition-colors"
                   >
