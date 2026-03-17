@@ -25,6 +25,12 @@ type TextFieldKey = "title" | "members" | "time" | "content" | "voice";
 type BoxFieldKey = "contentBox" | "imageBox";
 type DraggableFieldKey = TextFieldKey | BoxFieldKey;
 
+type DragState = {
+  field: DraggableFieldKey;
+  offsetX: number;
+  offsetY: number;
+};
+
 type TemplateLayout = {
   canvas: { width: number; height: number };
   title: LayoutField;
@@ -132,7 +138,7 @@ export default function PlusTemplatePage() {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewImageUrl, setPreviewImageUrl] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [dragTarget, setDragTarget] = useState<DraggableFieldKey | null>(null);
+  const [dragState, setDragState] = useState<DragState | null>(null);
 
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
   const [layout, setLayout] = useState<TemplateLayout>(DEFAULT_LAYOUT);
@@ -178,26 +184,66 @@ export default function PlusTemplatePage() {
 
   const selectedGuildName = guilds.find((g) => g.id === selectedGuildId)?.name || "";
 
-  const onPointerDown = (field: DraggableFieldKey) => {
-    setDragTarget(field);
+  const toCanvasPoint = (clientX: number, clientY: number, canvasEl: HTMLElement | null) => {
+    const rect = canvasEl?.getBoundingClientRect();
+    if (!rect || rect.width <= 0 || rect.height <= 0) return null;
+
+    const px = clamp(clientX - rect.left, 0, rect.width);
+    const py = clamp(clientY - rect.top, 0, rect.height);
+    const x = Math.round((px / rect.width) * layout.canvas.width);
+    const y = Math.round((py / rect.height) * layout.canvas.height);
+    return { x, y };
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const onPointerDown = (field: DraggableFieldKey, e: any) => {
+    e.preventDefault();
+    const canvasEl = e.currentTarget?.closest?.('[data-preview-canvas="1"]') || null;
+    const point = toCanvasPoint(e.clientX, e.clientY, canvasEl);
+    if (!point) return;
+    const target = layout[field];
+    setDragState({
+      field,
+      offsetX: point.x - target.x,
+      offsetY: point.y - target.y,
+    });
   };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const onPointerMove = (e: any) => {
-    if (!dragTarget) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const px = clamp(e.clientX - rect.left, 0, rect.width);
-    const py = clamp(e.clientY - rect.top, 0, rect.height);
-    const x = Math.round((px / rect.width) * layout.canvas.width);
-    const y = Math.round((py / rect.height) * layout.canvas.height);
+    if (!dragState) return;
+    const point = toCanvasPoint(e.clientX, e.clientY, e.currentTarget);
+    if (!point) return;
 
-    setLayout((prev) => ({
-      ...prev,
-      [dragTarget]: { ...prev[dragTarget], x, y },
-    }));
+    setLayout((prev) => {
+      const field = dragState.field;
+      const target = prev[field];
+      const nextXRaw = point.x - dragState.offsetX;
+      const nextYRaw = point.y - dragState.offsetY;
+
+      if (field === "contentBox" || field === "imageBox") {
+        const box = target as LayoutBox;
+        const maxX = Math.max(0, prev.canvas.width - box.width);
+        const maxY = Math.max(0, prev.canvas.height - box.height);
+        const x = clamp(nextXRaw, 0, maxX);
+        const y = clamp(nextYRaw, 0, maxY);
+        return {
+          ...prev,
+          [field]: { ...box, x, y },
+        };
+      }
+
+      const text = target as LayoutField;
+      const x = clamp(nextXRaw, 0, prev.canvas.width);
+      const y = clamp(nextYRaw, 0, prev.canvas.height);
+      return {
+        ...prev,
+        [field]: { ...text, x, y },
+      };
+    });
   };
 
-  const onPointerUp = () => setDragTarget(null);
+  const onPointerUp = () => setDragState(null);
 
   const setFieldVisible = (field: TextFieldKey, visible: boolean) => {
     setLayout((prev) => ({ ...prev, [field]: { ...prev[field], visible } }));
@@ -449,6 +495,7 @@ export default function PlusTemplatePage() {
           <h2 className="text-lg font-semibold">募集プレビュー（/rect 生成画像と同一レイアウト）</h2>
 
           <div
+            data-preview-canvas="1"
             className="relative w-full overflow-hidden rounded-lg border border-gray-600 bg-black"
             style={{ aspectRatio: "7 / 5" }}
             onPointerMove={onPointerMove}
@@ -474,7 +521,7 @@ export default function PlusTemplatePage() {
                   width: `${(layout.contentBox.width / layout.canvas.width) * 100}%`,
                   height: `${(layout.contentBox.height / layout.canvas.height) * 100}%`,
                 }}
-                onPointerDown={() => onPointerDown("contentBox")}
+                onPointerDown={(e) => onPointerDown("contentBox", e)}
               >
                 <span className="absolute left-2 top-2 rounded bg-cyan-950/80 px-1.5 py-0.5 text-[10px] text-cyan-100">contentBox</span>
               </div>
@@ -489,7 +536,7 @@ export default function PlusTemplatePage() {
                   width: `${(layout.imageBox.width / layout.canvas.width) * 100}%`,
                   height: `${(layout.imageBox.height / layout.canvas.height) * 100}%`,
                 }}
-                onPointerDown={() => onPointerDown("imageBox")}
+                onPointerDown={(e) => onPointerDown("imageBox", e)}
               >
                 <span className="absolute left-2 top-2 rounded bg-amber-950/80 px-1.5 py-0.5 text-[10px] text-amber-100">imageBox</span>
               </div>
@@ -507,7 +554,7 @@ export default function PlusTemplatePage() {
                 type="button"
                 className="absolute -translate-x-1/2 -translate-y-1/2 rounded border border-cyan-200 bg-cyan-950/80 px-2 py-1 text-[10px] text-cyan-50 cursor-move"
                 style={{ left: `${(field.x / layout.canvas.width) * 100}%`, top: `${(field.y / layout.canvas.height) * 100}%` }}
-                onPointerDown={() => onPointerDown(fieldName)}
+                onPointerDown={(e) => onPointerDown(fieldName, e)}
               >
                 {fieldName}
               </button>

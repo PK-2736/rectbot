@@ -185,7 +185,38 @@ async function handleGetGuilds(request, env, { safeHeaders }) {
     .filter(g => g.owner || ((parseInt(g.permissions) & ADMINISTRATOR) !== 0) || ((parseInt(g.permissions) & MANAGE_GUILD) !== 0))
     .map(g => ({ id: g.id, name: g.name, icon: g.icon }));
 
-  return new Response(JSON.stringify(manageableGuilds), { status: 200, headers: jsonHeaders });
+  // サブスクリプション有効サーバーのみ返す
+  if (manageableGuilds.length === 0) {
+    return new Response(JSON.stringify([]), { status: 200, headers: jsonHeaders });
+  }
+
+  try {
+    const supabase = getSupabaseClient(env);
+    const guildIds = manageableGuilds.map((g) => g.id);
+    const { data, error } = await supabase
+      .from('guild_settings')
+      .select('guild_id, premium_enabled')
+      .in('guild_id', guildIds)
+      .eq('premium_enabled', true);
+
+    if (error) {
+      console.error('[discord/guilds] guild_settings premium filter error:', error);
+      return new Response(JSON.stringify({ error: 'FAILED_GUILD_FILTER', message: 'サブスク有効サーバーの取得に失敗しました' }), {
+        status: 500,
+        headers: jsonHeaders,
+      });
+    }
+
+    const enabledGuildIdSet = new Set((data || []).map((row) => String(row.guild_id)));
+    const premiumGuilds = manageableGuilds.filter((g) => enabledGuildIdSet.has(String(g.id)));
+    return new Response(JSON.stringify(premiumGuilds), { status: 200, headers: jsonHeaders });
+  } catch (e) {
+    console.error('[discord/guilds] premium guild filtering failed:', e);
+    return new Response(JSON.stringify({ error: 'FAILED_GUILD_FILTER', message: 'サブスク有効サーバーの取得に失敗しました' }), {
+      status: 500,
+      headers: jsonHeaders,
+    });
+  }
 }
 
 /**
