@@ -85,10 +85,20 @@ async function getUserFromRequest(request, env) {
     return {
       id: String(payload.userId),
       username: payload.username || null,
+      role: payload.role || 'user',
     };
   } catch (_e) {
     return null;
   }
+}
+
+async function canAccessTemplates(user, guildId, env) {
+  // Admin ユーザーは常にアクセス可能
+  if (user?.role === 'admin') {
+    return true;
+  }
+  // 通常ユーザーは Premium が必要
+  return ensurePremiumForGuild(user.id, guildId, env);
 }
 
 async function ensurePremiumForGuild(userId, guildId, env) {
@@ -165,8 +175,8 @@ async function listTemplates(request, env, safeHeaders) {
   const guildId = String(url.searchParams.get('guildId') || '').trim();
   if (!guildId) return jsonResponse({ error: 'guildId is required' }, 400, safeHeaders);
 
-  const hasPremium = await ensurePremiumForGuild(user.id, guildId, env);
-  if (!hasPremium) {
+  const hasAccess = await canAccessTemplates(user, guildId, env);
+  if (!hasAccess) {
     return jsonResponse({ error: 'Premium subscription is required for this guild' }, 403, safeHeaders);
   }
 
@@ -199,8 +209,8 @@ async function upsertTemplate(request, env, safeHeaders) {
     return jsonResponse({ error: 'guildId and name are required' }, 400, safeHeaders);
   }
 
-  const hasPremium = await ensurePremiumForGuild(user.id, guildId, env);
-  if (!hasPremium) {
+  const hasAccess = await canAccessTemplates(user, guildId, env);
+  if (!hasAccess) {
     return jsonResponse({ error: 'Premium subscription is required for this guild' }, 403, safeHeaders);
   }
 
@@ -310,8 +320,8 @@ async function previewTemplate(request, env, safeHeaders) {
     return jsonResponse({ error: 'guildId is required' }, 400, safeHeaders);
   }
 
-  const hasPremium = await ensurePremiumForGuild(user.id, guildId, env);
-  if (!hasPremium) {
+  const hasAccess = await canAccessTemplates(user, guildId, env);
+  if (!hasAccess) {
     return jsonResponse({ error: 'Premium subscription is required for this guild' }, 403, safeHeaders);
   }
 
