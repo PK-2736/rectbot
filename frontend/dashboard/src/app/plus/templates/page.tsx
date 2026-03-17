@@ -137,6 +137,7 @@ export default function PlusTemplatePage() {
   const [uploading, setUploading] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewImageUrl, setPreviewImageUrl] = useState("");
+  const [previewAspectRatio, setPreviewAspectRatio] = useState(7 / 5);
   const [error, setError] = useState<string | null>(null);
   const [dragState, setDragState] = useState<DragState | null>(null);
 
@@ -497,13 +498,23 @@ export default function PlusTemplatePage() {
           <div
             data-preview-canvas="1"
             className="relative w-full overflow-hidden rounded-lg border border-gray-600 bg-black"
-            style={{ aspectRatio: "7 / 5" }}
+            style={{ aspectRatio: String(previewAspectRatio) }}
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}
             onPointerLeave={onPointerUp}
           >
             {previewImageUrl ? (
-              <img src={previewImageUrl} alt="募集プレビュー" className="absolute inset-0 h-full w-full object-contain" />
+              <img
+                src={previewImageUrl}
+                alt="募集プレビュー"
+                className="absolute inset-0 h-full w-full object-contain"
+                onLoad={(e) => {
+                  const img = e.currentTarget;
+                  if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+                    setPreviewAspectRatio(img.naturalWidth / img.naturalHeight);
+                  }
+                }}
+              />
             ) : (
               <div className="absolute inset-0 flex items-center justify-center text-sm text-gray-300">プレビュー生成待ち...</div>
             )}
