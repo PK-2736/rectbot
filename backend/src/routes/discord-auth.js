@@ -1,7 +1,16 @@
 // routes/discord-auth.js - Discord OAuth callback handler
 import { handleDiscordCallback } from '../worker/utils/discordOAuth.js';
 import { verifyJWT } from '../worker/utils/auth.js';
-import { getSupabaseClient } from '../worker/supabase.js';
+
+async function createSupabaseAdminClient(env) {
+  const url = env.SUPABASE_URL || env.PUBLIC_SUPABASE_URL || env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_SERVICE_KEY;
+  if (!url || !key) {
+    throw new Error('Supabase is not configured');
+  }
+  const { createClient } = await import('@supabase/supabase-js');
+  return createClient(url, key);
+}
 
 function decodeOAuthState(rawState) {
   if (!rawState) return null;
@@ -132,7 +141,7 @@ async function handleGetGuilds(request, env, { safeHeaders }) {
   let accessToken = discordTokenFromCookie ? decodeURIComponent(discordTokenFromCookie) : null;
   if (!accessToken) {
     try {
-      const supabase = getSupabaseClient(env);
+      const supabase = await createSupabaseAdminClient(env);
       const { data } = await supabase
         .from('users')
         .select('discord_access_token')
@@ -191,23 +200,50 @@ async function handleGetGuilds(request, env, { safeHeaders }) {
   }
 
   try {
-    const supabase = getSupabaseClient(env);
+    const supabase = await createSupabaseAdminClient(env);
     const guildIds = manageableGuilds.map((g) => g.id);
-    const { data, error } = await supabase
-      .from('guild_settings')
-      .select('guild_id, premium_enabled')
-      .in('guild_id', guildIds)
-      .eq('premium_enabled', true);
 
-    if (error) {
-      console.error('[discord/guilds] guild_settings premium filter error:', error);
+    const settingsQuery = await supabase
+      .from('guild_settings')
+      .select('guild_id, premium_enabled, premium_subscription_id')
+      .in('guild_id', guildIds);
+
+    const subscriptionsQuery = await supabase
+      .from('subscriptions')
+      .select('purchased_guild_id, status')
+      .in('purchased_guild_id', guildIds)
+      .in('status', ['active', 'trialing']);
+
+    if (settingsQuery.error) {
+      console.error('[discord/guilds] guild_settings premium filter error:', settingsQuery.error);
       return new Response(JSON.stringify({ error: 'FAILED_GUILD_FILTER', message: 'サブスク有効サーバーの取得に失敗しました' }), {
         status: 500,
         headers: jsonHeaders,
       });
     }
 
-    const enabledGuildIdSet = new Set((data || []).map((row) => String(row.guild_id)));
+    if (subscriptionsQuery.error) {
+      console.error('[discord/guilds] subscriptions premium filter error:', subscriptionsQuery.error);
+      return new Response(JSON.stringify({ error: 'FAILED_GUILD_FILTER', message: 'サブスク有効サーバーの取得に失敗しました' }), {
+        status: 500,
+        headers: jsonHeaders,
+      });
+    }
+
+    const enabledGuildIdSet = new Set();
+    for (const row of (settingsQuery.data || [])) {
+      const guildId = String(row.guild_id || '').trim();
+      if (!guildId) continue;
+      if (row.premium_enabled === true || row.premium_subscription_id) {
+        enabledGuildIdSet.add(guildId);
+      }
+    }
+
+    for (const row of (subscriptionsQuery.data || [])) {
+      const guildId = String(row.purchased_guild_id || '').trim();
+      if (guildId) enabledGuildIdSet.add(guildId);
+    }
+
     const premiumGuilds = manageableGuilds.filter((g) => enabledGuildIdSet.has(String(g.id)));
     return new Response(JSON.stringify(premiumGuilds), { status: 200, headers: jsonHeaders });
   } catch (e) {
