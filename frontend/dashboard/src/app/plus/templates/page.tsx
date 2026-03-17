@@ -449,13 +449,14 @@ export default function PlusTemplatePage() {
           <h2 className="text-lg font-semibold">募集プレビュー（/rect 生成画像と同一レイアウト）</h2>
 
           <div
-            className="relative w-full aspect-video overflow-hidden rounded-lg border border-gray-600 bg-black"
+            className="relative w-full overflow-hidden rounded-lg border border-gray-600 bg-black"
+            style={{ aspectRatio: "7 / 5" }}
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}
             onPointerLeave={onPointerUp}
           >
             {previewImageUrl ? (
-              <img src={previewImageUrl} alt="募集プレビュー" className="absolute inset-0 h-full w-full object-cover" />
+              <img src={previewImageUrl} alt="募集プレビュー" className="absolute inset-0 h-full w-full object-contain" />
             ) : (
               <div className="absolute inset-0 flex items-center justify-center text-sm text-gray-300">プレビュー生成待ち...</div>
             )}
