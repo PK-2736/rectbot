@@ -304,7 +304,9 @@ function drawTemplateTextNode(ctx, field, text, layout, canvasSize) {
   const scaleY = canvasSize.height / baseHeight;
   const x = Math.round((field.x || 0) * scaleX);
   const y = Math.round((field.y || 0) * scaleY);
-  const sizePx = Math.max(12, Math.round(((field.size || 24) / 3) * ((scaleX + scaleY) / 2)));
+  // Template editor coordinates are based on a larger virtual canvas.
+  // Keep a small minimum in this 140x100 drawing space to avoid oversized clipping.
+  const sizePx = Math.max(3, Math.round(((field.size || 24) / 3) * ((scaleX + scaleY) / 2)));
 
   ctx.font = `bold ${sizePx}px CorporateRounded`;
   ctx.textBaseline = 'top';
@@ -335,7 +337,8 @@ function drawTemplateContentNode(ctx, field, text, layout, canvasSize) {
   const scaleY = canvasSize.height / baseHeight;
   const x = Math.round((field.x || 0) * scaleX);
   const y = Math.round((field.y || 0) * scaleY);
-  const sizePx = Math.max(12, Math.round(((field.size || 24) / 3) * ((scaleX + scaleY) / 2)));
+  // Match text sizing behavior with template label nodes to prevent content overflow.
+  const sizePx = Math.max(3, Math.round(((field.size || 24) / 3) * ((scaleX + scaleY) / 2)));
   const contentText = text || '募集内容を入力';
   const contentBox = getScaledBox(layout.contentBox, layout, canvasSize, DEFAULT_TEMPLATE_LAYOUT.contentBox);
 
