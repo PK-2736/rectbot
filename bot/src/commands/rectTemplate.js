@@ -16,8 +16,6 @@ const COLOR_CHOICES = [
 ];
 
 module.exports = {
-  // Premium guilds only. Global deploy script excludes this command.
-  premiumGuildOnly: true,
   noDefer: true,
   data: new SlashCommandBuilder()
     .setName('rect_template')

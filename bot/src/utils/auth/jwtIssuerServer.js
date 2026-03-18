@@ -1,6 +1,5 @@
 const cryptoModule = require('crypto');
 const http = require('http');
-const { REST, Routes } = require('discord.js');
 const { generateRecruitCard } = require('../canvas/canvasRecruit');
 
 const JWT_PRIVATE_KEY = (process.env.JWT_PRIVATE_KEY || '').trim();
@@ -8,25 +7,6 @@ const INTERNAL_SECRET = (process.env.INTERNAL_SECRET || '').trim();
 const JWT_TTL_SEC = Number(process.env.JWT_USER_TTL_SEC || 3600);
 const ISSUER_PORT = Number(process.env.JWT_ISSUER_PORT || 3002);
 const ISSUER_HOST = process.env.JWT_ISSUER_HOST || '0.0.0.0';
-const DISCORD_BOT_TOKEN = (process.env.DISCORD_BOT_TOKEN || '').trim();
-const CLIENT_ID = (process.env.CLIENT_ID || '').trim();
-
-const PREMIUM_COMMAND_MODULES = [
-  require('../../commands/rectTemplate'),
-];
-const PREMIUM_COMMAND_DEFS = PREMIUM_COMMAND_MODULES
-  .filter((cmd) => cmd?.data && typeof cmd.data.toJSON === 'function')
-  .map((cmd) => cmd.data.toJSON());
-const PREMIUM_COMMAND_NAMES = new Set(PREMIUM_COMMAND_DEFS.map((c) => String(c.name)));
-
-let discordRestClient = null;
-function getDiscordRestClient() {
-  if (!DISCORD_BOT_TOKEN) return null;
-  if (!discordRestClient) {
-    discordRestClient = new REST({ version: '10' }).setToken(DISCORD_BOT_TOKEN);
-  }
-  return discordRestClient;
-}
 
 function base64UrlEncode(obj) {
   return Buffer.from(JSON.stringify(obj)).toString('base64url');
@@ -175,60 +155,12 @@ async function handleRecruitPreview(req, res) {
   }
 }
 
-async function syncPremiumCommands(guildId, enabled) {
-  if (!guildId) throw new Error('guildId is required');
-  if (!CLIENT_ID) throw new Error('CLIENT_ID is missing');
-  const rest = getDiscordRestClient();
-  if (!rest) throw new Error('DISCORD_BOT_TOKEN is missing');
-
-  const current = await rest.get(Routes.applicationGuildCommands(CLIENT_ID, String(guildId)));
-  const currentList = Array.isArray(current) ? current : [];
-  const base = currentList.filter((cmd) => !PREMIUM_COMMAND_NAMES.has(String(cmd.name)));
-  const next = enabled ? [...base, ...PREMIUM_COMMAND_DEFS] : base;
-
-  await rest.put(
-    Routes.applicationGuildCommands(CLIENT_ID, String(guildId)),
-    { body: next }
-  );
-
-  return { guildId: String(guildId), enabled: !!enabled, commandCount: next.length };
-}
-
-async function handleSyncPremiumCommands(req, res) {
-  if (req.method !== 'POST') return sendJson(res, 405, { error: 'method_not_allowed' });
-  if (!INTERNAL_SECRET) return sendJson(res, 503, { error: 'internal_secret_missing' });
-
-  const provided = req.headers['x-internal-secret'] || '';
-  if (provided !== INTERNAL_SECRET) return sendJson(res, 401, { error: 'unauthorized' });
-
-  let body;
-  try {
-    body = await readJson(req);
-  } catch (err) {
-    return sendJson(res, 400, { error: 'invalid_json', detail: err.message });
-  }
-
-  const guildId = String(body?.guildId || '').trim();
-  const enabled = !!body?.enabled;
-  if (!guildId) return sendJson(res, 400, { error: 'guild_id_required' });
-
-  try {
-    const result = await syncPremiumCommands(guildId, enabled);
-    return sendJson(res, 200, { ok: true, ...result });
-  } catch (err) {
-    return sendJson(res, 500, { error: 'premium_command_sync_failed', detail: err?.message || String(err) });
-  }
-}
-
 function requestHandler(req, res) {
   if (req.url === '/internal/jwt/issue') {
     return void handleIssueJwt(req, res);
   }
   if (req.url === '/internal/recruit-preview') {
     return void handleRecruitPreview(req, res);
-  }
-  if (req.url === '/internal/commands/sync-premium') {
-    return void handleSyncPremiumCommands(req, res);
   }
   res.writeHead(404, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify({ error: 'not_found' }));

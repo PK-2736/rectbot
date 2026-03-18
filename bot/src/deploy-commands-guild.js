@@ -1,46 +1,11 @@
 require('dotenv').config({ path: require('path').join(__dirname, '../.env.dev') });
 const { REST, Routes } = require('discord.js');
-const { createClient } = require('@supabase/supabase-js');
 const fs = require('fs');
 const path = require('path');
 
 // 優先順: CLI引数 > TARGET_GUILD_ID > GUILD_ID
 const guildIdFromArg = process.argv[2];
 const targetGuildId = guildIdFromArg || process.env.TARGET_GUILD_ID || process.env.GUILD_ID;
-
-async function isPremiumGuild(guildId) {
-  const supabaseUrl = process.env.SUPABASE_URL || process.env.PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
-  if (!supabaseUrl || !supabaseKey) return false;
-
-  try {
-    const supabase = createClient(supabaseUrl, supabaseKey);
-    const settingsRes = await supabase
-      .from('guild_settings')
-      .select('premium_enabled, premium_subscription_id, enable_dedicated_channel')
-      .eq('guild_id', String(guildId))
-      .maybeSingle();
-
-    if (!settingsRes.error && settingsRes.data) {
-      if (settingsRes.data.premium_enabled || settingsRes.data.enable_dedicated_channel || settingsRes.data.premium_subscription_id) {
-        return true;
-      }
-    }
-
-    const subscriptionRes = await supabase
-      .from('subscriptions')
-      .select('status')
-      .eq('purchased_guild_id', String(guildId))
-      .in('status', ['active', 'trialing'])
-      .limit(1)
-      .maybeSingle();
-
-    return !subscriptionRes.error && !!subscriptionRes.data;
-  } catch (e) {
-    console.warn('[deploy-commands-guild] premium check failed:', e?.message || e);
-    return false;
-  }
-}
 
 if (!process.env.DISCORD_BOT_TOKEN) {
   console.error('DISCORD_BOT_TOKEN is not set in environment variables');
@@ -61,21 +26,18 @@ const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_BOT_TOKEN)
 
 (async () => {
   try {
-    const premiumGuild = await isPremiumGuild(targetGuildId);
     const commands = [];
     const commandFiles = fs.readdirSync(path.join(__dirname, 'commands')).filter(file => file.endsWith('.js'));
     for (const file of commandFiles) {
       // testwelcome.js はギルド向けデプロイにも含めない（必要なら除外を外してください）
       if (file === 'testwelcome.js') continue;
       const command = require(`./commands/${file}`);
-      if (command?.premiumGuildOnly && !premiumGuild) continue;
       if ('data' in command && 'execute' in command) {
         commands.push(command.data.toJSON());
       }
     }
 
     console.log(`Started refreshing ${commands.length} guild application commands for guild ${targetGuildId}.`);
-    console.log(`[deploy-commands-guild] premiumGuild=${premiumGuild}`);
 
     // ギルド固有のコマンドとしてデプロイ（即時反映）
     const data = await rest.put(
