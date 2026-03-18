@@ -14,6 +14,7 @@ const {
   saveRecruitmentData,
   saveParticipantsToRedis, 
   deleteParticipantsFromRedis, 
+  getGuildSettings,
   getRecruitFromRedis,
   deleteRecruitFromRedis 
 } = require('../../../utils/database');
@@ -196,12 +197,20 @@ async function processClose(interaction, messageId, savedRecruitData) {
     await updateRecruitmentStatusAndDelete(messageId, data.recruiterId, data, interaction);
     const finalParticipants = recruitParticipants.get(messageId) || [];
 
-    // シンプル募集は画像締めにしない（元メッセージに画像がある場合のみ画像締め）
-    const hasOriginalImage = !!interaction.message?.attachments?.size;
-    const closedAttachment = hasOriginalImage
+    let recruitStyle = 'image';
+    try {
+      const guildSettings = await getGuildSettings(interaction.guildId);
+      recruitStyle = guildSettings?.recruit_style === 'simple' ? 'simple' : 'image';
+    } catch (e) {
+      console.warn('[processClose] getGuildSettings failed; fallback to image:', e?.message || e);
+    }
+
+    // 画像スタイルは、元画像が取得できなくても再生成して締め画像を作成する
+    const closedAttachment = recruitStyle === 'image'
       ? await getClosedImageAttachment(data, finalParticipants, interaction.client, interaction.message, messageId)
       : null;
-    const disabledContainer = (hasOriginalImage && closedAttachment)
+
+    const disabledContainer = (recruitStyle === 'image' && closedAttachment)
       ? buildClosedContainerWithImage(closedAttachment, messageId, finalParticipants, data)
       : buildClosedContainerWithoutImage(messageId, data, interaction.message);
 
@@ -211,7 +220,7 @@ async function processClose(interaction, messageId, savedRecruitData) {
       flags: MessageFlags.IsComponentsV2,
       allowedMentions: { roles: [], users: [] }
     };
-    if (closedAttachment) {
+    if (recruitStyle === 'image' && closedAttachment) {
       editPayload.files = [closedAttachment];
     }
     await interaction.message.edit(editPayload);
