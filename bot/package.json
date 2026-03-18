@@ -10,6 +10,7 @@
     "deploy-commands": "node src/deploy-commands.js",
     "deploy-commands-guild": "node src/deploy-commands-guild.js",
     "deploy-commands-guild:target": "node src/deploy-commands-guild.js $TARGET_GUILD_ID",
+    "deploy-premium-commands": "node src/deploy-premium-commands.js",
     "clear-commands": "node src/clear-commands.js"
   },
   "dependencies": {

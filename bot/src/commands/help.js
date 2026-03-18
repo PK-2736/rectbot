@@ -3,6 +3,7 @@ const { safeReply, safeUpdate } = require('../utils/safeReply');
 
 const HELP_MENU_OPTIONS = [
   { label: '🎮 rect', description: 'ゲーム募集を作成する', value: 'rect', emoji: '🎮' },
+  { label: '🧩 rect_template', description: 'テンプレートから募集を作成（サブスクサーバーのみ）', value: 'rect_template', emoji: '🧩' },
   { label: '✒️ rect_edit', description: '既存の募集を編集する', value: 'rect_edit', emoji: '✏️' },
   { label: '🔒 rect_close', description: '既存の募集を締め切る', value: 'rect_close', emoji: '🔒' },
   { label: '➕ id_add', description: 'フレンドコードを登録する', value: 'id_add', emoji: '➕' },
@@ -23,6 +24,16 @@ const COMMAND_DETAILS = {
     fields: [
       { name: '📝 入力項目', value: '• **タイトル**\n• **募集内容**\n• **参加人数**: 1-16人\n• **開始時間**\n• **VC有無**', inline: false },
       { name: '🎯 機能', value: '• 募集カード生成\n• 参加/取り消しボタン\n• 参加者表示の自動更新\n• 自動締切（8時間）', inline: false }
+    ]
+  },
+  rect_template: {
+    title: '🧩 rect_template コマンド',
+    description: '保存済みテンプレートから募集を作成するコマンドです。',
+    usage: '`/rect_template テンプレート:[名前]`',
+    examples: '`/rect_template テンプレート:デフォルト` → テンプレートをベースに募集作成',
+    fields: [
+      { name: '📝 入力項目', value: '• **テンプレート**（必須）\n• タイトル（任意）\n• 人数（任意）\n• 開始時間（任意）\n• 色（任意）', inline: false },
+      { name: '🔐 利用条件', value: 'サブスクリプション契約サーバーでのみ表示・利用されます。', inline: false }
     ]
   },
   setting: {
@@ -125,7 +136,7 @@ function buildHelpEmbed(interaction) {
     .setTitle('🤖 Recrubo ヘルプ')
     .setDescription('Recruboの機能一覧です。下のメニューからコマンドを選択すると詳細が表示されます。')
     .addFields(
-      { name: '🎮 募集管理', value: '`/rect` - ゲーム募集を作成\n`/rect_edit` - 募集を編集\n`/rect_close` - 募集を締切', inline: false },
+      { name: '🎮 募集管理', value: '`/rect` - ゲーム募集を作成\n`/rect_template` - テンプレート募集（サブスクサーバーのみ）\n`/rect_edit` - 募集を編集\n`/rect_close` - 募集を締切', inline: false },
       { name: '🔗 フレンドコード', value: '`/id_add` - フレンドコードを登録\n`/id_show` - フレンドコードを表示\n`/id_delete` - フレンドコードを削除', inline: false },
       { name: '💳 サブスク', value: '`/subscription pay` - 決済ページ\n`/subscription status` - 契約状態\n`/subscription manage` - 契約管理ページ', inline: false },
       { name: '⚙️ その他', value: '`/setting` - ギルドの募集設定（管理者のみ）\n`/invite` - 公式サーバーとボット招待リンク\n`/help` - このヘルプを表示', inline: false }

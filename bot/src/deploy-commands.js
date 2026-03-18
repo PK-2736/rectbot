@@ -9,6 +9,7 @@ for (const file of commandFiles) {
   // testwelcome.jsはグローバルコマンドに登録しない
   if (file === 'testwelcome.js') continue;
   const command = require(`./commands/${file}`);
+  if (command?.premiumGuildOnly) continue;
   if ('data' in command && 'execute' in command) {
     commands.push(command.data.toJSON());
   }

@@ -97,12 +97,6 @@ module.exports = {
         .setDescription('通話で使うボイスチャンネル（任意）')
         .addChannelTypes(2, 13) // GuildVoice=2, GuildStageVoice=13
         .setRequired(false)
-    )
-    // 任意: 保存済みテンプレート名
-    .addStringOption(option =>
-      option.setName('テンプレート')
-        .setDescription('保存済みテンプレート名（任意）')
-        .setRequired(false)
     ),
   async execute(interaction) {
     // Delegate to extracted handler

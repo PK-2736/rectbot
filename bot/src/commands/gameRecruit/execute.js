@@ -2,7 +2,7 @@ const { MessageFlags, ModalBuilder, TextInputBuilder, TextInputStyle, LabelBuild
 const { pendingModalOptions } = require('./data/state');
 const { safeReply } = require('../../utils/safeReply');
 const { createErrorEmbed } = require('../../utils/embedHelpers');
-const { listRecruitsFromRedis, getCooldownRemaining, getGuildSettings } = require('../../utils/database');
+const { listRecruitsFromRedis, getCooldownRemaining, getGuildSettings, getTemplateByName } = require('../../utils/database');
 const backendFetch = require('../../utils/common/backendFetch');
 const { EXEMPT_GUILD_IDS } = require('./data/constants');
 
@@ -194,6 +194,37 @@ function parseRecruitOptions(interaction) {
   };
 }
 
+function mergeOptionsWithTemplate(parsedOptions, template) {
+  if (!template || typeof template !== 'object') return parsedOptions;
+
+  const merged = { ...parsedOptions };
+  if (!merged.titleArg && template.title) merged.titleArg = String(template.title);
+
+  const templateMembers = Number(template.participants || 0);
+  if (!merged.membersArg && Number.isFinite(templateMembers) && templateMembers >= 1) {
+    merged.membersArg = Math.min(16, Math.max(1, Math.round(templateMembers)));
+  }
+
+  if (!merged.startArg && template.start_time_text) {
+    merged.startArg = String(template.start_time_text);
+  }
+  if (!merged.startArg) {
+    merged.startArg = '今から';
+  }
+
+  if (!merged.voiceArg && template.voice_option) {
+    merged.voiceArg = String(template.voice_option);
+  }
+  if (!merged.voicePlaceArg && template.voice_place) {
+    merged.voicePlaceArg = String(template.voice_place);
+  }
+  if (!merged.selectedColor && template.color) {
+    merged.selectedColor = String(template.color).replace(/^#/, '');
+  }
+  merged.template = template;
+  return merged;
+}
+
 async function validateRecruitInputs(interaction, { titleArg, membersArg, startArg }) {
   if (!titleArg) {
     await safeReply(interaction, { content: '❌ タイトルを指定してください。', flags: MessageFlags.Ephemeral });
@@ -267,7 +298,8 @@ async function savePendingOptions(interaction, options) {
         voice: options.voiceArg || null,
         voicePlace: options.voicePlaceArg,
         voiceChannelId: options.voiceChannelId,
-        templateName: options.templateName || null
+        templateName: options.templateName || null,
+        template: options.template || null
       });
       console.log('[gameRecruit.execute] saved to pendingModalOptions:', {
         userId: interaction.user.id,
@@ -400,6 +432,21 @@ async function execute(interaction) {
     const guildSettings = await getGuildSettings(interaction.guildId);
     console.log('[gameRecruit.execute] guildSettings for', interaction.guildId, ':', guildSettings && { recruit_channel: guildSettings.recruit_channel, defaultTitle: guildSettings.defaultTitle });
 
+    const isTemplateCommand = interaction.commandName === 'rect_template';
+
+    if (isTemplateCommand) {
+      const premiumByGuild = isPremiumEnabled(guildSettings);
+      const premiumBySubscription = await hasPremiumSubscription(interaction.user?.id, interaction.guildId);
+      if (!(premiumByGuild || premiumBySubscription)) {
+        await safeReply(interaction, {
+          content: '❌ `/rect_template` はサブスクリプション契約サーバーでのみ利用できます。',
+          flags: MessageFlags.Ephemeral,
+          allowedMentions: { roles: [], users: [] }
+        });
+        return;
+      }
+    }
+
     const recruitLimitOk = await enforceActiveRecruitLimit(interaction, guildSettings);
     if (!recruitLimitOk) return;
 
@@ -408,7 +455,41 @@ async function execute(interaction) {
     if (!channelAllowed) return;
 
     // スラッシュ引数の取得（日本語/英語両対応、必須でも例外にしない）
-    const parsedOptions = parseRecruitOptions(interaction);
+    let parsedOptions = parseRecruitOptions(interaction);
+
+    if (isTemplateCommand && !parsedOptions.templateName) {
+      await safeReply(interaction, {
+        content: '❌ `/rect_template` では「テンプレート」を指定してください。',
+        flags: MessageFlags.Ephemeral
+      });
+      return;
+    }
+
+    if (parsedOptions.templateName) {
+      try {
+        const template = await getTemplateByName(interaction.guildId, parsedOptions.templateName);
+        if (!template && isTemplateCommand) {
+          await safeReply(interaction, {
+            content: `❌ テンプレート「${parsedOptions.templateName}」が見つかりません。`,
+            flags: MessageFlags.Ephemeral
+          });
+          return;
+        }
+        if (template) {
+          parsedOptions = mergeOptionsWithTemplate(parsedOptions, template);
+        }
+      } catch (e) {
+        if (isTemplateCommand) {
+          await safeReply(interaction, {
+            content: '❌ テンプレートの読み込みに失敗しました。しばらくしてから再試行してください。',
+            flags: MessageFlags.Ephemeral
+          });
+          return;
+        }
+        console.warn('[gameRecruit.execute] template preload failed:', e?.message || e);
+      }
+    }
+
     const baseValid = await validateRecruitInputs(interaction, parsedOptions);
     if (!baseValid) return;
 
