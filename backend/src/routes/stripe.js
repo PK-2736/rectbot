@@ -336,6 +336,8 @@ async function setGuildSubscriptionState(guildId, subscriptionId, enabled, env) 
     .from('guild_settings')
     .upsert(fullPayload, { onConflict: 'guild_id' });
 
+  let updateSucceeded = false;
+
   if (error && isMissingDbColumnError(error)) {
     const fallbackPayload = {
       guild_id: guildId,
@@ -349,9 +351,17 @@ async function setGuildSubscriptionState(guildId, subscriptionId, enabled, env) 
 
     if (fallback.error) {
       console.error('[stripe] Failed to update guild subscription state (fallback):', fallback.error);
+    } else {
+      updateSucceeded = true;
     }
   } else if (error) {
     console.error('[stripe] Failed to update guild subscription state:', error);
+  } else {
+    updateSucceeded = true;
+  }
+
+  if (updateSucceeded) {
+    await notifyPremiumCommandSync(guildId, enabled, env);
   }
 }
 
@@ -486,6 +496,33 @@ async function reconcileSubscriptionFromStripe(userId, guildId, env) {
 
 function isPremiumStatus(status) {
   return isActiveOrTrialing(status);
+}
+
+function resolveInternalBotBase(env) {
+  return String(env.JWT_ISSUER_URL || env.VPS_EXPRESS_URL || env.TUNNEL_URL || '').trim();
+}
+
+async function notifyPremiumCommandSync(guildId, enabled, env) {
+  if (!guildId) return;
+
+  const internalBase = resolveInternalBotBase(env);
+  if (!internalBase || !env.INTERNAL_SECRET) {
+    return;
+  }
+
+  try {
+    const url = new URL('/internal/commands/sync-premium', internalBase);
+    await fetch(url.toString(), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-internal-secret': env.INTERNAL_SECRET,
+      },
+      body: JSON.stringify({ guildId: String(guildId), enabled: !!enabled }),
+    });
+  } catch (error) {
+    console.warn('[stripe] notify premium command sync failed:', error?.message || error);
+  }
 }
 
 async function getSubscriptionStatusForBot(request, url, env) {
