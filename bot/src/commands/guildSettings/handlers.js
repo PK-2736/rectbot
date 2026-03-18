@@ -209,7 +209,7 @@ async function handleSelectMenuInteraction(interaction) {
 async function handleModalSubmit(interaction) {
   const { customId } = interaction;
   try {
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     const isAdmin = await ensureAdmin(interaction);
     if (!isAdmin) return;
 

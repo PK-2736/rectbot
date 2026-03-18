@@ -1,5 +1,37 @@
+const { MessageFlags } = require('discord.js');
+
 function isUnknownInteractionError(err) {
   return !!(err && err.code === 10062);
+}
+
+function isComponentsV2FlagRemovalError(err) {
+  const msg = String(err?.message || '');
+  return msg.includes('MESSAGE_CANNOT_REMOVE_COMPONENTS_V2_FLAG') || msg.includes('flags[MESSAGE_CANNOT_REMOVE_COMPONENTS_V2_FLAG]');
+}
+
+function normalizeFlagsPayload(options) {
+  if (!options || typeof options !== 'object') return options;
+
+  const normalized = { ...options };
+  const hasEphemeral = Object.prototype.hasOwnProperty.call(normalized, 'ephemeral');
+  const hasFlags = typeof normalized.flags === 'number';
+  const baseFlags = hasFlags ? normalized.flags : 0;
+
+  if (hasEphemeral) {
+    const eph = !!normalized.ephemeral;
+    delete normalized.ephemeral;
+    normalized.flags = eph
+      ? (baseFlags | MessageFlags.Ephemeral)
+      : baseFlags;
+  }
+
+  return normalized;
+}
+
+function ensureComponentsV2Flag(options) {
+  const normalized = normalizeFlagsPayload(options);
+  const flags = typeof normalized?.flags === 'number' ? normalized.flags : 0;
+  return { ...(normalized || {}), flags: (flags | MessageFlags.IsComponentsV2) };
 }
 
 async function attemptInteractionCall(call) {
@@ -28,7 +60,8 @@ async function tryReply(interaction, options) {
     return null;
   }
 
-  const replyResult = await attemptInteractionCall(() => interaction.reply(options));
+  const payload = normalizeFlagsPayload(options);
+  const replyResult = await attemptInteractionCall(() => interaction.reply(payload));
   if (replyResult.ok) {
     return replyResult.result;
   }
@@ -37,14 +70,23 @@ async function tryReply(interaction, options) {
 }
 
 async function tryFollowUp(interaction, options) {
-  const followUpResult = await attemptInteractionCall(() => interaction.followUp(options));
+  const payload = normalizeFlagsPayload(options);
+  const followUpResult = await attemptInteractionCall(() => interaction.followUp(payload));
   if (followUpResult.ok) return followUpResult.result;
   return followUpResult;
 }
 
 async function tryEdit(interaction, options) {
-  const editResult = await attemptInteractionCall(() => interaction.editReply(options));
+  const payload = normalizeFlagsPayload(options);
+  const editResult = await attemptInteractionCall(() => interaction.editReply(payload));
   if (editResult.ok) return editResult.result;
+
+  if (isComponentsV2FlagRemovalError(editResult.error)) {
+    const v2Payload = ensureComponentsV2Flag(payload);
+    const retryResult = await attemptInteractionCall(() => interaction.editReply(v2Payload));
+    if (retryResult.ok) return retryResult.result;
+  }
+
   console.warn('safeReply: all response methods failed:', editResult.error?.message || editResult.error);
   return null;
 }

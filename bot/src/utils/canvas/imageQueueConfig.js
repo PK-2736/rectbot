@@ -8,7 +8,7 @@ const connectionOptions = {
   password: process.env.REDIS_PASSWORD || undefined,
   db: Number(process.env.REDIS_DB || 0),
   retryDelayOnFailover: 100,
-  maxRetriesPerRequest: 3,
+  maxRetriesPerRequest: null,
   lazyConnect: true
 };
 

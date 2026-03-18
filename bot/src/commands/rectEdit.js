@@ -387,7 +387,7 @@ module.exports = {
     const argUpdates = retrieveArgUpdates(interaction.client, cacheKey);
 
     try {
-      await interaction.deferReply({ ephemeral: true });
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
       await interaction.editReply({ content: '⏳ 募集を更新中...' });
       runUpdateFlow(interaction, messageId, argUpdates);
     } catch (error) {

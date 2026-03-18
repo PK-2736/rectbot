@@ -4,6 +4,7 @@
  */
 
 const { handleCommandSafely } = require('../../utils/interactionHandler');
+const { MessageFlags } = require('discord.js');
 
 /**
  * Route and execute slash commands
@@ -20,7 +21,7 @@ async function routeCommand(interaction, client) {
     },
     { 
       defer: deferNeeded, 
-      deferOptions: { ephemeral: true } 
+      deferOptions: { flags: MessageFlags.Ephemeral } 
     }
   );
 }

@@ -6,6 +6,24 @@
 const { MessageFlags } = require('discord.js');
 const { handlePermissionError } = require('../error/handlePermissionError');
 
+function normalizeInteractionPayload(payload) {
+  if (!payload || typeof payload !== 'object') return payload;
+  const normalized = { ...payload };
+  const hasEphemeral = Object.prototype.hasOwnProperty.call(normalized, 'ephemeral');
+  const hasFlags = typeof normalized.flags === 'number';
+  const baseFlags = hasFlags ? normalized.flags : 0;
+
+  if (hasEphemeral) {
+    const eph = !!normalized.ephemeral;
+    delete normalized.ephemeral;
+    normalized.flags = eph
+      ? (baseFlags | MessageFlags.Ephemeral)
+      : baseFlags;
+  }
+
+  return normalized;
+}
+
 function isPermissionError(error) {
   return !!(error && (error.code === 50001 || error.code === 50013));
 }
@@ -70,7 +88,7 @@ async function safeDeferReply(interaction, options = { flags: MessageFlags.Ephem
     if (interaction.deferred || interaction.replied) {
       return false;
     }
-    await interaction.deferReply(options);
+    await interaction.deferReply(normalizeInteractionPayload(options));
     return true;
   } catch (e) {
     console.warn('[interactionHandler] safeDeferReply failed:', e?.message || e);
@@ -83,9 +101,10 @@ function shouldUseFollowUp(interaction) {
 }
 
 async function attemptPrimaryCall(interaction, payload) {
+  const normalizedPayload = normalizeInteractionPayload(payload);
   const primaryCall = shouldUseFollowUp(interaction)
-    ? () => interaction.followUp(payload)
-    : () => interaction.reply(payload);
+    ? () => interaction.followUp(normalizedPayload)
+    : () => interaction.reply(normalizedPayload);
   return await attemptInteractionCall(primaryCall);
 }
 
@@ -94,7 +113,8 @@ async function attemptFallback(interaction, payload, primaryError) {
     throw primaryError;
   }
   
-  const fallbackResult = await attemptInteractionCall(() => interaction.followUp(payload));
+  const normalizedPayload = normalizeInteractionPayload(payload);
+  const fallbackResult = await attemptInteractionCall(() => interaction.followUp(normalizedPayload));
   if (fallbackResult.ok) return fallbackResult.result;
   
   console.error('[interactionHandler] safeRespond fallback also failed:', fallbackResult.error?.message || fallbackResult.error);

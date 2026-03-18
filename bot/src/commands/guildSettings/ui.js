@@ -740,7 +740,7 @@ async function showTemplateColorSelect(interaction) {
   const prompt = await interaction.followUp({
     content: '🎨 **ステップ2/3：募集カラーを選択してください**\n/rect と同じプリセット色から選べます。',
     components: [selectRow],
-    ephemeral: true,
+    flags: MessageFlags.Ephemeral,
     allowedMentions: { roles: [], users: [] }
   });
 
@@ -814,7 +814,7 @@ async function createAndAwaitRoleSelect(validRoles, interaction) {
   const promptMessage = await interaction.followUp({
     content: '🔔 **ステップ3/3：通知ロールを選択してください**\n\nギルド設定で許可されているロールから選択できます。',
     components: [selectRow],
-    ephemeral: true,
+    flags: MessageFlags.Ephemeral,
     allowedMentions: { roles: [], users: [] }
   });
 
@@ -840,7 +840,7 @@ async function showTemplateNotificationRoleSelect(interaction, _templateData) {
   if (validRoles.length === 0) {
     await interaction.followUp({ 
       content: '❌ ギルド設定で通知ロールが設定されていません。先に設定を行ってください。', 
-      ephemeral: true, 
+      flags: MessageFlags.Ephemeral, 
       allowedMentions: { roles: [], users: [] } 
     });
     return null;
