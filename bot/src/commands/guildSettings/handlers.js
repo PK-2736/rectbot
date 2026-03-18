@@ -15,6 +15,7 @@ const {
   showRoleSelect,
   showTitleModal,
   showColorModal,
+  showDedicatedChannelTypeSelect,
 } = require('./ui');
 
 function isGuildOwner(interaction) {
@@ -58,7 +59,23 @@ async function isAdminUser(interaction) {
     if (hasAdministratorPermissions(perms)) return true;
   }
 
-  // GuildMembers intentなし環境では fetch が失敗するため、フェッチは行わずここで終了
+  // フォールバック: キャッシュ済みメンバー、取得可能なら REST fetch で最終判定
+  const cachedMember = interaction.guild.members?.cache?.get(interaction.user?.id);
+  const cachedPerms = normalizePermissions(cachedMember?.permissions);
+  if (hasAdministratorPermissions(cachedPerms)) {
+    return true;
+  }
+
+  try {
+    const fetchedMember = await interaction.guild.members.fetch(interaction.user.id);
+    const fetchedPerms = normalizePermissions(fetchedMember?.permissions);
+    if (hasAdministratorPermissions(fetchedPerms)) {
+      return true;
+    }
+  } catch (_) {
+    // no-op
+  }
+
   return false;
 }
 
@@ -111,7 +128,9 @@ function getSettingLabel(settingKey) {
     update_channel: 'アップデート通知チャンネル',
     recruit_channels: '募集可能チャンネル',
     enable_dedicated_channel: '専用チャンネルボタン',
-    dedicated_channel_category_id: '専用チャンネルカテゴリ',
+    dedicated_channel_type: '専用チャンネル種類',
+    dedicated_channel_category_id: '専用チャンネル作成カテゴリ',
+    dedicated_thread_parent_channel_id: '専用スレッド作成先チャンネル',
   };
   return settingNames[settingKey] || settingKey;
 }
@@ -140,7 +159,7 @@ async function handleButtonInteraction(interaction) {
         content: '🚧 この機能は現在作成中のため使用できません。\nしばらくお待ちください。',
         flags: MessageFlags.Ephemeral
       }),
-      set_dedicated_category: () => showChannelSelect(interaction, 'dedicated_channel_category_id', '📂 専用チャンネル用カテゴリを選択してください', { maxValues: 1, channelTypes: [ChannelType.GuildCategory] })
+      set_dedicated_channel_type: () => showDedicatedChannelTypeSelect(interaction)
     };
 
     const handler = handlers[customId];
@@ -168,6 +187,11 @@ async function handleSelectMenuInteraction(interaction) {
 
     if (customId.startsWith('channel_select_')) {
       await handleChannelSelect(interaction, customId, values);
+      return;
+    }
+
+    if (customId === 'dedicated_channel_type_select') {
+      await handleDedicatedChannelTypeSelect(interaction, values);
       return;
     }
 
@@ -227,9 +251,45 @@ async function handleChannelSelect(interaction, customId, values) {
     await updateGuildSetting(interaction, settingType, categoryId);
     return;
   }
+  if (settingType === 'dedicated_thread_parent_channel_id') {
+    const parentChannelId = Array.isArray(values) && values.length > 0 ? values[0] : null;
+    await updateGuildSetting(interaction, settingType, parentChannelId);
+    return;
+  }
 
   const channelId = values[0];
   await updateGuildSetting(interaction, settingType, channelId);
+}
+
+async function handleDedicatedChannelTypeSelect(interaction, values) {
+  const selectedType = Array.isArray(values) && values.length > 0 ? String(values[0]) : 'voice';
+  if (!['voice', 'text', 'thread'].includes(selectedType)) {
+    await safeReply(interaction, {
+      content: '❌ 不正なチャンネル種類です。',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  const guildId = interaction.guildId;
+  await saveGuildSettingsToRedis(guildId, { dedicated_channel_type: selectedType });
+
+  if (selectedType === 'thread') {
+    await showChannelSelect(
+      interaction,
+      'dedicated_thread_parent_channel_id',
+      '🧵 スレッドを作成する親チャンネルを選択してください',
+      { maxValues: 1, channelTypes: [ChannelType.GuildText, ChannelType.GuildAnnouncement] }
+    );
+    return;
+  }
+
+  await showChannelSelect(
+    interaction,
+    'dedicated_channel_category_id',
+    `📁 ${selectedType === 'voice' ? 'ボイス' : 'テキスト'}チャンネルを作成するカテゴリを選択してください`,
+    { maxValues: 1, channelTypes: [ChannelType.GuildCategory] }
+  );
 }
 
 async function handleRoleSelect(interaction, customId, values) {
@@ -411,6 +471,16 @@ function buildSettingPayload(settingKey, value) {
     
     case 'dedicated_channel_category_id':
       return { dedicated_channel_category_id: value ? String(value) : null };
+
+    case 'dedicated_channel_type': {
+      const type = String(value || 'voice');
+      return {
+        dedicated_channel_type: ['voice', 'text', 'thread'].includes(type) ? type : 'voice'
+      };
+    }
+
+    case 'dedicated_thread_parent_channel_id':
+      return { dedicated_thread_parent_channel_id: value ? String(value) : null };
     
     default:
       return { [settingKey]: value };
@@ -524,7 +594,9 @@ async function resetAllSettings(interaction) {
       recruit_style: 'image',
       recruit_channels: [],
       enable_dedicated_channel: false,
+      dedicated_channel_type: 'voice',
       dedicated_channel_category_id: null,
+      dedicated_thread_parent_channel_id: null,
     });
     await safeReply(interaction, { content: '✅ すべての設定をリセットしました！', flags: MessageFlags.Ephemeral });
 

@@ -1,4 +1,4 @@
-const { PermissionsBitField, EmbedBuilder, MessageFlags } = require('discord.js');
+const { PermissionsBitField, EmbedBuilder, MessageFlags, ChannelType } = require('discord.js');
 const { getGuildSettings, getRecruitFromRedis, getParticipantsFromRedis } = require('../../../utils/database');
 const { safeReply } = require('../../../utils/safeReply');
 
@@ -129,22 +129,51 @@ async function validateBotPermissions(interaction) {
 async function createAndSetupDedicatedChannel(interaction, recruitId, recruit, participants, guildSettings) {
   const { saveDedicatedChannel } = require('../../../utils/database/db/dedicatedChannels');
   const channelName = recruit?.title ? `${recruit.title}`.slice(0, 100) : `recruit-${recruitId}`;
-  
+
+  const dedicatedType = ['voice', 'text', 'thread'].includes(String(guildSettings?.dedicated_channel_type || 'voice'))
+    ? String(guildSettings?.dedicated_channel_type || 'voice')
+    : 'voice';
+
   const permissionOverwrites = [
     { id: interaction.guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
-    { id: interaction.client.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.EmbedLinks] },
-    ...participants.map(userId => ({ id: userId, allow: [PermissionsBitField.Flags.ViewChannel] }))
+    {
+      id: interaction.client.user.id,
+      allow: [
+        PermissionsBitField.Flags.ViewChannel,
+        PermissionsBitField.Flags.SendMessages,
+        PermissionsBitField.Flags.EmbedLinks,
+        PermissionsBitField.Flags.Connect,
+        PermissionsBitField.Flags.Speak,
+      ]
+    },
+    ...participants.map(userId => ({
+      id: userId,
+      allow: [
+        PermissionsBitField.Flags.ViewChannel,
+        PermissionsBitField.Flags.SendMessages,
+        PermissionsBitField.Flags.ReadMessageHistory,
+        PermissionsBitField.Flags.Connect,
+        PermissionsBitField.Flags.Speak,
+      ]
+    }))
   ];
   
   try {
-    console.log('[createAndSetupDedicatedChannel] Creating channel:', { name: channelName, botId: interaction.client.user.id, participantsCount: participants.length });
-
-    const dedicatedChannel = await interaction.guild.channels.create({
+    console.log('[createAndSetupDedicatedChannel] Creating channel:', {
       name: channelName,
-      type: 0,
+      type: dedicatedType,
+      botId: interaction.client.user.id,
+      participantsCount: participants.length
+    });
+
+    const dedicatedChannel = await createDedicatedSpaceByType({
+      interaction,
+      channelName,
+      recruit,
+      participants,
+      guildSettings,
+      dedicatedType,
       permissionOverwrites,
-      topic: `🎮 ${recruit?.title || '募集'} の専用チャンネル`,
-      parent: guildSettings?.dedicated_channel_category_id || undefined,
     });
 
     console.log('[createAndSetupDedicatedChannel] Channel created:', dedicatedChannel.id);
@@ -165,6 +194,68 @@ async function createAndSetupDedicatedChannel(interaction, recruitId, recruit, p
     }).catch(() => null);
     return null;
   }
+}
+
+async function createDedicatedSpaceByType({ interaction, channelName, recruit, participants, guildSettings, dedicatedType, permissionOverwrites }) {
+  if (dedicatedType === 'thread') {
+    return await createDedicatedThread(interaction, channelName, recruit, participants, guildSettings);
+  }
+
+  const channelType = dedicatedType === 'text' ? ChannelType.GuildText : ChannelType.GuildVoice;
+  const createPayload = {
+    name: channelName,
+    type: channelType,
+    permissionOverwrites,
+    parent: guildSettings?.dedicated_channel_category_id || undefined,
+  };
+
+  if (channelType === ChannelType.GuildText) {
+    createPayload.topic = `🎮 ${recruit?.title || '募集'} の専用チャンネル`;
+  }
+
+  return await interaction.guild.channels.create(createPayload);
+}
+
+async function createDedicatedThread(interaction, channelName, recruit, participants, guildSettings) {
+  const parentChannelId = guildSettings?.dedicated_thread_parent_channel_id;
+  if (!parentChannelId) {
+    throw new Error('スレッド作成先チャンネルが未設定です。/setting の機能設定で作成先を指定してください。');
+  }
+
+  const parentChannel = await interaction.guild.channels.fetch(parentChannelId).catch(() => null);
+  if (!parentChannel || !parentChannel.isTextBased()) {
+    throw new Error('スレッド作成先チャンネルが見つからないか、スレッド非対応です。');
+  }
+
+  if (parentChannel.type === ChannelType.GuildText) {
+    const thread = await parentChannel.threads.create({
+      name: channelName,
+      autoArchiveDuration: 1440,
+      type: ChannelType.PrivateThread,
+      invitable: false,
+      reason: '募集専用スレッド作成',
+    });
+
+    for (const userId of participants) {
+      await thread.members.add(userId).catch(() => null);
+    }
+    return thread;
+  }
+
+  if (parentChannel.type === ChannelType.GuildAnnouncement) {
+    const starter = await parentChannel.send({
+      content: `🎮 **${recruit?.title || '募集'}** の専用スレッドを作成します。`,
+      allowedMentions: { roles: [], users: [] }
+    });
+    const thread = await starter.startThread({
+      name: channelName,
+      autoArchiveDuration: 1440,
+      reason: '募集専用スレッド作成',
+    });
+    return thread;
+  }
+
+  throw new Error('このチャンネル種別にはスレッドを作成できません。テキスト/アナウンスチャンネルを指定してください。');
 }
 
 async function sendWelcomeMessage(dedicatedChannel, recruit, participants) {

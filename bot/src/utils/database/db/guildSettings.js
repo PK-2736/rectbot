@@ -77,8 +77,21 @@ function normalizeDedicatedChannelSettings(normalized) {
     normalized.enable_dedicated_channel = false;
   }
 
+  if (Object.prototype.hasOwnProperty.call(normalized, 'dedicated_channel_type')) {
+    const type = String(normalized.dedicated_channel_type || 'voice');
+    normalized.dedicated_channel_type = ['voice', 'text', 'thread'].includes(type) ? type : 'voice';
+  } else {
+    normalized.dedicated_channel_type = 'voice';
+  }
+
   if (Object.prototype.hasOwnProperty.call(normalized, 'dedicated_channel_category_id')) {
     normalized.dedicated_channel_category_id = normalized.dedicated_channel_category_id ? String(normalized.dedicated_channel_category_id) : null;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(normalized, 'dedicated_thread_parent_channel_id')) {
+    normalized.dedicated_thread_parent_channel_id = normalized.dedicated_thread_parent_channel_id
+      ? String(normalized.dedicated_thread_parent_channel_id)
+      : null;
   }
 }
 
@@ -135,6 +148,18 @@ function mergeDedicatedChannelCategory(merged, fromApi, normalized) {
   }
 }
 
+function mergeDedicatedChannelType(merged, fromApi, normalized) {
+  if (!Object.prototype.hasOwnProperty.call(fromApi || {}, 'dedicated_channel_type')) {
+    merged.dedicated_channel_type = normalized.dedicated_channel_type || 'voice';
+  }
+}
+
+function mergeDedicatedThreadParent(merged, fromApi, normalized) {
+  if (!Object.prototype.hasOwnProperty.call(fromApi || {}, 'dedicated_thread_parent_channel_id')) {
+    merged.dedicated_thread_parent_channel_id = normalized.dedicated_thread_parent_channel_id || null;
+  }
+}
+
 function mergeRecruitChannels(merged, fromApi, normalized) {
   if (!Object.prototype.hasOwnProperty.call(fromApi || {}, 'recruit_channels') && Array.isArray(normalized.recruit_channels)) {
     merged.recruit_channels = normalized.recruit_channels;
@@ -148,7 +173,9 @@ function mergeApiResponseWithCache(fromApi, normalized) {
   const merged = normalizeGuildSettingsObject({ ...fromApi });
   mergeRecruitStyle(merged, fromApi, normalized);
   mergeDedicatedChannelEnabled(merged, fromApi, normalized);
+  mergeDedicatedChannelType(merged, fromApi, normalized);
   mergeDedicatedChannelCategory(merged, fromApi, normalized);
+  mergeDedicatedThreadParent(merged, fromApi, normalized);
   mergeRecruitChannels(merged, fromApi, normalized);
   return merged;
 }
@@ -204,7 +231,7 @@ async function getGuildSettingsSmart(guildId) {
 
 function buildFinalizePayload(guildId, settings) {
   const payload = { guildId };
-  const allowedKeys = ['update_channel', 'recruit_channel', 'recruit_channels', 'defaultColor', 'defaultTitle', 'recruit_style', 'enable_dedicated_channel', 'dedicated_channel_category_id'];
+  const allowedKeys = ['update_channel', 'recruit_channel', 'recruit_channels', 'defaultColor', 'defaultTitle', 'recruit_style', 'enable_dedicated_channel', 'dedicated_channel_type', 'dedicated_channel_category_id', 'dedicated_thread_parent_channel_id'];
   
   for (const k of allowedKeys) {
     if (settings && Object.prototype.hasOwnProperty.call(settings, k)) {

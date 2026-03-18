@@ -71,13 +71,14 @@ function buildSettingsSummaryText(settings) {
   const defaultTitleValue = settings.defaultTitle || settings.defaultRecruitTitle || '参加者募集';
   const styleValue = (settings?.recruit_style === 'simple') ? 'シンプル' : '画像パネル';
   const dedicatedStatus = settings.enable_dedicated_channel ? '✅ 有効' : '⭕ 無効';
+  const dedicatedType = getDedicatedChannelTypeLabel(settings?.dedicated_channel_type);
 
   return `**現在の設定サマリー**\n` +
     `📍 募集チャンネル: ${recruitChannelValue}\n` +
     `🔔 通知ロール: ${notificationRoles.length > 0 ? `${notificationRoles.slice(0, 2).length}個設定済み` : '未設定'}\n` +
     `📝 既定タイトル: ${defaultTitleValue}\n` +
     `🖼️ 募集スタイル: ${styleValue}\n` +
-    `📂 専用チャンネル: ${dedicatedStatus}`;
+    `📂 専用チャンネル: ${dedicatedStatus} (${dedicatedType})`;
 }
 
 // 管理者ボタンを追加
@@ -199,7 +200,7 @@ const CATEGORY_CONFIGS = {
     description: '専用チャンネル作成ボタンの有効化と設定',
     buttons: [
       { customId: 'toggle_dedicated_channel', label: 'オン/オフ', style: ButtonStyle.Primary, emoji: '⚡' },
-      { customId: 'set_dedicated_category', label: 'カテゴリ指定', style: ButtonStyle.Secondary, emoji: '📁' }
+      { customId: 'set_dedicated_channel_type', label: '種類/作成先設定', style: ButtonStyle.Secondary, emoji: '🧭' }
     ]
   },
   templates: {
@@ -220,10 +221,28 @@ function formatUpdateChannel(settings) {
 
 function formatDedicatedChannelSettings(settings) {
   const status = settings.enable_dedicated_channel ? '✅ オン' : '⭕ オフ';
-  const category = settings.dedicated_channel_category_id
+  const type = settings?.dedicated_channel_type || 'voice';
+  const typeLabel = getDedicatedChannelTypeLabel(type);
+  const target = formatDedicatedTarget(settings, type);
+  return { status, typeLabel, target };
+}
+
+function getDedicatedChannelTypeLabel(type) {
+  if (type === 'text') return 'テキストチャンネル';
+  if (type === 'thread') return 'スレッド';
+  return 'ボイスチャンネル';
+}
+
+function formatDedicatedTarget(settings, type) {
+  if (type === 'thread') {
+    return settings.dedicated_thread_parent_channel_id
+      ? `<#${settings.dedicated_thread_parent_channel_id}>`
+      : '未設定';
+  }
+
+  return settings.dedicated_channel_category_id
     ? `<#${settings.dedicated_channel_category_id}>`
     : 'サーバートップレベル';
-  return { status, category };
 }
 
 function formatSettingValues(settings) {
@@ -243,7 +262,8 @@ function formatSettingValues(settings) {
     defaultColorValue,
     styleValue,
     dedicatedStatus: dedicated.status,
-    dedicatedCategory: dedicated.category,
+    dedicatedType: dedicated.typeLabel,
+    dedicatedTarget: dedicated.target,
   };
 }
 
@@ -278,10 +298,11 @@ function getDisplayContent(defaultTitleValue, defaultColorValue, styleValue) {
     `🖼️ 募集スタイル: ${styleValue}`;
 }
 
-function getFeaturesContent(dedicatedStatus, dedicatedCategory) {
+function getFeaturesContent(dedicatedStatus, dedicatedType, dedicatedTarget) {
   return `**現在の設定**\n` +
     `📂 専用チャンネル: ${dedicatedStatus}\n` +
-    `📁 作成先カテゴリ: ${dedicatedCategory}`;
+    `🧭 種類: ${dedicatedType}\n` +
+    `📁 作成先: ${dedicatedTarget}`;
 }
 
 async function getTemplatesContent(guildId) {
@@ -310,7 +331,8 @@ async function getCategoryContent(category, values, interaction) {
     defaultColorValue,
     styleValue,
     dedicatedStatus,
-    dedicatedCategory,
+    dedicatedType,
+    dedicatedTarget,
   } = values;
 
   switch (category) {
@@ -321,7 +343,7 @@ async function getCategoryContent(category, values, interaction) {
     case 'display':
       return getDisplayContent(defaultTitleValue, defaultColorValue, styleValue);
     case 'features':
-      return getFeaturesContent(dedicatedStatus, dedicatedCategory);
+      return getFeaturesContent(dedicatedStatus, dedicatedType, dedicatedTarget);
     case 'templates':
       return await getTemplatesContent(interaction.guildId);
     default:
@@ -432,6 +454,41 @@ async function showChannelSelect(interaction, settingType, placeholder, { maxVal
       await safeRespond(interaction, { content: '❌ チャンネル選択メニューの表示に失敗しました。時間を置いて再度お試しください。', flags: MessageFlags.Ephemeral });
     }
   }
+}
+
+async function showDedicatedChannelTypeSelect(interaction) {
+  const currentSettings = await getGuildSettingsFromRedis(interaction.guildId).catch(() => ({}));
+  const currentType = currentSettings?.dedicated_channel_type || 'voice';
+
+  const typeSelect = new StringSelectMenuBuilder()
+    .setCustomId('dedicated_channel_type_select')
+    .setPlaceholder('専用チャンネルの種類を選択してください')
+    .setMinValues(1)
+    .setMaxValues(1)
+    .addOptions(
+      new StringSelectMenuOptionBuilder()
+        .setLabel('ボイスチャンネル')
+        .setValue('voice')
+        .setDescription('募集ごとにボイスチャンネルを作成します')
+        .setDefault(currentType === 'voice'),
+      new StringSelectMenuOptionBuilder()
+        .setLabel('テキストチャンネル')
+        .setValue('text')
+        .setDescription('募集ごとにテキストチャンネルを作成します')
+        .setDefault(currentType === 'text'),
+      new StringSelectMenuOptionBuilder()
+        .setLabel('スレッド')
+        .setValue('thread')
+        .setDescription('指定チャンネル配下に募集ごとのスレッドを作成します')
+        .setDefault(currentType === 'thread')
+    );
+
+  const actionRow = new ActionRowBuilder().addComponents(typeSelect);
+  await safeRespond(interaction, {
+    content: '🧭 専用チャンネルの種類を選択してください。選択後に作成先を指定します。',
+    components: [actionRow],
+    flags: MessageFlags.Ephemeral
+  });
 }
 
 // 現在選択されているロールを取得
@@ -810,6 +867,7 @@ module.exports = {
   showRoleSelect,
   showTitleModal,
   showColorModal,
+  showDedicatedChannelTypeSelect,
   showTemplateModal,
   showTemplateOptionalModal,
   showTemplateColorSelect,

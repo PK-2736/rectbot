@@ -21,7 +21,7 @@ const guildSettingsButtons = new Set([
   'toggle_here',
   'toggle_recruit_style',
   'toggle_dedicated_channel',
-  'set_dedicated_category',
+  'set_dedicated_channel_type',
   'set_default_title',
   'set_default_color',
   'set_update_channel',

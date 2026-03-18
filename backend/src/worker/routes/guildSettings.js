@@ -42,7 +42,13 @@ function buildSupabasePayload(guildId, incomingSettings, serializedNotificationR
     default_color: Object.prototype.hasOwnProperty.call(incomingSettings, 'defaultColor') ? (incomingSettings.defaultColor || null) : undefined,
     update_channel_id: incomingSettings.update_channel || null,
     enable_dedicated_channel: Object.prototype.hasOwnProperty.call(incomingSettings, 'enable_dedicated_channel') ? !!incomingSettings.enable_dedicated_channel : undefined,
+    dedicated_channel_type: Object.prototype.hasOwnProperty.call(incomingSettings, 'dedicated_channel_type')
+      ? (['voice', 'text', 'thread'].includes(String(incomingSettings.dedicated_channel_type)) ? String(incomingSettings.dedicated_channel_type) : 'voice')
+      : undefined,
     dedicated_channel_category_id: Object.prototype.hasOwnProperty.call(incomingSettings, 'dedicated_channel_category_id') ? (incomingSettings.dedicated_channel_category_id || null) : undefined,
+    dedicated_thread_parent_channel_id: Object.prototype.hasOwnProperty.call(incomingSettings, 'dedicated_thread_parent_channel_id')
+      ? (incomingSettings.dedicated_thread_parent_channel_id || null)
+      : undefined,
     updated_at: new Date().toISOString(),
   };
 }
@@ -61,7 +67,9 @@ function buildDefaultSettings() {
     defaultColor: null,
     update_channel: null,
     enable_dedicated_channel: false,
+    dedicated_channel_type: 'voice',
     dedicated_channel_category_id: null,
+    dedicated_thread_parent_channel_id: null,
   };
 }
 
@@ -174,8 +182,14 @@ function addDedicatedChannelFields(patchBody, incomingSettings, supabaseData) {
   if (typeof supabaseData.enable_dedicated_channel === 'boolean') {
     patchBody.enable_dedicated_channel = supabaseData.enable_dedicated_channel;
   }
+  if (Object.prototype.hasOwnProperty.call(incomingSettings, 'dedicated_channel_type')) {
+    patchBody.dedicated_channel_type = supabaseData.dedicated_channel_type;
+  }
   if (Object.prototype.hasOwnProperty.call(incomingSettings, 'dedicated_channel_category_id')) {
     patchBody.dedicated_channel_category_id = supabaseData.dedicated_channel_category_id;
+  }
+  if (Object.prototype.hasOwnProperty.call(incomingSettings, 'dedicated_thread_parent_channel_id')) {
+    patchBody.dedicated_thread_parent_channel_id = supabaseData.dedicated_thread_parent_channel_id;
   }
 }
 
@@ -254,7 +268,11 @@ function buildSettingsFromSupabase(data) {
     defaultColor: row.default_color || null,
     update_channel: row.update_channel_id,
     enable_dedicated_channel: typeof row.enable_dedicated_channel === 'boolean' ? row.enable_dedicated_channel : false,
+    dedicated_channel_type: ['voice', 'text', 'thread'].includes(String(row.dedicated_channel_type || 'voice'))
+      ? String(row.dedicated_channel_type || 'voice')
+      : 'voice',
     dedicated_channel_category_id: row.dedicated_channel_category_id || null,
+    dedicated_thread_parent_channel_id: row.dedicated_thread_parent_channel_id || null,
   };
 }
 

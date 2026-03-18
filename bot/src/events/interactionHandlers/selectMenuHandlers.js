@@ -18,7 +18,8 @@ async function handleStringSelectMenu(interaction, client) {
   // Guild settings select menus
   if (interaction.customId?.startsWith('channel_select_') || 
       interaction.customId?.startsWith('role_select_') || 
-      interaction.customId === 'settings_category_menu') {
+      interaction.customId === 'settings_category_menu' ||
+      interaction.customId === 'dedicated_channel_type_select') {
     const guildSettings = getGuildSettingsCommand(client);
     if (guildSettings?.handleSelectMenuInteraction) {
       await handleComponentSafely(interaction, () => guildSettings.handleSelectMenuInteraction(interaction));
@@ -54,7 +55,8 @@ async function handleStringSelectMenu(interaction, client) {
  */
 async function handleRoleOrChannelSelectMenu(interaction, client) {
   if (interaction.customId?.startsWith('channel_select_') || 
-      interaction.customId?.startsWith('role_select_')) {
+      interaction.customId?.startsWith('role_select_') ||
+      interaction.customId === 'dedicated_channel_type_select') {
     const guildSettings = getGuildSettingsCommand(client);
     if (guildSettings?.handleSelectMenuInteraction) {
       try {
