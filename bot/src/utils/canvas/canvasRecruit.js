@@ -304,9 +304,9 @@ function drawTemplateTextNode(ctx, field, text, layout, canvasSize) {
   const scaleY = canvasSize.height / baseHeight;
   const x = Math.round((field.x || 0) * scaleX);
   const y = Math.round((field.y || 0) * scaleY);
-  // Template editor coordinates are based on a larger virtual canvas.
-  // Keep a small minimum in this 140x100 drawing space to avoid oversized clipping.
-  const sizePx = Math.max(3, Math.round(((field.size || 24) / 3) * ((scaleX + scaleY) / 2)));
+  // Scale directly from editor font size into the 140x100 canvas coordinate space.
+  // Using /3 made text too small and looked like a visual jump after drag.
+  const sizePx = Math.max(4, Math.round((field.size || 24) * ((scaleX + scaleY) / 2)));
 
   ctx.font = `bold ${sizePx}px CorporateRounded`;
   ctx.textBaseline = 'top';
@@ -337,8 +337,8 @@ function drawTemplateContentNode(ctx, field, text, layout, canvasSize) {
   const scaleY = canvasSize.height / baseHeight;
   const x = Math.round((field.x || 0) * scaleX);
   const y = Math.round((field.y || 0) * scaleY);
-  // Match text sizing behavior with template label nodes to prevent content overflow.
-  const sizePx = Math.max(3, Math.round(((field.size || 24) / 3) * ((scaleX + scaleY) / 2)));
+  // Keep the same scaling rule as other template text nodes.
+  const sizePx = Math.max(4, Math.round((field.size || 24) * ((scaleX + scaleY) / 2)));
   const contentText = text || '募集内容を入力';
   const contentBox = getScaledBox(layout.contentBox, layout, canvasSize, DEFAULT_TEMPLATE_LAYOUT.contentBox);
 
@@ -677,8 +677,9 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
   const { canvas, ctx, width, height } = setupCanvas();
   const templateLayout = resolveTemplateLayout(recruitData);
   const templateImageUrl = getTemplateBackgroundUrl(recruitData);
+  const forceTemplateMode = Boolean(recruitData?.metadata?.forceTemplateMode);
   const shouldUseTemplateMode = Boolean(templateLayout)
-    && (!isDefaultTemplateLayout(templateLayout) || Boolean(templateImageUrl));
+    && (forceTemplateMode || !isDefaultTemplateLayout(templateLayout) || Boolean(templateImageUrl));
 
   if (shouldUseTemplateMode) {
     await drawTemplateModeCard(ctx, recruitData, templateLayout, { width, height }, accentColor);
