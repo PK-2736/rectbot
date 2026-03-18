@@ -16,7 +16,7 @@ const SETTING_CATEGORIES = [
   { label: '📍 チャンネル設定', value: 'channels', description: '募集チャンネルと通知チャンネル' },
   { label: '🔔 通知設定', value: 'notifications', description: '通知対象ロールの選択' },
   { label: '🎨 表示設定', value: 'display', description: 'タイトル、カラー、スタイル' },
-  { label: '📂 機能設定', value: 'features', description: '専用チャンネルボタン、スタイル' },
+  { label: '📂 機能設定', value: 'features', description: '専用チャンネルボタン' },
   { label: '📄 募集テンプレート', value: 'templates', description: 'テンプレートの作成・管理' },
 ];
 

@@ -85,13 +85,6 @@ function buildPreviewRecruitData(body) {
     maxMembers: Number(form.participants) || 4,
     metadata: {
       startLabel: form.startTimeText || '今から',
-      // Editor preview should stay in template mode from the first render
-      // so dragging nodes does not cause a sudden mode switch.
-      forceTemplateMode: true,
-    },
-    template: {
-      layout_json: layout,
-      background_image_url: form.backgroundImageUrl || null,
     },
   };
 }
