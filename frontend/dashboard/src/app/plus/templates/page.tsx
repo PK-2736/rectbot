@@ -562,7 +562,7 @@ export default function PlusTemplatePage() {
             onPointerLeave={onPointerUp}
           >
             {previewImageUrl ? (
-              <img src={previewImageUrl} alt="募集プレビュー" className="absolute inset-0 h-full w-full object-contain" />
+              <img src={previewImageUrl} alt="募集プレビュー" className="absolute inset-0 h-full w-full object-contain pointer-events-none" />
             ) : (
               <div className="absolute inset-0 flex items-center justify-center text-sm text-gray-300">プレビュー生成待ち...</div>
             )}
