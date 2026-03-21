@@ -636,13 +636,12 @@ export function RecruitCardCanvasImpl({
       }
     };
 
-    void drawAsync().finally(() => {
-      // drawAsync 完了後に dragOffsetsRef をクリア
-      dragOffsetsRef.current = {};
-    });
+    void drawAsync();
 
     return () => {
       stage.destroy();
+      // cleanup: 次の useEffect の前に dragOffsetsRef をクリア
+      dragOffsetsRef.current = {};
     };
   }, [recruitData, layout, accentColor, backgroundImageUrl, scale, canvasWidth, canvasHeight, containerSize]);
 
