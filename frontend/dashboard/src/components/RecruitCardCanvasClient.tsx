@@ -352,6 +352,9 @@ export function RecruitCardCanvasImpl({
   // ドラッグ中のモード保持（モード切り替わり防止）
   const templateModeRef = useRef<boolean | null>(null);
   
+  // 前回のlayoutを保存（ドラッグ完了検出用）
+  const previousLayoutRef = useRef<typeof layout | null>(null);
+  
   // コールバック参照の安定化（依存配列から除外するため）
   const onLayoutChangeRef = useRef(onLayoutChange);
   const onRenderedDataUrlRef = useRef(onRenderedDataUrl);
@@ -360,6 +363,23 @@ export function RecruitCardCanvasImpl({
     onLayoutChangeRef.current = onLayoutChange;
     onRenderedDataUrlRef.current = onRenderedDataUrl;
   }, [onLayoutChange, onRenderedDataUrl]);
+  
+  // layout が "実質的に確定" したのを検出してdragOffsetsRefをクリア
+  useEffect(() => {
+    // layoutの内容が実質的に一致 = dragend後の親state確定
+    if (previousLayoutRef.current) {
+      const layoutChanged = previousLayoutRef.current.contentBox.x !== layout.contentBox.x ||
+                           previousLayoutRef.current.contentBox.y !== layout.contentBox.y ||
+                           previousLayoutRef.current.title.x !== layout.title.x ||
+                           previousLayoutRef.current.title.y !== layout.title.y;
+      
+      if (layoutChanged) {
+        // layout が変化したので、ドラッグ完了と判断 → 次のドラッグのため古い情報をクリア
+        // （ただしすぐには消さない、isDragging の判定用に保持）
+      }
+    }
+    previousLayoutRef.current = layout;
+  }, [layout]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -457,6 +477,10 @@ export function RecruitCardCanvasImpl({
           });
           if (onLayoutChangeRef.current) {
             imageBoxRect.on('dragmove', () => {
+              // 新しいドラッグ開始時に他のキーをクリア
+              if (!dragOffsetsRef.current['imageBox']) {
+                dragOffsetsRef.current = {};
+              }
               dragOffsetsRef.current['imageBox'] = { x: imageBoxRect.x(), y: imageBoxRect.y() };
               layer.draw();
             });
@@ -515,6 +539,10 @@ export function RecruitCardCanvasImpl({
           });
           if (onLayoutChangeRef.current) {
             box.on('dragmove', () => {
+              // 新しいドラッグ開始時に他のキーをクリア
+              if (!dragOffsetsRef.current['contentBox']) {
+                dragOffsetsRef.current = {};
+              }
               dragOffsetsRef.current['contentBox'] = { x: box.x(), y: box.y() };
               layer.draw();
             });
@@ -551,6 +579,10 @@ export function RecruitCardCanvasImpl({
         });
         if (onLayoutChangeRef.current) {
           contentGroup.on('dragmove', () => {
+            // 新しいドラッグ開始時に他のキーをクリア
+            if (!dragOffsetsRef.current['contentBox']) {
+              dragOffsetsRef.current = {};
+            }
             dragOffsetsRef.current['contentBox'] = { x: contentGroup.x(), y: contentGroup.y() };
             layer.draw();
           });
@@ -611,6 +643,10 @@ export function RecruitCardCanvasImpl({
           const infoGroup = new Konva.Group({ x: infoX, y: infoY, draggable: Boolean(onLayoutChangeRef.current) });
           if (onLayoutChangeRef.current) {
             infoGroup.on('dragmove', () => {
+              // 新しいドラッグ開始時に他のキーをクリア
+              if (!dragOffsetsRef.current[item.key]) {
+                dragOffsetsRef.current = {};
+              }
               dragOffsetsRef.current[item.key] = { x: infoGroup.x(), y: infoGroup.y() };
               layer.draw();
             });
@@ -640,8 +676,6 @@ export function RecruitCardCanvasImpl({
 
     return () => {
       stage.destroy();
-      // cleanup: 次の useEffect の前に dragOffsetsRef をクリア
-      dragOffsetsRef.current = {};
     };
   }, [recruitData, layout, accentColor, backgroundImageUrl, scale, canvasWidth, canvasHeight, containerSize]);
 
