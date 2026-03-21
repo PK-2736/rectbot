@@ -136,6 +136,7 @@ export default function PlusTemplatePage() {
 
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
   const [layout, setLayout] = useState<TemplateLayout>(DEFAULT_LAYOUT);
+  const [previewScale, setPreviewScale] = useState(0.5);
 
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api.recrubo.net";
 
@@ -153,7 +154,7 @@ export default function PlusTemplatePage() {
       .finally(() => setLoadingGuilds(false));
   }, [user, apiBaseUrl]);
 
-  const readEditorCache = (guildId: string): { form: FormState; layout: TemplateLayout } | null => {
+  const readEditorCache = (guildId: string): { form: FormState; layout: TemplateLayout; previewScale: number } | null => {
     try {
       const raw = localStorage.getItem(`${TEMPLATE_EDITOR_CACHE_PREFIX}${guildId}`);
       if (!raw) return null;
@@ -165,17 +166,18 @@ export default function PlusTemplatePage() {
       return {
         form: { ...INITIAL_FORM, ...cachedForm },
         layout: parseLayout(cachedLayout),
+        previewScale: clamp(Number(parsed.previewScale ?? 0.5), 0.2, 1),
       };
     } catch (_e) {
       return null;
     }
   };
 
-  const writeEditorCache = (guildId: string, nextForm: FormState, nextLayout: TemplateLayout) => {
+  const writeEditorCache = (guildId: string, nextForm: FormState, nextLayout: TemplateLayout, nextPreviewScale: number) => {
     try {
       localStorage.setItem(
         `${TEMPLATE_EDITOR_CACHE_PREFIX}${guildId}`,
-        JSON.stringify({ form: nextForm, layout: nextLayout, updatedAt: Date.now() })
+        JSON.stringify({ form: nextForm, layout: nextLayout, previewScale: nextPreviewScale, updatedAt: Date.now() })
       );
     } catch (_e) {
       // no-op: localStorage quota or unavailable
@@ -198,6 +200,7 @@ export default function PlusTemplatePage() {
       if (cached) {
         setForm(cached.form);
         setLayout(cached.layout);
+        setPreviewScale(cached.previewScale);
         return;
       }
 
@@ -208,11 +211,12 @@ export default function PlusTemplatePage() {
         const nextLayout = parseLayout(latest.layout_json);
         setForm(nextForm);
         setLayout(nextLayout);
-        writeEditorCache(guildId, nextForm, nextLayout);
+        writeEditorCache(guildId, nextForm, nextLayout, previewScale);
       } else {
         // 3) 何もなければ初期値
         setForm(INITIAL_FORM);
         setLayout(DEFAULT_LAYOUT);
+        setPreviewScale(0.5);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "テンプレート読み込みに失敗しました");
@@ -229,8 +233,8 @@ export default function PlusTemplatePage() {
 
   useEffect(() => {
     if (!selectedGuildId) return;
-    writeEditorCache(selectedGuildId, form, layout);
-  }, [selectedGuildId, form, layout]);
+    writeEditorCache(selectedGuildId, form, layout, previewScale);
+  }, [selectedGuildId, form, layout, previewScale]);
 
   const selectedGuildName = guilds.find((g) => g.id === selectedGuildId)?.name || "";
 
@@ -278,7 +282,7 @@ export default function PlusTemplatePage() {
       if (!res.ok) throw new Error(data?.error || "テンプレート保存に失敗しました");
 
       await reloadTemplates(selectedGuildId);
-      writeEditorCache(selectedGuildId, form, layout);
+      writeEditorCache(selectedGuildId, form, layout, previewScale);
     } catch (e) {
       setError(e instanceof Error ? e.message : "保存に失敗しました");
     } finally {
@@ -444,6 +448,23 @@ export default function PlusTemplatePage() {
         <section className="bg-gray-800/50 border border-gray-700 rounded-xl p-5 space-y-4">
           <h2 className="text-lg font-semibold">募集プレビュー（react-konva リアルタイム描画）</h2>
 
+          <div className="border border-gray-700 rounded-lg p-3 space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <label htmlFor="preview-scale" className="text-gray-300">表示倍率</label>
+              <span className="text-gray-400">{Math.round(previewScale * 100)}%</span>
+            </div>
+            <input
+              id="preview-scale"
+              type="range"
+              min={20}
+              max={100}
+              step={1}
+              value={Math.round(previewScale * 100)}
+              onChange={(e) => setPreviewScale(clamp(Number(e.target.value) / 100, 0.2, 1))}
+              className="w-full"
+            />
+          </div>
+
           {/* RecruitCardCanvas コンポーネント */}
           <RecruitCardCanvas
             recruitData={{
@@ -455,7 +476,8 @@ export default function PlusTemplatePage() {
             }}
             layout={layout}
             accentColor={form.color ? form.color.replace('#', '') : DEFAULT_ACCENT_COLOR}
-            scale={0.5}
+            backgroundImageUrl={form.backgroundImageUrl || undefined}
+            scale={previewScale}
             onLayoutChange={(fieldName: string, newX: number, newY: number) => {
               const field = fieldName as keyof TemplateLayout;
               setLayout((prev) => {
@@ -489,8 +511,9 @@ export default function PlusTemplatePage() {
                       const nextLayout = parseLayout(t.layout_json);
                       setForm(nextForm);
                       setLayout(nextLayout);
+                      setPreviewScale(0.5);
                       if (selectedGuildId) {
-                        writeEditorCache(selectedGuildId, nextForm, nextLayout);
+                        writeEditorCache(selectedGuildId, nextForm, nextLayout, 0.5);
                       }
                     }}
                     className="w-full text-left border border-gray-700 rounded-lg p-3 hover:bg-gray-700/40 transition-colors"
