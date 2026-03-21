@@ -198,7 +198,8 @@ function addTemplateTextNode(
   field: LayoutField,
   text: string,
   draggable: boolean,
-  onDragEnd?: (x: number, y: number) => void
+  onDragEnd?: (x: number, y: number) => void,
+  onDragMove?: () => void
 ) {
   if (!field.visible || !text) return;
 
@@ -236,8 +237,15 @@ function addTemplateTextNode(
     })
   );
 
-  if (onDragEnd) {
-    group.on('dragend', () => onDragEnd(Math.round(group.x()), Math.round(group.y())));
+  if (onDragEnd || onDragMove) {
+    if (onDragMove) {
+      group.on('dragmove', () => {
+        onDragMove();
+      });
+    }
+    if (onDragEnd) {
+      group.on('dragend', () => onDragEnd(Math.round(group.x()), Math.round(group.y())));
+    }
   }
 
   layer.add(group);
@@ -249,7 +257,8 @@ function addTemplateContentNode(
   contentBox: LayoutBox,
   text: string,
   draggable: boolean,
-  onDragEnd?: (x: number, y: number) => void
+  onDragEnd?: (x: number, y: number) => void,
+  onDragMove?: () => void
 ) {
   if (!field.visible) return;
 
@@ -279,10 +288,17 @@ function addTemplateContentNode(
     group.add(new Konva.Text({ x: startX, y: startY + i * lineHeight, text: line, fill: '#ffffff', fontSize: sizePx, fontFamily: 'CorporateRounded' }));
   });
 
-  if (onDragEnd) {
+  if (onDragEnd || onDragMove) {
     const baseX = contentBox.visible ? contentBox.x : field.x;
     const baseY = contentBox.visible ? contentBox.y : field.y;
-    group.on('dragend', () => onDragEnd(Math.round(baseX + group.x()), Math.round(baseY + group.y())));
+    if (onDragMove) {
+      group.on('dragmove', () => {
+        onDragMove();
+      });
+    }
+    if (onDragEnd) {
+      group.on('dragend', () => onDragEnd(Math.round(baseX + group.x()), Math.round(baseY + group.y())));
+    }
   }
   layer.add(group);
 }
@@ -329,6 +345,18 @@ export function RecruitCardCanvasImpl({
   const stageRef = useRef<Konva.Stage | null>(null);
   const { width: canvasWidth, height: canvasHeight } = layout.canvas;
   const [containerSize, setContainerSize] = useState({ width: RECT_CANVAS_WIDTH, height: RECT_CANVAS_HEIGHT });
+  
+  // ドラッグ中の要素位置をローカルで管理（親状態更新を遅延）
+  const dragOffsetsRef = useRef<Record<string, { x: number; y: number }>>({});
+  
+  // コールバック参照の安定化（依存配列から除外するため）
+  const onLayoutChangeRef = useRef(onLayoutChange);
+  const onRenderedDataUrlRef = useRef(onRenderedDataUrl);
+  
+  useEffect(() => {
+    onLayoutChangeRef.current = onLayoutChange;
+    onRenderedDataUrlRef.current = onRenderedDataUrl;
+  }, [onLayoutChange, onRenderedDataUrl]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -404,12 +432,23 @@ export function RecruitCardCanvasImpl({
             cornerRadius: 8,
             stroke: 'rgba(171, 230, 255, 0.5)',
             strokeWidth: 1,
-            draggable: Boolean(onLayoutChange),
+            draggable: Boolean(onLayoutChangeRef.current),
             dragBoundFunc: (pos) => pos,
           });
-          if (onLayoutChange) {
-            imageBoxRect.on('dragend', () => onLayoutChange('imageBox', toEditorX(imageBoxRect.x()), toEditorY(imageBoxRect.y())));
+          if (onLayoutChangeRef.current) {
+            imageBoxRect.on('dragmove', () => {
+              dragOffsetsRef.current['imageBox'] = { x: imageBoxRect.x(), y: imageBoxRect.y() };
+              layer.draw();
+            });
+            imageBoxRect.on('dragend', () => {
+              const offset = dragOffsetsRef.current['imageBox'];
+              if (offset && onLayoutChangeRef.current) {
+                onLayoutChangeRef.current('imageBox', toEditorX(offset.x), toEditorY(offset.y));
+                delete dragOffsetsRef.current['imageBox'];
+              }
+            });
           }
+          imageBoxRect.draggable(Boolean(onLayoutChangeRef.current));
           layer.add(imageBoxRect);
 
           if (backgroundImageUrl) {
@@ -447,19 +486,29 @@ export function RecruitCardCanvasImpl({
             cornerRadius: 8,
             stroke: 'rgba(255,255,255,0.30)',
             strokeWidth: 1,
-            draggable: Boolean(onLayoutChange),
+            draggable: Boolean(onLayoutChangeRef.current),
           });
-          if (onLayoutChange) {
-            box.on('dragend', () => onLayoutChange('contentBox', toEditorX(box.x()), toEditorY(box.y())));
+          if (onLayoutChangeRef.current) {
+            box.on('dragmove', () => {
+              dragOffsetsRef.current['contentBox'] = { x: box.x(), y: box.y() };
+              layer.draw();
+            });
+            box.on('dragend', () => {
+              const offset = dragOffsetsRef.current['contentBox'];
+              if (offset && onLayoutChangeRef.current) {
+                onLayoutChangeRef.current('contentBox', toEditorX(offset.x), toEditorY(offset.y));
+                delete dragOffsetsRef.current['contentBox'];
+              }
+            });
           }
           layer.add(box);
         }
 
-        addTemplateTextNode(layer, scaledTitle, recruitData.title || '募集タイトル', Boolean(onLayoutChange), (x, y) => onLayoutChange?.('title', toEditorX(x), toEditorY(y)));
-        addTemplateTextNode(layer, scaledMembers, `👥 ${participants}人`, Boolean(onLayoutChange), (x, y) => onLayoutChange?.('members', toEditorX(x), toEditorY(y)));
-        addTemplateTextNode(layer, scaledTime, `🕒 ${recruitData.startTimeText || '今から'}`, Boolean(onLayoutChange), (x, y) => onLayoutChange?.('time', toEditorX(x), toEditorY(y)));
-        addTemplateTextNode(layer, scaledVoice, `🎙 ${voiceText}`, Boolean(onLayoutChange), (x, y) => onLayoutChange?.('voice', toEditorX(x), toEditorY(y)));
-        addTemplateContentNode(layer, scaledContent, scaledContentBox, recruitData.content || 'ガチエリア / 初心者歓迎', Boolean(onLayoutChange), (x, y) => onLayoutChange?.('content', toEditorX(x), toEditorY(y)));
+        addTemplateTextNode(layer, scaledTitle, recruitData.title || '募集タイトル', Boolean(onLayoutChangeRef.current), (x, y) => onLayoutChangeRef.current?.('title', toEditorX(x), toEditorY(y)), () => layer.draw());
+        addTemplateTextNode(layer, scaledMembers, `👥 ${participants}人`, Boolean(onLayoutChangeRef.current), (x, y) => onLayoutChangeRef.current?.('members', toEditorX(x), toEditorY(y)), () => layer.draw());
+        addTemplateTextNode(layer, scaledTime, `🕒 ${recruitData.startTimeText || '今から'}`, Boolean(onLayoutChangeRef.current), (x, y) => onLayoutChangeRef.current?.('time', toEditorX(x), toEditorY(y)), () => layer.draw());
+        addTemplateTextNode(layer, scaledVoice, `🎙 ${voiceText}`, Boolean(onLayoutChangeRef.current), (x, y) => onLayoutChangeRef.current?.('voice', toEditorX(x), toEditorY(y)), () => layer.draw());
+        addTemplateContentNode(layer, scaledContent, scaledContentBox, recruitData.content || 'ガチエリア / 初心者歓迎', Boolean(onLayoutChangeRef.current), (x, y) => onLayoutChangeRef.current?.('content', toEditorX(x), toEditorY(y)), () => layer.draw());
       } else {
         addClassicTitle(layer, RECT_CANVAS_WIDTH, recruitData.title || 'ゲーム募集', accentColor);
 
@@ -471,10 +520,20 @@ export function RecruitCardCanvasImpl({
         const contentGroup = new Konva.Group({
           x: boxX,
           y: boxY,
-          draggable: Boolean(onLayoutChange),
+          draggable: Boolean(onLayoutChangeRef.current),
         });
-        if (onLayoutChange) {
-          contentGroup.on('dragend', () => onLayoutChange('contentBox', toEditorX(contentGroup.x()), toEditorY(contentGroup.y())));
+        if (onLayoutChangeRef.current) {
+          contentGroup.on('dragmove', () => {
+            dragOffsetsRef.current['contentBox'] = { x: contentGroup.x(), y: contentGroup.y() };
+            layer.draw();
+          });
+          contentGroup.on('dragend', () => {
+            const offset = dragOffsetsRef.current['contentBox'];
+            if (offset && onLayoutChangeRef.current) {
+              onLayoutChangeRef.current('contentBox', toEditorX(offset.x), toEditorY(offset.y));
+              delete dragOffsetsRef.current['contentBox'];
+            }
+          });
         }
 
         contentGroup.add(new Konva.Rect({
@@ -517,9 +576,19 @@ export function RecruitCardCanvasImpl({
         ];
 
         info.forEach((item) => {
-          const infoGroup = new Konva.Group({ x: item.x, y: item.y, draggable: Boolean(onLayoutChange) });
-          if (onLayoutChange) {
-            infoGroup.on('dragend', () => onLayoutChange(item.key, toEditorX(infoGroup.x()), toEditorY(infoGroup.y())));
+          const infoGroup = new Konva.Group({ x: item.x, y: item.y, draggable: Boolean(onLayoutChangeRef.current) });
+          if (onLayoutChangeRef.current) {
+            infoGroup.on('dragmove', () => {
+              dragOffsetsRef.current[item.key] = { x: infoGroup.x(), y: infoGroup.y() };
+              layer.draw();
+            });
+            infoGroup.on('dragend', () => {
+              const offset = dragOffsetsRef.current[item.key];
+              if (offset && onLayoutChangeRef.current) {
+                onLayoutChangeRef.current(item.key, toEditorX(offset.x), toEditorY(offset.y));
+                delete dragOffsetsRef.current[item.key];
+              }
+            });
           }
           infoGroup.add(new Konva.Rect({ x: 0, y: 0, width: 48, height: 15, cornerRadius: 3, fill: 'rgba(0,0,0,0.75)', stroke: 'rgba(255,255,255,0.6)', strokeWidth: 0.5 }));
           infoGroup.add(new Konva.Text({ x: 3, y: 6, text: item.label, fill: '#bbb', fontSize: 4, fontStyle: 'bold', fontFamily: 'CorporateRounded, Arial, sans-serif' }));
@@ -530,8 +599,8 @@ export function RecruitCardCanvasImpl({
 
       layer.draw();
 
-      if (onRenderedDataUrl) {
-        onRenderedDataUrl(stage.toDataURL({ pixelRatio: 1 }));
+      if (onRenderedDataUrlRef.current) {
+        onRenderedDataUrlRef.current(stage.toDataURL({ pixelRatio: 1 }));
       }
     };
 
@@ -540,7 +609,7 @@ export function RecruitCardCanvasImpl({
     return () => {
       stage.destroy();
     };
-  }, [recruitData, layout, accentColor, backgroundImageUrl, scale, canvasWidth, canvasHeight, containerSize, onLayoutChange, onRenderedDataUrl]);
+  }, [recruitData, layout, accentColor, backgroundImageUrl, scale, canvasWidth, canvasHeight, containerSize]);
 
   return (
     <div className="relative w-full bg-gray-950 border border-gray-700 rounded overflow-hidden" style={{ aspectRatio: `${layout.canvas.width} / ${layout.canvas.height}` }}>
