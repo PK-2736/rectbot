@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/components/AuthProvider";
+import RecruitCardCanvas from "@/components/RecruitCardCanvas";
 
 type Guild = { id: string; name: string; icon: string | null };
 
@@ -23,13 +24,6 @@ type LayoutBox = {
 
 type TextFieldKey = "title" | "members" | "time" | "content" | "voice";
 type BoxFieldKey = "contentBox" | "imageBox";
-type DraggableFieldKey = TextFieldKey | BoxFieldKey;
-
-type DragState = {
-  field: DraggableFieldKey;
-  offsetX: number;
-  offsetY: number;
-};
 
 type TemplateLayout = {
   canvas: { width: number; height: number };
@@ -93,6 +87,7 @@ const INITIAL_FORM: FormState = {
 };
 
 const TEMPLATE_EDITOR_CACHE_PREFIX = "plus-template-editor-cache:";
+const DEFAULT_ACCENT_COLOR = "5865F2";
 
 function toForm(t: Template): FormState {
   return {
@@ -137,10 +132,7 @@ export default function PlusTemplatePage() {
   const [loadingTemplates, setLoadingTemplates] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [previewLoading, setPreviewLoading] = useState(false);
-  const [previewImageUrl, setPreviewImageUrl] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [dragState, setDragState] = useState<DragState | null>(null);
 
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
   const [layout, setLayout] = useState<TemplateLayout>(DEFAULT_LAYOUT);
@@ -242,67 +234,6 @@ export default function PlusTemplatePage() {
 
   const selectedGuildName = guilds.find((g) => g.id === selectedGuildId)?.name || "";
 
-  const toCanvasPoint = (clientX: number, clientY: number, canvasEl: HTMLElement | null) => {
-    const rect = canvasEl?.getBoundingClientRect();
-    if (!rect || rect.width <= 0 || rect.height <= 0) return null;
-
-    const px = clamp(clientX - rect.left, 0, rect.width);
-    const py = clamp(clientY - rect.top, 0, rect.height);
-    const x = Math.round((px / rect.width) * layout.canvas.width);
-    const y = Math.round((py / rect.height) * layout.canvas.height);
-    return { x, y };
-  };
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const onPointerDown = (field: DraggableFieldKey, e: any) => {
-    e.preventDefault();
-    const canvasEl = e.currentTarget?.closest?.('[data-preview-canvas="1"]') || null;
-    const point = toCanvasPoint(e.clientX, e.clientY, canvasEl);
-    if (!point) return;
-    const target = layout[field];
-    setDragState({
-      field,
-      offsetX: point.x - target.x,
-      offsetY: point.y - target.y,
-    });
-  };
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const onPointerMove = (e: any) => {
-    if (!dragState) return;
-    const point = toCanvasPoint(e.clientX, e.clientY, e.currentTarget);
-    if (!point) return;
-
-    setLayout((prev) => {
-      const field = dragState.field;
-      const target = prev[field];
-      const nextXRaw = point.x - dragState.offsetX;
-      const nextYRaw = point.y - dragState.offsetY;
-
-      if (field === "contentBox" || field === "imageBox") {
-        const box = target as LayoutBox;
-        const maxX = Math.max(0, prev.canvas.width - box.width);
-        const maxY = Math.max(0, prev.canvas.height - box.height);
-        const x = clamp(nextXRaw, 0, maxX);
-        const y = clamp(nextYRaw, 0, maxY);
-        return {
-          ...prev,
-          [field]: { ...box, x, y },
-        };
-      }
-
-      const text = target as LayoutField;
-      const x = clamp(nextXRaw, 0, prev.canvas.width);
-      const y = clamp(nextYRaw, 0, prev.canvas.height);
-      return {
-        ...prev,
-        [field]: { ...text, x, y },
-      };
-    });
-  };
-
-  const onPointerUp = () => setDragState(null);
-
   const setFieldVisible = (field: TextFieldKey, visible: boolean) => {
     setLayout((prev) => ({ ...prev, [field]: { ...prev[field], visible } }));
   };
@@ -384,46 +315,6 @@ export default function PlusTemplatePage() {
       setUploading(false);
     }
   };
-
-  useEffect(() => {
-    if (!user || !selectedGuildId) return;
-
-    const controller = new AbortController();
-    const timer = setTimeout(async () => {
-      setPreviewLoading(true);
-      try {
-        const res = await fetch(`${apiBaseUrl}/api/plus/templates/preview`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ guildId: selectedGuildId, form, layout }),
-          signal: controller.signal,
-        });
-
-        if (!res.ok) {
-          const data = await res.json().catch(() => ({}));
-          throw new Error(data?.error || "プレビュー生成に失敗しました");
-        }
-
-        const blob = await res.blob();
-        const nextUrl = URL.createObjectURL(blob);
-        setPreviewImageUrl((prev) => {
-          if (prev) URL.revokeObjectURL(prev);
-          return nextUrl;
-        });
-      } catch (e) {
-        if (controller.signal.aborted) return;
-        setError(e instanceof Error ? e.message : "プレビュー生成に失敗しました");
-      } finally {
-        if (!controller.signal.aborted) setPreviewLoading(false);
-      }
-    }, 180);
-
-    return () => {
-      controller.abort();
-      clearTimeout(timer);
-    };
-  }, [user, selectedGuildId, form, layout, apiBaseUrl]);
 
   if (isLoading) {
     return <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">読み込み中...</div>;
@@ -551,76 +442,35 @@ export default function PlusTemplatePage() {
         </section>
 
         <section className="bg-gray-800/50 border border-gray-700 rounded-xl p-5 space-y-4">
-          <h2 className="text-lg font-semibold">募集プレビュー（/rect 生成画像と同一レイアウト）</h2>
+          <h2 className="text-lg font-semibold">募集プレビュー（react-konva リアルタイム描画）</h2>
 
-          <div
-            data-preview-canvas="1"
-            className="relative w-full overflow-hidden rounded-lg border border-gray-600 bg-black"
-            style={{ aspectRatio: "7 / 5" }}
-            onPointerMove={onPointerMove}
-            onPointerUp={onPointerUp}
-            onPointerLeave={onPointerUp}
-          >
-            {previewImageUrl ? (
-              <img src={previewImageUrl} alt="募集プレビュー" className="absolute inset-0 h-full w-full object-contain pointer-events-none" />
-            ) : (
-              <div className="absolute inset-0 flex items-center justify-center text-sm text-gray-300">プレビュー生成待ち...</div>
-            )}
+          {/* RecruitCardCanvas コンポーネント */}
+          <RecruitCardCanvas
+            recruitData={{
+              title: form.title || '募集タイトル',
+              content: form.content || 'ガチエリア / 初心者歓迎',
+              participants: parseInt(form.participants) || 4,
+              startTimeText: form.startTimeText || '今から',
+              voicePlace: form.voicePlace || '',
+            }}
+            layout={layout}
+            accentColor={form.color ? form.color.replace('#', '') : DEFAULT_ACCENT_COLOR}
+            scale={0.5}
+            onLayoutChange={(fieldName: string, newX: number, newY: number) => {
+              const field = fieldName as keyof TemplateLayout;
+              setLayout((prev) => {
+                const next = JSON.parse(JSON.stringify(prev)) as TemplateLayout;
+                const item = next[field];
+                if (item && 'x' in item && 'y' in item) {
+                  (item as { x: number; y: number }).x = newX;
+                  (item as { x: number; y: number }).y = newY;
+                }
+                return next;
+              });
+            }}
+          />
 
-            {previewLoading && (
-              <div className="absolute right-3 top-3 rounded bg-black/70 px-2 py-1 text-xs text-white">更新中...</div>
-            )}
-
-            {layout.contentBox.visible && (
-              <div
-                className="absolute rounded-[28px] border-2 border-cyan-300/80 bg-cyan-400/10 cursor-move"
-                style={{
-                  left: `${(layout.contentBox.x / layout.canvas.width) * 100}%`,
-                  top: `${(layout.contentBox.y / layout.canvas.height) * 100}%`,
-                  width: `${(layout.contentBox.width / layout.canvas.width) * 100}%`,
-                  height: `${(layout.contentBox.height / layout.canvas.height) * 100}%`,
-                }}
-                onPointerDown={(e) => onPointerDown("contentBox", e)}
-              >
-                <span className="absolute left-2 top-2 rounded bg-cyan-950/80 px-1.5 py-0.5 text-[10px] text-cyan-100">contentBox</span>
-              </div>
-            )}
-
-            {layout.imageBox.visible && (
-              <div
-                className="absolute rounded-xl border-2 border-amber-300/80 bg-amber-400/10 cursor-move"
-                style={{
-                  left: `${(layout.imageBox.x / layout.canvas.width) * 100}%`,
-                  top: `${(layout.imageBox.y / layout.canvas.height) * 100}%`,
-                  width: `${(layout.imageBox.width / layout.canvas.width) * 100}%`,
-                  height: `${(layout.imageBox.height / layout.canvas.height) * 100}%`,
-                }}
-                onPointerDown={(e) => onPointerDown("imageBox", e)}
-              >
-                <span className="absolute left-2 top-2 rounded bg-amber-950/80 px-1.5 py-0.5 text-[10px] text-amber-100">imageBox</span>
-              </div>
-            )}
-
-            {([
-              ["title", layout.title],
-              ["members", layout.members],
-              ["time", layout.time],
-              ["content", layout.content],
-              ["voice", layout.voice],
-            ] as const).map(([fieldName, field]) => field.visible ? (
-              <button
-                key={fieldName}
-                type="button"
-                className="absolute -translate-x-1/2 -translate-y-1/2 rounded border border-cyan-200 bg-cyan-950/80 px-2 py-1 text-[10px] text-cyan-50 cursor-move"
-                style={{ left: `${(field.x / layout.canvas.width) * 100}%`, top: `${(field.y / layout.canvas.height) * 100}%` }}
-                onPointerDown={(e) => onPointerDown(fieldName, e)}
-              >
-                {fieldName}
-              </button>
-            ) : null)}
-          </div>
-
-          <p className="text-xs text-gray-400">下の画像はサーバー側で bot と同じ描画関数から生成した PNG です。上に重ねたガイドをドラッグして座標を調整できます。</p>
+          <p className="text-xs text-gray-400">react-konva を使用した リアルタイム描画です。テキストやボックスはドラッグで移動できます。</p>
 
           <div className="border border-gray-700 rounded-lg p-3">
             <h3 className="font-semibold mb-2">保存済みテンプレート</h3>

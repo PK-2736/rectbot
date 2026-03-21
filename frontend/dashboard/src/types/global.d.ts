@@ -8,6 +8,9 @@ declare module 'react' {
   const React: unknown;
   export default React;
   export type ReactNode = unknown;
+  export interface MutableRefObject<T> {
+    current: T;
+  }
   export interface Context<T = unknown> {
     // Provider should be usable as a JSX component: <Context.Provider value={...}>{children}</Context.Provider>
     Provider: (props: { value: T; children?: ReactNode }) => JSX.Element | null;
@@ -15,6 +18,8 @@ declare module 'react' {
   }
   export function useState<T = unknown>(initial?: T): [T, (v: T | ((prev: T) => T)) => void];
   export function useEffect(cb: () => void | (() => void), deps?: unknown[]): void;
+  export function useRef<T>(initialValue: T): MutableRefObject<T>;
+  export function useMemo<T>(factory: () => T, deps?: unknown[]): T;
   export function useCallback<T extends (...args: unknown[]) => unknown>(fn: T, deps?: unknown[]): T;
   export function createContext<T = unknown>(defaultValue?: T): Context<T>;
   export function useContext<T = unknown>(context: Context<T>): T;
