@@ -349,6 +349,9 @@ export function RecruitCardCanvasImpl({
   // ドラッグ中の要素位置をローカルで管理（親状態更新を遅延）
   const dragOffsetsRef = useRef<Record<string, { x: number; y: number }>>({});
   
+  // ドラッグ中のモード保持（モード切り替わり防止）
+  const templateModeRef = useRef<boolean | null>(null);
+  
   // コールバック参照の安定化（依存配列から除外するため）
   const onLayoutChangeRef = useRef(onLayoutChange);
   const onRenderedDataUrlRef = useRef(onRenderedDataUrl);
@@ -408,7 +411,19 @@ export function RecruitCardCanvasImpl({
 
     const participants = clamp(Number(recruitData.participants || 4), 0, 16);
     const voiceText = recruitData.voicePlace || '指定なし';
-    const inTemplateMode = Boolean(backgroundImageUrl) || !isDefaultTemplateLayout(layout);
+    
+    // ドラッグ中はモードを固定、ドラッグ中でなければ現在のモードを計算
+    const isDragging = Object.keys(dragOffsetsRef.current).length > 0;
+    let inTemplateMode = Boolean(backgroundImageUrl) || !isDefaultTemplateLayout(layout);
+    
+    if (isDragging && templateModeRef.current !== null) {
+      // ドラッグ中はモードを保持
+      inTemplateMode = templateModeRef.current;
+    } else if (!isDragging) {
+      // ドラッグ終了時はモードを保存
+      templateModeRef.current = inTemplateMode;
+    }
+    
     const scaledImageBox = scaleBoxToRect(layout.imageBox, layout.canvas);
     const scaledContentBox = scaleBoxToRect(layout.contentBox, layout.canvas);
     const scaledTitle = scaleTextFieldToRect(layout.title, layout.canvas);
@@ -423,9 +438,14 @@ export function RecruitCardCanvasImpl({
 
       if (inTemplateMode) {
         if (scaledImageBox.visible) {
+          // ドラッグ中の位置を保持
+          const imageBoxDragOffset = dragOffsetsRef.current['imageBox'];
+          const imageBoxX = imageBoxDragOffset ? imageBoxDragOffset.x : scaledImageBox.x;
+          const imageBoxY = imageBoxDragOffset ? imageBoxDragOffset.y : scaledImageBox.y;
+          
           const imageBoxRect = new Konva.Rect({
-            x: scaledImageBox.x,
-            y: scaledImageBox.y,
+            x: imageBoxX,
+            y: imageBoxY,
             width: scaledImageBox.width,
             height: scaledImageBox.height,
             fill: 'rgba(18, 20, 24, 0.95)',
@@ -444,7 +464,6 @@ export function RecruitCardCanvasImpl({
               const offset = dragOffsetsRef.current['imageBox'];
               if (offset && onLayoutChangeRef.current) {
                 onLayoutChangeRef.current('imageBox', toEditorX(offset.x), toEditorY(offset.y));
-                delete dragOffsetsRef.current['imageBox'];
               }
             });
           }
@@ -462,8 +481,8 @@ export function RecruitCardCanvasImpl({
               });
 
               const imageNode = new Konva.Image({
-                x: scaledImageBox.x,
-                y: scaledImageBox.y,
+                x: imageBoxX,
+                y: imageBoxY,
                 width: scaledImageBox.width,
                 height: scaledImageBox.height,
                 image: img,
@@ -477,9 +496,14 @@ export function RecruitCardCanvasImpl({
         }
 
         if (scaledContentBox.visible) {
+          // ドラッグ中の位置を保持
+          const contentBoxDragOffset = dragOffsetsRef.current['contentBox'];
+          const contentBoxX = contentBoxDragOffset ? contentBoxDragOffset.x : scaledContentBox.x;
+          const contentBoxY = contentBoxDragOffset ? contentBoxDragOffset.y : scaledContentBox.y;
+          
           const box = new Konva.Rect({
-            x: scaledContentBox.x,
-            y: scaledContentBox.y,
+            x: contentBoxX,
+            y: contentBoxY,
             width: scaledContentBox.width,
             height: scaledContentBox.height,
             fill: 'rgba(0, 0, 0, 0.56)',
@@ -497,7 +521,6 @@ export function RecruitCardCanvasImpl({
               const offset = dragOffsetsRef.current['contentBox'];
               if (offset && onLayoutChangeRef.current) {
                 onLayoutChangeRef.current('contentBox', toEditorX(offset.x), toEditorY(offset.y));
-                delete dragOffsetsRef.current['contentBox'];
               }
             });
           }
@@ -512,8 +535,10 @@ export function RecruitCardCanvasImpl({
       } else {
         addClassicTitle(layer, RECT_CANVAS_WIDTH, recruitData.title || 'ゲーム募集', accentColor);
 
-        const boxX = scaledContentBox.x;
-        const boxY = scaledContentBox.y;
+        // ドラッグ中の位置を保持
+        const contentBoxDragOffset = dragOffsetsRef.current['contentBox'];
+        const boxX = contentBoxDragOffset ? contentBoxDragOffset.x : scaledContentBox.x;
+        const boxY = contentBoxDragOffset ? contentBoxDragOffset.y : scaledContentBox.y;
         const boxWidth = scaledContentBox.width;
         const boxHeight = scaledContentBox.height;
 
@@ -576,7 +601,12 @@ export function RecruitCardCanvasImpl({
         ];
 
         info.forEach((item) => {
-          const infoGroup = new Konva.Group({ x: item.x, y: item.y, draggable: Boolean(onLayoutChangeRef.current) });
+          // ドラッグ中の位置を保持
+          const dragOffset = dragOffsetsRef.current[item.key];
+          const infoX = dragOffset ? dragOffset.x : item.x;
+          const infoY = dragOffset ? dragOffset.y : item.y;
+          
+          const infoGroup = new Konva.Group({ x: infoX, y: infoY, draggable: Boolean(onLayoutChangeRef.current) });
           if (onLayoutChangeRef.current) {
             infoGroup.on('dragmove', () => {
               dragOffsetsRef.current[item.key] = { x: infoGroup.x(), y: infoGroup.y() };
@@ -586,7 +616,6 @@ export function RecruitCardCanvasImpl({
               const offset = dragOffsetsRef.current[item.key];
               if (offset && onLayoutChangeRef.current) {
                 onLayoutChangeRef.current(item.key, toEditorX(offset.x), toEditorY(offset.y));
-                delete dragOffsetsRef.current[item.key];
               }
             });
           }
