@@ -198,8 +198,7 @@ function addTemplateTextNode(
   field: LayoutField,
   text: string,
   draggable: boolean,
-  onDragEnd?: (x: number, y: number) => void,
-  onDragMove?: () => void
+  onDragEnd?: (x: number, y: number) => void
 ) {
   if (!field.visible || !text) return;
 
@@ -237,15 +236,8 @@ function addTemplateTextNode(
     })
   );
 
-  if (onDragEnd || onDragMove) {
-    if (onDragMove) {
-      group.on('dragmove', () => {
-        onDragMove();
-      });
-    }
-    if (onDragEnd) {
-      group.on('dragend', () => onDragEnd(Math.round(group.x()), Math.round(group.y())));
-    }
+  if (onDragEnd) {
+    group.on('dragend', () => onDragEnd(Math.round(group.x()), Math.round(group.y())));
   }
 
   layer.add(group);
@@ -257,8 +249,7 @@ function addTemplateContentNode(
   contentBox: LayoutBox,
   text: string,
   draggable: boolean,
-  onDragEnd?: (x: number, y: number) => void,
-  onDragMove?: () => void
+  onDragEnd?: (x: number, y: number) => void
 ) {
   if (!field.visible) return;
 
@@ -288,17 +279,10 @@ function addTemplateContentNode(
     group.add(new Konva.Text({ x: startX, y: startY + i * lineHeight, text: line, fill: '#ffffff', fontSize: sizePx, fontFamily: 'CorporateRounded' }));
   });
 
-  if (onDragEnd || onDragMove) {
+  if (onDragEnd) {
     const baseX = contentBox.visible ? contentBox.x : field.x;
     const baseY = contentBox.visible ? contentBox.y : field.y;
-    if (onDragMove) {
-      group.on('dragmove', () => {
-        onDragMove();
-      });
-    }
-    if (onDragEnd) {
-      group.on('dragend', () => onDragEnd(Math.round(baseX + group.x()), Math.round(baseY + group.y())));
-    }
+    group.on('dragend', () => onDragEnd(Math.round(baseX + group.x()), Math.round(baseY + group.y())));
   }
   layer.add(group);
 }
@@ -345,15 +329,7 @@ export function RecruitCardCanvasImpl({
   const stageRef = useRef<Konva.Stage | null>(null);
   const { width: canvasWidth, height: canvasHeight } = layout.canvas;
   const [containerSize, setContainerSize] = useState({ width: RECT_CANVAS_WIDTH, height: RECT_CANVAS_HEIGHT });
-  
-  // ドラッグ中の要素位置をローカルで管理（親状態更新を遅延）
-  const dragOffsetsRef = useRef<Record<string, { x: number; y: number }>>({});
-  
-  // ドラッグ中のモード保持（モード切り替わり防止）
-  const templateModeRef = useRef<boolean | null>(null);
-  
-  // 前回のlayoutを保存（ドラッグ完了検出用）
-  const previousLayoutRef = useRef<typeof layout | null>(null);
+  const initialTemplateModeRef = useRef<boolean | null>(null);
   
   // コールバック参照の安定化（依存配列から除外するため）
   const onLayoutChangeRef = useRef(onLayoutChange);
@@ -363,23 +339,6 @@ export function RecruitCardCanvasImpl({
     onLayoutChangeRef.current = onLayoutChange;
     onRenderedDataUrlRef.current = onRenderedDataUrl;
   }, [onLayoutChange, onRenderedDataUrl]);
-  
-  // layout が "実質的に確定" したのを検出してdragOffsetsRefをクリア
-  useEffect(() => {
-    // layoutの内容が実質的に一致 = dragend後の親state確定
-    if (previousLayoutRef.current) {
-      const layoutChanged = previousLayoutRef.current.contentBox.x !== layout.contentBox.x ||
-                           previousLayoutRef.current.contentBox.y !== layout.contentBox.y ||
-                           previousLayoutRef.current.title.x !== layout.title.x ||
-                           previousLayoutRef.current.title.y !== layout.title.y;
-      
-      if (layoutChanged) {
-        // layout が変化したので、ドラッグ完了と判断 → 次のドラッグのため古い情報をクリア
-        // （ただしすぐには消さない、isDragging の判定用に保持）
-      }
-    }
-    previousLayoutRef.current = layout;
-  }, [layout]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -431,18 +390,10 @@ export function RecruitCardCanvasImpl({
 
     const participants = clamp(Number(recruitData.participants || 4), 0, 16);
     const voiceText = recruitData.voicePlace || '指定なし';
-    
-    // ドラッグ中はモードを固定、ドラッグ中でなければ現在のモードを計算
-    const isDragging = Object.keys(dragOffsetsRef.current).length > 0;
-    let inTemplateMode = Boolean(backgroundImageUrl) || !isDefaultTemplateLayout(layout);
-    
-    if (isDragging && templateModeRef.current !== null) {
-      // ドラッグ中はモードを保持
-      inTemplateMode = templateModeRef.current;
-    } else if (!isDragging) {
-      // ドラッグ終了時はモードを保存
-      templateModeRef.current = inTemplateMode;
+    if (initialTemplateModeRef.current === null) {
+      initialTemplateModeRef.current = Boolean(backgroundImageUrl) || !isDefaultTemplateLayout(layout);
     }
+    const inTemplateMode = initialTemplateModeRef.current;
     
     const scaledImageBox = scaleBoxToRect(layout.imageBox, layout.canvas);
     const scaledContentBox = scaleBoxToRect(layout.contentBox, layout.canvas);
@@ -458,14 +409,9 @@ export function RecruitCardCanvasImpl({
 
       if (inTemplateMode) {
         if (scaledImageBox.visible) {
-          // ドラッグ中の位置を保持
-          const imageBoxDragOffset = dragOffsetsRef.current['imageBox'];
-          const imageBoxX = imageBoxDragOffset ? imageBoxDragOffset.x : scaledImageBox.x;
-          const imageBoxY = imageBoxDragOffset ? imageBoxDragOffset.y : scaledImageBox.y;
-          
           const imageBoxRect = new Konva.Rect({
-            x: imageBoxX,
-            y: imageBoxY,
+            x: scaledImageBox.x,
+            y: scaledImageBox.y,
             width: scaledImageBox.width,
             height: scaledImageBox.height,
             fill: 'rgba(18, 20, 24, 0.95)',
@@ -476,19 +422,9 @@ export function RecruitCardCanvasImpl({
             dragBoundFunc: (pos) => pos,
           });
           if (onLayoutChangeRef.current) {
-            imageBoxRect.on('dragmove', () => {
-              // 新しいドラッグ開始時に他のキーをクリア
-              if (!dragOffsetsRef.current['imageBox']) {
-                dragOffsetsRef.current = {};
-              }
-              dragOffsetsRef.current['imageBox'] = { x: imageBoxRect.x(), y: imageBoxRect.y() };
-              layer.draw();
-            });
             imageBoxRect.on('dragend', () => {
-              const offset = dragOffsetsRef.current['imageBox'];
-              if (offset && onLayoutChangeRef.current) {
-                onLayoutChangeRef.current('imageBox', toEditorX(offset.x), toEditorY(offset.y));
-                delete dragOffsetsRef.current['imageBox'];
+              if (onLayoutChangeRef.current) {
+                onLayoutChangeRef.current('imageBox', toEditorX(imageBoxRect.x()), toEditorY(imageBoxRect.y()));
               }
             });
           }
@@ -506,8 +442,8 @@ export function RecruitCardCanvasImpl({
               });
 
               const imageNode = new Konva.Image({
-                x: imageBoxX,
-                y: imageBoxY,
+                x: scaledImageBox.x,
+                y: scaledImageBox.y,
                 width: scaledImageBox.width,
                 height: scaledImageBox.height,
                 image: img,
@@ -521,14 +457,9 @@ export function RecruitCardCanvasImpl({
         }
 
         if (scaledContentBox.visible) {
-          // ドラッグ中の位置を保持
-          const contentBoxDragOffset = dragOffsetsRef.current['contentBox'];
-          const contentBoxX = contentBoxDragOffset ? contentBoxDragOffset.x : scaledContentBox.x;
-          const contentBoxY = contentBoxDragOffset ? contentBoxDragOffset.y : scaledContentBox.y;
-          
           const box = new Konva.Rect({
-            x: contentBoxX,
-            y: contentBoxY,
+            x: scaledContentBox.x,
+            y: scaledContentBox.y,
             width: scaledContentBox.width,
             height: scaledContentBox.height,
             fill: 'rgba(0, 0, 0, 0.56)',
@@ -538,37 +469,25 @@ export function RecruitCardCanvasImpl({
             draggable: Boolean(onLayoutChangeRef.current),
           });
           if (onLayoutChangeRef.current) {
-            box.on('dragmove', () => {
-              // 新しいドラッグ開始時に他のキーをクリア
-              if (!dragOffsetsRef.current['contentBox']) {
-                dragOffsetsRef.current = {};
-              }
-              dragOffsetsRef.current['contentBox'] = { x: box.x(), y: box.y() };
-              layer.draw();
-            });
             box.on('dragend', () => {
-              const offset = dragOffsetsRef.current['contentBox'];
-              if (offset && onLayoutChangeRef.current) {
-                onLayoutChangeRef.current('contentBox', toEditorX(offset.x), toEditorY(offset.y));
-                delete dragOffsetsRef.current['contentBox'];
+              if (onLayoutChangeRef.current) {
+                onLayoutChangeRef.current('contentBox', toEditorX(box.x()), toEditorY(box.y()));
               }
             });
           }
           layer.add(box);
         }
 
-        addTemplateTextNode(layer, scaledTitle, recruitData.title || '募集タイトル', Boolean(onLayoutChangeRef.current), (x, y) => onLayoutChangeRef.current?.('title', toEditorX(x), toEditorY(y)), () => layer.draw());
-        addTemplateTextNode(layer, scaledMembers, `👥 ${participants}人`, Boolean(onLayoutChangeRef.current), (x, y) => onLayoutChangeRef.current?.('members', toEditorX(x), toEditorY(y)), () => layer.draw());
-        addTemplateTextNode(layer, scaledTime, `🕒 ${recruitData.startTimeText || '今から'}`, Boolean(onLayoutChangeRef.current), (x, y) => onLayoutChangeRef.current?.('time', toEditorX(x), toEditorY(y)), () => layer.draw());
-        addTemplateTextNode(layer, scaledVoice, `🎙 ${voiceText}`, Boolean(onLayoutChangeRef.current), (x, y) => onLayoutChangeRef.current?.('voice', toEditorX(x), toEditorY(y)), () => layer.draw());
-        addTemplateContentNode(layer, scaledContent, scaledContentBox, recruitData.content || 'ガチエリア / 初心者歓迎', Boolean(onLayoutChangeRef.current), (x, y) => onLayoutChangeRef.current?.('content', toEditorX(x), toEditorY(y)), () => layer.draw());
+        addTemplateTextNode(layer, scaledTitle, recruitData.title || '募集タイトル', Boolean(onLayoutChangeRef.current), (x, y) => onLayoutChangeRef.current?.('title', toEditorX(x), toEditorY(y)));
+        addTemplateTextNode(layer, scaledMembers, `👥 ${participants}人`, Boolean(onLayoutChangeRef.current), (x, y) => onLayoutChangeRef.current?.('members', toEditorX(x), toEditorY(y)));
+        addTemplateTextNode(layer, scaledTime, `🕒 ${recruitData.startTimeText || '今から'}`, Boolean(onLayoutChangeRef.current), (x, y) => onLayoutChangeRef.current?.('time', toEditorX(x), toEditorY(y)));
+        addTemplateTextNode(layer, scaledVoice, `🎙 ${voiceText}`, Boolean(onLayoutChangeRef.current), (x, y) => onLayoutChangeRef.current?.('voice', toEditorX(x), toEditorY(y)));
+        addTemplateContentNode(layer, scaledContent, scaledContentBox, recruitData.content || 'ガチエリア / 初心者歓迎', Boolean(onLayoutChangeRef.current), (x, y) => onLayoutChangeRef.current?.('content', toEditorX(x), toEditorY(y)));
       } else {
         addClassicTitle(layer, RECT_CANVAS_WIDTH, recruitData.title || 'ゲーム募集', accentColor);
 
-        // ドラッグ中の位置を保持
-        const contentBoxDragOffset = dragOffsetsRef.current['contentBox'];
-        const boxX = contentBoxDragOffset ? contentBoxDragOffset.x : scaledContentBox.x;
-        const boxY = contentBoxDragOffset ? contentBoxDragOffset.y : scaledContentBox.y;
+        const boxX = scaledContentBox.x;
+        const boxY = scaledContentBox.y;
         const boxWidth = scaledContentBox.width;
         const boxHeight = scaledContentBox.height;
 
@@ -578,19 +497,9 @@ export function RecruitCardCanvasImpl({
           draggable: Boolean(onLayoutChangeRef.current),
         });
         if (onLayoutChangeRef.current) {
-          contentGroup.on('dragmove', () => {
-            // 新しいドラッグ開始時に他のキーをクリア
-            if (!dragOffsetsRef.current['contentBox']) {
-              dragOffsetsRef.current = {};
-            }
-            dragOffsetsRef.current['contentBox'] = { x: contentGroup.x(), y: contentGroup.y() };
-            layer.draw();
-          });
           contentGroup.on('dragend', () => {
-            const offset = dragOffsetsRef.current['contentBox'];
-            if (offset && onLayoutChangeRef.current) {
-              onLayoutChangeRef.current('contentBox', toEditorX(offset.x), toEditorY(offset.y));
-              delete dragOffsetsRef.current['contentBox'];
+            if (onLayoutChangeRef.current) {
+              onLayoutChangeRef.current('contentBox', toEditorX(contentGroup.x()), toEditorY(contentGroup.y()));
             }
           });
         }
@@ -635,26 +544,11 @@ export function RecruitCardCanvasImpl({
         ];
 
         info.forEach((item) => {
-          // ドラッグ中の位置を保持
-          const dragOffset = dragOffsetsRef.current[item.key];
-          const infoX = dragOffset ? dragOffset.x : item.x;
-          const infoY = dragOffset ? dragOffset.y : item.y;
-          
-          const infoGroup = new Konva.Group({ x: infoX, y: infoY, draggable: Boolean(onLayoutChangeRef.current) });
+          const infoGroup = new Konva.Group({ x: item.x, y: item.y, draggable: Boolean(onLayoutChangeRef.current) });
           if (onLayoutChangeRef.current) {
-            infoGroup.on('dragmove', () => {
-              // 新しいドラッグ開始時に他のキーをクリア
-              if (!dragOffsetsRef.current[item.key]) {
-                dragOffsetsRef.current = {};
-              }
-              dragOffsetsRef.current[item.key] = { x: infoGroup.x(), y: infoGroup.y() };
-              layer.draw();
-            });
             infoGroup.on('dragend', () => {
-              const offset = dragOffsetsRef.current[item.key];
-              if (offset && onLayoutChangeRef.current) {
-                onLayoutChangeRef.current(item.key, toEditorX(offset.x), toEditorY(offset.y));
-                delete dragOffsetsRef.current[item.key];
+              if (onLayoutChangeRef.current) {
+                onLayoutChangeRef.current(item.key, toEditorX(infoGroup.x()), toEditorY(infoGroup.y()));
               }
             });
           }
