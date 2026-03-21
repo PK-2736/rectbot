@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import Konva from 'konva';
 
 interface RecruitCardCanvasProps {
@@ -47,15 +47,37 @@ export function RecruitCardCanvasImpl(props: RecruitCardCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const stageRef = useRef<Konva.Stage | null>(null);
   const { width: canvasWidth, height: canvasHeight } = layout.canvas;
-  const scaledWidth = canvasWidth * scale;
-  const scaledHeight = canvasHeight * scale;
+  const [fitScale, setFitScale] = useState(scale);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    const updateFitScale = () => {
+      const containerWidth = containerRef.current?.clientWidth ?? canvasWidth;
+      const responsiveScale = Math.min(scale, containerWidth / canvasWidth);
+      setFitScale(Number.isFinite(responsiveScale) && responsiveScale > 0 ? responsiveScale : scale);
+    };
+
+    updateFitScale();
+
+    const observer = new ResizeObserver(() => updateFitScale());
+    observer.observe(containerRef.current);
+
+    return () => observer.disconnect();
+  }, [canvasWidth, scale]);
+
+  const scaledWidth = canvasWidth * fitScale;
+  const scaledHeight = canvasHeight * fitScale;
 
   useEffect(() => {
     if (!containerRef.current) return;
 
     const stage = new Konva.Stage({ container: containerRef.current, width: scaledWidth, height: scaledHeight });
     stageRef.current = stage;
-    const layer = new Konva.Layer();
+    const layer = new Konva.Layer({
+      scaleX: fitScale,
+      scaleY: fitScale,
+    });
     stage.add(layer);
 
     const background = new Konva.Rect({ x: 0, y: 0, width: canvasWidth, height: canvasHeight, fill: '#101114' });
@@ -161,7 +183,7 @@ export function RecruitCardCanvasImpl(props: RecruitCardCanvasProps) {
     layer.draw();
 
     return () => stage.destroy();
-  }, [recruitData, layout, accentColor, scaledWidth, scaledHeight, canvasWidth, canvasHeight, onLayoutChange]);
+  }, [recruitData, layout, accentColor, scaledWidth, scaledHeight, canvasWidth, canvasHeight, fitScale, onLayoutChange]);
 
   return (
     <div className="relative w-full bg-gray-950 border border-gray-700 rounded overflow-hidden" style={{ aspectRatio: '16 / 9' }}>
