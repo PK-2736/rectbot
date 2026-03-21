@@ -28,9 +28,12 @@ interface RecruitCardCanvasProps {
   backgroundImageUrl?: string;
   scale?: number;
   onLayoutChange?: (field: string, x: number, y: number) => void;
+  onRenderedDataUrl?: (dataUrl: string) => void;
 }
 
 const DEFAULT_ACCENT_COLOR = 'FF6B9D';
+const RECT_CANVAS_WIDTH = 140;
+const RECT_CANVAS_HEIGHT = 100;
 const DEFAULT_LAYOUT = {
   canvas: { width: 1280, height: 720 },
   title: { x: 420, y: 36, size: 64, visible: true },
@@ -103,7 +106,7 @@ function createMeasure(fontSize: number, bold = false) {
   const t = new Konva.Text({
     text: '',
     fontSize,
-    fontFamily: 'CorporateRounded, Arial, sans-serif',
+    fontFamily: 'CorporateRounded',
     fontStyle: bold ? 'bold' : 'normal',
   });
   return (text: string) => {
@@ -118,20 +121,19 @@ function addGradientBorder(layer: Konva.Layer, width: number, height: number, ac
   const base = `#${accentColor}`;
   const dark = `rgb(${Math.max(0, r - 40)}, ${Math.max(0, g - 40)}, ${Math.max(0, b - 40)})`;
 
-  const border = new Konva.Shape({
-    sceneFunc: (context, shape) => {
-      const grad = context.createLinearGradient(0, 0, width, height);
-      grad.addColorStop(0, light);
-      grad.addColorStop(0.5, base);
-      grad.addColorStop(1, dark);
-      context.strokeStyle = grad;
-      context.lineWidth = 5;
-      context.strokeRect(0, 0, width, height);
-      context.fillStrokeShape(shape);
-    },
-  });
-
-  layer.add(border);
+  layer.add(
+    new Konva.Rect({
+      x: 0,
+      y: 0,
+      width,
+      height,
+      strokeWidth: 5,
+      strokeLinearGradientStartPoint: { x: 0, y: 0 },
+      strokeLinearGradientEndPoint: { x: width, y: height },
+      strokeLinearGradientColorStops: [0, light, 0.5, base, 1, dark],
+      fillEnabled: false,
+    })
+  );
 }
 
 function drawPin(layer: Konva.Layer, x: number, y: number, color: string) {
@@ -175,6 +177,8 @@ function addClassicTitle(layer: Konva.Layer, width: number, title: string, accen
       text: titleText,
       align: 'center',
       fill: '#ffffff',
+      stroke: 'rgba(0, 0, 0, 0.5)',
+      strokeWidth: 1,
       fontSize: 8,
       fontStyle: 'bold',
       fontFamily: 'CorporateRounded, Arial, sans-serif',
@@ -197,7 +201,7 @@ function addTemplateTextNode(
 ) {
   if (!field.visible || !text) return;
 
-  const sizePx = Math.max(10, field.size);
+  const sizePx = Math.max(4, field.size);
   const measure = createMeasure(sizePx, true);
   const textWidth = Math.ceil(measure(text));
   const textPaddingX = Math.max(8, Math.round(sizePx * 0.25));
@@ -227,7 +231,7 @@ function addTemplateTextNode(
       fill: '#ffffff',
       fontSize: sizePx,
       fontStyle: 'bold',
-      fontFamily: 'CorporateRounded, Arial, sans-serif',
+      fontFamily: 'CorporateRounded',
     })
   );
 
@@ -248,33 +252,36 @@ function addTemplateContentNode(
 ) {
   if (!field.visible) return;
 
-  const sizePx = Math.max(10, field.size);
+  const sizePx = Math.max(4, field.size);
   const lineHeight = Math.round(sizePx * 1.25);
   const measure = createMeasure(sizePx, false);
-  const maxWidth = Math.max(120, contentBox.visible ? contentBox.width - 24 : 420);
+  const maxWidth = Math.max(120, contentBox.visible ? contentBox.width - 24 : RECT_CANVAS_WIDTH * 0.66);
   const lines = wrapTextLines(text || '募集内容を入力', maxWidth, measure).slice(0, 6);
+  const maxTextWidth = Math.min(maxWidth, Math.max(...lines.map((line) => Math.ceil(measure(line))), 40));
 
-  const group = new Konva.Group({ x: field.x, y: field.y, draggable });
-  if (!contentBox.visible) {
-    const maxTextWidth = Math.max(...lines.map((line) => Math.ceil(measure(line))), 40);
-    const textPaddingX = Math.max(8, Math.round(sizePx * 0.25));
-    const textPaddingY = Math.max(4, Math.round(sizePx * 0.2));
-    const rectWidth = maxTextWidth + textPaddingX * 2;
-    const rectHeight = lineHeight * lines.length + textPaddingY * 2;
-    const radius = Math.max(6, Math.round(sizePx * 0.2));
-    group.add(new Konva.Rect({ width: rectWidth, height: rectHeight, cornerRadius: radius, fill: 'rgba(0,0,0,0.45)' }));
-    group.add(new Konva.Rect({ width: rectWidth, height: rectHeight, cornerRadius: radius, stroke: 'rgba(255,255,255,0.25)', strokeWidth: 1 }));
-    lines.forEach((line, i) => {
-      group.add(new Konva.Text({ x: textPaddingX, y: textPaddingY + i * lineHeight, text: line, fill: '#ffffff', fontSize: sizePx, fontFamily: 'CorporateRounded, Arial, sans-serif' }));
-    });
-  } else {
-    lines.forEach((line, i) => {
-      group.add(new Konva.Text({ x: 12, y: 12 + i * lineHeight, text: line, fill: '#ffffff', fontSize: sizePx, fontFamily: 'CorporateRounded, Arial, sans-serif' }));
-    });
-  }
+  const textPaddingX = Math.max(8, Math.round(sizePx * 0.25));
+  const textPaddingY = Math.max(4, Math.round(sizePx * 0.2));
+  const rectX = contentBox.visible ? contentBox.x : field.x;
+  const rectY = contentBox.visible ? contentBox.y : field.y;
+  const rectWidth = contentBox.visible ? contentBox.width : maxTextWidth + textPaddingX * 2;
+  const rectHeight = contentBox.visible ? contentBox.height : lineHeight * lines.length + textPaddingY * 2;
+  const radius = Math.max(6, Math.round(sizePx * 0.2));
+
+  const group = new Konva.Group({ x: 0, y: 0, draggable });
+  group.add(new Konva.Rect({ x: rectX, y: rectY, width: rectWidth, height: rectHeight, cornerRadius: radius, fill: 'rgba(0,0,0,0.45)' }));
+  group.add(new Konva.Rect({ x: rectX, y: rectY, width: rectWidth, height: rectHeight, cornerRadius: radius, stroke: 'rgba(255,255,255,0.25)', strokeWidth: 1 }));
+
+  const startX = contentBox.visible ? rectX + 12 : field.x + textPaddingX;
+  const startY = contentBox.visible ? rectY + 12 : field.y + textPaddingY;
+  const maxLines = contentBox.visible ? Math.max(1, Math.floor((rectHeight - 24) / lineHeight)) : lines.length;
+  lines.slice(0, maxLines).forEach((line, i) => {
+    group.add(new Konva.Text({ x: startX, y: startY + i * lineHeight, text: line, fill: '#ffffff', fontSize: sizePx, fontFamily: 'CorporateRounded' }));
+  });
 
   if (onDragEnd) {
-    group.on('dragend', () => onDragEnd(Math.round(group.x()), Math.round(group.y())));
+    const baseX = contentBox.visible ? contentBox.x : field.x;
+    const baseY = contentBox.visible ? contentBox.y : field.y;
+    group.on('dragend', () => onDragEnd(Math.round(baseX + group.x()), Math.round(baseY + group.y())));
   }
   layer.add(group);
 }
@@ -285,6 +292,29 @@ function drawEmptyParticipantSlot(layer: Konva.Layer, x: number, y: number, radi
   layer.add(new Konva.Line({ points: [x, y - plusSize, x, y + plusSize], stroke: 'rgba(255,255,255,0.3)', strokeWidth: 1 }));
 }
 
+function scaleTextFieldToRect(field: LayoutField, layoutCanvas: { width: number; height: number }): LayoutField {
+  const sx = RECT_CANVAS_WIDTH / (layoutCanvas.width || DEFAULT_LAYOUT.canvas.width);
+  const sy = RECT_CANVAS_HEIGHT / (layoutCanvas.height || DEFAULT_LAYOUT.canvas.height);
+  return {
+    x: Math.round(field.x * sx),
+    y: Math.round(field.y * sy),
+    size: Math.max(4, Math.round(field.size * ((sx + sy) / 2))),
+    visible: field.visible,
+  };
+}
+
+function scaleBoxToRect(box: LayoutBox, layoutCanvas: { width: number; height: number }): LayoutBox {
+  const sx = RECT_CANVAS_WIDTH / (layoutCanvas.width || DEFAULT_LAYOUT.canvas.width);
+  const sy = RECT_CANVAS_HEIGHT / (layoutCanvas.height || DEFAULT_LAYOUT.canvas.height);
+  return {
+    x: Math.round(box.x * sx),
+    y: Math.round(box.y * sy),
+    width: Math.max(16, Math.round(box.width * sx)),
+    height: Math.max(16, Math.round(box.height * sy)),
+    visible: box.visible,
+  };
+}
+
 export function RecruitCardCanvasImpl({
   recruitData,
   layout,
@@ -292,11 +322,12 @@ export function RecruitCardCanvasImpl({
   backgroundImageUrl,
   scale = 1,
   onLayoutChange,
+  onRenderedDataUrl,
 }: RecruitCardCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const stageRef = useRef<Konva.Stage | null>(null);
   const { width: canvasWidth, height: canvasHeight } = layout.canvas;
-  const [containerSize, setContainerSize] = useState({ width: canvasWidth, height: canvasHeight });
+  const [containerSize, setContainerSize] = useState({ width: RECT_CANVAS_WIDTH, height: RECT_CANVAS_HEIGHT });
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -325,13 +356,18 @@ export function RecruitCardCanvasImpl({
     stageRef.current = stage;
 
     const baseFitScale = Math.min(
-      containerSize.width / canvasWidth,
-      containerSize.height / canvasHeight
+      containerSize.width / RECT_CANVAS_WIDTH,
+      containerSize.height / RECT_CANVAS_HEIGHT
     );
     const safeScale = Number.isFinite(scale) && scale > 0 ? scale : 1;
     const effectiveScale = baseFitScale * safeScale;
-    const offsetX = (containerSize.width - canvasWidth * effectiveScale) / 2;
-    const offsetY = (containerSize.height - canvasHeight * effectiveScale) / 2;
+    const offsetX = (containerSize.width - RECT_CANVAS_WIDTH * effectiveScale) / 2;
+    const offsetY = (containerSize.height - RECT_CANVAS_HEIGHT * effectiveScale) / 2;
+
+    const sx = RECT_CANVAS_WIDTH / (canvasWidth || DEFAULT_LAYOUT.canvas.width);
+    const sy = RECT_CANVAS_HEIGHT / (canvasHeight || DEFAULT_LAYOUT.canvas.height);
+    const toEditorX = (x: number) => Math.round(x / sx);
+    const toEditorY = (y: number) => Math.round(y / sy);
 
     const layer = new Konva.Layer({
       x: offsetX,
@@ -346,16 +382,24 @@ export function RecruitCardCanvasImpl({
     const inTemplateMode = Boolean(backgroundImageUrl) || !isDefaultTemplateLayout(layout);
 
     const drawAsync = async () => {
-      layer.add(new Konva.Rect({ x: 0, y: 0, width: canvasWidth, height: canvasHeight, fill: '#101114' }));
-      addGradientBorder(layer, canvasWidth, canvasHeight, accentColor);
+      layer.add(new Konva.Rect({ x: 0, y: 0, width: RECT_CANVAS_WIDTH, height: RECT_CANVAS_HEIGHT, fill: '#101114' }));
+      addGradientBorder(layer, RECT_CANVAS_WIDTH, RECT_CANVAS_HEIGHT, accentColor);
 
       if (inTemplateMode) {
-        if (layout.imageBox.visible) {
+        const scaledImageBox = scaleBoxToRect(layout.imageBox, layout.canvas);
+        const scaledContentBox = scaleBoxToRect(layout.contentBox, layout.canvas);
+        const scaledTitle = scaleTextFieldToRect(layout.title, layout.canvas);
+        const scaledMembers = scaleTextFieldToRect(layout.members, layout.canvas);
+        const scaledTime = scaleTextFieldToRect(layout.time, layout.canvas);
+        const scaledVoice = scaleTextFieldToRect(layout.voice, layout.canvas);
+        const scaledContent = scaleTextFieldToRect(layout.content, layout.canvas);
+
+        if (scaledImageBox.visible) {
           const imageBoxRect = new Konva.Rect({
-            x: layout.imageBox.x,
-            y: layout.imageBox.y,
-            width: layout.imageBox.width,
-            height: layout.imageBox.height,
+            x: scaledImageBox.x,
+            y: scaledImageBox.y,
+            width: scaledImageBox.width,
+            height: scaledImageBox.height,
             fill: 'rgba(18, 20, 24, 0.95)',
             cornerRadius: 8,
             stroke: 'rgba(171, 230, 255, 0.5)',
@@ -364,7 +408,7 @@ export function RecruitCardCanvasImpl({
             dragBoundFunc: (pos) => pos,
           });
           if (onLayoutChange) {
-            imageBoxRect.on('dragend', () => onLayoutChange('imageBox', Math.round(imageBoxRect.x()), Math.round(imageBoxRect.y())));
+            imageBoxRect.on('dragend', () => onLayoutChange('imageBox', toEditorX(imageBoxRect.x()), toEditorY(imageBoxRect.y())));
           }
           layer.add(imageBoxRect);
 
@@ -379,10 +423,10 @@ export function RecruitCardCanvasImpl({
               });
 
               const imageNode = new Konva.Image({
-                x: layout.imageBox.x,
-                y: layout.imageBox.y,
-                width: layout.imageBox.width,
-                height: layout.imageBox.height,
+                x: scaledImageBox.x,
+                y: scaledImageBox.y,
+                width: scaledImageBox.width,
+                height: scaledImageBox.height,
                 image: img,
                 cornerRadius: 8,
               });
@@ -393,12 +437,12 @@ export function RecruitCardCanvasImpl({
           }
         }
 
-        if (layout.contentBox.visible) {
+        if (scaledContentBox.visible) {
           const box = new Konva.Rect({
-            x: layout.contentBox.x,
-            y: layout.contentBox.y,
-            width: layout.contentBox.width,
-            height: layout.contentBox.height,
+            x: scaledContentBox.x,
+            y: scaledContentBox.y,
+            width: scaledContentBox.width,
+            height: scaledContentBox.height,
             fill: 'rgba(0, 0, 0, 0.56)',
             cornerRadius: 8,
             stroke: 'rgba(255,255,255,0.30)',
@@ -406,23 +450,23 @@ export function RecruitCardCanvasImpl({
             draggable: Boolean(onLayoutChange),
           });
           if (onLayoutChange) {
-            box.on('dragend', () => onLayoutChange('contentBox', Math.round(box.x()), Math.round(box.y())));
+            box.on('dragend', () => onLayoutChange('contentBox', toEditorX(box.x()), toEditorY(box.y())));
           }
           layer.add(box);
         }
 
-        addTemplateTextNode(layer, layout.title, recruitData.title || '募集タイトル', Boolean(onLayoutChange), (x, y) => onLayoutChange?.('title', x, y));
-        addTemplateTextNode(layer, layout.members, `👥 ${participants}人`, Boolean(onLayoutChange), (x, y) => onLayoutChange?.('members', x, y));
-        addTemplateTextNode(layer, layout.time, `🕒 ${recruitData.startTimeText || '今から'}`, Boolean(onLayoutChange), (x, y) => onLayoutChange?.('time', x, y));
-        addTemplateTextNode(layer, layout.voice, `🎙 ${voiceText}`, Boolean(onLayoutChange), (x, y) => onLayoutChange?.('voice', x, y));
-        addTemplateContentNode(layer, layout.content, layout.contentBox, recruitData.content || 'ガチエリア / 初心者歓迎', Boolean(onLayoutChange), (x, y) => onLayoutChange?.('content', x, y));
+        addTemplateTextNode(layer, scaledTitle, recruitData.title || '募集タイトル', Boolean(onLayoutChange), (x, y) => onLayoutChange?.('title', toEditorX(x), toEditorY(y)));
+        addTemplateTextNode(layer, scaledMembers, `👥 ${participants}人`, Boolean(onLayoutChange), (x, y) => onLayoutChange?.('members', toEditorX(x), toEditorY(y)));
+        addTemplateTextNode(layer, scaledTime, `🕒 ${recruitData.startTimeText || '今から'}`, Boolean(onLayoutChange), (x, y) => onLayoutChange?.('time', toEditorX(x), toEditorY(y)));
+        addTemplateTextNode(layer, scaledVoice, `🎙 ${voiceText}`, Boolean(onLayoutChange), (x, y) => onLayoutChange?.('voice', toEditorX(x), toEditorY(y)));
+        addTemplateContentNode(layer, scaledContent, scaledContentBox, recruitData.content || 'ガチエリア / 初心者歓迎', Boolean(onLayoutChange), (x, y) => onLayoutChange?.('content', toEditorX(x), toEditorY(y)));
       } else {
-        addClassicTitle(layer, canvasWidth, recruitData.title || 'ゲーム募集', accentColor);
+        addClassicTitle(layer, RECT_CANVAS_WIDTH, recruitData.title || 'ゲーム募集', accentColor);
 
         const boxX = 8;
-        const boxY = canvasHeight * 0.39;
-        const boxWidth = canvasWidth * 0.48;
-        const boxHeight = canvasHeight * 0.5;
+        const boxY = RECT_CANVAS_HEIGHT * 0.39;
+        const boxWidth = RECT_CANVAS_WIDTH * 0.48;
+        const boxHeight = RECT_CANVAS_HEIGHT * 0.5;
 
         layer.add(new Konva.Rect({
           x: boxX,
@@ -461,7 +505,7 @@ export function RecruitCardCanvasImpl({
           { label: '通話：', value: voiceText },
         ];
 
-        const rightX = canvasWidth - 54;
+        const rightX = RECT_CANVAS_WIDTH - 54;
         const startY = 36;
         info.forEach((item, i) => {
           const y = startY + i * 20;
@@ -472,6 +516,10 @@ export function RecruitCardCanvasImpl({
       }
 
       layer.draw();
+
+      if (onRenderedDataUrl) {
+        onRenderedDataUrl(stage.toDataURL({ pixelRatio: 1 }));
+      }
     };
 
     void drawAsync();
@@ -479,7 +527,7 @@ export function RecruitCardCanvasImpl({
     return () => {
       stage.destroy();
     };
-  }, [recruitData, layout, accentColor, backgroundImageUrl, scale, canvasWidth, canvasHeight, containerSize, onLayoutChange]);
+  }, [recruitData, layout, accentColor, backgroundImageUrl, scale, canvasWidth, canvasHeight, containerSize, onLayoutChange, onRenderedDataUrl]);
 
   return (
     <div className="relative w-full bg-gray-950 border border-gray-700 rounded overflow-hidden" style={{ aspectRatio: `${layout.canvas.width} / ${layout.canvas.height}` }}>

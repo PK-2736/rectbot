@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import RecruitCardCanvas from "@/components/RecruitCardCanvas";
 
 const DEFAULT_LAYOUT = {
@@ -22,6 +22,95 @@ export default function TestKonvaPage() {
   const [startTime, setStartTime] = useState("今から");
   const [voicePlace, setVoicePlace] = useState("通話あり");
   const [accentColor, setAccentColor] = useState("5865F2");
+  const [previewDataUrl, setPreviewDataUrl] = useState("");
+  const [totalDiff, setTotalDiff] = useState(0);
+  const [regionDiffs, setRegionDiffs] = useState<Array<{ name: string; diff: number }>>([]);
+
+  const referenceImageUrl = "/rect-reference/default.png";
+
+  const regions = useMemo(
+    () => [
+      { name: "title", x: 0, y: 0, w: 140, h: 18 },
+      { name: "participants", x: 8, y: 20, w: 90, h: 18 },
+      { name: "contentBox", x: 8, y: 39, w: 68, h: 50 },
+      { name: "rightInfo", x: 86, y: 34, w: 50, h: 56 },
+      { name: "border", x: 0, y: 0, w: 140, h: 100 },
+    ],
+    []
+  );
+
+  useEffect(() => {
+    if (!previewDataUrl) return;
+
+    let cancelled = false;
+    const calc = async () => {
+      const load = (src: string) =>
+        new Promise<HTMLImageElement>((resolve, reject) => {
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          img.onload = () => resolve(img);
+          img.onerror = reject;
+          img.src = src;
+        });
+
+      try {
+        const [reference, preview] = await Promise.all([load(referenceImageUrl), load(previewDataUrl)]);
+
+        const normRef = document.createElement("canvas");
+        normRef.width = 140;
+        normRef.height = 100;
+        const refCtx = normRef.getContext("2d");
+        if (!refCtx) return;
+        refCtx.drawImage(reference, 0, 0, 140, 100);
+
+        const normPreview = document.createElement("canvas");
+        normPreview.width = 140;
+        normPreview.height = 100;
+        const prevCtx = normPreview.getContext("2d");
+        if (!prevCtx) return;
+        prevCtx.drawImage(preview, 0, 0, 140, 100);
+
+        const refData = refCtx.getImageData(0, 0, 140, 100).data;
+        const prevData = prevCtx.getImageData(0, 0, 140, 100).data;
+
+        const getDiffForRegion = (x: number, y: number, w: number, h: number) => {
+          let sum = 0;
+          let pixels = 0;
+          for (let py = y; py < y + h; py++) {
+            for (let px = x; px < x + w; px++) {
+              const i = (py * 140 + px) * 4;
+              const dr = Math.abs(refData[i] - prevData[i]);
+              const dg = Math.abs(refData[i + 1] - prevData[i + 1]);
+              const db = Math.abs(refData[i + 2] - prevData[i + 2]);
+              sum += dr + dg + db;
+              pixels += 1;
+            }
+          }
+          return pixels > 0 ? sum / (pixels * 3) : 0;
+        };
+
+        const total = getDiffForRegion(0, 0, 140, 100);
+        const perRegion = regions
+          .map((r) => ({ name: r.name, diff: getDiffForRegion(r.x, r.y, r.w, r.h) }))
+          .sort((a, b) => b.diff - a.diff);
+
+        if (!cancelled) {
+          setTotalDiff(Number(total.toFixed(2)));
+          setRegionDiffs(perRegion.map((r) => ({ name: r.name, diff: Number(r.diff.toFixed(2)) })));
+        }
+      } catch {
+        if (!cancelled) {
+          setTotalDiff(0);
+          setRegionDiffs([]);
+        }
+      }
+    };
+
+    void calc();
+    return () => {
+      cancelled = true;
+    };
+  }, [previewDataUrl, referenceImageUrl, regions]);
 
   return (
     <div className="min-h-screen bg-gray-900 text-white p-8">
@@ -33,7 +122,35 @@ export default function TestKonvaPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Canvas Display */}
         <section className="bg-gray-800/50 border border-gray-700 rounded-xl p-6">
-          <h2 className="text-xl font-semibold mb-4">リアルタイムプレビュー</h2>
+          <h2 className="text-xl font-semibold mb-4">リアルタイムプレビュー（比較モード）</h2>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div>
+              <p className="text-sm text-gray-300 mb-2">/rect 実画像（基準）</p>
+              <img src={referenceImageUrl} alt="rect reference" className="w-full border border-gray-600 rounded bg-black" />
+            </div>
+            <div>
+              <p className="text-sm text-gray-300 mb-2">page.tsx 出力（Konva）</p>
+              {previewDataUrl ? (
+                <img src={previewDataUrl} alt="konva preview snapshot" className="w-full border border-gray-600 rounded bg-black" />
+              ) : (
+                <div className="w-full aspect-[16/9] border border-gray-600 rounded bg-black/40" />
+              )}
+            </div>
+          </div>
+
+          <div className="mb-4 border border-gray-700 rounded p-3 bg-gray-900/40">
+            <p className="text-sm text-gray-300">全体平均差分: <span className="font-mono text-white">{totalDiff}</span></p>
+            <p className="text-xs text-gray-500 mt-1">領域差分（大きい順）</p>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-2 text-xs">
+              {regionDiffs.map((r) => (
+                <div key={r.name} className="bg-gray-800 rounded px-2 py-1">
+                  <span className="text-gray-400">{r.name}:</span> <span className="font-mono">{r.diff}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
           <RecruitCardCanvas
             recruitData={{
               title,
@@ -44,7 +161,8 @@ export default function TestKonvaPage() {
             }}
             layout={layout}
             accentColor={accentColor}
-            scale={0.5}
+            scale={1}
+            onRenderedDataUrl={setPreviewDataUrl}
             onLayoutChange={(field: string, x: number, y: number) => {
               setLayout((prev) => {
                 const updated = { ...prev };
