@@ -136,7 +136,7 @@ export default function PlusTemplatePage() {
 
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
   const [layout, setLayout] = useState<TemplateLayout>(DEFAULT_LAYOUT);
-  const [previewScale, setPreviewScale] = useState(0.5);
+  const [previewScale, setPreviewScale] = useState(1);
 
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api.recrubo.net";
 
@@ -166,7 +166,7 @@ export default function PlusTemplatePage() {
       return {
         form: { ...INITIAL_FORM, ...cachedForm },
         layout: parseLayout(cachedLayout),
-        previewScale: clamp(Number(parsed.previewScale ?? 0.5), 0.2, 1),
+        previewScale: clamp(Number(parsed.previewScale ?? 1), 0.5, 1.5),
       };
     } catch (_e) {
       return null;
@@ -216,7 +216,7 @@ export default function PlusTemplatePage() {
         // 3) 何もなければ初期値
         setForm(INITIAL_FORM);
         setLayout(DEFAULT_LAYOUT);
-        setPreviewScale(0.5);
+        setPreviewScale(1);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "テンプレート読み込みに失敗しました");
@@ -456,13 +456,14 @@ export default function PlusTemplatePage() {
             <input
               id="preview-scale"
               type="range"
-              min={20}
-              max={100}
+              min={50}
+              max={150}
               step={1}
               value={Math.round(previewScale * 100)}
-              onChange={(e) => setPreviewScale(clamp(Number(e.target.value) / 100, 0.2, 1))}
+              onChange={(e) => setPreviewScale(clamp(Number(e.target.value) / 100, 0.5, 1.5))}
               className="w-full"
             />
+            <p className="text-xs text-gray-400">100% = 枠内にぴったり全体表示（ノーマル）</p>
           </div>
 
           {/* RecruitCardCanvas コンポーネント */}
@@ -511,9 +512,9 @@ export default function PlusTemplatePage() {
                       const nextLayout = parseLayout(t.layout_json);
                       setForm(nextForm);
                       setLayout(nextLayout);
-                      setPreviewScale(0.5);
+                      setPreviewScale(1);
                       if (selectedGuildId) {
-                        writeEditorCache(selectedGuildId, nextForm, nextLayout, 0.5);
+                        writeEditorCache(selectedGuildId, nextForm, nextLayout, 1);
                       }
                     }}
                     className="w-full text-left border border-gray-700 rounded-lg p-3 hover:bg-gray-700/40 transition-colors"

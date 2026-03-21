@@ -295,36 +295,50 @@ export function RecruitCardCanvasImpl({
 }: RecruitCardCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const stageRef = useRef<Konva.Stage | null>(null);
-  const [fitScale, setFitScale] = useState(scale);
   const { width: canvasWidth, height: canvasHeight } = layout.canvas;
+  const [containerSize, setContainerSize] = useState({ width: canvasWidth, height: canvasHeight });
 
   useEffect(() => {
     if (!containerRef.current) return;
 
-    const updateFitScale = () => {
-      const containerWidth = containerRef.current?.clientWidth ?? canvasWidth;
-      const responsiveScale = Math.min(scale, containerWidth / canvasWidth);
-      setFitScale(Number.isFinite(responsiveScale) && responsiveScale > 0 ? responsiveScale : scale);
+    const updateContainerSize = () => {
+      const width = containerRef.current?.clientWidth ?? canvasWidth;
+      const height = containerRef.current?.clientHeight ?? canvasHeight;
+      setContainerSize({ width, height });
     };
 
-    updateFitScale();
+    updateContainerSize();
 
-    const observer = new ResizeObserver(() => updateFitScale());
+    const observer = new ResizeObserver(() => updateContainerSize());
     observer.observe(containerRef.current);
     return () => observer.disconnect();
-  }, [canvasWidth, scale]);
+  }, [canvasWidth, canvasHeight]);
 
   useEffect(() => {
     if (!containerRef.current) return;
 
     const stage = new Konva.Stage({
       container: containerRef.current,
-      width: canvasWidth * fitScale,
-      height: canvasHeight * fitScale,
+      width: containerSize.width,
+      height: containerSize.height,
     });
     stageRef.current = stage;
 
-    const layer = new Konva.Layer();
+    const baseFitScale = Math.min(
+      containerSize.width / canvasWidth,
+      containerSize.height / canvasHeight
+    );
+    const safeScale = Number.isFinite(scale) && scale > 0 ? scale : 1;
+    const effectiveScale = baseFitScale * safeScale;
+    const offsetX = (containerSize.width - canvasWidth * effectiveScale) / 2;
+    const offsetY = (containerSize.height - canvasHeight * effectiveScale) / 2;
+
+    const layer = new Konva.Layer({
+      x: offsetX,
+      y: offsetY,
+      scaleX: effectiveScale,
+      scaleY: effectiveScale,
+    });
     stage.add(layer);
 
     const participants = clamp(Number(recruitData.participants || 4), 0, 16);
@@ -465,7 +479,7 @@ export function RecruitCardCanvasImpl({
     return () => {
       stage.destroy();
     };
-  }, [recruitData, layout, accentColor, backgroundImageUrl, fitScale, canvasWidth, canvasHeight, onLayoutChange]);
+  }, [recruitData, layout, accentColor, backgroundImageUrl, scale, canvasWidth, canvasHeight, containerSize, onLayoutChange]);
 
   return (
     <div className="relative w-full bg-gray-950 border border-gray-700 rounded overflow-hidden" style={{ aspectRatio: `${layout.canvas.width} / ${layout.canvas.height}` }}>
