@@ -464,6 +464,7 @@ export function RecruitCardCanvasImpl({
               const offset = dragOffsetsRef.current['imageBox'];
               if (offset && onLayoutChangeRef.current) {
                 onLayoutChangeRef.current('imageBox', toEditorX(offset.x), toEditorY(offset.y));
+                delete dragOffsetsRef.current['imageBox'];
               }
             });
           }
@@ -521,6 +522,7 @@ export function RecruitCardCanvasImpl({
               const offset = dragOffsetsRef.current['contentBox'];
               if (offset && onLayoutChangeRef.current) {
                 onLayoutChangeRef.current('contentBox', toEditorX(offset.x), toEditorY(offset.y));
+                delete dragOffsetsRef.current['contentBox'];
               }
             });
           }
@@ -616,6 +618,7 @@ export function RecruitCardCanvasImpl({
               const offset = dragOffsetsRef.current[item.key];
               if (offset && onLayoutChangeRef.current) {
                 onLayoutChangeRef.current(item.key, toEditorX(offset.x), toEditorY(offset.y));
+                delete dragOffsetsRef.current[item.key];
               }
             });
           }
@@ -633,7 +636,10 @@ export function RecruitCardCanvasImpl({
       }
     };
 
-    void drawAsync();
+    void drawAsync().finally(() => {
+      // drawAsync 完了後に dragOffsetsRef をクリア
+      dragOffsetsRef.current = {};
+    });
 
     return () => {
       stage.destroy();
