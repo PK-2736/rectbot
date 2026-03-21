@@ -324,7 +324,7 @@ export function RecruitCardCanvasImpl({
     });
     stageRef.current = stage;
 
-    const layer = new Konva.Layer({ scaleX: fitScale, scaleY: fitScale });
+    const layer = new Konva.Layer();
     stage.add(layer);
 
     const participants = clamp(Number(recruitData.participants || 4), 0, 16);
