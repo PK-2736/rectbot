@@ -2,6 +2,7 @@ const { SlashCommandBuilder } = require('discord.js');
 // externalized shared state and helpers
 const { recruitParticipants, __hydrateParticipants } = require('./gameRecruit/data/state');
 const { autoCloseRecruitment } = require('../utils/recruitMessage');
+const { listTemplates, getGuildSettings } = require('../utils/database');
 
 // hydrateRecruitData moved to utils/recruitMessage
 
@@ -60,6 +61,13 @@ module.exports = {
         .setRequired(true)
         .setAutocomplete(true)
     )
+    // 任意: 保存済みテンプレート
+    .addStringOption(option =>
+      option.setName('テンプレート')
+        .setDescription('保存済み募集テンプレート（任意）')
+        .setRequired(false)
+        .setAutocomplete(true)
+    )
     // 任意: 色
     .addStringOption(option =>
       option.setName('色')
@@ -102,6 +110,52 @@ module.exports = {
     // Delegate to extracted handler
     const { execute } = require('./gameRecruit/execute');
     return execute(interaction);
+  },
+
+  async autocomplete(interaction) {
+    try {
+      const focused = interaction.options.getFocused(true);
+      const focusedName = String(focused?.name || '');
+      const focusedValue = String(focused?.value || '').trim();
+
+      if (focusedName === 'テンプレート' || focusedName === 'template') {
+        const templates = await listTemplates(interaction.guildId, focusedValue || '').catch(() => []);
+        const options = (Array.isArray(templates) ? templates : [])
+          .filter((t) => t && t.name)
+          .slice(0, 25)
+          .map((t) => ({
+            name: String(t.name).slice(0, 100),
+            value: String(t.name).slice(0, 100),
+          }));
+        await interaction.respond(options);
+        return;
+      }
+
+      if (focusedName === 'タイトル' || focusedName === 'title') {
+        const settings = await getGuildSettings(interaction.guildId).catch(() => null);
+        const title = settings?.defaultTitle;
+        if (title && (!focusedValue || String(title).includes(focusedValue))) {
+          await interaction.respond([{ name: `既定: ${String(title).slice(0, 90)}`, value: String(title).slice(0, 100) }]);
+          return;
+        }
+        await interaction.respond([]);
+        return;
+      }
+
+      if (focusedName === '開始時間' || focusedName === 'start') {
+        const v = focusedValue.toLowerCase();
+        const shouldSuggest = !v || ['いま', '今', 'ima', 'now'].some((k) => v.includes(k));
+        await interaction.respond(shouldSuggest ? [{ name: '今から', value: '今から' }] : []);
+        return;
+      }
+
+      await interaction.respond([]);
+    } catch (error) {
+      console.warn('[rect autocomplete] error:', error?.message || error);
+      try {
+        await interaction.respond([]);
+      } catch (_) {}
+    }
   },
 
   // モーダル送信後の処理（interactionCreateイベントで呼び出し）

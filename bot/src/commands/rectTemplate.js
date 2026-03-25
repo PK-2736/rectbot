@@ -23,6 +23,7 @@ module.exports = {
     .addStringOption(option =>
       option.setName('テンプレート')
         .setDescription('保存済みテンプレート名（必須）')
+        .setAutocomplete(true)
         .setRequired(true)
     )
     // Optional overrides
@@ -70,5 +71,13 @@ module.exports = {
   async execute(interaction) {
     const { execute } = require('./gameRecruit/execute');
     return execute(interaction);
+  },
+
+  async autocomplete(interaction) {
+    const rectCommand = require('./gameRecruit');
+    if (rectCommand?.autocomplete) {
+      return rectCommand.autocomplete(interaction);
+    }
+    return interaction.respond([]);
   }
 };
