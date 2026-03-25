@@ -116,7 +116,11 @@ async function buildRecruitDataObj(interaction, pendingData, participantsNum, gu
     recruiterId: interaction.user.id,
     recruitId: '',
     panelColor,
-    notificationRoleId: null
+    notificationRoleId: null,
+    templateName: pendingData?.templateName || null,
+    template: pendingData?.template || null,
+    layout_json: pendingData?.template?.layout_json || null,
+    background_image_url: pendingData?.template?.background_image_url || null
   };
 }
 
@@ -149,7 +153,11 @@ async function buildRecruitDataFromModal(interaction, guildSettings) {
     recruitId: '',
     panelColor,
     notificationRoleId: selectedNotificationRole,
-    existingMembers
+    existingMembers,
+    templateName: pendingData?.templateName || null,
+    template: pendingData?.template || null,
+    layout_json: pendingData?.template?.layout_json || null,
+    background_image_url: pendingData?.template?.background_image_url || null
   };
 
   if (interaction.user?.id) {

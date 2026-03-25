@@ -74,10 +74,62 @@ module.exports = {
   },
 
   async autocomplete(interaction) {
-    const rectCommand = require('./gameRecruit');
-    if (rectCommand?.autocomplete) {
-      return rectCommand.autocomplete(interaction);
+    try {
+      const focused = interaction.options.getFocused(true);
+      const focusedName = String(focused?.name || '');
+      const focusedValue = String(focused?.value || '').trim();
+
+      if (focusedName === 'テンプレート' || focusedName === 'template') {
+        const { listTemplates } = require('../utils/database');
+        const backendFetch = require('../utils/common/backendFetch');
+
+        let templates = [];
+        try {
+          templates = await listTemplates(interaction.guildId, focusedValue || '');
+        } catch (_) {
+          // fallback below
+        }
+
+        if (!Array.isArray(templates) || templates.length === 0) {
+          try {
+            const params = new URLSearchParams({ guildId: String(interaction.guildId || '') });
+            if (focusedValue) params.set('search', focusedValue);
+            const resp = await backendFetch(`/api/plus/bot/templates?${params.toString()}`, { method: 'GET' });
+            templates = Array.isArray(resp?.templates) ? resp.templates : [];
+          } catch (_) {
+            templates = [];
+          }
+        }
+
+        const options = templates
+          .filter((t) => t && t.name)
+          .slice(0, 25)
+          .map((t) => ({ name: String(t.name).slice(0, 100), value: String(t.name).slice(0, 100) }));
+        return interaction.respond(options);
+      }
+
+      if (focusedName === '開始時間') {
+        const v = focusedValue.toLowerCase();
+        const shouldSuggest = !v || ['いま', '今', 'ima', 'now'].some((k) => v.includes(k));
+        return interaction.respond(shouldSuggest ? [{ name: '今から', value: '今から' }] : []);
+      }
+
+      if (focusedName === 'タイトル') {
+        const { getGuildSettings } = require('../utils/database');
+        const settings = await getGuildSettings(interaction.guildId).catch(() => null);
+        const title = settings?.defaultTitle;
+        if (title && (!focusedValue || String(title).includes(focusedValue))) {
+          return interaction.respond([{ name: `既定: ${String(title).slice(0, 90)}`, value: String(title).slice(0, 100) }]);
+        }
+      }
+
+      return interaction.respond([]);
+    } catch (_) {
+      try {
+        return await interaction.respond([]);
+      } catch (_) {
+        return null;
+      }
     }
-    return interaction.respond([]);
   }
 };
