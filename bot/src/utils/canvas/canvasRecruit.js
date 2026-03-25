@@ -10,7 +10,8 @@ const DEFAULT_TEMPLATE_LAYOUT = {
   content: { x: 110, y: 389, size: 24, visible: true },
   voice: { x: 969, y: 590, size: 24, visible: true },
   contentBox: { x: 73, y: 281, width: 614, height: 360, visible: true },
-  imageBox: { x: 880, y: 330, width: 300, height: 220, visible: false }
+  imageBox: { x: 880, y: 330, width: 300, height: 220, visible: false },
+  participantsBox: { x: 119, y: 180, width: 1134, height: 158, visible: true }
 };
 
 function truncateText(ctx, text, maxWidth) {
@@ -226,7 +227,8 @@ function toSafeLayout(layout) {
     content: layout.content || DEFAULT_TEMPLATE_LAYOUT.content,
     voice: layout.voice || DEFAULT_TEMPLATE_LAYOUT.voice,
     contentBox: layout.contentBox || DEFAULT_TEMPLATE_LAYOUT.contentBox,
-    imageBox: layout.imageBox || DEFAULT_TEMPLATE_LAYOUT.imageBox
+    imageBox: layout.imageBox || DEFAULT_TEMPLATE_LAYOUT.imageBox,
+    participantsBox: layout.participantsBox || DEFAULT_TEMPLATE_LAYOUT.participantsBox
   };
 }
 
@@ -266,7 +268,8 @@ function isDefaultTemplateLayout(layout) {
     && isSameTextField(layout.content, DEFAULT_TEMPLATE_LAYOUT.content)
     && isSameTextField(layout.voice, DEFAULT_TEMPLATE_LAYOUT.voice)
     && isSameBoxField(layout.contentBox, DEFAULT_TEMPLATE_LAYOUT.contentBox)
-    && isSameBoxField(layout.imageBox, DEFAULT_TEMPLATE_LAYOUT.imageBox);
+    && isSameBoxField(layout.imageBox, DEFAULT_TEMPLATE_LAYOUT.imageBox)
+    && isSameBoxField(layout.participantsBox || DEFAULT_TEMPLATE_LAYOUT.participantsBox, DEFAULT_TEMPLATE_LAYOUT.participantsBox);
 }
 
 function getTemplateBackgroundUrl(recruitData) {
@@ -323,6 +326,21 @@ function getScaledBox(box, layout, canvasSize, fallback) {
     y: Math.round((safe.y || 0) * scaleY),
     width: Math.max(16, Math.round((safe.width || 100) * scaleX)),
     height: Math.max(16, Math.round((safe.height || 100) * scaleY)),
+    visible: safe.visible !== false
+  };
+}
+
+function getScaledField(field, layout, canvasSize, fallback) {
+  const baseWidth = layout.canvas?.width || DEFAULT_TEMPLATE_LAYOUT.canvas.width;
+  const baseHeight = layout.canvas?.height || DEFAULT_TEMPLATE_LAYOUT.canvas.height;
+  const scaleX = canvasSize.width / baseWidth;
+  const scaleY = canvasSize.height / baseHeight;
+  const safe = field || fallback;
+
+  return {
+    x: Math.round((safe.x || 0) * scaleX),
+    y: Math.round((safe.y || 0) * scaleY),
+    size: Math.max(4, Math.round((safe.size || 24) * ((scaleX + scaleY) / 2))),
     visible: safe.visible !== false
   };
 }
@@ -527,27 +545,29 @@ function buildInfoItems(recruitData, participantIds) {
 }
 
 function drawInfoItems(ctx, items, layout) {
-  const { rightX, startY, itemSpacing, infoBoxWidth, infoBoxHeight } = layout;
+  const { rightX, startY, itemSpacing, infoBoxWidth, infoBoxHeight, customPositions } = layout;
 
   items.forEach((item, index) => {
-    const itemY = startY + (index * itemSpacing);
+    const customPos = Array.isArray(customPositions) ? customPositions[index] : null;
+    const itemX = customPos?.x ?? rightX;
+    const itemY = customPos?.y ?? (startY + (index * itemSpacing));
 
     ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
-    drawRoundedRect(ctx, rightX, itemY, infoBoxWidth, infoBoxHeight, 3, true, false);
+    drawRoundedRect(ctx, itemX, itemY, infoBoxWidth, infoBoxHeight, 3, true, false);
 
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
     ctx.lineWidth = 0.5;
-    drawRoundedRect(ctx, rightX, itemY, infoBoxWidth, infoBoxHeight, 3, false, true);
+    drawRoundedRect(ctx, itemX, itemY, infoBoxWidth, infoBoxHeight, 3, false, true);
 
     ctx.fillStyle = '#bbb';
     ctx.font = 'bold 4px CorporateRounded';
-    ctx.fillText(item.label, rightX + 3, itemY + 6);
+    ctx.fillText(item.label, itemX + 3, itemY + 6);
 
     ctx.fillStyle = '#fff';
     ctx.font = '4px CorporateRounded';
     const maxWidth = infoBoxWidth - 23;
     const value = truncateText(ctx, item.value, maxWidth);
-    ctx.fillText(value, rightX + 20, itemY + 6);
+    ctx.fillText(value, itemX + 20, itemY + 6);
   });
 }
 
@@ -724,10 +744,27 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
   drawBorder(ctx, width, height, accentColor);
   drawCardTitle(ctx, width, recruitData.title, accentColor);
 
-  const boxX = 8;
-  const boxY = height * 0.39;
-  const boxWidth = width * 0.48;
-  const boxHeight = height * 0.50;
+  const classicLayout = templateLayout || DEFAULT_TEMPLATE_LAYOUT;
+  const scaledContentBox = getScaledBox(
+    classicLayout.contentBox,
+    classicLayout,
+    { width, height },
+    DEFAULT_TEMPLATE_LAYOUT.contentBox
+  );
+  const scaledParticipantsBox = getScaledBox(
+    classicLayout.participantsBox || DEFAULT_TEMPLATE_LAYOUT.participantsBox,
+    classicLayout,
+    { width, height },
+    DEFAULT_TEMPLATE_LAYOUT.participantsBox
+  );
+  const scaledMembers = getScaledField(classicLayout.members, classicLayout, { width, height }, DEFAULT_TEMPLATE_LAYOUT.members);
+  const scaledTime = getScaledField(classicLayout.time, classicLayout, { width, height }, DEFAULT_TEMPLATE_LAYOUT.time);
+  const scaledVoice = getScaledField(classicLayout.voice, classicLayout, { width, height }, DEFAULT_TEMPLATE_LAYOUT.voice);
+
+  const boxX = scaledContentBox.x;
+  const boxY = scaledContentBox.y;
+  const boxWidth = scaledContentBox.width;
+  const boxHeight = scaledContentBox.height;
   
   drawContentBoxBackground(ctx, boxX, boxY, boxWidth, boxHeight);
   
@@ -735,20 +772,33 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
   const maxMembers = getMaxMembers(recruitData, currentMembers);
   const participantCount = getParticipantCount(currentMembers, maxMembers);
   const layout = getParticipantLayout(participantCount, boxX, boxY);
+  layout.participantAreaX = scaledParticipantsBox.x + layout.circleRadius;
+  layout.participantAreaY = scaledParticipantsBox.y + layout.circleRadius;
   
   await drawParticipantCircles(ctx, participantIds, participantCount, layout, client, avatarUrls);
   
   const content = recruitData.description || recruitData.content;
   drawContentTextSection(ctx, boxX, boxY, boxWidth, boxHeight, content);
   
-  const rightX = width - 54;
-  const startY = 36;
+  const rightX = scaledMembers.x;
+  const startY = scaledMembers.y;
   const itemSpacing = 20;
   const infoBoxWidth = 48;
   const infoBoxHeight = 15;
   
   const infoItems = buildInfoItems(recruitData, participantIds);
-  drawInfoItems(ctx, infoItems, { rightX, startY, itemSpacing, infoBoxWidth, infoBoxHeight });
+  drawInfoItems(ctx, infoItems, {
+    rightX,
+    startY,
+    itemSpacing,
+    infoBoxWidth,
+    infoBoxHeight,
+    customPositions: [
+      { x: scaledMembers.x, y: scaledMembers.y },
+      { x: scaledTime.x, y: scaledTime.y },
+      { x: scaledVoice.x, y: scaledVoice.y }
+    ]
+  });
 
   applyShadowEffect(ctx);
 
