@@ -3,6 +3,32 @@ const { SlashCommandBuilder } = require('discord.js');
 const { recruitParticipants, __hydrateParticipants } = require('./gameRecruit/data/state');
 const { autoCloseRecruitment } = require('../utils/recruitMessage');
 const { listTemplates, getGuildSettings } = require('../utils/database');
+const backendFetch = require('../utils/common/backendFetch');
+
+async function listTemplateCandidates(guildId, search) {
+  const query = String(search || '').trim();
+
+  // 1) Bot直結のDBを最初に試行
+  try {
+    const local = await listTemplates(guildId, query);
+    if (Array.isArray(local) && local.length > 0) {
+      return local;
+    }
+  } catch (e) {
+    console.warn('[rect autocomplete] local listTemplates failed:', e?.message || e);
+  }
+
+  // 2) フォールバック: Worker内部API
+  try {
+    const params = new URLSearchParams({ guildId: String(guildId || '') });
+    if (query) params.set('search', query);
+    const resp = await backendFetch(`/api/plus/bot/templates?${params.toString()}`, { method: 'GET' });
+    return Array.isArray(resp?.templates) ? resp.templates : [];
+  } catch (e) {
+    console.warn('[rect autocomplete] backend template list failed:', e?.message || e);
+    return [];
+  }
+}
 
 // hydrateRecruitData moved to utils/recruitMessage
 
@@ -119,7 +145,7 @@ module.exports = {
       const focusedValue = String(focused?.value || '').trim();
 
       if (focusedName === 'テンプレート' || focusedName === 'template') {
-        const templates = await listTemplates(interaction.guildId, focusedValue || '').catch(() => []);
+        const templates = await listTemplateCandidates(interaction.guildId, focusedValue || '');
         const options = (Array.isArray(templates) ? templates : [])
           .filter((t) => t && t.name)
           .slice(0, 25)

@@ -310,6 +310,40 @@ async function getTemplateForBot(request, url, env, safeHeaders) {
   return jsonResponse({ template: data || null }, 200, safeHeaders);
 }
 
+async function listTemplatesForBot(request, url, env, safeHeaders) {
+  if (!await verifyInternalAuth(request, env)) {
+    return jsonResponse({ error: 'Unauthorized' }, 401, safeHeaders);
+  }
+
+  const guildId = String(url.searchParams.get('guildId') || '').trim();
+  const search = String(url.searchParams.get('search') || '').trim();
+  if (!guildId) {
+    return jsonResponse({ error: 'guildId is required' }, 400, safeHeaders);
+  }
+
+  const supabase = await createSupabaseClient(env);
+  if (!supabase) return jsonResponse({ error: 'Supabase is not configured' }, 500, safeHeaders);
+
+  let query = supabase
+    .from('recruit_templates')
+    .select(TEMPLATE_SELECT)
+    .eq('guild_id', guildId)
+    .order('updated_at', { ascending: false })
+    .limit(50);
+
+  if (search) {
+    query = query.ilike('name', `%${search}%`);
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    console.error('[plus/templates] bot list error:', error);
+    return jsonResponse({ error: 'Failed to list templates' }, 500, safeHeaders);
+  }
+
+  return jsonResponse({ templates: data || [] }, 200, safeHeaders);
+}
+
 async function previewTemplate(request, env, safeHeaders) {
   const user = await getUserFromRequest(request, env);
   if (!user) return jsonResponse({ error: 'Unauthorized' }, 401, safeHeaders);
@@ -403,6 +437,10 @@ export async function handlePlusTemplateRoutes(request, env, { url, safeHeaders 
 
   if (url.pathname === '/api/plus/bot/template' && request.method === 'GET') {
     return getTemplateForBot(request, url, env, safeHeaders);
+  }
+
+  if (url.pathname === '/api/plus/bot/templates' && request.method === 'GET') {
+    return listTemplatesForBot(request, url, env, safeHeaders);
   }
 
   if (url.pathname === '/api/plus/templates/preview' && request.method === 'POST') {

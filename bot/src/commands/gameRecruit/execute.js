@@ -69,6 +69,26 @@ async function hasPremiumSubscription(userId, guildId) {
   }
 }
 
+async function getTemplateByNameWithFallback(guildId, templateName) {
+  // 1) Bot直結のDB
+  try {
+    const template = await getTemplateByName(guildId, templateName);
+    if (template) return template;
+  } catch (e) {
+    console.warn('[gameRecruit.execute] local getTemplateByName failed:', e?.message || e);
+  }
+
+  // 2) フォールバック: Worker内部API
+  try {
+    const params = new URLSearchParams({ guildId: String(guildId || ''), name: String(templateName || '') });
+    const resp = await backendFetch(`/api/plus/bot/template?${params.toString()}`, { method: 'GET' });
+    return resp?.template || null;
+  } catch (e) {
+    console.warn('[gameRecruit.execute] backend get template failed:', e?.message || e);
+    return null;
+  }
+}
+
 async function notifyRecruitLimitReached(interaction) {
   console.log('[gameRecruit.execute] blocking create due to 3 active recruits limit');
   await safeReply(interaction, {
@@ -467,7 +487,7 @@ async function execute(interaction) {
 
     if (parsedOptions.templateName) {
       try {
-        const template = await getTemplateByName(interaction.guildId, parsedOptions.templateName);
+        const template = await getTemplateByNameWithFallback(interaction.guildId, parsedOptions.templateName);
         if (!template && isTemplateCommand) {
           await safeReply(interaction, {
             content: `❌ テンプレート「${parsedOptions.templateName}」が見つかりません。`,
