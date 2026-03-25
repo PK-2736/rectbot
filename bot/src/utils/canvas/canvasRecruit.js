@@ -428,8 +428,22 @@ function drawTemplateContentNode(ctx, field, text, layout, canvasSize) {
 async function drawTemplateModeCard(ctx, recruitData, layout, canvasSize, accentColor) {
   const bgUrl = getTemplateBackgroundUrl(recruitData);
 
-  ctx.fillStyle = '#101114';
-  ctx.fillRect(0, 0, canvasSize.width, canvasSize.height);
+  let drewFullBackground = false;
+  if (bgUrl) {
+    try {
+      const bg = await loadImage(bgUrl);
+      ctx.drawImage(bg, 0, 0, canvasSize.width, canvasSize.height);
+      drewFullBackground = true;
+    } catch (e) {
+      console.warn('[canvasRecruit] failed to load template full background image:', e?.message || e);
+    }
+  }
+
+  if (!drewFullBackground) {
+    ctx.fillStyle = '#101114';
+    ctx.fillRect(0, 0, canvasSize.width, canvasSize.height);
+  }
+
   drawBorder(ctx, canvasSize.width, canvasSize.height, accentColor);
 
   const contentBox = getScaledBox(layout.contentBox, layout, canvasSize, DEFAULT_TEMPLATE_LAYOUT.contentBox);
