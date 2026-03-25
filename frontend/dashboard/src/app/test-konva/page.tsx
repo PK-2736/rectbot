@@ -12,6 +12,7 @@ const DEFAULT_LAYOUT = {
   voice: { x: 969, y: 590, size: 24, visible: true },
   contentBox: { x: 73, y: 281, width: 614, height: 360, visible: true },
   imageBox: { x: 880, y: 330, width: 300, height: 220, visible: false },
+  participantsBox: { x: 119, y: 180, width: 1134, height: 158, visible: true },
 };
 
 export default function TestKonvaPage() {

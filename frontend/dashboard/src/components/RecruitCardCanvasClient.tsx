@@ -23,6 +23,7 @@ interface RecruitCardCanvasProps {
     voice: LayoutField;
     contentBox: LayoutBox;
     imageBox: LayoutBox;
+    participantsBox?: LayoutBox;
   };
   accentColor?: string;
   backgroundImageUrl?: string;
@@ -43,6 +44,7 @@ const DEFAULT_LAYOUT = {
   voice: { x: 969, y: 590, size: 24, visible: true },
   contentBox: { x: 73, y: 281, width: 614, height: 360, visible: true },
   imageBox: { x: 880, y: 330, width: 300, height: 220, visible: false },
+  participantsBox: { x: 119, y: 180, width: 1134, height: 158, visible: true },
 };
 
 function clamp(v: number, min: number, max: number) {
@@ -91,6 +93,7 @@ function isSameBoxField(a: LayoutBox, b: LayoutBox) {
 }
 
 function isDefaultTemplateLayout(layout: RecruitCardCanvasProps['layout']) {
+  const participantsBox = layout.participantsBox || DEFAULT_LAYOUT.participantsBox;
   return (
     isSameTextField(layout.title, DEFAULT_LAYOUT.title) &&
     isSameTextField(layout.members, DEFAULT_LAYOUT.members) &&
@@ -98,7 +101,8 @@ function isDefaultTemplateLayout(layout: RecruitCardCanvasProps['layout']) {
     isSameTextField(layout.content, DEFAULT_LAYOUT.content) &&
     isSameTextField(layout.voice, DEFAULT_LAYOUT.voice) &&
     isSameBoxField(layout.contentBox, DEFAULT_LAYOUT.contentBox) &&
-    isSameBoxField(layout.imageBox, DEFAULT_LAYOUT.imageBox)
+    isSameBoxField(layout.imageBox, DEFAULT_LAYOUT.imageBox) &&
+    isSameBoxField(participantsBox, DEFAULT_LAYOUT.participantsBox)
   );
 }
 
@@ -397,6 +401,10 @@ export function RecruitCardCanvasImpl({
     
     const scaledImageBox = scaleBoxToRect(layout.imageBox, layout.canvas);
     const scaledContentBox = scaleBoxToRect(layout.contentBox, layout.canvas);
+    const scaledParticipantsBox = scaleBoxToRect(
+      layout.participantsBox || DEFAULT_LAYOUT.participantsBox,
+      layout.canvas
+    );
     const scaledTitle = scaleTextFieldToRect(layout.title, layout.canvas);
     const scaledMembers = scaleTextFieldToRect(layout.members, layout.canvas);
     const scaledTime = scaleTextFieldToRect(layout.time, layout.canvas);
@@ -491,6 +499,19 @@ export function RecruitCardCanvasImpl({
         const boxWidth = scaledContentBox.width;
         const boxHeight = scaledContentBox.height;
 
+        const participantsGroup = new Konva.Group({
+          x: scaledParticipantsBox.x,
+          y: scaledParticipantsBox.y,
+          draggable: Boolean(onLayoutChangeRef.current),
+        });
+        if (onLayoutChangeRef.current) {
+          participantsGroup.on('dragend', () => {
+            if (onLayoutChangeRef.current) {
+              onLayoutChangeRef.current('participantsBox', toEditorX(participantsGroup.x()), toEditorY(participantsGroup.y()));
+            }
+          });
+        }
+
         const contentGroup = new Konva.Group({
           x: boxX,
           y: boxY,
@@ -519,13 +540,19 @@ export function RecruitCardCanvasImpl({
         const circleRadius = is2Rows ? 4 : 6.5;
         const circleSpacing = is2Rows ? 11 : 16;
         const rowSpacing = is2Rows ? 10 : 15;
-        const areaY = is2Rows ? -18 : -14;
-        const areaX = 5;
+        const startX = circleRadius;
+        const startY = circleRadius;
 
         for (let i = 0; i < participants; i++) {
           const row = Math.floor(i / 8);
           const col = i % 8;
-          drawEmptyParticipantSlot(contentGroup, areaX + col * circleSpacing, areaY + row * rowSpacing, circleRadius, is2Rows ? 2.5 : 4);
+          drawEmptyParticipantSlot(
+            participantsGroup,
+            startX + col * circleSpacing,
+            startY + row * rowSpacing,
+            circleRadius,
+            is2Rows ? 2.5 : 4
+          );
         }
 
         contentGroup.add(new Konva.Text({ x: 4, y: 3, text: '募集内容', fill: '#bbb', fontSize: 6, fontStyle: 'bold', fontFamily: 'CorporateRounded, Arial, sans-serif' }));
@@ -535,6 +562,7 @@ export function RecruitCardCanvasImpl({
           contentGroup.add(new Konva.Text({ x: 4, y: 15 + i * 6, text: line, fill: '#fff', fontSize: 4, fontFamily: 'CorporateRounded, Arial, sans-serif' }));
         });
 
+        layer.add(participantsGroup);
         layer.add(contentGroup);
 
         const info = [

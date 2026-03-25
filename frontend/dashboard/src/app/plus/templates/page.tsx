@@ -23,7 +23,7 @@ type LayoutBox = {
 };
 
 type TextFieldKey = "title" | "members" | "time" | "content" | "voice";
-type BoxFieldKey = "contentBox" | "imageBox";
+type BoxFieldKey = "contentBox" | "imageBox" | "participantsBox";
 
 type TemplateLayout = {
   canvas: { width: number; height: number };
@@ -34,6 +34,7 @@ type TemplateLayout = {
   voice: LayoutField;
   contentBox: LayoutBox;
   imageBox: LayoutBox;
+  participantsBox: LayoutBox;
 };
 
 type Template = {
@@ -72,6 +73,7 @@ const DEFAULT_LAYOUT: TemplateLayout = {
   voice: { x: 969, y: 590, size: 24, visible: true },
   contentBox: { x: 73, y: 281, width: 614, height: 360, visible: true },
   imageBox: { x: 880, y: 330, width: 300, height: 220, visible: false },
+  participantsBox: { x: 119, y: 180, width: 1134, height: 158, visible: true },
 };
 
 const INITIAL_FORM: FormState = {
@@ -119,6 +121,7 @@ function parseLayout(input: unknown): TemplateLayout {
     voice: raw.voice || DEFAULT_LAYOUT.voice,
     contentBox: raw.contentBox || DEFAULT_LAYOUT.contentBox,
     imageBox: raw.imageBox || DEFAULT_LAYOUT.imageBox,
+    participantsBox: raw.participantsBox || DEFAULT_LAYOUT.participantsBox,
   };
 }
 
