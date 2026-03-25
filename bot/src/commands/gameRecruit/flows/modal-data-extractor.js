@@ -121,8 +121,12 @@ async function buildRecruitDataObj(interaction, pendingData, participantsNum, gu
     template: pendingData?.template || null,
     layout_json: pendingData?.template?.layout_json || null,
     background_image_url: pendingData?.template?.background_image_url || null,
+    background_asset_key: pendingData?.template?.background_asset_key || null,
     metadata: {
-      forceTemplateMode: Boolean(pendingData?.templateName || pendingData?.template)
+      forceTemplateMode: Boolean(
+        pendingData?.template?.background_image_url
+        || pendingData?.template?.background_asset_key
+      )
     }
   };
 }
@@ -161,8 +165,12 @@ async function buildRecruitDataFromModal(interaction, guildSettings) {
     template: pendingData?.template || null,
     layout_json: pendingData?.template?.layout_json || null,
     background_image_url: pendingData?.template?.background_image_url || null,
+    background_asset_key: pendingData?.template?.background_asset_key || null,
     metadata: {
-      forceTemplateMode: Boolean(pendingData?.templateName || pendingData?.template)
+      forceTemplateMode: Boolean(
+        pendingData?.template?.background_image_url
+        || pendingData?.template?.background_asset_key
+      )
     }
   };
 

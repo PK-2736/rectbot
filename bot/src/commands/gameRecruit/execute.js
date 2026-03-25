@@ -245,6 +245,13 @@ function mergeOptionsWithTemplate(parsedOptions, template) {
   return merged;
 }
 
+function hasTemplateImage(template) {
+  if (!template || typeof template !== 'object') return false;
+  const imageUrl = String(template.background_image_url || '').trim();
+  const assetKey = String(template.background_asset_key || '').trim();
+  return Boolean(imageUrl || assetKey);
+}
+
 async function validateRecruitInputs(interaction, { titleArg, membersArg, startArg }) {
   if (!titleArg) {
     await safeReply(interaction, { content: '❌ タイトルを指定してください。', flags: MessageFlags.Ephemeral });
@@ -495,6 +502,15 @@ async function execute(interaction) {
           });
           return;
         }
+
+        if (template && isTemplateCommand && !hasTemplateImage(template)) {
+          await safeReply(interaction, {
+            content: `❌ テンプレート「${parsedOptions.templateName}」には保存画像がありません。画像付きテンプレートを選択してください。`,
+            flags: MessageFlags.Ephemeral
+          });
+          return;
+        }
+
         if (template) {
           parsedOptions = mergeOptionsWithTemplate(parsedOptions, template);
         }

@@ -427,21 +427,14 @@ function drawTemplateContentNode(ctx, field, text, layout, canvasSize) {
 
 async function drawTemplateModeCard(ctx, recruitData, layout, canvasSize, accentColor) {
   const bgUrl = getTemplateBackgroundUrl(recruitData);
+  if (!bgUrl) return false;
 
-  let drewFullBackground = false;
-  if (bgUrl) {
-    try {
-      const bg = await loadImage(bgUrl);
-      ctx.drawImage(bg, 0, 0, canvasSize.width, canvasSize.height);
-      drewFullBackground = true;
-    } catch (e) {
-      console.warn('[canvasRecruit] failed to load template full background image:', e?.message || e);
-    }
-  }
-
-  if (!drewFullBackground) {
-    ctx.fillStyle = '#101114';
-    ctx.fillRect(0, 0, canvasSize.width, canvasSize.height);
+  try {
+    const bg = await loadImage(bgUrl);
+    ctx.drawImage(bg, 0, 0, canvasSize.width, canvasSize.height);
+  } catch (e) {
+    console.warn('[canvasRecruit] failed to load template full background image:', e?.message || e);
+    return false;
   }
 
   drawBorder(ctx, canvasSize.width, canvasSize.height, accentColor);
@@ -489,6 +482,8 @@ async function drawTemplateModeCard(ctx, recruitData, layout, canvasSize, accent
   drawTemplateTextNode(ctx, layout.time, `🕒 ${startLabel}`, layout, canvasSize);
   drawTemplateTextNode(ctx, layout.voice, `🎙 ${voiceText}`, layout, canvasSize);
   drawTemplateContentNode(ctx, layout.content, content, layout, canvasSize);
+
+  return true;
 }
 
 function extractVoicePlace(recruitData) {
@@ -743,16 +738,15 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
   const { canvas, ctx, width, height } = setupCanvas();
   const templateLayout = resolveTemplateLayout(recruitData);
   const templateImageUrl = getTemplateBackgroundUrl(recruitData);
-  const forceTemplateMode = Boolean(recruitData?.metadata?.forceTemplateMode);
-  const shouldUseTemplateMode = Boolean(templateImageUrl)
-    || forceTemplateMode
-    || (Boolean(templateLayout) && !isDefaultTemplateLayout(templateLayout));
+  const shouldUseTemplateMode = Boolean(templateImageUrl);
 
   if (shouldUseTemplateMode) {
     const effectiveLayout = templateLayout || DEFAULT_TEMPLATE_LAYOUT;
-    await drawTemplateModeCard(ctx, recruitData, effectiveLayout, { width, height }, accentColor);
-    applyShadowEffect(ctx);
-    return canvas.toBuffer('image/png', { compressionLevel: 3, filters: canvas.PNG_FILTER_NONE });
+    const templateDrawn = await drawTemplateModeCard(ctx, recruitData, effectiveLayout, { width, height }, accentColor);
+    if (templateDrawn) {
+      applyShadowEffect(ctx);
+      return canvas.toBuffer('image/png', { compressionLevel: 3, filters: canvas.PNG_FILTER_NONE });
+    }
   }
   
   drawBorder(ctx, width, height, accentColor);
