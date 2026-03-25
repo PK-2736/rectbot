@@ -271,12 +271,44 @@ function isDefaultTemplateLayout(layout) {
 
 function getTemplateBackgroundUrl(recruitData) {
   const source = getTemplateSource(recruitData);
-  return source?.background_image_url
+  const direct = source?.background_image_url
     || source?.backgroundImageUrl
     || recruitData?.background_image_url
     || recruitData?.backgroundImageUrl
     || recruitData?.metadata?.background_image_url
     || null;
+
+  if (direct && /^https?:\/\//i.test(String(direct))) {
+    return direct;
+  }
+
+  const assetKey = source?.background_asset_key
+    || source?.backgroundAssetKey
+    || recruitData?.background_asset_key
+    || recruitData?.backgroundAssetKey
+    || recruitData?.metadata?.background_asset_key
+    || null;
+
+  if (assetKey) {
+    const base = process.env.WORKER_API_BASE_URL
+      || process.env.PUBLIC_API_BASE_URL
+      || process.env.BACKEND_API_URL
+      || 'https://api.recrubo.net';
+    const normalizedBase = String(base).replace(/\/$/, '');
+    const normalizedKey = String(assetKey).replace(/^\//, '');
+    return `${normalizedBase}/api/plus/assets/${normalizedKey}`;
+  }
+
+  if (direct && String(direct).startsWith('/')) {
+    const base = process.env.WORKER_API_BASE_URL
+      || process.env.PUBLIC_API_BASE_URL
+      || process.env.BACKEND_API_URL
+      || 'https://api.recrubo.net';
+    const normalizedBase = String(base).replace(/\/$/, '');
+    return `${normalizedBase}${direct}`;
+  }
+
+  return direct;
 }
 
 function getScaledBox(box, layout, canvasSize, fallback) {
@@ -678,11 +710,13 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
   const templateLayout = resolveTemplateLayout(recruitData);
   const templateImageUrl = getTemplateBackgroundUrl(recruitData);
   const forceTemplateMode = Boolean(recruitData?.metadata?.forceTemplateMode);
-  const shouldUseTemplateMode = Boolean(templateLayout)
-    && (forceTemplateMode || !isDefaultTemplateLayout(templateLayout) || Boolean(templateImageUrl));
+  const shouldUseTemplateMode = Boolean(templateImageUrl)
+    || forceTemplateMode
+    || (Boolean(templateLayout) && !isDefaultTemplateLayout(templateLayout));
 
   if (shouldUseTemplateMode) {
-    await drawTemplateModeCard(ctx, recruitData, templateLayout, { width, height }, accentColor);
+    const effectiveLayout = templateLayout || DEFAULT_TEMPLATE_LAYOUT;
+    await drawTemplateModeCard(ctx, recruitData, effectiveLayout, { width, height }, accentColor);
     applyShadowEffect(ctx);
     return canvas.toBuffer('image/png', { compressionLevel: 3, filters: canvas.PNG_FILTER_NONE });
   }
