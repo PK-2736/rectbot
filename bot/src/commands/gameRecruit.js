@@ -171,10 +171,11 @@ module.exports = {
       if (focusedName === 'テンプレート' || focusedName === 'template') {
         const templates = await listTemplateCandidates(interaction.guildId, focusedValue || '');
         const options = (Array.isArray(templates) ? templates : [])
-          .filter((t) => t && t.name && templateHasImage(t))
+          .filter((t) => t && t.name)
+          .sort((a, b) => Number(templateHasImage(b)) - Number(templateHasImage(a)))
           .slice(0, 25)
           .map((t) => ({
-            name: String(t.name).slice(0, 100),
+            name: `${String(t.name)}${templateHasImage(t) ? '' : ' (画像未設定)'}`.slice(0, 100),
             value: String(t.name).slice(0, 100),
           }));
         await interaction.respond(options);
