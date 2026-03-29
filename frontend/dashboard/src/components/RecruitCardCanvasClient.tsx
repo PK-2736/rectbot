@@ -602,7 +602,7 @@ export function RecruitCardCanvasImpl({
   }, [recruitData, layout, accentColor, backgroundImageUrl, scale, canvasWidth, canvasHeight, containerSize]);
 
   return (
-    <div className="relative w-full bg-gray-950 border-t border-b border-gray-700 overflow-hidden" style={{ aspectRatio: `${layout.canvas.width} / ${layout.canvas.height}` }}>
+    <div className="w-full bg-gray-950 overflow-hidden" style={{ aspectRatio: `${layout.canvas.width} / ${layout.canvas.height}` }}>
       <div ref={containerRef} className="w-full h-full" />
     </div>
   );

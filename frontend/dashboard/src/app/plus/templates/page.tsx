@@ -337,8 +337,16 @@ export default function PlusTemplatePage() {
         }
       }
 
-      // 選択中のアップロードファイルか、既に保存されたアセットキーのどちらかがあればOK
-      // blob: URLはローカルプレビュー用なので、アセットキーまたはファイル選択で判定
+      // デバッグ: 背景画像の状態を出力
+      console.log('[saveTemplate] 背景画像チェック', {
+        uploadSourceFile: uploadSourceFile ? '有' : '無',
+        backgroundAssetKey: nextForm.backgroundAssetKey,
+        backgroundImageUrl: nextForm.backgroundImageUrl,
+      });
+
+      // アップロード完了後の状態で判定（アップロード時のレスポンス結果）
+      // API呼び出し後に background_asset_key が Supabase に保存されるので、
+      // ここでは uploadSourceFile があるか、または既に保存されたキーがあるかを確認
       if (!uploadSourceFile && !nextForm.backgroundAssetKey) {
         throw new Error("背景画像をアップロードしてください（背景画像は必須です）");
       }
@@ -541,7 +549,7 @@ export default function PlusTemplatePage() {
             </div>
 
             {/* RecruitCardCanvas コンポーネント - 全幅全高 */}
-            <div className="flex-1 overflow-hidden">
+            <div className="flex-1 overflow-hidden px-0 mx-0">
           <RecruitCardCanvas
             recruitData={{
               title: form.title || '募集タイトル',
