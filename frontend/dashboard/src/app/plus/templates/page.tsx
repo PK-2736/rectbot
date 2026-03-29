@@ -171,8 +171,13 @@ export default function PlusTemplatePage() {
       const cachedForm = parsed.form && typeof parsed.form === "object" ? parsed.form : null;
       const cachedLayout = parsed.layout && typeof parsed.layout === "object" ? parsed.layout : null;
       if (!cachedForm || !cachedLayout) return null;
+      // blob: URLはページをリロードすると無効化されるので、キャッシュから削除
+      const sanitizedForm = { ...INITIAL_FORM, ...cachedForm };
+      if (sanitizedForm.backgroundImageUrl?.startsWith('blob:')) {
+        sanitizedForm.backgroundImageUrl = "";
+      }
       return {
-        form: { ...INITIAL_FORM, ...cachedForm },
+        form: sanitizedForm,
         layout: parseLayout(cachedLayout),
         previewScale: clamp(Number(parsed.previewScale ?? 1), 0.5, 1.5),
       };
@@ -183,9 +188,14 @@ export default function PlusTemplatePage() {
 
   const writeEditorCache = (guildId: string, nextForm: FormState, nextLayout: TemplateLayout, nextPreviewScale: number) => {
     try {
+      // blob: URLはキャッシュに保存しない（リロード後に無効化されるため）
+      const sanitizedForm = { ...nextForm };
+      if (sanitizedForm.backgroundImageUrl?.startsWith('blob:')) {
+        sanitizedForm.backgroundImageUrl = "";
+      }
       localStorage.setItem(
         `${TEMPLATE_EDITOR_CACHE_PREFIX}${guildId}`,
-        JSON.stringify({ form: nextForm, layout: nextLayout, previewScale: nextPreviewScale, updatedAt: Date.now() })
+        JSON.stringify({ form: sanitizedForm, layout: nextLayout, previewScale: nextPreviewScale, updatedAt: Date.now() })
       );
     } catch (_e) {
       // no-op: localStorage quota or unavailable
@@ -378,8 +388,8 @@ export default function PlusTemplatePage() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 py-8 grid lg:grid-cols-2 gap-6">
-        <section className="bg-gray-800/50 border border-gray-700 rounded-xl p-5 space-y-4">
+      <main className="w-full py-8 grid lg:grid-cols-2 gap-0">
+        <section className="bg-gray-800/50 border-r border-gray-700 p-5 space-y-4 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 120px)' }}>
           <h2 className="text-lg font-semibold">テンプレート設定</h2>
 
           {loadingGuilds ? <p className="text-sm text-gray-300">サーバー読み込み中...</p> : (
@@ -508,7 +518,8 @@ export default function PlusTemplatePage() {
           {error && <p className="text-sm text-red-300">{error}</p>}
         </section>
 
-        <section className="bg-gray-800/50 border border-gray-700 rounded-xl p-5 space-y-4">
+        <section className="bg-gray-800/50 border-l border-gray-700 space-y-4 flex flex-col">
+          <div className="p-5 space-y-4 flex-1 overflow-y-auto">
           <h2 className="text-lg font-semibold">募集プレビュー（react-konva リアルタイム描画）</h2>
 
           <div className="border border-gray-700 rounded-lg p-3 space-y-2">
@@ -589,6 +600,7 @@ export default function PlusTemplatePage() {
                 ))}
               </div>
             )}
+          </div>
           </div>
         </section>
       </main>
