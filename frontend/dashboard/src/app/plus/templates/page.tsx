@@ -327,8 +327,10 @@ export default function PlusTemplatePage() {
         }
       }
 
-      if (!nextForm.backgroundAssetKey && !nextForm.backgroundImageUrl) {
-        throw new Error("編集プレビュー画像が未準備です。背景画像を選択するか、プレビュー描画を待ってから保存してください。");
+      // ローカルファイル（blob:）またはR2 URLのどちらかがあればOK
+      // 両方ない場合のみエラー
+      if (!nextForm.backgroundImageUrl) {
+        throw new Error("背景画像を選択してください（背景画像は必須です）");
       }
 
       const payload = {
