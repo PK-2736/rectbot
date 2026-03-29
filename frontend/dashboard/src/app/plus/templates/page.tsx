@@ -347,7 +347,14 @@ export default function PlusTemplatePage() {
       const payload = {
         guildId: selectedGuildId,
         ...nextForm,
-        layout,
+        layout: {
+          ...layout,
+          _meta: {
+            composedImage: true,
+            editor: 'plus-template-editor',
+            version: 1,
+          },
+        },
       };
 
       const res = await fetch(`${apiBaseUrl}/api/plus/templates`, {

@@ -244,6 +244,23 @@ function resolveTemplateLayout(recruitData) {
   return toSafeLayout(layout);
 }
 
+function isComposedTemplateImage(recruitData) {
+  const source = getTemplateSource(recruitData);
+  const layoutRaw = source?.layout_json
+    || source?.layout
+    || recruitData?.layout_json
+    || recruitData?.layout
+    || recruitData?.metadata?.layout_json
+    || recruitData?.metadata?.layout
+    || null;
+
+  const meta = layoutRaw?._meta || layoutRaw?.meta || null;
+  if (meta?.composedImage === true) return true;
+  if (layoutRaw?.composedImage === true) return true;
+  if (source?.composed_image === true || source?.composedImage === true) return true;
+  return false;
+}
+
 function isSameTextField(a, b) {
   return a?.x === b?.x
     && a?.y === b?.y
@@ -435,6 +452,12 @@ async function drawTemplateModeCard(ctx, recruitData, layout, canvasSize, accent
   } catch (e) {
     console.warn('[canvasRecruit] failed to load template full background image:', e?.message || e);
     return false;
+  }
+
+  // Composed-image templates already include text/boxes/icons in the background image.
+  // Skip all overlay drawing to avoid double rendering.
+  if (isComposedTemplateImage(recruitData)) {
+    return true;
   }
 
   drawBorder(ctx, canvasSize.width, canvasSize.height, accentColor);
