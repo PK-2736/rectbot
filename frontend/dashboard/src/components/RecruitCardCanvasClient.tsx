@@ -33,8 +33,8 @@ interface RecruitCardCanvasProps {
 }
 
 const DEFAULT_ACCENT_COLOR = 'FF6B9D';
-const RECT_CANVAS_WIDTH = 140;
-const RECT_CANVAS_HEIGHT = 100;
+const RECT_CANVAS_WIDTH = 160;
+const RECT_CANVAS_HEIGHT = 90;
 const DEFAULT_LAYOUT = {
   canvas: { width: 1280, height: 720 },
   title: { x: 420, y: 36, size: 64, visible: true },

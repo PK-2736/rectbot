@@ -314,7 +314,7 @@ export default function PlusTemplatePage() {
     try {
       let nextForm = form;
       if (!form.name.trim()) {
-        throw new Error("先にテンプレ名を入力してください（画像を紐づけるため必須）");
+        throw new Error("先にテンプレ名を入力してください");
       }
 
       const uploadSourceFile = selectedUploadFile;
@@ -335,20 +335,6 @@ export default function PlusTemplatePage() {
           URL.revokeObjectURL(localPreviewUrlRef.current);
           localPreviewUrlRef.current = null;
         }
-      }
-
-      // デバッグ: 背景画像の状態を出力
-      console.log('[saveTemplate] 背景画像チェック', {
-        uploadSourceFile: uploadSourceFile ? '有' : '無',
-        backgroundAssetKey: nextForm.backgroundAssetKey,
-        backgroundImageUrl: nextForm.backgroundImageUrl,
-      });
-
-      // アップロード完了後の状態で判定（アップロード時のレスポンス結果）
-      // API呼び出し後に background_asset_key が Supabase に保存されるので、
-      // ここでは uploadSourceFile があるか、または既に保存されたキーがあるかを確認
-      if (!uploadSourceFile && !nextForm.backgroundAssetKey) {
-        throw new Error("背景画像をアップロードしてください（背景画像は必須です）");
       }
 
       const payload = {
