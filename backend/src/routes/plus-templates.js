@@ -133,10 +133,46 @@ async function ensurePremiumForGuild(userId, guildId, env) {
   return !purchasedGuild || purchasedGuild === guildId;
 }
 
-function buildTemplatePayload(body, userId, env) {
-  const backgroundAssetKey = trimOrNull(body.backgroundAssetKey, 512);
-  const backgroundImageUrl = trimOrNull(body.backgroundImageUrl, 2000)
-    || (backgroundAssetKey ? buildPublicAssetUrl(env, backgroundAssetKey) : null);
+function hasOwn(obj, key) {
+  return Object.prototype.hasOwnProperty.call(obj || {}, key);
+}
+
+function readBodyField(body, camelKey, snakeKey) {
+  if (hasOwn(body, camelKey)) return body[camelKey];
+  if (hasOwn(body, snakeKey)) return body[snakeKey];
+  return undefined;
+}
+
+function buildTemplatePayload(body, userId, env, existingTemplate = null) {
+  const clearBackground = body?.clearBackground === true;
+
+  const rawBackgroundAssetKey = readBodyField(body, 'backgroundAssetKey', 'background_asset_key');
+  const rawBackgroundImageUrl = readBodyField(body, 'backgroundImageUrl', 'background_image_url');
+
+  let backgroundAssetKey = rawBackgroundAssetKey === undefined
+    ? undefined
+    : trimOrNull(rawBackgroundAssetKey, 512);
+  let backgroundImageUrl = rawBackgroundImageUrl === undefined
+    ? undefined
+    : trimOrNull(rawBackgroundImageUrl, 2000);
+
+  if (!clearBackground) {
+    if (!backgroundAssetKey) {
+      backgroundAssetKey = existingTemplate?.background_asset_key || null;
+    }
+    if (!backgroundImageUrl) {
+      backgroundImageUrl = existingTemplate?.background_image_url || null;
+    }
+  }
+
+  if (!backgroundImageUrl && backgroundAssetKey) {
+    backgroundImageUrl = buildPublicAssetUrl(env, backgroundAssetKey);
+  }
+
+  if (clearBackground) {
+    backgroundAssetKey = null;
+    backgroundImageUrl = null;
+  }
 
   return {
     guild_id: trimOrNull(body.guildId, 64),
@@ -217,7 +253,14 @@ async function upsertTemplate(request, env, safeHeaders) {
   const supabase = await createSupabaseClient(env);
   if (!supabase) return jsonResponse({ error: 'Supabase is not configured' }, 500, safeHeaders);
 
-  const payload = buildTemplatePayload(body, user.id, env);
+  const { data: existingTemplate } = await supabase
+    .from('recruit_templates')
+    .select('background_asset_key, background_image_url')
+    .eq('guild_id', guildId)
+    .eq('name', name)
+    .maybeSingle();
+
+  const payload = buildTemplatePayload(body, user.id, env, existingTemplate || null);
   const { data, error } = await supabase
     .from('recruit_templates')
     .upsert(payload, { onConflict: 'guild_id,name' })

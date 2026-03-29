@@ -311,11 +311,29 @@ export default function PlusTemplatePage() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || "画像アップロードに失敗しました");
 
-      setForm((prev) => ({
-        ...prev,
-        backgroundImageUrl: data?.publicUrl || prev.backgroundImageUrl,
-        backgroundAssetKey: data?.objectKey || prev.backgroundAssetKey,
-      }));
+      const nextForm = {
+        ...form,
+        backgroundImageUrl: data?.publicUrl || form.backgroundImageUrl,
+        backgroundAssetKey: data?.objectKey || form.backgroundAssetKey,
+      };
+
+      setForm(nextForm);
+
+      const saveRes = await fetch(`${apiBaseUrl}/api/plus/templates`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          guildId: selectedGuildId,
+          ...nextForm,
+          layout,
+        }),
+      });
+      const saveData = await saveRes.json().catch(() => ({}));
+      if (!saveRes.ok) throw new Error(saveData?.error || "画像アップロード後の保存に失敗しました");
+
+      await reloadTemplates(selectedGuildId);
+      writeEditorCache(selectedGuildId, nextForm, layout, previewScale);
     } catch (e) {
       setError(e instanceof Error ? e.message : "画像アップロードに失敗しました");
     } finally {
