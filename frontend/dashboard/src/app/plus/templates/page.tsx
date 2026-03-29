@@ -138,12 +138,14 @@ export default function PlusTemplatePage() {
   const [uploadStatus, setUploadStatus] = useState<string>("");
   const [selectedFileName, setSelectedFileName] = useState<string>("");
   const [selectedUploadFile, setSelectedUploadFile] = useState<File | null>(null);
+  const [renderedPreviewDataUrl, setRenderedPreviewDataUrl] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
 
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
   const [layout, setLayout] = useState<TemplateLayout>(DEFAULT_LAYOUT);
   const [previewScale, setPreviewScale] = useState(1);
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
+  const localPreviewUrlRef = useRef<string | null>(null);
 
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api.recrubo.net";
 
@@ -243,6 +245,15 @@ export default function PlusTemplatePage() {
     writeEditorCache(selectedGuildId, form, layout, previewScale);
   }, [selectedGuildId, form, layout, previewScale]);
 
+  useEffect(() => {
+    return () => {
+      if (localPreviewUrlRef.current) {
+        URL.revokeObjectURL(localPreviewUrlRef.current);
+        localPreviewUrlRef.current = null;
+      }
+    };
+  }, []);
+
   const selectedGuildName = guilds.find((g) => g.id === selectedGuildId)?.name || "";
 
   const setFieldVisible = (field: TextFieldKey, visible: boolean) => {
@@ -282,6 +293,13 @@ export default function PlusTemplatePage() {
     return data;
   };
 
+  const dataUrlToFile = async (dataUrl: string, fileName: string) => {
+    const response = await fetch(dataUrl);
+    const blob = await response.blob();
+    const mime = blob.type || 'image/png';
+    return new File([blob], fileName, { type: mime });
+  };
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const saveTemplate = async (e: any) => {
     e.preventDefault();
@@ -293,12 +311,19 @@ export default function PlusTemplatePage() {
 
     try {
       let nextForm = form;
-      const pendingFile = selectedUploadFile;
-      if (pendingFile) {
-        if (!form.name.trim()) {
-          throw new Error("先にテンプレ名を入力してください（画像を紐づけるため必須）");
-        }
-        const uploadData = await uploadBackgroundFile(pendingFile, selectedGuildId, form.name.trim());
+      if (!form.name.trim()) {
+        throw new Error("先にテンプレ名を入力してください（画像を紐づけるため必須）");
+      }
+
+      let uploadSourceFile: File | null = null;
+      if (renderedPreviewDataUrl) {
+        uploadSourceFile = await dataUrlToFile(renderedPreviewDataUrl, `${form.name.trim()}-composed.png`);
+      } else if (selectedUploadFile) {
+        uploadSourceFile = selectedUploadFile;
+      }
+
+      if (uploadSourceFile) {
+        const uploadData = await uploadBackgroundFile(uploadSourceFile, selectedGuildId, form.name.trim());
         nextForm = {
           ...form,
           backgroundImageUrl: uploadData?.publicUrl || form.backgroundImageUrl,
@@ -307,13 +332,16 @@ export default function PlusTemplatePage() {
         setForm(nextForm);
         setSelectedFileName("");
         setSelectedUploadFile(null);
-        setUploadStatus(`アップロード成功: ${String(uploadData?.objectKey || "(key不明)")}`);
+        setUploadStatus(`最終画像を保存しました: ${String(uploadData?.objectKey || "(key不明)")}`);
         if (uploadInputRef.current) uploadInputRef.current.value = "";
+        if (localPreviewUrlRef.current) {
+          URL.revokeObjectURL(localPreviewUrlRef.current);
+          localPreviewUrlRef.current = null;
+        }
       }
 
-      // 画像付きテンプレ運用を強制し、画像未設定のまま保存される事故を防ぐ
       if (!nextForm.backgroundAssetKey && !nextForm.backgroundImageUrl) {
-        throw new Error("画像が未設定です。画像を選択してアップロードしてから保存してください。");
+        throw new Error("編集プレビュー画像が未準備です。背景画像を選択するか、プレビュー描画を待ってから保存してください。");
       }
 
       const payload = {
@@ -337,54 +365,6 @@ export default function PlusTemplatePage() {
       setError(e instanceof Error ? e.message : "保存に失敗しました");
     } finally {
       setSaving(false);
-    }
-  };
-
-  const uploadBackground = async (file: File) => {
-    if (!selectedGuildId) {
-      setError("対象サーバーを先に選択してください");
-      return;
-    }
-    if (!form.name.trim()) {
-      setError("先にテンプレ名を入力して保存してください（画像はそのテンプレ名に紐づきます）");
-      return;
-    }
-    setUploading(true);
-    setError(null);
-    setUploadStatus("");
-    try {
-      const data = await uploadBackgroundFile(file, selectedGuildId, form.name.trim());
-
-      const nextForm = {
-        ...form,
-        backgroundImageUrl: data?.publicUrl || form.backgroundImageUrl,
-        backgroundAssetKey: data?.objectKey || form.backgroundAssetKey,
-      };
-
-      setForm(nextForm);
-
-      const saveRes = await fetch(`${apiBaseUrl}/api/plus/templates`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          guildId: selectedGuildId,
-          ...nextForm,
-          layout,
-        }),
-      });
-      const saveData = await saveRes.json().catch(() => ({}));
-      if (!saveRes.ok) throw new Error(saveData?.error || "画像アップロード後の保存に失敗しました");
-
-      await reloadTemplates(selectedGuildId);
-      writeEditorCache(selectedGuildId, nextForm, layout, previewScale);
-      setUploadStatus(`アップロード成功: ${String(data?.objectKey || "(key不明)")}`);
-      setSelectedFileName("");
-      if (uploadInputRef.current) uploadInputRef.current.value = "";
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "画像アップロードに失敗しました");
-    } finally {
-      setUploading(false);
     }
   };
 
@@ -457,10 +437,22 @@ export default function PlusTemplatePage() {
                 setUploadStatus("");
                 setSelectedFileName(file.name || "(file)");
                 setSelectedUploadFile(file);
+
+                // ローカルプレビューに即反映（保存時に最終合成画像を書き出してR2保存する）
+                if (localPreviewUrlRef.current) {
+                  URL.revokeObjectURL(localPreviewUrlRef.current);
+                }
+                const localUrl = URL.createObjectURL(file);
+                localPreviewUrlRef.current = localUrl;
+                setForm((prev) => ({
+                  ...prev,
+                  backgroundImageUrl: localUrl,
+                  backgroundAssetKey: "",
+                }));
               }} />
               {(uploading || saving) && <span className="text-xs text-gray-300">アップロード中...</span>}
             </div>
-            {selectedFileName && <p className="text-xs text-sky-300">選択中: {selectedFileName}（保存時にアップロード）</p>}
+            {selectedFileName && <p className="text-xs text-sky-300">選択中: {selectedFileName}（保存時に最終合成画像としてR2へ保存）</p>}
             {uploadStatus && <p className="text-xs text-emerald-300">{uploadStatus}</p>}
 
             <div className="border border-gray-700 rounded-lg p-3 space-y-2">
@@ -561,6 +553,7 @@ export default function PlusTemplatePage() {
             accentColor={form.color ? form.color.replace('#', '') : DEFAULT_ACCENT_COLOR}
             backgroundImageUrl={form.backgroundImageUrl || undefined}
             scale={previewScale}
+            onRenderedDataUrl={(dataUrl: string) => setRenderedPreviewDataUrl(dataUrl)}
             onLayoutChange={(fieldName: string, newX: number, newY: number) => {
               const field = fieldName as keyof TemplateLayout;
               setLayout((prev) => {
