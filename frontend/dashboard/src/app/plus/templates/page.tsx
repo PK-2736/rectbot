@@ -135,6 +135,7 @@ export default function PlusTemplatePage() {
   const [loadingTemplates, setLoadingTemplates] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
 
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
@@ -301,6 +302,7 @@ export default function PlusTemplatePage() {
     }
     setUploading(true);
     setError(null);
+    setUploadStatus("");
     try {
       const fd = new FormData();
       fd.set("guildId", selectedGuildId);
@@ -313,7 +315,9 @@ export default function PlusTemplatePage() {
         body: fd,
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || "画像アップロードに失敗しました");
+      if (!res.ok) {
+        throw new Error(`${data?.error || "画像アップロードに失敗しました"} (status: ${res.status})`);
+      }
 
       const nextForm = {
         ...form,
@@ -338,6 +342,7 @@ export default function PlusTemplatePage() {
 
       await reloadTemplates(selectedGuildId);
       writeEditorCache(selectedGuildId, nextForm, layout, previewScale);
+      setUploadStatus(`アップロード成功: ${String(data?.objectKey || "(key不明)")}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "画像アップロードに失敗しました");
     } finally {
@@ -405,6 +410,7 @@ export default function PlusTemplatePage() {
               }} />
               {uploading && <span className="text-xs text-gray-300">アップロード中...</span>}
             </div>
+            {uploadStatus && <p className="text-xs text-emerald-300">{uploadStatus}</p>}
 
             <div className="border border-gray-700 rounded-lg p-3 space-y-2">
               <p className="text-sm text-gray-300">表示要素ON/OFFと文字サイズ</p>

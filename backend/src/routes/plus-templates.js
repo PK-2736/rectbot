@@ -301,9 +301,13 @@ async function upsertTemplate(request, env, safeHeaders) {
 
 async function uploadTemplateAsset(request, env, safeHeaders) {
   const user = await getUserFromRequest(request, env);
-  if (!user) return jsonResponse({ error: 'Unauthorized' }, 401, safeHeaders);
+  if (!user) {
+    console.warn('[plus/templates] upload rejected: unauthorized');
+    return jsonResponse({ error: 'Unauthorized' }, 401, safeHeaders);
+  }
 
   if (!env.PLUS_TEMPLATES_R2) {
+    console.error('[plus/templates] upload rejected: R2 binding missing');
     return jsonResponse({ error: 'R2 bucket binding PLUS_TEMPLATES_R2 is not configured' }, 500, safeHeaders);
   }
 
@@ -318,6 +322,17 @@ async function uploadTemplateAsset(request, env, safeHeaders) {
     return jsonResponse({ error: 'file is required' }, 400, safeHeaders);
   }
 
+  const fileName = String(file?.name || 'template.png');
+  const fileSize = Number(file?.size || 0);
+  console.log('[plus/templates] upload request', {
+    userId: user.id,
+    guildId,
+    templateName,
+    fileName,
+    fileSize,
+    contentType: String(file?.type || ''),
+  });
+
   const hasPremium = await ensurePremiumForGuild(user.id, guildId, env);
   if (!hasPremium) {
     return jsonResponse({ error: 'Premium subscription is required for this guild' }, 403, safeHeaders);
@@ -325,6 +340,7 @@ async function uploadTemplateAsset(request, env, safeHeaders) {
 
   const mimeType = String(file.type || '').toLowerCase();
   if (!mimeType.startsWith('image/')) {
+    console.warn('[plus/templates] upload rejected: invalid mimeType', mimeType);
     return jsonResponse({ error: 'Only image files are allowed' }, 400, safeHeaders);
   }
 
@@ -333,29 +349,40 @@ async function uploadTemplateAsset(request, env, safeHeaders) {
   const key = `plus-templates/${guildId}/${Date.now()}-${sanitizeFileName(templateName)}.${ext}`;
   const bytes = await file.arrayBuffer();
 
-  await env.PLUS_TEMPLATES_R2.put(key, bytes, {
-    httpMetadata: { contentType: mimeType || 'application/octet-stream' },
-    customMetadata: {
-      uploadedBy: user.id,
-      guildId,
-      templateName: sanitizeFileName(templateName),
-    },
-  });
+  try {
+    await env.PLUS_TEMPLATES_R2.put(key, bytes, {
+      httpMetadata: { contentType: mimeType || 'application/octet-stream' },
+      customMetadata: {
+        uploadedBy: user.id,
+        guildId,
+        templateName: sanitizeFileName(templateName),
+      },
+    });
+  } catch (e) {
+    console.error('[plus/templates] upload failed: R2 put error', e?.message || e);
+    return jsonResponse({ error: 'R2 upload failed' }, 500, safeHeaders);
+  }
+
+  console.log('[plus/templates] upload stored', { guildId, templateName, key, bytes: bytes.byteLength });
 
   // Upload-only flowでも画像設定が残るように、同名テンプレートへ背景情報を保存する
   const supabase = await createSupabaseClient(env);
   if (supabase) {
     const now = new Date().toISOString();
     const backgroundImageUrl = buildPublicAssetUrl(env, key);
-    const { data: existingTemplate } = await supabase
+    const { data: existingTemplate, error: existingErr } = await supabase
       .from('recruit_templates')
       .select('guild_id, name')
       .eq('guild_id', guildId)
       .eq('name', templateName)
       .maybeSingle();
 
+    if (existingErr) {
+      console.error('[plus/templates] upload warning: failed to fetch existing template', existingErr);
+    }
+
     if (existingTemplate) {
-      await supabase
+      const { error: updateErr } = await supabase
         .from('recruit_templates')
         .update({
           background_asset_key: key,
@@ -364,8 +391,11 @@ async function uploadTemplateAsset(request, env, safeHeaders) {
         })
         .eq('guild_id', guildId)
         .eq('name', templateName);
+      if (updateErr) {
+        console.error('[plus/templates] upload warning: failed to update template background', updateErr);
+      }
     } else {
-      await supabase
+      const { error: upsertErr } = await supabase
         .from('recruit_templates')
         .upsert({
           guild_id: guildId,
@@ -381,7 +411,12 @@ async function uploadTemplateAsset(request, env, safeHeaders) {
           background_asset_key: key,
           background_image_url: backgroundImageUrl,
         }, { onConflict: 'guild_id,name' });
+      if (upsertErr) {
+        console.error('[plus/templates] upload warning: failed to upsert template background', upsertErr);
+      }
     }
+  } else {
+    console.warn('[plus/templates] upload warning: supabase not configured; only R2 object saved', { guildId, templateName, key });
   }
 
   return jsonResponse({
