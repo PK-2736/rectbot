@@ -217,38 +217,73 @@ function parseRecruitOptions(interaction) {
 function mergeOptionsWithTemplate(parsedOptions, template) {
   if (!template || typeof template !== 'object') return parsedOptions;
 
-  const merged = { ...parsedOptions };
-  if (!merged.titleArg && template.title) merged.titleArg = String(template.title);
+  const imageInfo = extractTemplateImageInfo(template);
+  const normalizedTemplate = {
+    ...template,
+    background_image_url: imageInfo.imageUrl || template.background_image_url || template.backgroundImageUrl || null,
+    background_asset_key: imageInfo.assetKey || template.background_asset_key || template.backgroundAssetKey || null,
+  };
 
-  const templateMembers = Number(template.participants || 0);
+  const merged = { ...parsedOptions };
+  if (!merged.titleArg && normalizedTemplate.title) merged.titleArg = String(normalizedTemplate.title);
+
+  const templateMembers = Number(normalizedTemplate.participants || 0);
   if (!merged.membersArg && Number.isFinite(templateMembers) && templateMembers >= 1) {
     merged.membersArg = Math.min(16, Math.max(1, Math.round(templateMembers)));
   }
 
-  if (!merged.startArg && template.start_time_text) {
-    merged.startArg = String(template.start_time_text);
+  if (!merged.startArg && normalizedTemplate.start_time_text) {
+    merged.startArg = String(normalizedTemplate.start_time_text);
   }
   if (!merged.startArg) {
     merged.startArg = '今から';
   }
 
-  if (!merged.voiceArg && template.voice_option) {
-    merged.voiceArg = String(template.voice_option);
+  if (!merged.voiceArg && normalizedTemplate.voice_option) {
+    merged.voiceArg = String(normalizedTemplate.voice_option);
   }
-  if (!merged.voicePlaceArg && template.voice_place) {
-    merged.voicePlaceArg = String(template.voice_place);
+  if (!merged.voicePlaceArg && normalizedTemplate.voice_place) {
+    merged.voicePlaceArg = String(normalizedTemplate.voice_place);
   }
-  if (!merged.selectedColor && template.color) {
-    merged.selectedColor = String(template.color).replace(/^#/, '');
+  if (!merged.selectedColor && normalizedTemplate.color) {
+    merged.selectedColor = String(normalizedTemplate.color).replace(/^#/, '');
   }
-  merged.template = template;
+  merged.template = normalizedTemplate;
   return merged;
 }
 
+function extractTemplateImageInfo(template) {
+  if (!template || typeof template !== 'object') {
+    return { imageUrl: '', assetKey: '' };
+  }
+
+  const layout = (template.layout_json && typeof template.layout_json === 'object')
+    ? template.layout_json
+    : (template.layout && typeof template.layout === 'object')
+      ? template.layout
+      : null;
+
+  const imageUrl = String(
+    template.background_image_url
+    || template.backgroundImageUrl
+    || layout?.background_image_url
+    || layout?.backgroundImageUrl
+    || ''
+  ).trim();
+
+  const assetKey = String(
+    template.background_asset_key
+    || template.backgroundAssetKey
+    || layout?.background_asset_key
+    || layout?.backgroundAssetKey
+    || ''
+  ).trim();
+
+  return { imageUrl, assetKey };
+}
+
 function hasTemplateImage(template) {
-  if (!template || typeof template !== 'object') return false;
-  const imageUrl = String(template.background_image_url || '').trim();
-  const assetKey = String(template.background_asset_key || '').trim();
+  const { imageUrl, assetKey } = extractTemplateImageInfo(template);
   return Boolean(imageUrl || assetKey);
 }
 
