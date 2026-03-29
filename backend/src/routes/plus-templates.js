@@ -67,6 +67,30 @@ function resolveInternalBotBase(env) {
   return String(env.JWT_ISSUER_URL || env.VPS_EXPRESS_URL || env.TUNNEL_URL || '').trim();
 }
 
+async function inferLatestTemplateAssetKey(env, guildId, templateName) {
+  if (!env?.PLUS_TEMPLATES_R2 || !guildId || !templateName) return null;
+
+  const sanitizedName = sanitizeFileName(templateName);
+  if (!sanitizedName) return null;
+
+  const prefix = `plus-templates/${guildId}/`;
+  const list = await env.PLUS_TEMPLATES_R2.list({ prefix, limit: 1000 }).catch(() => null);
+  const objects = Array.isArray(list?.objects) ? list.objects : [];
+  if (objects.length === 0) return null;
+
+  const marker = `-${sanitizedName}.`;
+  let latestKey = null;
+
+  for (const obj of objects) {
+    const key = String(obj?.key || '');
+    if (!key.startsWith(prefix)) continue;
+    if (!key.includes(marker)) continue;
+    if (!latestKey || key > latestKey) latestKey = key;
+  }
+
+  return latestKey;
+}
+
 async function createSupabaseClient(env) {
   const url = env.SUPABASE_URL;
   const key = env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_SERVICE_KEY;
@@ -317,6 +341,48 @@ async function uploadTemplateAsset(request, env, safeHeaders) {
     },
   });
 
+  // Upload-only flowでも画像設定が残るように、同名テンプレートへ背景情報を保存する
+  const supabase = await createSupabaseClient(env);
+  if (supabase) {
+    const now = new Date().toISOString();
+    const backgroundImageUrl = buildPublicAssetUrl(env, key);
+    const { data: existingTemplate } = await supabase
+      .from('recruit_templates')
+      .select('guild_id, name')
+      .eq('guild_id', guildId)
+      .eq('name', templateName)
+      .maybeSingle();
+
+    if (existingTemplate) {
+      await supabase
+        .from('recruit_templates')
+        .update({
+          background_asset_key: key,
+          background_image_url: backgroundImageUrl,
+          updated_at: now,
+        })
+        .eq('guild_id', guildId)
+        .eq('name', templateName);
+    } else {
+      await supabase
+        .from('recruit_templates')
+        .upsert({
+          guild_id: guildId,
+          name: templateName,
+          title: '募集タイトル',
+          participants: 4,
+          color: '5865F2',
+          content: 'ガチエリア / 初心者歓迎',
+          start_time_text: '今から',
+          voice_place: '通話あり',
+          created_by: user.id,
+          updated_at: now,
+          background_asset_key: key,
+          background_image_url: backgroundImageUrl,
+        }, { onConflict: 'guild_id,name' });
+    }
+  }
+
   return jsonResponse({
     ok: true,
     objectKey: key,
@@ -350,7 +416,19 @@ async function getTemplateForBot(request, url, env, safeHeaders) {
     return jsonResponse({ error: 'Failed to load template' }, 500, safeHeaders);
   }
 
-  return jsonResponse({ template: data || null }, 200, safeHeaders);
+  let template = data || null;
+  if (template && !template.background_asset_key && !template.background_image_url) {
+    const inferredKey = await inferLatestTemplateAssetKey(env, guildId, name);
+    if (inferredKey) {
+      template = {
+        ...template,
+        background_asset_key: inferredKey,
+        background_image_url: buildPublicAssetUrl(env, inferredKey),
+      };
+    }
+  }
+
+  return jsonResponse({ template }, 200, safeHeaders);
 }
 
 async function listTemplatesForBot(request, url, env, safeHeaders) {
