@@ -136,6 +136,7 @@ export default function PlusTemplatePage() {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<string>("");
+  const [selectedFileName, setSelectedFileName] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
 
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
@@ -303,8 +304,14 @@ export default function PlusTemplatePage() {
           backgroundAssetKey: uploadData?.objectKey || form.backgroundAssetKey,
         };
         setForm(nextForm);
+        setSelectedFileName("");
         setUploadStatus(`アップロード成功: ${String(uploadData?.objectKey || "(key不明)")}`);
         if (uploadInputRef.current) uploadInputRef.current.value = "";
+      }
+
+      // 画像付きテンプレ運用を強制し、画像未設定のまま保存される事故を防ぐ
+      if (!nextForm.backgroundAssetKey && !nextForm.backgroundImageUrl) {
+        throw new Error("画像が未設定です。画像を選択してアップロードしてから保存してください。");
       }
 
       const payload = {
@@ -370,6 +377,7 @@ export default function PlusTemplatePage() {
       await reloadTemplates(selectedGuildId);
       writeEditorCache(selectedGuildId, nextForm, layout, previewScale);
       setUploadStatus(`アップロード成功: ${String(data?.objectKey || "(key不明)")}`);
+      setSelectedFileName("");
       if (uploadInputRef.current) uploadInputRef.current.value = "";
     } catch (e) {
       setError(e instanceof Error ? e.message : "画像アップロードに失敗しました");
@@ -439,12 +447,15 @@ export default function PlusTemplatePage() {
                 const file = e.target.files?.[0];
                 if (!file) {
                   setError("画像ファイルを選択してください");
+                  setSelectedFileName("");
                   return;
                 }
+                setSelectedFileName(file.name || "(file)");
                 void uploadBackground(file);
               }} />
               {uploading && <span className="text-xs text-gray-300">アップロード中...</span>}
             </div>
+            {selectedFileName && <p className="text-xs text-sky-300">選択中: {selectedFileName}</p>}
             {uploadStatus && <p className="text-xs text-emerald-300">{uploadStatus}</p>}
 
             <div className="border border-gray-700 rounded-lg p-3 space-y-2">
