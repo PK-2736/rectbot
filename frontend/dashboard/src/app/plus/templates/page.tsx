@@ -295,7 +295,10 @@ export default function PlusTemplatePage() {
   };
 
   const uploadBackground = async (file: File) => {
-    if (!selectedGuildId) return;
+    if (!selectedGuildId) {
+      setError("対象サーバーを先に選択してください");
+      return;
+    }
     if (!form.name.trim()) {
       setError("先にテンプレ名を入力して保存してください（画像はそのテンプレ名に紐づきます）");
       return;
@@ -404,9 +407,16 @@ export default function PlusTemplatePage() {
 
             <div className="flex items-center gap-3">
               <label className="text-sm text-gray-300">埋め込み画像アップロード:</label>
-              <input type="file" accept="image/*" onChange={(e) => {
+              <input type="file" accept="image/*" onClick={(e) => {
+                // 同じファイルを再選択した場合も onChange が発火するようにする
+                (e.currentTarget as HTMLInputElement).value = "";
+              }} onChange={(e) => {
                 const file = e.target.files?.[0];
-                if (file) uploadBackground(file);
+                if (!file) {
+                  setError("画像ファイルを選択してください");
+                  return;
+                }
+                void uploadBackground(file);
               }} />
               {uploading && <span className="text-xs text-gray-300">アップロード中...</span>}
             </div>
