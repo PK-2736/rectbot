@@ -502,7 +502,7 @@ function buildRecruitModal(interaction, roleOptions) {
 
 // execute handler split from gameRecruit.js
 async function execute(interaction) {
-  console.log('[gameRecruit.execute] invoked by', interaction.user?.id, 'guild:', interaction.guildId, 'channel:', interaction.channelId);
+  console.log('[gameRecruit.execute] invoked by', interaction.user?.id, 'command:', interaction.commandName, 'guild:', interaction.guildId, 'channel:', interaction.channelId);
 
   // Guild-level cooldown pre-check (2 minutes), except exempt guilds
   const cooldownOk = await enforceGuildCooldown(interaction);
@@ -557,7 +557,7 @@ async function execute(interaction) {
           return;
         }
 
-        if (template && isTemplateCommand && !hasTemplateImage(template)) {
+        if (template && !hasTemplateImage(template)) {
           await safeReply(interaction, {
             content: `❌ テンプレート「${parsedOptions.templateName}」には保存画像がありません。画像付きテンプレートを選択してください。`,
             flags: MessageFlags.Ephemeral

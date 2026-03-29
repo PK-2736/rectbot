@@ -309,10 +309,11 @@ async function uploadTemplateAsset(request, env, safeHeaders) {
 
   const form = await request.formData();
   const guildId = trimOrNull(form.get('guildId'), 64);
-  const templateName = trimOrNull(form.get('templateName'), 100) || 'template';
+  const templateName = trimOrNull(form.get('templateName'), 100);
   const file = form.get('file');
 
   if (!guildId) return jsonResponse({ error: 'guildId is required' }, 400, safeHeaders);
+  if (!templateName) return jsonResponse({ error: 'templateName is required' }, 400, safeHeaders);
   if (!file || typeof file.arrayBuffer !== 'function') {
     return jsonResponse({ error: 'file is required' }, 400, safeHeaders);
   }

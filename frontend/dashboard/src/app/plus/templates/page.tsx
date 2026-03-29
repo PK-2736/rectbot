@@ -295,12 +295,16 @@ export default function PlusTemplatePage() {
 
   const uploadBackground = async (file: File) => {
     if (!selectedGuildId) return;
+    if (!form.name.trim()) {
+      setError("先にテンプレ名を入力して保存してください（画像はそのテンプレ名に紐づきます）");
+      return;
+    }
     setUploading(true);
     setError(null);
     try {
       const fd = new FormData();
       fd.set("guildId", selectedGuildId);
-      fd.set("templateName", form.name || "template");
+      fd.set("templateName", form.name.trim());
       fd.set("file", file);
 
       const res = await fetch(`${apiBaseUrl}/api/plus/template-assets/upload`, {
