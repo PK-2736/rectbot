@@ -337,10 +337,10 @@ export default function PlusTemplatePage() {
         }
       }
 
-      // ローカルファイル（blob:）またはR2 URLのどちらかがあればOK
-      // 両方ない場合のみエラー
-      if (!nextForm.backgroundImageUrl) {
-        throw new Error("背景画像を選択してください（背景画像は必須です）");
+      // 選択中のアップロードファイルか、既に保存されたアセットキーのどちらかがあればOK
+      // blob: URLはローカルプレビュー用なので、アセットキーまたはファイル選択で判定
+      if (!uploadSourceFile && !nextForm.backgroundAssetKey) {
+        throw new Error("背景画像をアップロードしてください（背景画像は必須です）");
       }
 
       const payload = {
@@ -415,7 +415,7 @@ export default function PlusTemplatePage() {
             <input className="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2" placeholder="通話表示（例: 通話あり）" value={form.voicePlace} onChange={(e) => setForm({ ...form, voicePlace: e.target.value })} />
 
             <div className="grid grid-cols-2 gap-3">
-              <input className="bg-gray-900 border border-gray-600 rounded-lg px-3 py-2" placeholder="カード色 #RRGGBB" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} />
+            <input className="bg-gray-900 border border-gray-600 rounded-lg px-3 py-2" placeholder="カード色 #RRGGBB" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} />
               <input className="bg-gray-900 border border-gray-600 rounded-lg px-3 py-2" placeholder="埋め込み画像URL（任意）" value={form.backgroundImageUrl} onChange={(e) => setForm({ ...form, backgroundImageUrl: e.target.value })} />
             </div>
 
@@ -518,29 +518,30 @@ export default function PlusTemplatePage() {
           {error && <p className="text-sm text-red-300">{error}</p>}
         </section>
 
-        <section className="bg-gray-800/50 border-l border-gray-700 space-y-4 flex flex-col">
-          <div className="p-5 space-y-4 flex-1 overflow-y-auto">
-          <h2 className="text-lg font-semibold">募集プレビュー（react-konva リアルタイム描画）</h2>
+        <section className="bg-gray-800/50 border-l border-gray-700 flex-1 flex flex-col overflow-hidden">
+          <h2 className="text-lg font-semibold px-4 py-3 border-b border-gray-700">募集プレビュー</h2>
 
-          <div className="border border-gray-700 rounded-lg p-3 space-y-2">
-            <div className="flex items-center justify-between text-sm">
-              <label htmlFor="preview-scale" className="text-gray-300">表示倍率</label>
-              <span className="text-gray-400">{Math.round(previewScale * 100)}%</span>
+          <div className="flex-1 overflow-hidden flex flex-col">
+            <div className="px-4 py-3 border-b border-gray-700 space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <label htmlFor="preview-scale" className="text-gray-300">表示倍率</label>
+                <span className="text-gray-400">{Math.round(previewScale * 100)}%</span>
+              </div>
+              <input
+                id="preview-scale"
+                type="range"
+                min={50}
+                max={150}
+                step={1}
+                value={Math.round(previewScale * 100)}
+                onChange={(e) => setPreviewScale(clamp(Number(e.target.value) / 100, 0.5, 1.5))}
+                className="w-full"
+              />
+              <p className="text-xs text-gray-400">100% = 枠内にぴったり全体表示</p>
             </div>
-            <input
-              id="preview-scale"
-              type="range"
-              min={50}
-              max={150}
-              step={1}
-              value={Math.round(previewScale * 100)}
-              onChange={(e) => setPreviewScale(clamp(Number(e.target.value) / 100, 0.5, 1.5))}
-              className="w-full"
-            />
-            <p className="text-xs text-gray-400">100% = 枠内にぴったり全体表示（ノーマル）</p>
-          </div>
 
-          {/* RecruitCardCanvas コンポーネント */}
+            {/* RecruitCardCanvas コンポーネント - 全幅全高 */}
+            <div className="flex-1 overflow-hidden">
           <RecruitCardCanvas
             recruitData={{
               title: form.title || '募集タイトル',
@@ -566,11 +567,13 @@ export default function PlusTemplatePage() {
               });
             }}
           />
+            </div>
 
-          <p className="text-xs text-gray-400">react-konva を使用した リアルタイム描画です。テキストやボックスはドラッグで移動できます。</p>
+            <div className="border-t border-gray-700 px-4 py-3 space-y-2 flex-1 overflow-y-auto">
+              <p className="text-xs text-gray-400">react-konva を使用したリアルタイム描画です。テキストやボックスはドラッグで移動できます。</p>
 
-          <div className="border border-gray-700 rounded-lg p-3">
-            <h3 className="font-semibold mb-2">保存済みテンプレート</h3>
+              <div>
+            <h3 className="font-semibold mb-2 text-sm">保存済みテンプレート</h3>
             {loadingTemplates ? (
               <p className="text-sm text-gray-300">読み込み中...</p>
             ) : templates.length === 0 ? (
@@ -601,6 +604,7 @@ export default function PlusTemplatePage() {
               </div>
             )}
           </div>
+            </div>
           </div>
         </section>
       </main>
