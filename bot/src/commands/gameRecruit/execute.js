@@ -557,14 +557,6 @@ async function execute(interaction) {
           return;
         }
 
-        if (template && !hasTemplateImage(template)) {
-          await safeReply(interaction, {
-            content: `❌ テンプレート「${parsedOptions.templateName}」には保存画像がありません。画像付きテンプレートを選択してください。`,
-            flags: MessageFlags.Ephemeral
-          });
-          return;
-        }
-
         if (template) {
           parsedOptions = mergeOptionsWithTemplate(parsedOptions, template);
         }
