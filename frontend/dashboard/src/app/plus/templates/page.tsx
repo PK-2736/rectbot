@@ -137,6 +137,7 @@ export default function PlusTemplatePage() {
   const [uploading, setUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<string>("");
   const [selectedFileName, setSelectedFileName] = useState<string>("");
+  const [selectedUploadFile, setSelectedUploadFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
@@ -292,7 +293,7 @@ export default function PlusTemplatePage() {
 
     try {
       let nextForm = form;
-      const pendingFile = uploadInputRef.current?.files?.[0] || null;
+      const pendingFile = selectedUploadFile;
       if (pendingFile) {
         if (!form.name.trim()) {
           throw new Error("先にテンプレ名を入力してください（画像を紐づけるため必須）");
@@ -305,6 +306,7 @@ export default function PlusTemplatePage() {
         };
         setForm(nextForm);
         setSelectedFileName("");
+        setSelectedUploadFile(null);
         setUploadStatus(`アップロード成功: ${String(uploadData?.objectKey || "(key不明)")}`);
         if (uploadInputRef.current) uploadInputRef.current.value = "";
       }
@@ -448,14 +450,17 @@ export default function PlusTemplatePage() {
                 if (!file) {
                   setError("画像ファイルを選択してください");
                   setSelectedFileName("");
+                  setSelectedUploadFile(null);
                   return;
                 }
+                setError(null);
+                setUploadStatus("");
                 setSelectedFileName(file.name || "(file)");
-                void uploadBackground(file);
+                setSelectedUploadFile(file);
               }} />
-              {uploading && <span className="text-xs text-gray-300">アップロード中...</span>}
+              {(uploading || saving) && <span className="text-xs text-gray-300">アップロード中...</span>}
             </div>
-            {selectedFileName && <p className="text-xs text-sky-300">選択中: {selectedFileName}</p>}
+            {selectedFileName && <p className="text-xs text-sky-300">選択中: {selectedFileName}（保存時にアップロード）</p>}
             {uploadStatus && <p className="text-xs text-emerald-300">{uploadStatus}</p>}
 
             <div className="border border-gray-700 rounded-lg p-3 space-y-2">
