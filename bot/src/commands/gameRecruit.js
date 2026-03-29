@@ -30,6 +30,30 @@ async function listTemplateCandidates(guildId, search) {
   }
 }
 
+function templateHasImage(template) {
+  if (!template || typeof template !== 'object') return false;
+  const layout = (template.layout_json && typeof template.layout_json === 'object')
+    ? template.layout_json
+    : (template.layout && typeof template.layout === 'object')
+      ? template.layout
+      : null;
+  const imageUrl = String(
+    template.background_image_url
+    || template.backgroundImageUrl
+    || layout?.background_image_url
+    || layout?.backgroundImageUrl
+    || ''
+  ).trim();
+  const assetKey = String(
+    template.background_asset_key
+    || template.backgroundAssetKey
+    || layout?.background_asset_key
+    || layout?.backgroundAssetKey
+    || ''
+  ).trim();
+  return Boolean(imageUrl || assetKey);
+}
+
 // hydrateRecruitData moved to utils/recruitMessage
 
 // autoCloseRecruitment moved to utils/recruitMessage
@@ -147,7 +171,7 @@ module.exports = {
       if (focusedName === 'テンプレート' || focusedName === 'template') {
         const templates = await listTemplateCandidates(interaction.guildId, focusedValue || '');
         const options = (Array.isArray(templates) ? templates : [])
-          .filter((t) => t && t.name)
+          .filter((t) => t && t.name && templateHasImage(t))
           .slice(0, 25)
           .map((t) => ({
             name: String(t.name).slice(0, 100),

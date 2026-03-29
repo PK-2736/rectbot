@@ -75,6 +75,30 @@ module.exports = {
 
   async autocomplete(interaction) {
     try {
+      const templateHasImage = (template) => {
+        if (!template || typeof template !== 'object') return false;
+        const layout = (template.layout_json && typeof template.layout_json === 'object')
+          ? template.layout_json
+          : (template.layout && typeof template.layout === 'object')
+            ? template.layout
+            : null;
+        const imageUrl = String(
+          template.background_image_url
+          || template.backgroundImageUrl
+          || layout?.background_image_url
+          || layout?.backgroundImageUrl
+          || ''
+        ).trim();
+        const assetKey = String(
+          template.background_asset_key
+          || template.backgroundAssetKey
+          || layout?.background_asset_key
+          || layout?.backgroundAssetKey
+          || ''
+        ).trim();
+        return Boolean(imageUrl || assetKey);
+      };
+
       const focused = interaction.options.getFocused(true);
       const focusedName = String(focused?.name || '');
       const focusedValue = String(focused?.value || '').trim();
@@ -102,7 +126,7 @@ module.exports = {
         }
 
         const options = templates
-          .filter((t) => t && t.name)
+          .filter((t) => t && t.name && templateHasImage(t))
           .slice(0, 25)
           .map((t) => ({ name: String(t.name).slice(0, 100), value: String(t.name).slice(0, 100) }));
         return interaction.respond(options);

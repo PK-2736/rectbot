@@ -70,10 +70,12 @@ async function hasPremiumSubscription(userId, guildId) {
 }
 
 async function getTemplateByNameWithFallback(guildId, templateName) {
+  let localTemplate = null;
+  let backendTemplate = null;
+
   // 1) Bot直結のDB
   try {
-    const template = await getTemplateByName(guildId, templateName);
-    if (template) return template;
+    localTemplate = await getTemplateByName(guildId, templateName);
   } catch (e) {
     console.warn('[gameRecruit.execute] local getTemplateByName failed:', e?.message || e);
   }
@@ -82,11 +84,28 @@ async function getTemplateByNameWithFallback(guildId, templateName) {
   try {
     const params = new URLSearchParams({ guildId: String(guildId || ''), name: String(templateName || '') });
     const resp = await backendFetch(`/api/plus/bot/template?${params.toString()}`, { method: 'GET' });
-    return resp?.template || null;
+    backendTemplate = resp?.template || null;
   } catch (e) {
     console.warn('[gameRecruit.execute] backend get template failed:', e?.message || e);
-    return null;
   }
+
+  // backend側に画像情報があり、local側に無い場合はbackendを優先
+  if (hasTemplateImage(backendTemplate) && !hasTemplateImage(localTemplate)) {
+    return backendTemplate;
+  }
+
+  // どちらもあれば、background/layout情報をbackendで上書きマージ
+  if (localTemplate && backendTemplate) {
+    return {
+      ...localTemplate,
+      ...backendTemplate,
+      layout_json: backendTemplate.layout_json || localTemplate.layout_json || null,
+      background_image_url: backendTemplate.background_image_url || localTemplate.background_image_url || localTemplate.backgroundImageUrl || null,
+      background_asset_key: backendTemplate.background_asset_key || localTemplate.background_asset_key || localTemplate.backgroundAssetKey || null,
+    };
+  }
+
+  return localTemplate || backendTemplate || null;
 }
 
 async function notifyRecruitLimitReached(interaction) {
