@@ -90,6 +90,28 @@ function drawRoundedRect(ctx, x, y, width, height, radius, fill = true, stroke =
   if (stroke) ctx.stroke();
 }
 
+function drawImageCover(ctx, img, x, y, width, height) {
+  const imgW = img.width || 1;
+  const imgH = img.height || 1;
+  const imgRatio = imgW / imgH;
+  const boxRatio = width / height;
+
+  let sx = 0;
+  let sy = 0;
+  let sw = imgW;
+  let sh = imgH;
+
+  if (imgRatio > boxRatio) {
+    sw = imgH * boxRatio;
+    sx = (imgW - sw) / 2;
+  } else {
+    sh = imgW / boxRatio;
+    sy = (imgH - sh) / 2;
+  }
+
+  ctx.drawImage(img, sx, sy, sw, sh, x, y, width, height);
+}
+
 function drawPin(ctx, x, y, color) {
   ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
   ctx.beginPath();
@@ -242,23 +264,6 @@ function resolveTemplateLayout(recruitData) {
     || recruitData?.metadata?.layout;
 
   return toSafeLayout(layout);
-}
-
-function isComposedTemplateImage(recruitData) {
-  const source = getTemplateSource(recruitData);
-  const layoutRaw = source?.layout_json
-    || source?.layout
-    || recruitData?.layout_json
-    || recruitData?.layout
-    || recruitData?.metadata?.layout_json
-    || recruitData?.metadata?.layout
-    || null;
-
-  const meta = layoutRaw?._meta || layoutRaw?.meta || null;
-  if (meta?.composedImage === true) return true;
-  if (layoutRaw?.composedImage === true) return true;
-  if (source?.composed_image === true || source?.composedImage === true) return true;
-  return false;
 }
 
 function isSameTextField(a, b) {
@@ -442,28 +447,28 @@ function drawTemplateContentNode(ctx, field, text, layout, canvasSize) {
   }
 }
 
-async function drawTemplateModeCard(ctx, recruitData, layout, canvasSize, accentColor) {
+async function drawTemplateModeCard(ctx, recruitData, layout, canvasSize, accentColor, participantIds = [], client = null, avatarUrls = null) {
   const bgUrl = getTemplateBackgroundUrl(recruitData);
   if (!bgUrl) return false;
 
   try {
     const bg = await loadImage(bgUrl);
-    ctx.drawImage(bg, 0, 0, canvasSize.width, canvasSize.height);
+    drawImageCover(ctx, bg, 0, 0, canvasSize.width, canvasSize.height);
   } catch (e) {
     console.warn('[canvasRecruit] failed to load template full background image:', e?.message || e);
     return false;
-  }
-
-  // Composed-image templates already include text/boxes/icons in the background image.
-  // Skip all overlay drawing to avoid double rendering.
-  if (isComposedTemplateImage(recruitData)) {
-    return true;
   }
 
   drawBorder(ctx, canvasSize.width, canvasSize.height, accentColor);
 
   const contentBox = getScaledBox(layout.contentBox, layout, canvasSize, DEFAULT_TEMPLATE_LAYOUT.contentBox);
   const imageBox = getScaledBox(layout.imageBox, layout, canvasSize, DEFAULT_TEMPLATE_LAYOUT.imageBox);
+  const participantsBox = getScaledBox(
+    layout.participantsBox || DEFAULT_TEMPLATE_LAYOUT.participantsBox,
+    layout,
+    canvasSize,
+    DEFAULT_TEMPLATE_LAYOUT.participantsBox
+  );
 
   if (imageBox.visible) {
     ctx.fillStyle = 'rgba(18, 20, 24, 0.95)';
@@ -478,7 +483,7 @@ async function drawTemplateModeCard(ctx, recruitData, layout, canvasSize, accent
         ctx.save();
         drawRoundedRect(ctx, imageBox.x, imageBox.y, imageBox.width, imageBox.height, 8, false, false);
         ctx.clip();
-        ctx.drawImage(bg, imageBox.x, imageBox.y, imageBox.width, imageBox.height);
+        drawImageCover(ctx, bg, imageBox.x, imageBox.y, imageBox.width, imageBox.height);
         ctx.restore();
       } catch (e) {
         console.warn('[canvasRecruit] failed to load template embedded image:', e?.message || e);
@@ -496,9 +501,17 @@ async function drawTemplateModeCard(ctx, recruitData, layout, canvasSize, accent
 
   const currentMembers = getCurrentMembers(recruitData, []);
   const maxMembers = getMaxMembers(recruitData, currentMembers);
+  const participantCount = getParticipantCount(currentMembers, maxMembers);
   const startLabel = recruitData.metadata?.startLabel || recruitData.startTime || '今から';
   const content = recruitData.description || recruitData.content || '';
   const voiceText = formatVoiceInfo(recruitData);
+
+  if (participantsBox.visible) {
+    const participantLayout = getParticipantLayout(participantCount, contentBox.x, contentBox.y);
+    participantLayout.participantAreaX = participantsBox.x + participantLayout.circleRadius;
+    participantLayout.participantAreaY = participantsBox.y + participantLayout.circleRadius;
+    await drawParticipantCircles(ctx, participantIds, participantCount, participantLayout, client, avatarUrls);
+  }
 
   drawTemplateTextNode(ctx, layout.title, recruitData.title || '募集タイトル', layout, canvasSize);
   drawTemplateTextNode(ctx, layout.members, `👥 ${maxMembers}人`, layout, canvasSize);
@@ -765,7 +778,7 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
 
   if (shouldUseTemplateMode) {
     const effectiveLayout = templateLayout || DEFAULT_TEMPLATE_LAYOUT;
-    const templateDrawn = await drawTemplateModeCard(ctx, recruitData, effectiveLayout, { width, height }, accentColor);
+    const templateDrawn = await drawTemplateModeCard(ctx, recruitData, effectiveLayout, { width, height }, accentColor, participantIds, client, avatarUrls);
     if (templateDrawn) {
       applyShadowEffect(ctx);
       return canvas.toBuffer('image/png', { compressionLevel: 3, filters: canvas.PNG_FILTER_NONE });

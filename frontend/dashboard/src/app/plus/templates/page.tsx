@@ -138,7 +138,6 @@ export default function PlusTemplatePage() {
   const [uploadStatus, setUploadStatus] = useState<string>("");
   const [selectedFileName, setSelectedFileName] = useState<string>("");
   const [selectedUploadFile, setSelectedUploadFile] = useState<File | null>(null);
-  const [renderedPreviewDataUrl, setRenderedPreviewDataUrl] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
 
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
@@ -293,13 +292,6 @@ export default function PlusTemplatePage() {
     return data;
   };
 
-  const dataUrlToFile = async (dataUrl: string, fileName: string) => {
-    const response = await fetch(dataUrl);
-    const blob = await response.blob();
-    const mime = blob.type || 'image/png';
-    return new File([blob], fileName, { type: mime });
-  };
-
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const saveTemplate = async (e: any) => {
     e.preventDefault();
@@ -315,12 +307,7 @@ export default function PlusTemplatePage() {
         throw new Error("先にテンプレ名を入力してください（画像を紐づけるため必須）");
       }
 
-      let uploadSourceFile: File | null = null;
-      if (renderedPreviewDataUrl) {
-        uploadSourceFile = await dataUrlToFile(renderedPreviewDataUrl, `${form.name.trim()}-composed.png`);
-      } else if (selectedUploadFile) {
-        uploadSourceFile = selectedUploadFile;
-      }
+      const uploadSourceFile = selectedUploadFile;
 
       if (uploadSourceFile) {
         const uploadData = await uploadBackgroundFile(uploadSourceFile, selectedGuildId, form.name.trim());
@@ -332,7 +319,7 @@ export default function PlusTemplatePage() {
         setForm(nextForm);
         setSelectedFileName("");
         setSelectedUploadFile(null);
-        setUploadStatus(`最終画像を保存しました: ${String(uploadData?.objectKey || "(key不明)")}`);
+        setUploadStatus(`背景画像を保存しました: ${String(uploadData?.objectKey || "(key不明)")}`);
         if (uploadInputRef.current) uploadInputRef.current.value = "";
         if (localPreviewUrlRef.current) {
           URL.revokeObjectURL(localPreviewUrlRef.current);
@@ -347,14 +334,7 @@ export default function PlusTemplatePage() {
       const payload = {
         guildId: selectedGuildId,
         ...nextForm,
-        layout: {
-          ...layout,
-          _meta: {
-            composedImage: true,
-            editor: 'plus-template-editor',
-            version: 1,
-          },
-        },
+        layout,
       };
 
       const res = await fetch(`${apiBaseUrl}/api/plus/templates`, {
@@ -459,7 +439,7 @@ export default function PlusTemplatePage() {
               }} />
               {(uploading || saving) && <span className="text-xs text-gray-300">アップロード中...</span>}
             </div>
-            {selectedFileName && <p className="text-xs text-sky-300">選択中: {selectedFileName}（保存時に最終合成画像としてR2へ保存）</p>}
+            {selectedFileName && <p className="text-xs text-sky-300">選択中: {selectedFileName}（保存時に背景画像としてR2へ保存）</p>}
             {uploadStatus && <p className="text-xs text-emerald-300">{uploadStatus}</p>}
 
             <div className="border border-gray-700 rounded-lg p-3 space-y-2">
@@ -560,7 +540,6 @@ export default function PlusTemplatePage() {
             accentColor={form.color ? form.color.replace('#', '') : DEFAULT_ACCENT_COLOR}
             backgroundImageUrl={form.backgroundImageUrl || undefined}
             scale={previewScale}
-            onRenderedDataUrl={(dataUrl: string) => setRenderedPreviewDataUrl(dataUrl)}
             onLayoutChange={(fieldName: string, newX: number, newY: number) => {
               const field = fieldName as keyof TemplateLayout;
               setLayout((prev) => {
