@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/components/AuthProvider";
 import RecruitCardCanvas from "@/components/RecruitCardCanvas";
@@ -141,6 +141,7 @@ export default function PlusTemplatePage() {
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
   const [layout, setLayout] = useState<TemplateLayout>(DEFAULT_LAYOUT);
   const [previewScale, setPreviewScale] = useState(1);
+  const uploadInputRef = useRef<HTMLInputElement | null>(null);
 
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api.recrubo.net";
 
@@ -261,6 +262,24 @@ export default function PlusTemplatePage() {
     }));
   };
 
+  const uploadBackgroundFile = async (file: File, guildId: string, templateName: string) => {
+    const fd = new FormData();
+    fd.set("guildId", guildId);
+    fd.set("templateName", templateName);
+    fd.set("file", file);
+
+    const res = await fetch(`${apiBaseUrl}/api/plus/template-assets/upload`, {
+      method: "POST",
+      credentials: "include",
+      body: fd,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(`${data?.error || "画像アップロードに失敗しました"} (status: ${res.status})`);
+    }
+    return data;
+  };
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const saveTemplate = async (e: any) => {
     e.preventDefault();
@@ -268,11 +287,29 @@ export default function PlusTemplatePage() {
 
     setSaving(true);
     setError(null);
+    setUploadStatus("");
 
     try {
+      let nextForm = form;
+      const pendingFile = uploadInputRef.current?.files?.[0] || null;
+      if (pendingFile) {
+        if (!form.name.trim()) {
+          throw new Error("先にテンプレ名を入力してください（画像を紐づけるため必須）");
+        }
+        const uploadData = await uploadBackgroundFile(pendingFile, selectedGuildId, form.name.trim());
+        nextForm = {
+          ...form,
+          backgroundImageUrl: uploadData?.publicUrl || form.backgroundImageUrl,
+          backgroundAssetKey: uploadData?.objectKey || form.backgroundAssetKey,
+        };
+        setForm(nextForm);
+        setUploadStatus(`アップロード成功: ${String(uploadData?.objectKey || "(key不明)")}`);
+        if (uploadInputRef.current) uploadInputRef.current.value = "";
+      }
+
       const payload = {
         guildId: selectedGuildId,
-        ...form,
+        ...nextForm,
         layout,
       };
 
@@ -286,7 +323,7 @@ export default function PlusTemplatePage() {
       if (!res.ok) throw new Error(data?.error || "テンプレート保存に失敗しました");
 
       await reloadTemplates(selectedGuildId);
-      writeEditorCache(selectedGuildId, form, layout, previewScale);
+      writeEditorCache(selectedGuildId, nextForm, layout, previewScale);
     } catch (e) {
       setError(e instanceof Error ? e.message : "保存に失敗しました");
     } finally {
@@ -307,20 +344,7 @@ export default function PlusTemplatePage() {
     setError(null);
     setUploadStatus("");
     try {
-      const fd = new FormData();
-      fd.set("guildId", selectedGuildId);
-      fd.set("templateName", form.name.trim());
-      fd.set("file", file);
-
-      const res = await fetch(`${apiBaseUrl}/api/plus/template-assets/upload`, {
-        method: "POST",
-        credentials: "include",
-        body: fd,
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(`${data?.error || "画像アップロードに失敗しました"} (status: ${res.status})`);
-      }
+      const data = await uploadBackgroundFile(file, selectedGuildId, form.name.trim());
 
       const nextForm = {
         ...form,
@@ -346,6 +370,7 @@ export default function PlusTemplatePage() {
       await reloadTemplates(selectedGuildId);
       writeEditorCache(selectedGuildId, nextForm, layout, previewScale);
       setUploadStatus(`アップロード成功: ${String(data?.objectKey || "(key不明)")}`);
+      if (uploadInputRef.current) uploadInputRef.current.value = "";
     } catch (e) {
       setError(e instanceof Error ? e.message : "画像アップロードに失敗しました");
     } finally {
@@ -407,7 +432,7 @@ export default function PlusTemplatePage() {
 
             <div className="flex items-center gap-3">
               <label className="text-sm text-gray-300">埋め込み画像アップロード:</label>
-              <input type="file" accept="image/*" onClick={(e) => {
+              <input ref={uploadInputRef} type="file" accept="image/*" onClick={(e) => {
                 // 同じファイルを再選択した場合も onChange が発火するようにする
                 (e.currentTarget as HTMLInputElement).value = "";
               }} onChange={(e) => {
