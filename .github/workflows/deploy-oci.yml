@@ -48,6 +48,8 @@ jobs:
           DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
           INTERNAL_SECRET: ${{ secrets.INTERNAL_SECRET }}
           BACKEND_API_URL: ${{ secrets.BACKEND_API_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           DISCORD_CLIENT_ID: ${{ secrets.DISCORD_CLIENT_ID }}
           REDIS_HOST: ${{ secrets.REDIS_HOST }}
           REDIS_PORT: ${{ secrets.REDIS_PORT }}
@@ -72,6 +74,8 @@ jobs:
             export CLIENT_ID="'$DISCORD_CLIENT_ID'" || true; \
             export INTERNAL_SECRET="'"$INTERNAL_SECRET"'" || true; \
             export BACKEND_API_URL="'"$BACKEND_API_URL"'" || true; \
+            export SUPABASE_URL="'"$SUPABASE_URL"'" || true; \
+            export SUPABASE_SERVICE_ROLE_KEY="'"$SUPABASE_SERVICE_ROLE_KEY"'" || true; \
             export REDIS_HOST="'"$REDIS_HOST"'" || true; \
             export REDIS_PORT="'"$REDIS_PORT"'" || true; \
             export STRIPE_PREMIUM_PRICE_ID="'"$STRIPE_PREMIUM_PRICE_ID"'" || true; \

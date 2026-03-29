@@ -57,6 +57,8 @@ jobs:
           REDIS_HOST_DEV: ${{ secrets.REDIS_HOST_DEV }}
           REDIS_PORT_DEV: ${{ secrets.REDIS_PORT_DEV }}
           INTERNAL_SECRET_DEV: ${{ secrets.INTERNAL_SECRET }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           # メール送信設定
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
@@ -71,6 +73,8 @@ jobs:
           : "${DISCORD_BOT_TOKEN_DEV:?Missing DISCORD_BOT_TOKEN_DEV}"
           : "${DISCORD_CLIENT_ID_DEV:?Missing DISCORD_CLIENT_ID_DEV}"
           : "${BACKEND_API_URL:?Missing BACKEND_API_URL}"
+          : "${SUPABASE_URL:?Missing SUPABASE_URL}"
+          : "${SUPABASE_SERVICE_ROLE_KEY:?Missing SUPABASE_SERVICE_ROLE_KEY}"
           : "${JWT_PRIVATE_KEY:?Missing JWT_PRIVATE_KEY}"
           : "${SERVICE_JWT_PRIVATE_KEY:?Missing SERVICE_JWT_PRIVATE_KEY}"
 
@@ -85,6 +89,8 @@ jobs:
             export REDIS_HOST_DEV="'"$REDIS_HOST_DEV"'"; \
             export REDIS_PORT_DEV="'"$REDIS_PORT_DEV"'"; \
             export INTERNAL_SECRET_DEV="'"$INTERNAL_SECRET_DEV"'"; \
+            export SUPABASE_URL="'"$SUPABASE_URL"'"; \
+            export SUPABASE_SERVICE_ROLE_KEY="'"$SUPABASE_SERVICE_ROLE_KEY"'"; \
             export DISCORD_GUILD_ID_DEV="'"$DISCORD_GUILD_ID_DEV"'"; \
             export GMAIL_USER="'"$GMAIL_USER"'"; \
             export GMAIL_APP_PASSWORD="'"$GMAIL_APP_PASSWORD"'"; \
@@ -101,6 +107,8 @@ jobs:
             export REDIS_HOST="$REDIS_HOST_DEV"; \
             export REDIS_PORT="$REDIS_PORT_DEV"; \
             export INTERNAL_SECRET="$INTERNAL_SECRET_DEV"; \
+            export SUPABASE_URL="$SUPABASE_URL"; \
+            export SUPABASE_SERVICE_ROLE_KEY="$SUPABASE_SERVICE_ROLE_KEY"; \
             export GUILD_ID="${DISCORD_GUILD_ID_DEV:-802345513495822336}"; \
             source ~/.bashrc || true; \
             source ~/.nvm/nvm.sh || true; \
