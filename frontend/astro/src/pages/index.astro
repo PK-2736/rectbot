@@ -9,7 +9,7 @@ const supportServerUrl = 'https://discord.gg/tJAGc9aRdc';
 const apiBaseUrl = (import.meta.env.PUBLIC_API_BASE_URL && import.meta.env.PUBLIC_API_BASE_URL.trim() !== '')
   ? import.meta.env.PUBLIC_API_BASE_URL.trim().replace(/\/$/, '')
   : 'https://api.recrubo.net';
-// Astro サーバー経由のワンタイム招待生成エンドポイント
+// Astro サーバー経由の招待リンク取得エンドポイント
 const inviteRequestEndpoint = '/api/bot-invite.json';
 // フォールバック（固定OAuth招待URL）: 環境変数で指定可能。未設定なら null 扱い
 const fallbackInviteUrl = (import.meta.env.PUBLIC_DISCORD_INVITE_URL && import.meta.env.PUBLIC_DISCORD_INVITE_URL.trim() !== '')
@@ -272,8 +272,8 @@ const faqSchema = {
 
 <script is:inline>
   console.log('Script loaded');
-  // ボット招待の動的取得 + フォールバック処理
-  const API_ENDPOINT = 'https://api.recrubo.net/api/bot-invite/one-time';
+  // ボット招待リンクの動的取得 + フォールバック処理
+  const API_ENDPOINT = 'https://api.recrubo.net/api/bot-invite';
   const DEFAULT_FALLBACK_URL = null;
   const DEFAULT_API_BASE = "https://api.recrubo.net";
 
@@ -320,7 +320,7 @@ const faqSchema = {
       // スマホ対応: ポップアップがブロックされる可能性があるので、location.hrefを使用
       window.location.href = finalUrl;
     } catch (error) {
-      console.error('[bot-invite] failed to resolve one-time invite link:', error);
+      console.error('[bot-invite] failed to resolve invite link:', error);
       if (fallbackUrl) {
         window.location.href = fallbackUrl;
       } else {

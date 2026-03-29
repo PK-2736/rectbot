@@ -493,7 +493,7 @@ export class RecruitsDO {
   }
 }
 
-// Durable Object: InviteTokensDO for one-time bot invite links
+// Durable Object: InviteTokensDO (legacy, currently unused in reusable invite-link flow)
 export class InviteTokensDO {
   constructor(state, env) {
     this.state = state;

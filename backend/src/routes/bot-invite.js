@@ -1,9 +1,9 @@
 import { jsonResponse } from '../worker/http.js';
 
 async function handleBotInviteRoutes(_request, _env, { url, safeHeaders }) {
-  if (url.pathname === '/api/bot-invite/one-time') {
+  if ((url.pathname === '/api/bot-invite' || url.pathname === '/api/bot-invite/one-time')) {
     if (_request.method === 'POST') {
-      console.log('[index.js] Bot invite one-time POST received');
+      console.log('[index.js] Bot invite POST received');
       try {
         const staticInviteUrl = 'https://discord.com/oauth2/authorize?client_id=1048950201974542477';
         return jsonResponse({ ok: true, url: staticInviteUrl }, 201, safeHeaders);

@@ -58,11 +58,11 @@ const COMMAND_DETAILS = {
   },
   invite: {
     title: '🔗 invite コマンド',
-    description: '公式サーバーへの参加リンクと、ボットのワンタイム招待リンクを発行して表示します。',
+    description: '公式サーバーへの参加リンクと、ボット招待リンクを表示します。',
     usage: '`/invite`',
-    examples: '`/invite` → 招待リンクを表示（ワンタイム生成）',
+    examples: '`/invite` → 招待リンクを表示',
     fields: [
-      { name: '🔒 ワンタイム招待', value: 'ワンタイムで発行されるボット招待リンクです。一度のみ有効になります。', inline: false }
+      { name: '🔗 ボット招待リンク', value: '何度でも利用できる通常の招待リンクです。', inline: false }
     ]
   },
   'rect_edit': {

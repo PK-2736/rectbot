@@ -142,7 +142,6 @@ export default function PlusTemplatePage() {
 
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
   const [layout, setLayout] = useState<TemplateLayout>(DEFAULT_LAYOUT);
-  const [previewScale, setPreviewScale] = useState(1);
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
   const localPreviewUrlRef = useRef<string | null>(null);
 
@@ -162,7 +161,7 @@ export default function PlusTemplatePage() {
       .finally(() => setLoadingGuilds(false));
   }, [user, apiBaseUrl]);
 
-  const readEditorCache = (guildId: string): { form: FormState; layout: TemplateLayout; previewScale: number } | null => {
+  const readEditorCache = (guildId: string): { form: FormState; layout: TemplateLayout } | null => {
     try {
       const raw = localStorage.getItem(`${TEMPLATE_EDITOR_CACHE_PREFIX}${guildId}`);
       if (!raw) return null;
@@ -179,14 +178,13 @@ export default function PlusTemplatePage() {
       return {
         form: sanitizedForm,
         layout: parseLayout(cachedLayout),
-        previewScale: clamp(Number(parsed.previewScale ?? 1), 0.5, 1.5),
       };
     } catch (_e) {
       return null;
     }
   };
 
-  const writeEditorCache = (guildId: string, nextForm: FormState, nextLayout: TemplateLayout, nextPreviewScale: number) => {
+  const writeEditorCache = (guildId: string, nextForm: FormState, nextLayout: TemplateLayout) => {
     try {
       // blob: URLはキャッシュに保存しない（リロード後に無効化されるため）
       const sanitizedForm = { ...nextForm };
@@ -195,7 +193,7 @@ export default function PlusTemplatePage() {
       }
       localStorage.setItem(
         `${TEMPLATE_EDITOR_CACHE_PREFIX}${guildId}`,
-        JSON.stringify({ form: sanitizedForm, layout: nextLayout, previewScale: nextPreviewScale, updatedAt: Date.now() })
+        JSON.stringify({ form: sanitizedForm, layout: nextLayout, updatedAt: Date.now() })
       );
     } catch (_e) {
       // no-op: localStorage quota or unavailable
@@ -218,7 +216,6 @@ export default function PlusTemplatePage() {
       if (cached) {
         setForm(cached.form);
         setLayout(cached.layout);
-        setPreviewScale(cached.previewScale);
         return;
       }
 
@@ -229,12 +226,11 @@ export default function PlusTemplatePage() {
         const nextLayout = parseLayout(latest.layout_json);
         setForm(nextForm);
         setLayout(nextLayout);
-        writeEditorCache(guildId, nextForm, nextLayout, previewScale);
+        writeEditorCache(guildId, nextForm, nextLayout);
       } else {
         // 3) 何もなければ初期値
         setForm(INITIAL_FORM);
         setLayout(DEFAULT_LAYOUT);
-        setPreviewScale(1);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "テンプレート読み込みに失敗しました");
@@ -251,8 +247,8 @@ export default function PlusTemplatePage() {
 
   useEffect(() => {
     if (!selectedGuildId) return;
-    writeEditorCache(selectedGuildId, form, layout, previewScale);
-  }, [selectedGuildId, form, layout, previewScale]);
+    writeEditorCache(selectedGuildId, form, layout);
+  }, [selectedGuildId, form, layout]);
 
   useEffect(() => {
     return () => {
@@ -353,7 +349,7 @@ export default function PlusTemplatePage() {
       if (!res.ok) throw new Error(data?.error || "テンプレート保存に失敗しました");
 
       await reloadTemplates(selectedGuildId);
-      writeEditorCache(selectedGuildId, nextForm, layout, previewScale);
+      writeEditorCache(selectedGuildId, nextForm, layout);
     } catch (e) {
       setError(e instanceof Error ? e.message : "保存に失敗しました");
     } finally {
@@ -512,30 +508,13 @@ export default function PlusTemplatePage() {
           {error && <p className="text-sm text-red-300">{error}</p>}
         </section>
 
-        <section className="bg-gray-800/50 border-l border-gray-700 flex-1 flex flex-col overflow-hidden">
+        <section className="bg-gray-800/50 border-l border-gray-700 px-4 py-3 space-y-3">
           <h2 className="text-lg font-semibold px-4 py-3 border-b border-gray-700">募集プレビュー</h2>
 
-          <div className="flex-1 overflow-hidden flex flex-col">
-            <div className="px-4 py-3 border-b border-gray-700 space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <label htmlFor="preview-scale" className="text-gray-300">表示倍率</label>
-                <span className="text-gray-400">{Math.round(previewScale * 100)}%</span>
-              </div>
-              <input
-                id="preview-scale"
-                type="range"
-                min={50}
-                max={150}
-                step={1}
-                value={Math.round(previewScale * 100)}
-                onChange={(e) => setPreviewScale(clamp(Number(e.target.value) / 100, 0.5, 1.5))}
-                className="w-full"
-              />
-              <p className="text-xs text-gray-400">100% = 枠内にぴったり全体表示</p>
-            </div>
+          <div className="text-xs text-gray-400">表示倍率: 100%（固定）</div>
 
-            {/* RecruitCardCanvas コンポーネント - 全幅全高 */}
-            <div className="flex-1 overflow-hidden px-0 mx-0">
+          {/* RecruitCardCanvas コンポーネント - 全幅表示 */}
+          <div className="w-full">
           <RecruitCardCanvas
             recruitData={{
               title: form.title || '募集タイトル',
@@ -547,7 +526,7 @@ export default function PlusTemplatePage() {
             layout={layout}
             accentColor={form.color ? form.color.replace('#', '') : DEFAULT_ACCENT_COLOR}
             backgroundImageUrl={form.backgroundImageUrl || undefined}
-            scale={previewScale}
+            scale={1}
             onLayoutChange={(fieldName: string, newX: number, newY: number) => {
               const field = fieldName as keyof TemplateLayout;
               setLayout((prev) => {
@@ -561,12 +540,12 @@ export default function PlusTemplatePage() {
               });
             }}
           />
-            </div>
+          </div>
 
-            <div className="border-t border-gray-700 px-4 py-3 space-y-2 flex-1 overflow-y-auto">
-              <p className="text-xs text-gray-400">react-konva を使用したリアルタイム描画です。テキストやボックスはドラッグで移動できます。</p>
+          <div className="border-t border-gray-700 px-4 py-3 space-y-2">
+            <p className="text-xs text-gray-400">react-konva を使用したリアルタイム描画です。テキストやボックスはドラッグで移動できます。</p>
 
-              <div>
+            <div>
             <h3 className="font-semibold mb-2 text-sm">保存済みテンプレート</h3>
             {loadingTemplates ? (
               <p className="text-sm text-gray-300">読み込み中...</p>
@@ -583,9 +562,8 @@ export default function PlusTemplatePage() {
                       const nextLayout = parseLayout(t.layout_json);
                       setForm(nextForm);
                       setLayout(nextLayout);
-                      setPreviewScale(1);
                       if (selectedGuildId) {
-                        writeEditorCache(selectedGuildId, nextForm, nextLayout, 1);
+                        writeEditorCache(selectedGuildId, nextForm, nextLayout);
                       }
                     }}
                     className="w-full text-left border border-gray-700 rounded-lg p-3 hover:bg-gray-700/40 transition-colors"
@@ -598,7 +576,6 @@ export default function PlusTemplatePage() {
               </div>
             )}
           </div>
-            </div>
           </div>
         </section>
       </main>

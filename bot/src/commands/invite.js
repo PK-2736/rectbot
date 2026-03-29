@@ -4,7 +4,7 @@ const { safeReply } = require('../utils/safeReply');
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('invite')
-    .setDescription('公式サーバーの招待リンクと、ボットのワンタイム招待リンクを発行・表示します'),
+    .setDescription('公式サーバーの招待リンクと、ボット招待リンクを表示します'),
 
   async execute(interaction) {
     const OFFICIAL_INVITE = 'https://discord.com/oauth2/authorize?client_id=1048950201974542477';
