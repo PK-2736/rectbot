@@ -265,6 +265,17 @@ async function upsertTemplate(request, env, safeHeaders) {
   const body = await request.json().catch(() => ({}));
   const guildId = String(body.guildId || '').trim();
   const name = String(body.name || '').trim();
+  const bodyAssetKey = trimOrNull(readBodyField(body, 'backgroundAssetKey', 'background_asset_key'), 512);
+  const bodyImageUrl = trimOrNull(readBodyField(body, 'backgroundImageUrl', 'background_image_url'), 2000);
+
+  console.log('[plus/templates] upsert request', {
+    guildId,
+    name,
+    hasLayout: !!body?.layout,
+    hasBodyAssetKey: !!bodyAssetKey,
+    hasBodyImageUrl: !!bodyImageUrl,
+    clearBackground: body?.clearBackground === true,
+  });
   if (!guildId || !name) {
     return jsonResponse({ error: 'guildId and name are required' }, 400, safeHeaders);
   }
@@ -285,6 +296,12 @@ async function upsertTemplate(request, env, safeHeaders) {
     .maybeSingle();
 
   const payload = buildTemplatePayload(body, user.id, env, existingTemplate || null);
+  console.log('[plus/templates] upsert resolved payload', {
+    guildId,
+    name,
+    hasPayloadAssetKey: !!payload.background_asset_key,
+    hasPayloadImageUrl: !!payload.background_image_url,
+  });
   const { data, error } = await supabase
     .from('recruit_templates')
     .upsert(payload, { onConflict: 'guild_id,name' })
