@@ -769,21 +769,36 @@ function resolvePanelColorWithTemplate(panelColor, pendingData) {
 
 function buildRecruitDataObject({ interaction, pendingData, participantsNum, panelColor, selectedNotificationRole, voiceChannelName }) {
   const modalContent = interaction.fields.getTextInputValue('content');
+  const template = pendingData?.template || null;
   return {
     title: extractRecruitTitle(pendingData),
-    content: modalContent || pendingData?.template?.content || '',
+    content: modalContent || template?.content || '',
     participants: resolveParticipantsCount(participantsNum, pendingData),
-    startTime: pendingData?.startTime || pendingData?.template?.start_time_text || '',
-    vc: pendingData?.voice || pendingData?.template?.voice_option || '',
-    voicePlace: pendingData?.voicePlace || pendingData?.template?.voice_place,
+    startTime: pendingData?.startTime || template?.start_time_text || '',
+    vc: pendingData?.voice || template?.voice_option || '',
+    voicePlace: pendingData?.voicePlace || template?.voice_place,
     voiceChannelId: pendingData?.voiceChannelId,
     voiceChannelName: voiceChannelName,
     recruiterId: interaction.user.id,
     recruitId: '',
     panelColor: resolvePanelColorWithTemplate(panelColor, pendingData),
     notificationRoleId: selectedNotificationRole,
-    template: pendingData?.template || null,
-    templateName: pendingData?.templateName || null
+    template: template,
+    templateName: pendingData?.templateName || null,
+    // テンプレートのメタデータを明示的に含める
+    template_data: template ? {
+      layout_json: template.layout_json || null,
+      text_color: template.text_color || null,
+      background_image_url: template.background_image_url || null,
+      background_asset_key: template.background_asset_key || null
+    } : null,
+    metadata: {
+      template: template,
+      raw: {
+        text_color: template?.text_color || null,
+        layout_json: template?.layout_json || null
+      }
+    }
   };
 }
 
@@ -805,6 +820,11 @@ function calculateAccentColor(panelColor, guildSettings) {
 
 async function generateRecruitImage(style, recruitDataObj, currentParticipants, client, useColor) {
   if (style !== 'image') return null;
+  // デバッグ: テンプレートデータの確認
+  const hasTemplate = !!recruitDataObj?.template;
+  const hasLayoutJson = !!recruitDataObj?.template_data?.layout_json;
+  const hasTextColor = !!recruitDataObj?.template_data?.text_color;
+  console.log('[generateRecruitImage] template info:', { hasTemplate, hasLayoutJson, hasTextColor, templateName: recruitDataObj?.templateName });
   const buffer = await generateRecruitCardQueued(recruitDataObj, currentParticipants, client, useColor);
   return new AttachmentBuilder(buffer, { name: 'recruit-card.png' });
 }

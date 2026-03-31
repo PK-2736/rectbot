@@ -88,6 +88,7 @@ async function prepareUIComponentsForCreate(recruitDataObj, interaction, guildSe
   const useColor = normalizeHex(recruitDataObj.panelColor || guildSettings.defaultColor || '000000', '000000');
 
   let image = null;
+  const forceTemplateImage = Boolean(recruitDataObj?.templateName || recruitDataObj?.template);
   
   // Image スタイルの場合、画像を生成してみる（タイムアウトまたはエラー時はスキップ）
   if (style === 'image') {
@@ -101,8 +102,12 @@ async function prepareUIComponentsForCreate(recruitDataObj, interaction, guildSe
       image = new AttachmentBuilder(buffer, { name: 'recruit-card.png' });
       console.log('[prepareUIComponentsForCreate] Image generated successfully');
     } catch (e) {
+      if (forceTemplateImage) {
+        console.error('[prepareUIComponentsForCreate] Template image generation failed (no simple fallback):', e?.message || e);
+        throw e;
+      }
       console.warn('[prepareUIComponentsForCreate] Image generation failed, falling back to text:', e?.message || e);
-      // 画像生成失敗時は text スタイルにフォールバック
+      // 通常の /rect は従来どおり text スタイルにフォールバック
       style = 'simple';
     }
   }

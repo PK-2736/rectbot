@@ -69,6 +69,35 @@ async function hasPremiumSubscription(userId, guildId) {
   }
 }
 
+function parseLayoutJsonMaybe(layoutValue) {
+  if (!layoutValue) return null;
+  if (typeof layoutValue === 'object') return layoutValue;
+  if (typeof layoutValue !== 'string') return null;
+  try {
+    const parsed = JSON.parse(layoutValue);
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function normalizeTemplateForRender(template) {
+  if (!template || typeof template !== 'object') return null;
+
+  const layout = parseLayoutJsonMaybe(template.layout_json)
+    || parseLayoutJsonMaybe(template.layout)
+    || null;
+
+  return {
+    ...template,
+    layout_json: layout,
+    layout,
+    text_color: template.text_color || template.textColor || null,
+    background_image_url: template.background_image_url || template.backgroundImageUrl || layout?.background_image_url || layout?.backgroundImageUrl || null,
+    background_asset_key: template.background_asset_key || template.backgroundAssetKey || layout?.background_asset_key || layout?.backgroundAssetKey || null,
+  };
+}
+
 async function getTemplateByNameWithFallback(guildId, templateName) {
   let localTemplate = null;
   let backendTemplate = null;
@@ -89,23 +118,28 @@ async function getTemplateByNameWithFallback(guildId, templateName) {
     console.warn('[gameRecruit.execute] backend get template failed:', e?.message || e);
   }
 
+  const normalizedLocal = normalizeTemplateForRender(localTemplate);
+  const normalizedBackend = normalizeTemplateForRender(backendTemplate);
+
   // backend側に画像情報があり、local側に無い場合はbackendを優先
-  if (hasTemplateImage(backendTemplate) && !hasTemplateImage(localTemplate)) {
-    return backendTemplate;
+  if (hasTemplateImage(normalizedBackend) && !hasTemplateImage(normalizedLocal)) {
+    return normalizedBackend;
   }
 
   // どちらもあれば、background/layout情報をbackendで上書きマージ
-  if (localTemplate && backendTemplate) {
+  if (normalizedLocal && normalizedBackend) {
     return {
-      ...localTemplate,
-      ...backendTemplate,
-      layout_json: backendTemplate.layout_json || localTemplate.layout_json || null,
-      background_image_url: backendTemplate.background_image_url || localTemplate.background_image_url || localTemplate.backgroundImageUrl || null,
-      background_asset_key: backendTemplate.background_asset_key || localTemplate.background_asset_key || localTemplate.backgroundAssetKey || null,
+      ...normalizedLocal,
+      ...normalizedBackend,
+      layout_json: normalizedBackend.layout_json || normalizedLocal.layout_json || null,
+      layout: normalizedBackend.layout || normalizedLocal.layout || null,
+      text_color: normalizedBackend.text_color || normalizedLocal.text_color || null,
+      background_image_url: normalizedBackend.background_image_url || normalizedLocal.background_image_url || null,
+      background_asset_key: normalizedBackend.background_asset_key || normalizedLocal.background_asset_key || null,
     };
   }
 
-  return localTemplate || backendTemplate || null;
+  return normalizedLocal || normalizedBackend || null;
 }
 
 async function notifyRecruitLimitReached(interaction) {

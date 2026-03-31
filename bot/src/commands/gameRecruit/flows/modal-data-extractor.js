@@ -103,6 +103,7 @@ function resolvePanelColor(interaction, guildSettings) {
 async function buildRecruitDataObj(interaction, pendingData, participantsNum, guildSettings) {
   const panelColor = resolvePanelColor(interaction, guildSettings);
   const voiceChannelName = await fetchVoiceChannelName(interaction.guild, pendingData?.voiceChannelId);
+  const template = pendingData?.template || null;
 
   return {
     title: (pendingData?.title?.trim().length > 0) ? pendingData.title : '参加者募集',
@@ -118,15 +119,25 @@ async function buildRecruitDataObj(interaction, pendingData, participantsNum, gu
     panelColor,
     notificationRoleId: null,
     templateName: pendingData?.templateName || null,
-    template: pendingData?.template || null,
-    layout_json: pendingData?.template?.layout_json || null,
-    background_image_url: pendingData?.template?.background_image_url || null,
-    background_asset_key: pendingData?.template?.background_asset_key || null,
+    template,
+    template_data: template ? {
+      layout_json: template.layout_json || null,
+      text_color: template.text_color || null,
+      background_image_url: template.background_image_url || null,
+      background_asset_key: template.background_asset_key || null,
+    } : null,
+    layout_json: template?.layout_json || null,
+    background_image_url: template?.background_image_url || null,
+    background_asset_key: template?.background_asset_key || null,
     metadata: {
-      forceTemplateMode: Boolean(
-        pendingData?.template?.background_image_url
-        || pendingData?.template?.background_asset_key
-      )
+      forceTemplateMode: Boolean(template),
+      template,
+      raw: {
+        layout_json: template?.layout_json || null,
+        text_color: template?.text_color || null,
+        background_image_url: template?.background_image_url || null,
+        background_asset_key: template?.background_asset_key || null,
+      }
     }
   };
 }
@@ -147,6 +158,8 @@ async function buildRecruitDataFromModal(interaction, guildSettings) {
   
   const voiceChannelName = await fetchVoiceChannelName(interaction.guild, pendingData?.voiceChannelId);
 
+  const template = pendingData?.template || null;
+
   const recruitDataObj = {
     title: (pendingData?.title && pendingData.title.trim().length > 0) ? pendingData.title : '参加者募集',
     content: interaction.fields.getTextInputValue('content'),
@@ -162,15 +175,25 @@ async function buildRecruitDataFromModal(interaction, guildSettings) {
     notificationRoleId: selectedNotificationRole,
     existingMembers,
     templateName: pendingData?.templateName || null,
-    template: pendingData?.template || null,
-    layout_json: pendingData?.template?.layout_json || null,
-    background_image_url: pendingData?.template?.background_image_url || null,
-    background_asset_key: pendingData?.template?.background_asset_key || null,
+    template,
+    template_data: template ? {
+      layout_json: template.layout_json || null,
+      text_color: template.text_color || null,
+      background_image_url: template.background_image_url || null,
+      background_asset_key: template.background_asset_key || null,
+    } : null,
+    layout_json: template?.layout_json || null,
+    background_image_url: template?.background_image_url || null,
+    background_asset_key: template?.background_asset_key || null,
     metadata: {
-      forceTemplateMode: Boolean(
-        pendingData?.template?.background_image_url
-        || pendingData?.template?.background_asset_key
-      )
+      forceTemplateMode: Boolean(template),
+      template,
+      raw: {
+        layout_json: template?.layout_json || null,
+        text_color: template?.text_color || null,
+        background_image_url: template?.background_image_url || null,
+        background_asset_key: template?.background_asset_key || null,
+      }
     }
   };
 
