@@ -72,7 +72,7 @@ const DEFAULT_LAYOUT: TemplateLayout = {
   content: { x: 110, y: 389, size: 24, visible: true },
   voice: { x: 969, y: 590, size: 24, visible: true },
   contentBox: { x: 73, y: 281, width: 614, height: 360, visible: true },
-  imageBox: { x: 880, y: 330, width: 300, height: 220, visible: false },
+  imageBox: { x: 880, y: 330, width: 300, height: 220, visible: true },
   participantsBox: { x: 119, y: 180, width: 1134, height: 158, visible: true },
 };
 
@@ -325,7 +325,7 @@ export default function PlusTemplatePage() {
         setForm(nextForm);
         setSelectedFileName("");
         setSelectedUploadFile(null);
-        setUploadStatus(`背景画像を保存しました: ${String(uploadData?.objectKey || "(key不明)")}`);
+        setUploadStatus(`ステッカー画像を保存しました: ${String(uploadData?.objectKey || "(key不明)")}`);
         if (uploadInputRef.current) uploadInputRef.current.value = "";
         if (localPreviewUrlRef.current) {
           URL.revokeObjectURL(localPreviewUrlRef.current);
@@ -406,11 +406,11 @@ export default function PlusTemplatePage() {
 
             <div className="grid grid-cols-2 gap-3">
             <input className="bg-gray-900 border border-gray-600 rounded-lg px-3 py-2" placeholder="カード色 #RRGGBB" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} />
-              <input className="bg-gray-900 border border-gray-600 rounded-lg px-3 py-2" placeholder="埋め込み画像URL（任意）" value={form.backgroundImageUrl} onChange={(e) => setForm({ ...form, backgroundImageUrl: e.target.value })} />
+              <input className="bg-gray-900 border border-gray-600 rounded-lg px-3 py-2" placeholder="ステッカー画像URL（任意）" value={form.backgroundImageUrl} onChange={(e) => setForm({ ...form, backgroundImageUrl: e.target.value })} />
             </div>
 
             <div className="flex items-center gap-3">
-              <label className="text-sm text-gray-300">埋め込み画像アップロード:</label>
+              <label className="text-sm text-gray-300">ステッカー画像アップロード:</label>
               <input ref={uploadInputRef} type="file" accept="image/*" onClick={(e) => {
                 // 同じファイルを再選択した場合も onChange が発火するようにする
                 (e.currentTarget as HTMLInputElement).value = "";
@@ -441,7 +441,7 @@ export default function PlusTemplatePage() {
               }} />
               {(uploading || saving) && <span className="text-xs text-gray-300">アップロード中...</span>}
             </div>
-            {selectedFileName && <p className="text-xs text-sky-300">選択中: {selectedFileName}（保存時に背景画像としてR2へ保存）</p>}
+            {selectedFileName && <p className="text-xs text-sky-300">選択中: {selectedFileName}（保存時にステッカー画像としてR2へ保存）</p>}
             {uploadStatus && <p className="text-xs text-emerald-300">{uploadStatus}</p>}
 
             <div className="border border-gray-700 rounded-lg p-3 space-y-2">
@@ -468,7 +468,7 @@ export default function PlusTemplatePage() {
               ))}
 
               <div className="pt-2 border-t border-gray-700 space-y-2">
-                <p className="text-sm text-gray-300">内容枠・画像枠</p>
+                <p className="text-sm text-gray-300">内容枠・ステッカー枠（拡大縮小可）</p>
 
                 <div className="grid grid-cols-3 gap-2 items-center text-sm">
                   <label>内容枠 幅</label>
@@ -486,7 +486,7 @@ export default function PlusTemplatePage() {
                 </div>
 
                 <div className="grid grid-cols-3 gap-2 items-center text-sm">
-                  <label>画像枠 幅</label>
+                  <label>ステッカー枠 幅</label>
                   <input type="range" min={180} max={820} value={layout.imageBox.width} onChange={(e) => setBoxSize("imageBox", "width", Number(e.target.value))} />
                   <label className="flex items-center gap-2 justify-end">
                     <input type="checkbox" checked={layout.imageBox.visible} onChange={(e) => setBoxVisible("imageBox", e.target.checked)} />
@@ -495,7 +495,7 @@ export default function PlusTemplatePage() {
                 </div>
 
                 <div className="grid grid-cols-3 gap-2 items-center text-sm">
-                  <label>画像枠 高さ</label>
+                  <label>ステッカー枠 高さ</label>
                   <input type="range" min={140} max={620} value={layout.imageBox.height} onChange={(e) => setBoxSize("imageBox", "height", Number(e.target.value))} />
                   <span className="text-right text-xs text-gray-400">{layout.imageBox.width} x {layout.imageBox.height}</span>
                 </div>

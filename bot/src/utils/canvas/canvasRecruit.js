@@ -448,16 +448,12 @@ function drawTemplateContentNode(ctx, field, text, layout, canvasSize) {
 }
 
 async function drawTemplateModeCard(ctx, recruitData, layout, canvasSize, accentColor, participantIds = [], client = null, avatarUrls = null) {
-  const bgUrl = getTemplateBackgroundUrl(recruitData);
-  if (!bgUrl) return false;
+  const stickerUrl = getTemplateBackgroundUrl(recruitData);
 
-  try {
-    const bg = await loadImage(bgUrl);
-    drawImageCover(ctx, bg, 0, 0, canvasSize.width, canvasSize.height);
-  } catch (e) {
-    console.warn('[canvasRecruit] failed to load template full background image:', e?.message || e);
-    return false;
-  }
+  // テンプレートモードのベースは通常カードと同じダーク背景にする。
+  // 埋め込み画像は背景ではなくステッカーとして imageBox に重ねる。
+  ctx.fillStyle = '#101114';
+  ctx.fillRect(0, 0, canvasSize.width, canvasSize.height);
 
   drawBorder(ctx, canvasSize.width, canvasSize.height, accentColor);
 
@@ -469,27 +465,6 @@ async function drawTemplateModeCard(ctx, recruitData, layout, canvasSize, accent
     canvasSize,
     DEFAULT_TEMPLATE_LAYOUT.participantsBox
   );
-
-  if (imageBox.visible) {
-    ctx.fillStyle = 'rgba(18, 20, 24, 0.95)';
-    drawRoundedRect(ctx, imageBox.x, imageBox.y, imageBox.width, imageBox.height, 8, true, false);
-    ctx.strokeStyle = 'rgba(171, 230, 255, 0.5)';
-    ctx.lineWidth = 1;
-    drawRoundedRect(ctx, imageBox.x, imageBox.y, imageBox.width, imageBox.height, 8, false, true);
-
-    if (bgUrl) {
-      try {
-        const bg = await loadImage(bgUrl);
-        ctx.save();
-        drawRoundedRect(ctx, imageBox.x, imageBox.y, imageBox.width, imageBox.height, 8, false, false);
-        ctx.clip();
-        drawImageCover(ctx, bg, imageBox.x, imageBox.y, imageBox.width, imageBox.height);
-        ctx.restore();
-      } catch (e) {
-        console.warn('[canvasRecruit] failed to load template embedded image:', e?.message || e);
-      }
-    }
-  }
 
   if (contentBox.visible) {
     ctx.fillStyle = 'rgba(0, 0, 0, 0.56)';
@@ -518,6 +493,26 @@ async function drawTemplateModeCard(ctx, recruitData, layout, canvasSize, accent
   drawTemplateTextNode(ctx, layout.time, `🕒 ${startLabel}`, layout, canvasSize);
   drawTemplateTextNode(ctx, layout.voice, `🎙 ${voiceText}`, layout, canvasSize);
   drawTemplateContentNode(ctx, layout.content, content, layout, canvasSize);
+
+  // 画像は「募集画像の上に貼るステッカー」として最後に重ねる
+  if (imageBox.visible) {
+    if (stickerUrl) {
+      try {
+        const sticker = await loadImage(stickerUrl);
+        ctx.save();
+        drawRoundedRect(ctx, imageBox.x, imageBox.y, imageBox.width, imageBox.height, 8, false, false);
+        ctx.clip();
+        drawImageCover(ctx, sticker, imageBox.x, imageBox.y, imageBox.width, imageBox.height);
+        ctx.restore();
+      } catch (e) {
+        console.warn('[canvasRecruit] failed to load template sticker image:', e?.message || e);
+      }
+    }
+
+    ctx.strokeStyle = 'rgba(171, 230, 255, 0.5)';
+    ctx.lineWidth = 1;
+    drawRoundedRect(ctx, imageBox.x, imageBox.y, imageBox.width, imageBox.height, 8, false, true);
+  }
 
   return true;
 }
@@ -774,7 +769,7 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
   const { canvas, ctx, width, height } = setupCanvas();
   const templateLayout = resolveTemplateLayout(recruitData);
   const templateImageUrl = getTemplateBackgroundUrl(recruitData);
-  const shouldUseTemplateMode = Boolean(templateImageUrl);
+  const shouldUseTemplateMode = Boolean(templateLayout || templateImageUrl);
 
   if (shouldUseTemplateMode) {
     const effectiveLayout = templateLayout || DEFAULT_TEMPLATE_LAYOUT;
