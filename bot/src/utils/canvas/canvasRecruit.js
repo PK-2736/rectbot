@@ -458,20 +458,25 @@ async function drawTemplateModeCard(ctx, recruitData, layout, canvasSize, accent
     DEFAULT_TEMPLATE_LAYOUT.participantsBox
   );
 
+  const scaledMembers = getScaledField(layout.members, layout, canvasSize, DEFAULT_TEMPLATE_LAYOUT.members);
+  const scaledTime = getScaledField(layout.time, layout, canvasSize, DEFAULT_TEMPLATE_LAYOUT.time);
+  const scaledVoice = getScaledField(layout.voice, layout, canvasSize, DEFAULT_TEMPLATE_LAYOUT.voice);
+
+  // /rect と同じタイトル描画方式に統一
+  drawCardTitle(ctx, canvasSize.width, recruitData.title || '募集タイトル', accentColor, textColor);
+
   if (contentBox.visible) {
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.56)';
-    drawRoundedRect(ctx, contentBox.x, contentBox.y, contentBox.width, contentBox.height, 8, true, false);
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.30)';
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+    drawRoundedRect(ctx, contentBox.x, contentBox.y, contentBox.width, contentBox.height, 6, true, false);
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
     ctx.lineWidth = 1;
-    drawRoundedRect(ctx, contentBox.x, contentBox.y, contentBox.width, contentBox.height, 8, false, true);
+    drawRoundedRect(ctx, contentBox.x, contentBox.y, contentBox.width, contentBox.height, 6, false, true);
   }
 
-  const currentMembers = getCurrentMembers(recruitData, []);
+  const currentMembers = getCurrentMembers(recruitData, participantIds);
   const maxMembers = getMaxMembers(recruitData, currentMembers);
   const participantCount = getParticipantCount(currentMembers, maxMembers);
-  const startLabel = recruitData.metadata?.startLabel || recruitData.startTime || '今から';
   const content = recruitData.description || recruitData.content || '';
-  const voiceText = formatVoiceInfo(recruitData);
 
   if (participantsBox.visible) {
     const participantLayout = getParticipantLayout(participantCount, contentBox.x, contentBox.y);
@@ -480,11 +485,29 @@ async function drawTemplateModeCard(ctx, recruitData, layout, canvasSize, accent
     await drawParticipantCircles(ctx, participantIds, participantCount, participantLayout, client, avatarUrls);
   }
 
-  drawTemplateTextNode(ctx, layout.title, recruitData.title || '募集タイトル', layout, canvasSize, textColor);
-  drawTemplateTextNode(ctx, layout.members, `👥 ${maxMembers}人`, layout, canvasSize, textColor);
-  drawTemplateTextNode(ctx, layout.time, `🕒 ${startLabel}`, layout, canvasSize, textColor);
-  drawTemplateTextNode(ctx, layout.voice, `🎙 ${voiceText}`, layout, canvasSize, textColor);
-  drawTemplateContentNode(ctx, layout.content, content, layout, canvasSize, textColor);
+  drawContentTextSection(
+    ctx,
+    contentBox.x,
+    contentBox.y,
+    contentBox.width,
+    contentBox.height,
+    content,
+    textColor
+  );
+
+  const infoItems = buildInfoItems(recruitData, participantIds);
+  drawInfoItems(ctx, infoItems, {
+    rightX: scaledMembers.x,
+    startY: scaledMembers.y,
+    itemSpacing: 20,
+    infoBoxWidth: 48,
+    infoBoxHeight: 15,
+    customPositions: [
+      { x: scaledMembers.x, y: scaledMembers.y },
+      { x: scaledTime.x, y: scaledTime.y },
+      { x: scaledVoice.x, y: scaledVoice.y }
+    ]
+  }, textColor);
 
   // 画像は「ステッカー」として最後に重ねる（枠は描画せず画像をそのまま貼付け）
   if (imageBox.visible && stickerUrl) {

@@ -84,11 +84,14 @@ function buildImageContainerForCreate(recruitDataObj, interaction, participantTe
 async function prepareUIComponentsForCreate(recruitDataObj, interaction, guildSettings) {
   const currentParticipants = [interaction.user.id, ...recruitDataObj.existingMembers.filter(id => id !== interaction.user.id)];
   const user = interaction.targetUser || interaction.user;
+  const forceTemplateImage = Boolean(recruitDataObj?.templateName || recruitDataObj?.template);
   let style = guildSettings?.recruit_style === 'simple' ? 'simple' : 'image';
+  if (forceTemplateImage) {
+    style = 'image';
+  }
   const useColor = normalizeHex(recruitDataObj.panelColor || guildSettings.defaultColor || '000000', '000000');
 
   let image = null;
-  const forceTemplateImage = Boolean(recruitDataObj?.templateName || recruitDataObj?.template);
   
   // Image スタイルの場合、画像を生成してみる（タイムアウトまたはエラー時はスキップ）
   if (style === 'image') {
