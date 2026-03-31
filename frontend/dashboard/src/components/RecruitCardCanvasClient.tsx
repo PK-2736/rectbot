@@ -26,6 +26,7 @@ interface RecruitCardCanvasProps {
     participantsBox?: LayoutBox;
   };
   accentColor?: string;
+  textColor?: string;
   backgroundImageUrl?: string;
   scale?: number;
   onLayoutChange?: (field: string, x: number, y: number) => void;
@@ -57,6 +58,14 @@ function hexToRgb(hex: string) {
   const g = parseInt(normalized.slice(2, 4), 16);
   const b = parseInt(normalized.slice(4, 6), 16);
   return { r, g, b };
+}
+
+function normalizeHexColor(hex?: string, fallback = '#FFFFFF') {
+  const raw = String(hex || '').trim();
+  if (!raw) return fallback;
+  const normalized = raw.startsWith('#') ? raw : `#${raw}`;
+  if (!/^#[0-9A-Fa-f]{6}$/.test(normalized)) return fallback;
+  return normalized;
 }
 
 function truncateTextByWidth(text: string, maxWidth: number, measure: (t: string) => number) {
@@ -201,6 +210,7 @@ function addTemplateTextNode(
   layer: Konva.Layer,
   field: LayoutField,
   text: string,
+  textColor: string,
   draggable: boolean,
   onDragEnd?: (x: number, y: number) => void
 ) {
@@ -233,7 +243,7 @@ function addTemplateTextNode(
       x: textPaddingX,
       y: textPaddingY,
       text,
-      fill: '#ffffff',
+      fill: textColor,
       fontSize: sizePx,
       fontStyle: 'bold',
       fontFamily: 'CorporateRounded',
@@ -252,6 +262,7 @@ function addTemplateContentNode(
   field: LayoutField,
   contentBox: LayoutBox,
   text: string,
+  textColor: string,
   draggable: boolean,
   onDragEnd?: (x: number, y: number) => void
 ) {
@@ -280,7 +291,7 @@ function addTemplateContentNode(
   const startY = contentBox.visible ? rectY + 12 : field.y + textPaddingY;
   const maxLines = contentBox.visible ? Math.max(1, Math.floor((rectHeight - 24) / lineHeight)) : lines.length;
   lines.slice(0, maxLines).forEach((line, i) => {
-    group.add(new Konva.Text({ x: startX, y: startY + i * lineHeight, text: line, fill: '#ffffff', fontSize: sizePx, fontFamily: 'CorporateRounded' }));
+    group.add(new Konva.Text({ x: startX, y: startY + i * lineHeight, text: line, fill: textColor, fontSize: sizePx, fontFamily: 'CorporateRounded' }));
   });
 
   if (onDragEnd) {
@@ -324,6 +335,7 @@ export function RecruitCardCanvasImpl({
   recruitData,
   layout,
   accentColor = DEFAULT_ACCENT_COLOR,
+  textColor = '#FFFFFF',
   backgroundImageUrl,
   scale = 1,
   onLayoutChange,
@@ -334,6 +346,7 @@ export function RecruitCardCanvasImpl({
   const { width: canvasWidth, height: canvasHeight } = layout.canvas;
   const [containerSize, setContainerSize] = useState({ width: RECT_CANVAS_WIDTH, height: RECT_CANVAS_HEIGHT });
   const initialTemplateModeRef = useRef<boolean | null>(null);
+  const resolvedTextColor = normalizeHexColor(textColor, '#FFFFFF');
   
   // コールバック参照の安定化（依存配列から除外するため）
   const onLayoutChangeRef = useRef(onLayoutChange);
@@ -486,11 +499,11 @@ export function RecruitCardCanvasImpl({
           layer.add(box);
         }
 
-        addTemplateTextNode(layer, scaledTitle, recruitData.title || '募集タイトル', Boolean(onLayoutChangeRef.current), (x, y) => onLayoutChangeRef.current?.('title', toEditorX(x), toEditorY(y)));
-        addTemplateTextNode(layer, scaledMembers, `👥 ${participants}人`, Boolean(onLayoutChangeRef.current), (x, y) => onLayoutChangeRef.current?.('members', toEditorX(x), toEditorY(y)));
-        addTemplateTextNode(layer, scaledTime, `🕒 ${recruitData.startTimeText || '今から'}`, Boolean(onLayoutChangeRef.current), (x, y) => onLayoutChangeRef.current?.('time', toEditorX(x), toEditorY(y)));
-        addTemplateTextNode(layer, scaledVoice, `🎙 ${voiceText}`, Boolean(onLayoutChangeRef.current), (x, y) => onLayoutChangeRef.current?.('voice', toEditorX(x), toEditorY(y)));
-        addTemplateContentNode(layer, scaledContent, scaledContentBox, recruitData.content || 'ガチエリア / 初心者歓迎', Boolean(onLayoutChangeRef.current), (x, y) => onLayoutChangeRef.current?.('content', toEditorX(x), toEditorY(y)));
+        addTemplateTextNode(layer, scaledTitle, recruitData.title || '募集タイトル', resolvedTextColor, Boolean(onLayoutChangeRef.current), (x, y) => onLayoutChangeRef.current?.('title', toEditorX(x), toEditorY(y)));
+        addTemplateTextNode(layer, scaledMembers, `👥 ${participants}人`, resolvedTextColor, Boolean(onLayoutChangeRef.current), (x, y) => onLayoutChangeRef.current?.('members', toEditorX(x), toEditorY(y)));
+        addTemplateTextNode(layer, scaledTime, `🕒 ${recruitData.startTimeText || '今から'}`, resolvedTextColor, Boolean(onLayoutChangeRef.current), (x, y) => onLayoutChangeRef.current?.('time', toEditorX(x), toEditorY(y)));
+        addTemplateTextNode(layer, scaledVoice, `🎙 ${voiceText}`, resolvedTextColor, Boolean(onLayoutChangeRef.current), (x, y) => onLayoutChangeRef.current?.('voice', toEditorX(x), toEditorY(y)));
+        addTemplateContentNode(layer, scaledContent, scaledContentBox, recruitData.content || 'ガチエリア / 初心者歓迎', resolvedTextColor, Boolean(onLayoutChangeRef.current), (x, y) => onLayoutChangeRef.current?.('content', toEditorX(x), toEditorY(y)));
       } else {
         addClassicTitle(layer, RECT_CANVAS_WIDTH, recruitData.title || 'ゲーム募集', accentColor);
 
@@ -555,11 +568,11 @@ export function RecruitCardCanvasImpl({
           );
         }
 
-        contentGroup.add(new Konva.Text({ x: 4, y: 3, text: '募集内容', fill: '#bbb', fontSize: 6, fontStyle: 'bold', fontFamily: 'CorporateRounded, Arial, sans-serif' }));
+        contentGroup.add(new Konva.Text({ x: 4, y: 3, text: '募集内容', fill: 'rgba(255,255,255,0.75)', fontSize: 6, fontStyle: 'bold', fontFamily: 'CorporateRounded, Arial, sans-serif' }));
 
         const contentLines = wrapTextLines(recruitData.content || 'ガチエリア / 初心者歓迎', boxWidth - 16, createMeasure(4));
         contentLines.slice(0, Math.floor((boxHeight - 20) / 6)).forEach((line, i) => {
-          contentGroup.add(new Konva.Text({ x: 4, y: 15 + i * 6, text: line, fill: '#fff', fontSize: 4, fontFamily: 'CorporateRounded, Arial, sans-serif' }));
+          contentGroup.add(new Konva.Text({ x: 4, y: 15 + i * 6, text: line, fill: resolvedTextColor, fontSize: 4, fontFamily: 'CorporateRounded, Arial, sans-serif' }));
         });
 
         layer.add(participantsGroup);
@@ -581,8 +594,8 @@ export function RecruitCardCanvasImpl({
             });
           }
           infoGroup.add(new Konva.Rect({ x: 0, y: 0, width: 48, height: 15, cornerRadius: 3, fill: 'rgba(0,0,0,0.75)', stroke: 'rgba(255,255,255,0.6)', strokeWidth: 0.5 }));
-          infoGroup.add(new Konva.Text({ x: 3, y: 6, text: item.label, fill: '#bbb', fontSize: 4, fontStyle: 'bold', fontFamily: 'CorporateRounded, Arial, sans-serif' }));
-          infoGroup.add(new Konva.Text({ x: 20, y: 6, text: truncateTextByWidth(item.value, 25, createMeasure(4)), fill: '#fff', fontSize: 4, fontFamily: 'CorporateRounded, Arial, sans-serif' }));
+          infoGroup.add(new Konva.Text({ x: 3, y: 6, text: item.label, fill: 'rgba(255,255,255,0.75)', fontSize: 4, fontStyle: 'bold', fontFamily: 'CorporateRounded, Arial, sans-serif' }));
+          infoGroup.add(new Konva.Text({ x: 20, y: 6, text: truncateTextByWidth(item.value, 25, createMeasure(4)), fill: resolvedTextColor, fontSize: 4, fontFamily: 'CorporateRounded, Arial, sans-serif' }));
           layer.add(infoGroup);
         });
       }
@@ -599,7 +612,7 @@ export function RecruitCardCanvasImpl({
     return () => {
       stage.destroy();
     };
-  }, [recruitData, layout, accentColor, backgroundImageUrl, scale, canvasWidth, canvasHeight, containerSize]);
+  }, [recruitData, layout, accentColor, textColor, backgroundImageUrl, scale, canvasWidth, canvasHeight, containerSize]);
 
   return (
     <div className="w-full bg-gray-950 overflow-hidden" style={{ aspectRatio: `${layout.canvas.width} / ${layout.canvas.height}` }}>

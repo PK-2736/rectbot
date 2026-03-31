@@ -27,6 +27,7 @@ type BoxFieldKey = "contentBox" | "imageBox" | "participantsBox";
 
 type TemplateLayout = {
   canvas: { width: number; height: number };
+  outputScale: number;
   title: LayoutField;
   members: LayoutField;
   time: LayoutField;
@@ -46,6 +47,7 @@ type Template = {
   content: string | null;
   start_time_text: string | null;
   voice_place: string | null;
+  text_color: string | null;
   background_image_url: string | null;
   background_asset_key: string | null;
   layout_json: TemplateLayout | null;
@@ -57,6 +59,7 @@ type FormState = {
   title: string;
   participants: string;
   color: string;
+  textColor: string;
   content: string;
   startTimeText: string;
   voicePlace: string;
@@ -66,6 +69,7 @@ type FormState = {
 
 const DEFAULT_LAYOUT: TemplateLayout = {
   canvas: { width: 1280, height: 720 },
+  outputScale: 5,
   title: { x: 420, y: 36, size: 64, visible: true },
   members: { x: 969, y: 302, size: 24, visible: true },
   time: { x: 969, y: 446, size: 24, visible: true },
@@ -81,6 +85,7 @@ const INITIAL_FORM: FormState = {
   title: "募集タイトル",
   participants: "4",
   color: "#5865F2",
+  textColor: "#FFFFFF",
   content: "ガチエリア / 初心者歓迎",
   startTimeText: "今から",
   voicePlace: "通話あり",
@@ -97,6 +102,7 @@ function toForm(t: Template): FormState {
     title: t.title || "",
     participants: t.participants == null ? "" : String(t.participants),
     color: t.color ? `#${t.color}` : "",
+    textColor: t.text_color ? `#${t.text_color}` : "#FFFFFF",
     content: t.content || "",
     startTimeText: t.start_time_text || "",
     voicePlace: t.voice_place || "",
@@ -114,6 +120,7 @@ function parseLayout(input: unknown): TemplateLayout {
   const raw = input as TemplateLayout;
   return {
     canvas: raw.canvas || DEFAULT_LAYOUT.canvas,
+    outputScale: clamp(Number((raw as { outputScale?: number }).outputScale ?? DEFAULT_LAYOUT.outputScale), 2, 10),
     title: raw.title || DEFAULT_LAYOUT.title,
     members: raw.members || DEFAULT_LAYOUT.members,
     time: raw.time || DEFAULT_LAYOUT.time,
@@ -404,8 +411,9 @@ export default function PlusTemplatePage() {
             </div>
             <input className="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2" placeholder="通話表示（例: 通話あり）" value={form.voicePlace} onChange={(e) => setForm({ ...form, voicePlace: e.target.value })} />
 
-            <div className="grid grid-cols-2 gap-3">
-            <input className="bg-gray-900 border border-gray-600 rounded-lg px-3 py-2" placeholder="カード色 #RRGGBB" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} />
+            <div className="grid grid-cols-3 gap-3">
+            <input className="bg-gray-900 border border-gray-600 rounded-lg px-3 py-2" placeholder="枠色 #RRGGBB" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} />
+              <input className="bg-gray-900 border border-gray-600 rounded-lg px-3 py-2" placeholder="文字色 #RRGGBB" value={form.textColor} onChange={(e) => setForm({ ...form, textColor: e.target.value })} />
               <input className="bg-gray-900 border border-gray-600 rounded-lg px-3 py-2" placeholder="ステッカー画像URL（任意）" value={form.backgroundImageUrl} onChange={(e) => setForm({ ...form, backgroundImageUrl: e.target.value })} />
             </div>
 
@@ -499,6 +507,19 @@ export default function PlusTemplatePage() {
                   <input type="range" min={140} max={620} value={layout.imageBox.height} onChange={(e) => setBoxSize("imageBox", "height", Number(e.target.value))} />
                   <span className="text-right text-xs text-gray-400">{layout.imageBox.width} x {layout.imageBox.height}</span>
                 </div>
+
+                <div className="grid grid-cols-3 gap-2 items-center text-sm">
+                  <label>募集画像サイズ</label>
+                  <input
+                    type="range"
+                    min={2}
+                    max={10}
+                    step={1}
+                    value={layout.outputScale}
+                    onChange={(e) => setLayout((prev) => ({ ...prev, outputScale: clamp(Number(e.target.value), 2, 10) }))}
+                  />
+                  <span className="text-right text-xs text-gray-400">{layout.outputScale}x</span>
+                </div>
               </div>
             </div>
 
@@ -525,6 +546,7 @@ export default function PlusTemplatePage() {
             }}
             layout={layout}
             accentColor={form.color ? form.color.replace('#', '') : DEFAULT_ACCENT_COLOR}
+            textColor={form.textColor}
             backgroundImageUrl={form.backgroundImageUrl || undefined}
             scale={1}
             onLayoutChange={(fieldName: string, newX: number, newY: number) => {

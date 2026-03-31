@@ -4,6 +4,7 @@ registerFont(__dirname + '/../../../data/Corporate-Logo-Rounded-Bold-ver3.otf', 
 
 const DEFAULT_TEMPLATE_LAYOUT = {
   canvas: { width: 1280, height: 720 },
+  outputScale: 5,
   title: { x: 420, y: 36, size: 64, visible: true },
   members: { x: 969, y: 302, size: 24, visible: true },
   time: { x: 969, y: 446, size: 24, visible: true },
@@ -241,8 +242,10 @@ function getTemplateSource(recruitData) {
 
 function toSafeLayout(layout) {
   if (!layout || typeof layout !== 'object') return null;
+  const outputScale = Number(layout.outputScale ?? DEFAULT_TEMPLATE_LAYOUT.outputScale);
   return {
     canvas: layout.canvas || DEFAULT_TEMPLATE_LAYOUT.canvas,
+    outputScale: Number.isFinite(outputScale) ? Math.max(2, Math.min(10, Math.round(outputScale))) : DEFAULT_TEMPLATE_LAYOUT.outputScale,
     title: layout.title || DEFAULT_TEMPLATE_LAYOUT.title,
     members: layout.members || DEFAULT_TEMPLATE_LAYOUT.members,
     time: layout.time || DEFAULT_TEMPLATE_LAYOUT.time,
@@ -252,6 +255,25 @@ function toSafeLayout(layout) {
     imageBox: layout.imageBox || DEFAULT_TEMPLATE_LAYOUT.imageBox,
     participantsBox: layout.participantsBox || DEFAULT_TEMPLATE_LAYOUT.participantsBox
   };
+}
+
+function normalizeHexColor(value, fallback = '#FFFFFF') {
+  const raw = String(value || '').trim();
+  if (!raw) return fallback;
+  const normalized = raw.startsWith('#') ? raw : `#${raw}`;
+  if (!/^#[0-9A-Fa-f]{6}$/.test(normalized)) return fallback;
+  return normalized;
+}
+
+function resolveTextColor(recruitData) {
+  const source = getTemplateSource(recruitData);
+  const direct = source?.text_color
+    || source?.textColor
+    || recruitData?.text_color
+    || recruitData?.textColor
+    || recruitData?.metadata?.text_color
+    || null;
+  return normalizeHexColor(direct, '#FFFFFF');
 }
 
 function resolveTemplateLayout(recruitData) {
@@ -367,7 +389,7 @@ function getScaledField(field, layout, canvasSize, fallback) {
   };
 }
 
-function drawTemplateTextNode(ctx, field, text, layout, canvasSize) {
+function drawTemplateTextNode(ctx, field, text, layout, canvasSize, textColor = '#FFFFFF') {
   if (!field?.visible || !text) return;
 
   const baseWidth = layout.canvas?.width || DEFAULT_TEMPLATE_LAYOUT.canvas.width;
@@ -396,11 +418,11 @@ function drawTemplateTextNode(ctx, field, text, layout, canvasSize) {
   ctx.lineWidth = 1;
   drawRoundedRect(ctx, x, y, rectWidth, rectHeight, Math.max(6, Math.round(sizePx * 0.2)), false, true);
 
-  ctx.fillStyle = '#ffffff';
+  ctx.fillStyle = textColor;
   ctx.fillText(text, x + textPaddingX, y + textPaddingY);
 }
 
-function drawTemplateContentNode(ctx, field, text, layout, canvasSize) {
+function drawTemplateContentNode(ctx, field, text, layout, canvasSize, textColor = '#FFFFFF') {
   if (!field?.visible) return;
 
   const baseWidth = layout.canvas?.width || DEFAULT_TEMPLATE_LAYOUT.canvas.width;
@@ -435,7 +457,7 @@ function drawTemplateContentNode(ctx, field, text, layout, canvasSize) {
   ctx.lineWidth = 1;
   drawRoundedRect(ctx, rectX, rectY, rectWidth, rectHeight, Math.max(6, Math.round(sizePx * 0.2)), false, true);
 
-  ctx.fillStyle = '#ffffff';
+  ctx.fillStyle = textColor;
   const startX = contentBox.visible ? rectX + 12 : x + textPaddingX;
   const startY = contentBox.visible ? rectY + 12 : y + textPaddingY;
   const maxLines = contentBox.visible
@@ -449,6 +471,7 @@ function drawTemplateContentNode(ctx, field, text, layout, canvasSize) {
 
 async function drawTemplateModeCard(ctx, recruitData, layout, canvasSize, accentColor, participantIds = [], client = null, avatarUrls = null) {
   const stickerUrl = getTemplateBackgroundUrl(recruitData);
+  const textColor = resolveTextColor(recruitData);
 
   // テンプレートモードのベースは通常カードと同じダーク背景にする。
   // 埋め込み画像は背景ではなくステッカーとして imageBox に重ねる。
@@ -488,11 +511,11 @@ async function drawTemplateModeCard(ctx, recruitData, layout, canvasSize, accent
     await drawParticipantCircles(ctx, participantIds, participantCount, participantLayout, client, avatarUrls);
   }
 
-  drawTemplateTextNode(ctx, layout.title, recruitData.title || '募集タイトル', layout, canvasSize);
-  drawTemplateTextNode(ctx, layout.members, `👥 ${maxMembers}人`, layout, canvasSize);
-  drawTemplateTextNode(ctx, layout.time, `🕒 ${startLabel}`, layout, canvasSize);
-  drawTemplateTextNode(ctx, layout.voice, `🎙 ${voiceText}`, layout, canvasSize);
-  drawTemplateContentNode(ctx, layout.content, content, layout, canvasSize);
+  drawTemplateTextNode(ctx, layout.title, recruitData.title || '募集タイトル', layout, canvasSize, textColor);
+  drawTemplateTextNode(ctx, layout.members, `👥 ${maxMembers}人`, layout, canvasSize, textColor);
+  drawTemplateTextNode(ctx, layout.time, `🕒 ${startLabel}`, layout, canvasSize, textColor);
+  drawTemplateTextNode(ctx, layout.voice, `🎙 ${voiceText}`, layout, canvasSize, textColor);
+  drawTemplateContentNode(ctx, layout.content, content, layout, canvasSize, textColor);
 
   // 画像は「募集画像の上に貼るステッカー」として最後に重ねる
   if (imageBox.visible) {
@@ -584,7 +607,7 @@ function buildInfoItems(recruitData, participantIds) {
   ];
 }
 
-function drawInfoItems(ctx, items, layout) {
+function drawInfoItems(ctx, items, layout, textColor = '#FFFFFF') {
   const { rightX, startY, itemSpacing, infoBoxWidth, infoBoxHeight, customPositions } = layout;
 
   items.forEach((item, index) => {
@@ -599,11 +622,11 @@ function drawInfoItems(ctx, items, layout) {
     ctx.lineWidth = 0.5;
     drawRoundedRect(ctx, itemX, itemY, infoBoxWidth, infoBoxHeight, 3, false, true);
 
-    ctx.fillStyle = '#bbb';
+    ctx.fillStyle = textColor;
     ctx.font = 'bold 4px CorporateRounded';
     ctx.fillText(item.label, itemX + 3, itemY + 6);
 
-    ctx.fillStyle = '#fff';
+    ctx.fillStyle = textColor;
     ctx.font = '4px CorporateRounded';
     const maxWidth = infoBoxWidth - 23;
     const value = truncateText(ctx, item.value, maxWidth);
@@ -611,10 +634,10 @@ function drawInfoItems(ctx, items, layout) {
   });
 }
 
-function setupCanvas() {
+function setupCanvas(outputScale = DEFAULT_TEMPLATE_LAYOUT.outputScale) {
   const width = 140;
   const height = 100;
-  const scale = 5;
+  const scale = Math.max(2, Math.min(10, Math.round(Number(outputScale) || DEFAULT_TEMPLATE_LAYOUT.outputScale)));
   const canvas = createCanvas(width * scale, height * scale);
   const ctx = canvas.getContext('2d');
 
@@ -637,8 +660,8 @@ function drawBorder(ctx, width, height, accentColor) {
   ctx.strokeRect(0, 0, width, height);
 }
 
-function drawCardTitle(ctx, width, title, accentColor) {
-  ctx.fillStyle = '#fff';
+function drawCardTitle(ctx, width, title, accentColor, textColor = '#FFFFFF') {
+  ctx.fillStyle = textColor;
   ctx.font = 'bold 8px CorporateRounded';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
@@ -658,7 +681,7 @@ function drawCardTitle(ctx, width, title, accentColor) {
   ctx.lineWidth = 1;
   ctx.strokeText(titleText, width / 2, 5);
   
-  ctx.fillStyle = '#fff';
+  ctx.fillStyle = textColor;
   ctx.fillText(titleText, width / 2, 5);
   
   ctx.strokeStyle = 'rgba(0, 0, 0, 0.6)';
@@ -731,17 +754,17 @@ async function drawParticipantCircles(ctx, participantIds, participantCount, lay
   }
 }
 
-function drawContentTextSection(ctx, boxX, boxY, boxWidth, boxHeight, content) {
-  ctx.fillStyle = '#fff';
+function drawContentTextSection(ctx, boxX, boxY, boxWidth, boxHeight, content, textColor = '#FFFFFF') {
+  ctx.fillStyle = textColor;
   ctx.font = '6px CorporateRounded';
   ctx.textBaseline = 'top';
   
   ctx.font = 'bold 6px CorporateRounded';
-  ctx.fillStyle = '#bbb';
+  ctx.fillStyle = textColor;
   ctx.fillText('募集内容', boxX + 4, boxY + 3);
   
   ctx.font = '4px CorporateRounded';
-  ctx.fillStyle = '#fff';
+  ctx.fillStyle = textColor;
   const lineHeight = 6;
   const maxLines = Math.floor((boxHeight - 20) / lineHeight);
   const wrappedLines = wrapTextLines(ctx, content || 'ガチエリア / 初心者歓迎', boxWidth - 16);
@@ -766,9 +789,11 @@ function applyShadowEffect(ctx) {
  * @returns {Buffer} PNG画像バッファ
  */
 async function generateRecruitCard(recruitData, participantIds = [], client = null, accentColor = null, avatarUrls = null) {
-  const { canvas, ctx, width, height } = setupCanvas();
   const templateLayout = resolveTemplateLayout(recruitData);
+  const outputScale = templateLayout?.outputScale || DEFAULT_TEMPLATE_LAYOUT.outputScale;
+  const { canvas, ctx, width, height } = setupCanvas(outputScale);
   const templateImageUrl = getTemplateBackgroundUrl(recruitData);
+  const textColor = resolveTextColor(recruitData);
   const shouldUseTemplateMode = Boolean(templateLayout || templateImageUrl);
 
   if (shouldUseTemplateMode) {
@@ -781,7 +806,7 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
   }
   
   drawBorder(ctx, width, height, accentColor);
-  drawCardTitle(ctx, width, recruitData.title, accentColor);
+  drawCardTitle(ctx, width, recruitData.title, accentColor, textColor);
 
   const classicLayout = templateLayout || DEFAULT_TEMPLATE_LAYOUT;
   const scaledContentBox = getScaledBox(
@@ -817,7 +842,7 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
   await drawParticipantCircles(ctx, participantIds, participantCount, layout, client, avatarUrls);
   
   const content = recruitData.description || recruitData.content;
-  drawContentTextSection(ctx, boxX, boxY, boxWidth, boxHeight, content);
+  drawContentTextSection(ctx, boxX, boxY, boxWidth, boxHeight, content, textColor);
   
   const rightX = scaledMembers.x;
   const startY = scaledMembers.y;
@@ -837,7 +862,7 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
       { x: scaledTime.x, y: scaledTime.y },
       { x: scaledVoice.x, y: scaledVoice.y }
     ]
-  });
+  }, textColor);
 
   applyShadowEffect(ctx);
 
