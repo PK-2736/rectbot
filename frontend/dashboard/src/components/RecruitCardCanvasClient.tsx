@@ -128,6 +128,59 @@ function addGradientBorder(layer: Konva.Layer, width: number, height: number, ac
   );
 }
 
+function drawPin(layer: Konva.Layer, x: number, y: number, color: string) {
+  layer.add(new Konva.Circle({ x: x + 1, y: y + 1, radius: 3, fill: 'rgba(0,0,0,0.15)' }));
+  layer.add(new Konva.Circle({ x, y, radius: 3, fill: color }));
+  layer.add(new Konva.Circle({ x: x - 0.5, y: y - 0.5, radius: 1, fill: 'rgba(255,255,255,0.4)' }));
+}
+
+function addRectStyleTitle(layer: Konva.Layer, width: number, title: string, accentColor: string, textColor: string) {
+  const measure = createMeasure(8, true);
+  const titleText = truncateTextByWidth(title || '募集タイトル', width - 16, measure);
+  const textWidth = measure(titleText);
+  const bgX = (width - textWidth) / 2 - 6;
+  const bgY = 3;
+  const bgW = textWidth + 12;
+  const bgH = 12;
+  const { r, g, b } = hexToRgb(accentColor);
+
+  layer.add(
+    new Konva.Rect({
+      x: bgX,
+      y: bgY,
+      width: bgW,
+      height: bgH,
+      fillLinearGradientStartPoint: { x: bgX, y: bgY },
+      fillLinearGradientEndPoint: { x: bgX + bgW, y: bgY + bgH },
+      fillLinearGradientColorStops: [
+        0,
+        `rgba(${r}, ${g}, ${b}, 0.3)`,
+        1,
+        `rgba(${Math.max(0, r - 30)}, ${Math.max(0, g - 30)}, ${Math.max(0, b - 30)}, 0.3)`,
+      ],
+    })
+  );
+
+  layer.add(
+    new Konva.Text({
+      x: 0,
+      y: 5,
+      width,
+      text: titleText,
+      align: 'center',
+      fill: textColor,
+      stroke: 'rgba(0, 0, 0, 0.5)',
+      strokeWidth: 1,
+      fontSize: 8,
+      fontStyle: 'bold',
+      fontFamily: 'CorporateRounded, Arial, sans-serif',
+    })
+  );
+
+  drawPin(layer, 8, 8, 'rgba(46, 213, 115, 0.7)');
+  drawPin(layer, width - 8, 8, 'rgba(255, 71, 87, 0.7)');
+}
+
 function addTemplateTextNode(
   layer: Konva.Layer,
   field: LayoutField,
@@ -345,6 +398,102 @@ export function RecruitCardCanvasImpl({
       layer.add(new Konva.Rect({ x: 0, y: 0, width: RECT_CANVAS_WIDTH, height: RECT_CANVAS_HEIGHT, fill: '#101114' }));
       addGradientBorder(layer, RECT_CANVAS_WIDTH, RECT_CANVAS_HEIGHT, accentColor);
 
+      addRectStyleTitle(layer, RECT_CANVAS_WIDTH, recruitData.title || '募集タイトル', accentColor, resolvedTextColor);
+
+      const contentGroup = new Konva.Group({
+        x: scaledContentBox.x,
+        y: scaledContentBox.y,
+        draggable: Boolean(onLayoutChangeRef.current),
+      });
+      if (onLayoutChangeRef.current) {
+        contentGroup.on('dragend', () => {
+          onLayoutChangeRef.current?.('contentBox', toEditorX(contentGroup.x()), toEditorY(contentGroup.y()));
+        });
+      }
+
+      contentGroup.add(new Konva.Rect({
+        x: 0,
+        y: 0,
+        width: scaledContentBox.width,
+        height: scaledContentBox.height,
+        cornerRadius: 6,
+        fill: 'rgba(0,0,0,0.75)',
+        stroke: 'rgba(255,255,255,0.6)',
+        strokeWidth: 1,
+      }));
+      contentGroup.add(new Konva.Text({
+        x: 4,
+        y: 3,
+        text: '募集内容',
+        fill: 'rgba(255,255,255,0.8)',
+        fontSize: 6,
+        fontStyle: 'bold',
+        fontFamily: 'CorporateRounded, Arial, sans-serif',
+      }));
+
+      const contentLines = wrapTextLines(recruitData.content || 'ガチエリア / 初心者歓迎', scaledContentBox.width - 16, createMeasure(4));
+      contentLines.slice(0, Math.floor((scaledContentBox.height - 20) / 6)).forEach((line, i) => {
+        contentGroup.add(new Konva.Text({
+          x: 4,
+          y: 15 + i * 6,
+          text: line,
+          fill: resolvedTextColor,
+          fontSize: 4,
+          fontFamily: 'CorporateRounded, Arial, sans-serif',
+        }));
+      });
+      layer.add(contentGroup);
+
+      if (scaledParticipantsBox.visible) {
+        const participantsGroup = new Konva.Group({
+          x: scaledParticipantsBox.x,
+          y: scaledParticipantsBox.y,
+          draggable: Boolean(onLayoutChangeRef.current),
+        });
+        if (onLayoutChangeRef.current) {
+          participantsGroup.on('dragend', () => {
+            onLayoutChangeRef.current?.('participantsBox', toEditorX(participantsGroup.x()), toEditorY(participantsGroup.y()));
+          });
+        }
+
+        const participantSlots = Math.min(Math.max(participants, 1), 16);
+        const is2Rows = participantSlots > 8;
+        const circleRadius = is2Rows ? 4 : 6.5;
+        const circleSpacing = is2Rows ? 11 : 16;
+        const rowSpacing = is2Rows ? 10 : 15;
+        for (let i = 0; i < participantSlots; i++) {
+          const row = Math.floor(i / 8);
+          const col = i % 8;
+          drawEmptyParticipantSlot(
+            participantsGroup,
+            circleRadius + col * circleSpacing,
+            circleRadius + row * rowSpacing,
+            circleRadius,
+            is2Rows ? 2.5 : 4
+          );
+        }
+        layer.add(participantsGroup);
+      }
+
+      const infoItems = [
+        { key: 'members', x: scaledMembers.x, y: scaledMembers.y, label: '人数：', value: `${Math.min(1, participants)}/${participants}人` },
+        { key: 'time', x: scaledTime.x, y: scaledTime.y, label: '時間：', value: `${recruitData.startTimeText || '今から'}~` },
+        { key: 'voice', x: scaledVoice.x, y: scaledVoice.y, label: '通話：', value: voiceText },
+      ];
+
+      infoItems.forEach((item) => {
+        const infoGroup = new Konva.Group({ x: item.x, y: item.y, draggable: Boolean(onLayoutChangeRef.current) });
+        if (onLayoutChangeRef.current) {
+          infoGroup.on('dragend', () => {
+            onLayoutChangeRef.current?.(item.key, toEditorX(infoGroup.x()), toEditorY(infoGroup.y()));
+          });
+        }
+        infoGroup.add(new Konva.Rect({ x: 0, y: 0, width: 48, height: 15, cornerRadius: 3, fill: 'rgba(0,0,0,0.75)', stroke: 'rgba(255,255,255,0.6)', strokeWidth: 0.5 }));
+        infoGroup.add(new Konva.Text({ x: 3, y: 6, text: item.label, fill: 'rgba(255,255,255,0.75)', fontSize: 4, fontStyle: 'bold', fontFamily: 'CorporateRounded, Arial, sans-serif' }));
+        infoGroup.add(new Konva.Text({ x: 20, y: 6, text: truncateTextByWidth(item.value, 25, createMeasure(4)), fill: resolvedTextColor, fontSize: 4, fontFamily: 'CorporateRounded, Arial, sans-serif' }));
+        layer.add(infoGroup);
+      });
+
       if (scaledImageBox.visible) {
         const imageBoxRect = new Konva.Rect({
           x: scaledImageBox.x,
@@ -393,55 +542,6 @@ export function RecruitCardCanvasImpl({
         }
       }
 
-      if (scaledContentBox.visible) {
-        const box = new Konva.Rect({
-          x: scaledContentBox.x,
-          y: scaledContentBox.y,
-          width: scaledContentBox.width,
-          height: scaledContentBox.height,
-          fill: 'rgba(0, 0, 0, 0.56)',
-          cornerRadius: 8,
-          stroke: 'rgba(255,255,255,0.30)',
-          strokeWidth: 1,
-          draggable: Boolean(onLayoutChangeRef.current),
-        });
-        if (onLayoutChangeRef.current) {
-          box.on('dragend', () => {
-            if (onLayoutChangeRef.current) {
-              onLayoutChangeRef.current('contentBox', toEditorX(box.x()), toEditorY(box.y()));
-            }
-          });
-        }
-        layer.add(box);
-      }
-
-      if (scaledParticipantsBox.visible) {
-        const participantSlots = Math.min(Math.max(participants, 1), 16);
-        const is2Rows = participantSlots > 8;
-        const circleRadius = is2Rows ? 4 : 6.5;
-        const circleSpacing = is2Rows ? 11 : 16;
-        const rowSpacing = is2Rows ? 10 : 15;
-        const startX = scaledParticipantsBox.x + circleRadius;
-        const startY = scaledParticipantsBox.y + circleRadius;
-
-        for (let i = 0; i < participantSlots; i++) {
-          const row = Math.floor(i / 8);
-          const col = i % 8;
-          drawEmptyParticipantSlot(
-            layer,
-            startX + col * circleSpacing,
-            startY + row * rowSpacing,
-            circleRadius,
-            is2Rows ? 2.5 : 4
-          );
-        }
-      }
-
-      addTemplateTextNode(layer, scaledTitle, recruitData.title || '募集タイトル', resolvedTextColor, Boolean(onLayoutChangeRef.current), (x, y) => onLayoutChangeRef.current?.('title', toEditorX(x), toEditorY(y)));
-      addTemplateTextNode(layer, scaledMembers, `👥 ${participants}人`, resolvedTextColor, Boolean(onLayoutChangeRef.current), (x, y) => onLayoutChangeRef.current?.('members', toEditorX(x), toEditorY(y)));
-      addTemplateTextNode(layer, scaledTime, `🕒 ${recruitData.startTimeText || '今から'}`, resolvedTextColor, Boolean(onLayoutChangeRef.current), (x, y) => onLayoutChangeRef.current?.('time', toEditorX(x), toEditorY(y)));
-      addTemplateTextNode(layer, scaledVoice, `🎙 ${voiceText}`, resolvedTextColor, Boolean(onLayoutChangeRef.current), (x, y) => onLayoutChangeRef.current?.('voice', toEditorX(x), toEditorY(y)));
-      addTemplateContentNode(layer, scaledContent, scaledContentBox, recruitData.content || 'ガチエリア / 初心者歓迎', resolvedTextColor, Boolean(onLayoutChangeRef.current), (x, y) => onLayoutChangeRef.current?.('content', toEditorX(x), toEditorY(y)));
 
       layer.draw();
 
