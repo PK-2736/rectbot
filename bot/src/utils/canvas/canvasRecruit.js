@@ -288,34 +288,6 @@ function resolveTemplateLayout(recruitData) {
   return toSafeLayout(layout);
 }
 
-function isSameTextField(a, b) {
-  return a?.x === b?.x
-    && a?.y === b?.y
-    && a?.size === b?.size
-    && (a?.visible !== false) === (b?.visible !== false);
-}
-
-function isSameBoxField(a, b) {
-  return a?.x === b?.x
-    && a?.y === b?.y
-    && a?.width === b?.width
-    && a?.height === b?.height
-    && (a?.visible !== false) === (b?.visible !== false);
-}
-
-function isDefaultTemplateLayout(layout) {
-  if (!layout) return false;
-
-  return isSameTextField(layout.title, DEFAULT_TEMPLATE_LAYOUT.title)
-    && isSameTextField(layout.members, DEFAULT_TEMPLATE_LAYOUT.members)
-    && isSameTextField(layout.time, DEFAULT_TEMPLATE_LAYOUT.time)
-    && isSameTextField(layout.content, DEFAULT_TEMPLATE_LAYOUT.content)
-    && isSameTextField(layout.voice, DEFAULT_TEMPLATE_LAYOUT.voice)
-    && isSameBoxField(layout.contentBox, DEFAULT_TEMPLATE_LAYOUT.contentBox)
-    && isSameBoxField(layout.imageBox, DEFAULT_TEMPLATE_LAYOUT.imageBox)
-    && isSameBoxField(layout.participantsBox || DEFAULT_TEMPLATE_LAYOUT.participantsBox, DEFAULT_TEMPLATE_LAYOUT.participantsBox);
-}
-
 function getTemplateBackgroundUrl(recruitData) {
   const source = getTemplateSource(recruitData);
   const direct = source?.background_image_url
@@ -473,11 +445,8 @@ async function drawTemplateModeCard(ctx, recruitData, layout, canvasSize, accent
   const stickerUrl = getTemplateBackgroundUrl(recruitData);
   const textColor = resolveTextColor(recruitData);
 
-  // テンプレートモードのベースは通常カードと同じダーク背景にする。
-  // 埋め込み画像は背景ではなくステッカーとして imageBox に重ねる。
-  ctx.fillStyle = '#101114';
-  ctx.fillRect(0, 0, canvasSize.width, canvasSize.height);
-
+  // テンプレートモードは透明背景で、埋め込み画像はステッカーとして imageBox に重ねる。
+  // 背景は透明（ctx.clearRect後の状態を保持）
   drawBorder(ctx, canvasSize.width, canvasSize.height, accentColor);
 
   const contentBox = getScaledBox(layout.contentBox, layout, canvasSize, DEFAULT_TEMPLATE_LAYOUT.contentBox);
@@ -517,24 +486,15 @@ async function drawTemplateModeCard(ctx, recruitData, layout, canvasSize, accent
   drawTemplateTextNode(ctx, layout.voice, `🎙 ${voiceText}`, layout, canvasSize, textColor);
   drawTemplateContentNode(ctx, layout.content, content, layout, canvasSize, textColor);
 
-  // 画像は「募集画像の上に貼るステッカー」として最後に重ねる
-  if (imageBox.visible) {
-    if (stickerUrl) {
-      try {
-        const sticker = await loadImage(stickerUrl);
-        ctx.save();
-        drawRoundedRect(ctx, imageBox.x, imageBox.y, imageBox.width, imageBox.height, 8, false, false);
-        ctx.clip();
-        drawImageCover(ctx, sticker, imageBox.x, imageBox.y, imageBox.width, imageBox.height);
-        ctx.restore();
-      } catch (e) {
-        console.warn('[canvasRecruit] failed to load template sticker image:', e?.message || e);
-      }
+  // 画像は「ステッカー」として最後に重ねる（枠は描画せず画像をそのまま貼付け）
+  if (imageBox.visible && stickerUrl) {
+    try {
+      const sticker = await loadImage(stickerUrl);
+      // ステッカー枠など装飾は描画せず、画像をそのまま貼付ける
+      drawImageCover(ctx, sticker, imageBox.x, imageBox.y, imageBox.width, imageBox.height);
+    } catch (e) {
+      console.warn('[canvasRecruit] failed to load template sticker image:', e?.message || e);
     }
-
-    ctx.strokeStyle = 'rgba(171, 230, 255, 0.5)';
-    ctx.lineWidth = 1;
-    drawRoundedRect(ctx, imageBox.x, imageBox.y, imageBox.width, imageBox.height, 8, false, true);
   }
 
   return true;
@@ -649,6 +609,7 @@ function setupCanvas(outputScale = DEFAULT_TEMPLATE_LAYOUT.outputScale) {
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
   ctx.scale(scale, scale);
+  // 透明な背景として初期化（アルファチャンネルを保持）
   ctx.clearRect(0, 0, width, height);
 
   return { canvas, ctx, width, height };
@@ -801,72 +762,13 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
     const templateDrawn = await drawTemplateModeCard(ctx, recruitData, effectiveLayout, { width, height }, accentColor, participantIds, client, avatarUrls);
     if (templateDrawn) {
       applyShadowEffect(ctx);
+      // テンプレートモード（/rect）：透明背景PNG出力
       return canvas.toBuffer('image/png', { compressionLevel: 3, filters: canvas.PNG_FILTER_NONE });
     }
   }
-  
-  drawBorder(ctx, width, height, accentColor);
-  drawCardTitle(ctx, width, recruitData.title, accentColor, textColor);
 
-  const classicLayout = templateLayout || DEFAULT_TEMPLATE_LAYOUT;
-  const scaledContentBox = getScaledBox(
-    classicLayout.contentBox,
-    classicLayout,
-    { width, height },
-    DEFAULT_TEMPLATE_LAYOUT.contentBox
-  );
-  const scaledParticipantsBox = getScaledBox(
-    classicLayout.participantsBox || DEFAULT_TEMPLATE_LAYOUT.participantsBox,
-    classicLayout,
-    { width, height },
-    DEFAULT_TEMPLATE_LAYOUT.participantsBox
-  );
-  const scaledMembers = getScaledField(classicLayout.members, classicLayout, { width, height }, DEFAULT_TEMPLATE_LAYOUT.members);
-  const scaledTime = getScaledField(classicLayout.time, classicLayout, { width, height }, DEFAULT_TEMPLATE_LAYOUT.time);
-  const scaledVoice = getScaledField(classicLayout.voice, classicLayout, { width, height }, DEFAULT_TEMPLATE_LAYOUT.voice);
-
-  const boxX = scaledContentBox.x;
-  const boxY = scaledContentBox.y;
-  const boxWidth = scaledContentBox.width;
-  const boxHeight = scaledContentBox.height;
-  
-  drawContentBoxBackground(ctx, boxX, boxY, boxWidth, boxHeight);
-  
-  const currentMembers = getCurrentMembers(recruitData, participantIds);
-  const maxMembers = getMaxMembers(recruitData, currentMembers);
-  const participantCount = getParticipantCount(currentMembers, maxMembers);
-  const layout = getParticipantLayout(participantCount, boxX, boxY);
-  layout.participantAreaX = scaledParticipantsBox.x + layout.circleRadius;
-  layout.participantAreaY = scaledParticipantsBox.y + layout.circleRadius;
-  
-  await drawParticipantCircles(ctx, participantIds, participantCount, layout, client, avatarUrls);
-  
-  const content = recruitData.description || recruitData.content;
-  drawContentTextSection(ctx, boxX, boxY, boxWidth, boxHeight, content, textColor);
-  
-  const rightX = scaledMembers.x;
-  const startY = scaledMembers.y;
-  const itemSpacing = 20;
-  const infoBoxWidth = 48;
-  const infoBoxHeight = 15;
-  
-  const infoItems = buildInfoItems(recruitData, participantIds);
-  drawInfoItems(ctx, infoItems, {
-    rightX,
-    startY,
-    itemSpacing,
-    infoBoxWidth,
-    infoBoxHeight,
-    customPositions: [
-      { x: scaledMembers.x, y: scaledMembers.y },
-      { x: scaledTime.x, y: scaledTime.y },
-      { x: scaledVoice.x, y: scaledVoice.y }
-    ]
-  }, textColor);
-
-  applyShadowEffect(ctx);
-
-  return canvas.toBuffer('image/png', { compressionLevel: 3, filters: canvas.PNG_FILTER_NONE });
+  // テンプレートモードは必須（クラシック版は廃止）
+  throw new Error('Template layout is required for generateRecruitCard');
 }
 
 function applyGrayscaleFilter(ctx, width, height) {

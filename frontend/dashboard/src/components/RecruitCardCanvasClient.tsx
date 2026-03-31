@@ -395,7 +395,7 @@ export function RecruitCardCanvasImpl({
     const scaledContent = scaleTextFieldToRect(layout.content, layout.canvas);
 
     const drawAsync = async () => {
-      layer.add(new Konva.Rect({ x: 0, y: 0, width: RECT_CANVAS_WIDTH, height: RECT_CANVAS_HEIGHT, fill: '#101114' }));
+      // 背景は透明（fillなし）
       addGradientBorder(layer, RECT_CANVAS_WIDTH, RECT_CANVAS_HEIGHT, accentColor);
 
       addRectStyleTitle(layer, RECT_CANVAS_WIDTH, recruitData.title || '募集タイトル', accentColor, resolvedTextColor);
@@ -494,51 +494,36 @@ export function RecruitCardCanvasImpl({
         layer.add(infoGroup);
       });
 
-      if (scaledImageBox.visible) {
-        const imageBoxRect = new Konva.Rect({
-          x: scaledImageBox.x,
-          y: scaledImageBox.y,
-          width: scaledImageBox.width,
-          height: scaledImageBox.height,
-          fill: 'rgba(18, 20, 24, 0.95)',
-          cornerRadius: 8,
-          stroke: 'rgba(171, 230, 255, 0.5)',
-          strokeWidth: 1,
-          draggable: Boolean(onLayoutChangeRef.current),
-          dragBoundFunc: (pos) => pos,
-        });
-        if (onLayoutChangeRef.current) {
-          imageBoxRect.on('dragend', () => {
-            if (onLayoutChangeRef.current) {
-              onLayoutChangeRef.current('imageBox', toEditorX(imageBoxRect.x()), toEditorY(imageBoxRect.y()));
-            }
+      if (scaledImageBox.visible && backgroundImageUrl) {
+        try {
+          const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+            const i = new window.Image();
+            i.crossOrigin = 'anonymous';
+            i.onload = () => resolve(i);
+            i.onerror = reject;
+            i.src = backgroundImageUrl;
           });
-        }
-        imageBoxRect.draggable(Boolean(onLayoutChangeRef.current));
-        layer.add(imageBoxRect);
 
-        if (backgroundImageUrl) {
-          try {
-            const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-              const i = new window.Image();
-              i.crossOrigin = 'anonymous';
-              i.onload = () => resolve(i);
-              i.onerror = reject;
-              i.src = backgroundImageUrl;
+          // ステッカー画像は枠なしでそのまま貼り付ける
+          const imageNode = new Konva.Image({
+            x: scaledImageBox.x,
+            y: scaledImageBox.y,
+            width: scaledImageBox.width,
+            height: scaledImageBox.height,
+            image: img,
+            draggable: Boolean(onLayoutChangeRef.current),
+            dragBoundFunc: (pos) => pos,
+          });
+          if (onLayoutChangeRef.current) {
+            imageNode.on('dragend', () => {
+              if (onLayoutChangeRef.current) {
+                onLayoutChangeRef.current('imageBox', toEditorX(imageNode.x()), toEditorY(imageNode.y()));
+              }
             });
-
-            const imageNode = new Konva.Image({
-              x: scaledImageBox.x,
-              y: scaledImageBox.y,
-              width: scaledImageBox.width,
-              height: scaledImageBox.height,
-              image: img,
-              cornerRadius: 8,
-            });
-            layer.add(imageNode);
-          } catch {
-            // keep placeholder when image load fails
           }
+          layer.add(imageNode);
+        } catch {
+          // keep placeholder when image load fails
         }
       }
 
