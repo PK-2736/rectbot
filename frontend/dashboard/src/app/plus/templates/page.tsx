@@ -563,7 +563,7 @@ export default function PlusTemplatePage() {
               setLayout((prev) => {
                 const next = JSON.parse(JSON.stringify(prev)) as TemplateLayout;
                 const item = next[field];
-                if (item && 'x' in item && 'y' in item) {
+                if (item && typeof item === 'object' && 'x' in item && 'y' in item) {
                   (item as { x: number; y: number }).x = newX;
                   (item as { x: number; y: number }).y = newY;
                 }
