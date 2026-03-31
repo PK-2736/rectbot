@@ -413,7 +413,16 @@ export default function PlusTemplatePage() {
 
             <div className="grid grid-cols-3 gap-3">
             <input className="bg-gray-900 border border-gray-600 rounded-lg px-3 py-2" placeholder="枠色 #RRGGBB" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} />
-              <input className="bg-gray-900 border border-gray-600 rounded-lg px-3 py-2" placeholder="文字色 #RRGGBB" value={form.textColor} onChange={(e) => setForm({ ...form, textColor: e.target.value })} />
+              <div className="flex items-center gap-2 bg-gray-900 border border-gray-600 rounded-lg px-3 py-2">
+                <label htmlFor="text-color-picker" className="text-xs text-gray-300 whitespace-nowrap">文字色</label>
+                <input
+                  id="text-color-picker"
+                  type="color"
+                  className="h-8 w-full cursor-pointer bg-transparent"
+                  value={form.textColor || "#FFFFFF"}
+                  onChange={(e) => setForm({ ...form, textColor: e.target.value })}
+                />
+              </div>
               <input className="bg-gray-900 border border-gray-600 rounded-lg px-3 py-2" placeholder="ステッカー画像URL（任意）" value={form.backgroundImageUrl} onChange={(e) => setForm({ ...form, backgroundImageUrl: e.target.value })} />
             </div>
 
