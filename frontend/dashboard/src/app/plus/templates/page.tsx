@@ -318,7 +318,7 @@ export default function PlusTemplatePage() {
   const setInfoBoxSize = (field: InfoBoxFieldKey, key: "width" | "height", value: number) => {
     setLayout((prev) => ({
       ...prev,
-      [field]: { ...prev[field], [key]: clamp(value, key === "width" ? 48 : 12, key === "width" ? 220 : 40) },
+      [field]: { ...prev[field], [key]: clamp(value, key === "width" ? 48 : 12, key === "width" ? 640 : 160) },
     }));
   };
 
@@ -626,12 +626,12 @@ export default function PlusTemplatePage() {
                       </div>
                       <div className="grid grid-cols-3 gap-2 items-center text-sm">
                         <label>幅</label>
-                        <input type="range" min={48} max={220} value={layout[field].width} onChange={(e) => setInfoBoxSize(field, "width", Number(e.target.value))} />
+                        <input type="range" min={48} max={640} value={layout[field].width} onChange={(e) => setInfoBoxSize(field, "width", Number(e.target.value))} />
                         <span className="text-right text-xs text-gray-400">{layout[field].width}px</span>
                       </div>
                       <div className="grid grid-cols-3 gap-2 items-center text-sm">
                         <label>高さ</label>
-                        <input type="range" min={12} max={40} value={layout[field].height} onChange={(e) => setInfoBoxSize(field, "height", Number(e.target.value))} />
+                        <input type="range" min={12} max={160} value={layout[field].height} onChange={(e) => setInfoBoxSize(field, "height", Number(e.target.value))} />
                         <span className="text-right text-xs text-gray-400">{layout[field].height}px</span>
                       </div>
                     </div>
