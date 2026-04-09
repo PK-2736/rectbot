@@ -83,7 +83,7 @@ export default function UserDashboard() {
       }
 
       if (!agreed) {
-        throw new Error('特定商取引法に基づく表示・プライバシーポリシーへの同意が必要です。');
+        throw new Error('利用規約・特定商取引法に基づく表示・プライバシーポリシーへの同意が必要です。');
       }
 
       const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://api.recrubo.net';
@@ -328,10 +328,14 @@ export default function UserDashboard() {
                 className="mt-1 w-4 h-4 rounded accent-purple-300 flex-shrink-0"
               />
               <span className="text-purple-100 text-sm leading-relaxed">
+                <Link href="/terms" target="_blank" className="underline hover:text-white">
+                  利用規約
+                </Link>
+                ・
                 <Link href="/tokushoho" target="_blank" className="underline hover:text-white">
                   特定商取引法に基づく表示
                 </Link>
-                および
+                ・
                 <Link href="/privacy" target="_blank" className="underline hover:text-white">
                   プライバシーポリシー
                 </Link>
@@ -432,6 +436,9 @@ export default function UserDashboard() {
       {/* フッター */}
       <footer className="py-8 border-t border-gray-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-wrap justify-center gap-6 text-sm text-gray-500">
+          <Link href="/terms" className="hover:text-gray-300 transition-colors">
+            利用規約
+          </Link>
           <Link href="/tokushoho" className="hover:text-gray-300 transition-colors">
             特定商取引法に基づく表示
           </Link>

@@ -27,15 +27,36 @@ export default function TokushohoPage() {
                 <dd className="col-span-2">Recrubo</dd>
               </div>
               <div className="grid grid-cols-3 gap-2">
+                <dt className="text-gray-400 font-medium">販売事業者</dt>
+                <dd className="col-span-2">個人事業（請求があれば遅滞なく開示）</dd>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <dt className="text-gray-400 font-medium">運営統括責任者</dt>
+                <dd className="col-span-2">請求があれば遅滞なく開示</dd>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <dt className="text-gray-400 font-medium">所在地</dt>
+                <dd className="col-span-2">請求があれば遅滞なく開示</dd>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <dt className="text-gray-400 font-medium">電話番号</dt>
+                <dd className="col-span-2">請求があれば遅滞なく開示</dd>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
                 <dt className="text-gray-400 font-medium">お問い合わせ</dt>
-                <dd className="col-span-2">Discordサポートサーバーまたはサービス内お問い合わせフォーム</dd>
+                <dd className="col-span-2">support@recrubo.net またはDiscordサポートサーバー</dd>
               </div>
             </dl>
           </section>
 
           <section>
             <h2 className="text-lg font-bold text-white mb-3 border-b border-gray-700 pb-2">販売価格</h2>
-            <p className="text-sm">月額 ¥500（税込）</p>
+            <p className="text-sm">プレミアムプラン 月額500円（税込）</p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-bold text-white mb-3 border-b border-gray-700 pb-2">商品代金以外の必要料金</h2>
+            <p className="text-sm">インターネット接続に必要な通信料等はお客様負担となります。</p>
           </section>
 
           <section>
@@ -45,18 +66,31 @@ export default function TokushohoPage() {
 
           <section>
             <h2 className="text-lg font-bold text-white mb-3 border-b border-gray-700 pb-2">支払時期</h2>
-            <p className="text-sm">申し込み時に初回決済が行われ、以降は毎月同日に自動課金されます。</p>
+            <p className="text-sm">お申し込み時に初回決済が行われ、以降はStripeの契約条件に従って自動更新課金されます。</p>
           </section>
 
           <section>
             <h2 className="text-lg font-bold text-white mb-3 border-b border-gray-700 pb-2">サービス提供時期</h2>
-            <p className="text-sm">決済完了後、即時利用可能になります。</p>
+            <p className="text-sm">決済完了後、通常は即時にプレミアム機能を利用できます。システム同期により反映まで時間を要する場合があります。</p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-bold text-white mb-3 border-b border-gray-700 pb-2">契約期間・更新</h2>
+            <p className="text-sm">サブスクリプションは月額課金で自動更新されます。更新日はStripeに表示される契約情報に従います。</p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-bold text-white mb-3 border-b border-gray-700 pb-2">解約方法</h2>
+            <p className="text-sm">
+              ダッシュボードのサブスクリプション管理画面からStripeカスタマーポータルへ遷移し、解約手続きを行えます。
+              解約後は次回更新日以降に自動課金が停止し、支払済み期間満了まで利用可能です。
+            </p>
           </section>
 
           <section>
             <h2 className="text-lg font-bold text-white mb-3 border-b border-gray-700 pb-2">キャンセル・返金について</h2>
             <p className="text-sm">
-              サブスクリプションはいつでもキャンセル可能です。キャンセル後もご購入済みの期間は引き続きサービスをご利用いただけます。
+              サブスクリプションはいつでも解約可能です。解約後もご購入済みの期間は引き続きサービスをご利用いただけます。
               デジタルコンテンツの性質上、原則として返金はお受けしておりません。
               ただし、サービス側の重大な不具合等による場合は個別にご相談ください。
             </p>
@@ -67,12 +101,13 @@ export default function TokushohoPage() {
             <p className="text-sm">Discordアカウントおよびインターネット接続環境が必要です。</p>
           </section>
 
-          <p className="text-xs text-gray-500 pt-4">最終更新日: 2026年3月</p>
+          <p className="text-xs text-gray-500 pt-4">最終更新日: 2026年4月</p>
         </div>
       </main>
 
       <footer className="py-8 border-t border-gray-800">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-wrap justify-center gap-6 text-sm text-gray-500">
+          <Link href="/terms" className="hover:text-gray-300 transition-colors">利用規約</Link>
           <Link href="/subscription" className="hover:text-gray-300 transition-colors">サブスクリプション</Link>
           <Link href="/privacy" className="hover:text-gray-300 transition-colors">プライバシーポリシー</Link>
         </div>
