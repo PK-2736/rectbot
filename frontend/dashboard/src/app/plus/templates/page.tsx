@@ -163,7 +163,6 @@ export default function PlusTemplatePage() {
   const [loadingGuilds, setLoadingGuilds] = useState(false);
   const [loadingTemplates, setLoadingTemplates] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [uploading, setUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<string>("");
   const [selectedFileName, setSelectedFileName] = useState<string>("");
   const [selectedUploadFile, setSelectedUploadFile] = useState<File | null>(null);
@@ -208,7 +207,7 @@ export default function PlusTemplatePage() {
         form: sanitizedForm,
         layout: parseLayout(cachedLayout),
       };
-    } catch (_e) {
+    } catch {
       return null;
     }
   };
@@ -224,7 +223,7 @@ export default function PlusTemplatePage() {
         `${TEMPLATE_EDITOR_CACHE_PREFIX}${guildId}`,
         JSON.stringify({ form: sanitizedForm, layout: nextLayout, updatedAt: Date.now() })
       );
-    } catch (_e) {
+    } catch {
       // no-op: localStorage quota or unavailable
     }
   };

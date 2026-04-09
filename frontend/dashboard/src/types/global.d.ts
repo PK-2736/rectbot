@@ -7,7 +7,7 @@ declare module 'lucide-react' {
 declare module 'react' {
   const React: unknown;
   export default React;
-  export type ReactNode = unknown;
+  export type ReactNode = JSX.Element | string | number | boolean | null | undefined;
   export interface MutableRefObject<T> {
     current: T;
   }

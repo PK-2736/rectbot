@@ -2,21 +2,22 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import type { ReactNode } from 'react';
 
 type NavIconProps = {
   className?: string;
-  children?: any;
+  label: string;
 };
 
-function ShellIcon({ className, children }: NavIconProps) {
-  return <span className={className} aria-hidden="true">{children}</span>;
+function ShellIcon({ className, label }: NavIconProps) {
+  return <span className={className} aria-hidden="true">{label}</span>;
 }
 
-const CircleDollarSign = (props: NavIconProps) => <ShellIcon {...props}>¥</ShellIcon>;
-const LayoutGrid = (props: NavIconProps) => <ShellIcon {...props}>◫</ShellIcon>;
-const FileText = (props: NavIconProps) => <ShellIcon {...props}>文</ShellIcon>;
-const ShieldCheck = (props: NavIconProps) => <ShellIcon {...props}>✓</ShellIcon>;
-const Sparkles = (props: NavIconProps) => <ShellIcon {...props}>✦</ShellIcon>;
+const CircleDollarSign = (props: Omit<NavIconProps, 'label'>) => <ShellIcon {...props} label="¥" />;
+const LayoutGrid = (props: Omit<NavIconProps, 'label'>) => <ShellIcon {...props} label="◫" />;
+const FileText = (props: Omit<NavIconProps, 'label'>) => <ShellIcon {...props} label="文" />;
+const ShieldCheck = (props: Omit<NavIconProps, 'label'>) => <ShellIcon {...props} label="✓" />;
+const Sparkles = (props: Omit<NavIconProps, 'label'>) => <ShellIcon {...props} label="✦" />;
 
 const NAV_ITEMS = [
   { href: '/subscription', label: 'サブスク', icon: CircleDollarSign },
@@ -27,7 +28,7 @@ const NAV_ITEMS = [
 ];
 
 type DashboardShellProps = {
-  children?: any;
+  children?: ReactNode;
 };
 
 export function DashboardShell({ children }: DashboardShellProps) {
@@ -75,7 +76,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
       </header>
 
       <main className="relative z-10 mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 lg:py-12">
-        {children}
+        {children as ReactNode}
       </main>
     </div>
   );

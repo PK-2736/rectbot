@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import RecruitCardCanvas from "@/components/RecruitCardCanvas";
 
 const DEFAULT_LAYOUT = {
@@ -54,7 +55,7 @@ export default function TestKonvaPage() {
     const calc = async () => {
       const load = (src: string) =>
         new Promise<HTMLImageElement>((resolve, reject) => {
-          const img = new Image();
+          const img = document.createElement("img");
           img.crossOrigin = "anonymous";
           img.onload = () => resolve(img);
           img.onerror = reject;
@@ -135,12 +136,12 @@ export default function TestKonvaPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div>
               <p className="text-sm text-gray-300 mb-2">/rect 実画像（基準）</p>
-              <img src={referenceImageUrl} alt="rect reference" className="w-full border border-gray-600 rounded bg-black" />
+              <Image src={referenceImageUrl} alt="rect reference" width={140} height={100} className="w-full border border-gray-600 rounded bg-black" unoptimized />
             </div>
             <div>
               <p className="text-sm text-gray-300 mb-2">page.tsx 出力（Konva）</p>
               {previewDataUrl ? (
-                <img src={previewDataUrl} alt="konva preview snapshot" className="w-full border border-gray-600 rounded bg-black" />
+                <Image src={previewDataUrl} alt="konva preview snapshot" width={140} height={100} className="w-full border border-gray-600 rounded bg-black" unoptimized />
               ) : (
                 <div className="w-full aspect-[16/9] border border-gray-600 rounded bg-black/40" />
               )}

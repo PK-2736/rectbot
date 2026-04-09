@@ -230,102 +230,6 @@ function renderInfoBox(
   layer.add(group);
 }
 
-function addTemplateTextNode(
-  layer: Konva.Layer,
-  field: LayoutField,
-  text: string,
-  textColor: string,
-  draggable: boolean,
-  onDragEnd?: (x: number, y: number) => void
-) {
-  if (!field.visible || !text) return;
-
-  const sizePx = Math.max(4, field.size);
-  const measure = createMeasure(sizePx, true);
-  const textWidth = Math.ceil(measure(text));
-  const textPaddingX = Math.max(8, Math.round(sizePx * 0.25));
-  const textPaddingY = Math.max(4, Math.round(sizePx * 0.2));
-  const rectWidth = textWidth + textPaddingX * 2;
-  const rectHeight = sizePx + textPaddingY * 2;
-  const radius = Math.max(6, Math.round(sizePx * 0.2));
-
-  const group = new Konva.Group({ x: field.x, y: field.y, draggable });
-  group.add(new Konva.Rect({ x: 0, y: 0, width: rectWidth, height: rectHeight, cornerRadius: radius, fill: 'rgba(0,0,0,0.45)' }));
-  group.add(
-    new Konva.Rect({
-      x: 0,
-      y: 0,
-      width: rectWidth,
-      height: rectHeight,
-      cornerRadius: radius,
-      stroke: 'rgba(255,255,255,0.25)',
-      strokeWidth: 1,
-    })
-  );
-  group.add(
-    new Konva.Text({
-      x: textPaddingX,
-      y: textPaddingY,
-      text,
-      fill: textColor,
-      fontSize: sizePx,
-      fontStyle: 'bold',
-      fontFamily: 'CorporateRounded',
-    })
-  );
-
-  if (onDragEnd) {
-    group.on('dragend', () => onDragEnd(Math.round(group.x()), Math.round(group.y())));
-  }
-
-  layer.add(group);
-}
-
-function addTemplateContentNode(
-  layer: Konva.Layer,
-  field: LayoutField,
-  contentBox: LayoutBox,
-  text: string,
-  textColor: string,
-  draggable: boolean,
-  onDragEnd?: (x: number, y: number) => void
-) {
-  if (!field.visible) return;
-
-  const sizePx = Math.max(4, field.size);
-  const lineHeight = Math.round(sizePx * 1.25);
-  const measure = createMeasure(sizePx, false);
-  const maxWidth = Math.max(120, contentBox.visible ? contentBox.width - 24 : RECT_CANVAS_WIDTH * 0.66);
-  const lines = wrapTextLines(text || '募集内容を入力', maxWidth, measure).slice(0, 6);
-  const maxTextWidth = Math.min(maxWidth, Math.max(...lines.map((line) => Math.ceil(measure(line))), 40));
-
-  const textPaddingX = Math.max(8, Math.round(sizePx * 0.25));
-  const textPaddingY = Math.max(4, Math.round(sizePx * 0.2));
-  const rectX = contentBox.visible ? contentBox.x : field.x;
-  const rectY = contentBox.visible ? contentBox.y : field.y;
-  const rectWidth = contentBox.visible ? contentBox.width : maxTextWidth + textPaddingX * 2;
-  const rectHeight = contentBox.visible ? contentBox.height : lineHeight * lines.length + textPaddingY * 2;
-  const radius = Math.max(6, Math.round(sizePx * 0.2));
-
-  const group = new Konva.Group({ x: 0, y: 0, draggable });
-  group.add(new Konva.Rect({ x: rectX, y: rectY, width: rectWidth, height: rectHeight, cornerRadius: radius, fill: 'rgba(0,0,0,0.45)' }));
-  group.add(new Konva.Rect({ x: rectX, y: rectY, width: rectWidth, height: rectHeight, cornerRadius: radius, stroke: 'rgba(255,255,255,0.25)', strokeWidth: 1 }));
-
-  const startX = contentBox.visible ? rectX + 12 : field.x + textPaddingX;
-  const startY = contentBox.visible ? rectY + 12 : field.y + textPaddingY;
-  const maxLines = contentBox.visible ? Math.max(1, Math.floor((rectHeight - 24) / lineHeight)) : lines.length;
-  lines.slice(0, maxLines).forEach((line, i) => {
-    group.add(new Konva.Text({ x: startX, y: startY + i * lineHeight, text: line, fill: textColor, fontSize: sizePx, fontFamily: 'CorporateRounded' }));
-  });
-
-  if (onDragEnd) {
-    const baseX = contentBox.visible ? contentBox.x : field.x;
-    const baseY = contentBox.visible ? contentBox.y : field.y;
-    group.on('dragend', () => onDragEnd(Math.round(baseX + group.x()), Math.round(baseY + group.y())));
-  }
-  layer.add(group);
-}
-
 function drawEmptyParticipantSlot(target: Konva.Layer | Konva.Group, x: number, y: number, radius: number, plusSize: number) {
   target.add(new Konva.Circle({ x, y, radius, fill: '#333', stroke: 'rgba(255,255,255,0.3)', strokeWidth: 1 }));
   target.add(new Konva.Line({ points: [x - plusSize, y, x + plusSize, y], stroke: 'rgba(255,255,255,0.3)', strokeWidth: 1 }));
@@ -437,11 +341,6 @@ export function RecruitCardCanvasImpl({
       layout.participantsBox || DEFAULT_LAYOUT.participantsBox,
       layout.canvas
     );
-    const scaledTitle = scaleTextFieldToRect(layout.title, layout.canvas);
-    const scaledMembers = scaleTextFieldToRect(layout.members, layout.canvas);
-    const scaledTime = scaleTextFieldToRect(layout.time, layout.canvas);
-    const scaledVoice = scaleTextFieldToRect(layout.voice, layout.canvas);
-    const scaledContent = scaleTextFieldToRect(layout.content, layout.canvas);
     const scaledMembersBox = scaleBoxToRect(layout.membersBox || DEFAULT_LAYOUT.membersBox, layout.canvas);
     const scaledTimeBox = scaleBoxToRect(layout.timeBox || DEFAULT_LAYOUT.timeBox, layout.canvas);
     const scaledVoiceBox = scaleBoxToRect(layout.voiceBox || DEFAULT_LAYOUT.voiceBox, layout.canvas);

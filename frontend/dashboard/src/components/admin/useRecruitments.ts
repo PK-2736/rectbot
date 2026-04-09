@@ -25,13 +25,11 @@ export function useRecruitments(initialData?: RecruitmentData[]) {
       }
 
       if (!response.ok) {
-        let errorDetails = '';
         try {
           const errorData = await response.json();
-          errorDetails = errorData.message || errorData.error || '';
           const userMessage = errorData.message || errorData.details || response.statusText;
           setFetchError(`Failed to fetch: ${response.status} - ${userMessage}`);
-        } catch (_) {
+        } catch {
           const errorMsg = `Failed to fetch: ${response.status} ${response.statusText}`;
           setFetchError(errorMsg);
         }
@@ -67,7 +65,7 @@ export function useRecruitments(initialData?: RecruitmentData[]) {
     fetchRecruitments();
     const interval = setInterval(async () => {
       setIsLoading(true);
-      try { await fetchRecruitments(); } catch (_) {} finally { setIsLoading(false); }
+      try { await fetchRecruitments(); } catch {} finally { setIsLoading(false); }
     }, 5000);
     return () => clearInterval(interval);
   }, [fetchRecruitments]);
