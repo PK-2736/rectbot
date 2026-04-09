@@ -427,6 +427,36 @@ async function uploadTemplateAsset(request, env, safeHeaders) {
     return jsonResponse({ error: 'Premium subscription is required for this guild' }, 403, safeHeaders);
   }
 
+  const supabase = await createSupabaseClient(env);
+  if (!supabase) return jsonResponse({ error: 'Supabase is not configured' }, 500, safeHeaders);
+
+  const { data: existingTemplate, error: existingErr } = await supabase
+    .from('recruit_templates')
+    .select('guild_id, name, background_asset_key, background_image_url')
+    .eq('guild_id', guildId)
+    .eq('name', templateName)
+    .maybeSingle();
+
+  if (existingErr) {
+    console.error('[plus/templates] upload warning: failed to fetch existing template', existingErr);
+  }
+
+  const { data: templateCountData, error: countErr } = await supabase
+    .from('recruit_templates')
+    .select('name', { count: 'exact', head: false })
+    .eq('guild_id', guildId)
+    .limit(TEMPLATE_LIMIT_PER_GUILD + 1);
+
+  if (countErr) {
+    console.error('[plus/templates] upload warning: failed to count templates', countErr);
+    return jsonResponse({ error: 'Failed to validate template limit' }, 500, safeHeaders);
+  }
+
+  const templateCount = Array.isArray(templateCountData) ? templateCountData.length : 0;
+  if (!existingTemplate && templateCount >= TEMPLATE_LIMIT_PER_GUILD) {
+    return jsonResponse({ error: `テンプレートは1サーバーにつき${TEMPLATE_LIMIT_PER_GUILD}個までです。不要なテンプレートを削除してください。` }, 400, safeHeaders);
+  }
+
   const mimeType = String(file.type || '').toLowerCase();
   if (!mimeType.startsWith('image/')) {
     console.warn('[plus/templates] upload rejected: invalid mimeType', mimeType);
@@ -455,20 +485,9 @@ async function uploadTemplateAsset(request, env, safeHeaders) {
   console.log('[plus/templates] upload stored', { guildId, templateName, key, bytes: bytes.byteLength });
 
   // Upload-only flowでも画像設定が残るように、同名テンプレートへ背景情報を保存する
-  const supabase = await createSupabaseClient(env);
   if (supabase) {
     const now = new Date().toISOString();
     const backgroundImageUrl = buildPublicAssetUrl(env, key);
-    const { data: existingTemplate, error: existingErr } = await supabase
-      .from('recruit_templates')
-      .select('guild_id, name')
-      .eq('guild_id', guildId)
-      .eq('name', templateName)
-      .maybeSingle();
-
-    if (existingErr) {
-      console.error('[plus/templates] upload warning: failed to fetch existing template', existingErr);
-    }
 
     if (existingTemplate) {
       const { error: updateErr } = await supabase

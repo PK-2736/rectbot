@@ -24,10 +24,15 @@ type LayoutBox = {
 
 type TextFieldKey = "title" | "members" | "time" | "content" | "voice";
 type BoxFieldKey = "contentBox" | "imageBox" | "participantsBox";
+type InfoBoxFieldKey = "membersBox" | "timeBox" | "voiceBox";
 
 type TemplateLayout = {
   canvas: { width: number; height: number };
   outputScale: number;
+  contentLabel: string;
+  membersLabel: string;
+  timeLabel: string;
+  voiceLabel: string;
   title: LayoutField;
   members: LayoutField;
   time: LayoutField;
@@ -35,6 +40,9 @@ type TemplateLayout = {
   voice: LayoutField;
   contentBox: LayoutBox;
   imageBox: LayoutBox;
+  membersBox: LayoutBox;
+  timeBox: LayoutBox;
+  voiceBox: LayoutBox;
   participantsBox: LayoutBox;
 };
 
@@ -70,6 +78,10 @@ type FormState = {
 const DEFAULT_LAYOUT: TemplateLayout = {
   canvas: { width: 1280, height: 720 },
   outputScale: 5,
+  contentLabel: "募集内容",
+  membersLabel: "人数：",
+  timeLabel: "時間：",
+  voiceLabel: "通話：",
   title: { x: 420, y: 36, size: 64, visible: true },
   members: { x: 969, y: 302, size: 24, visible: true },
   time: { x: 969, y: 446, size: 24, visible: true },
@@ -77,6 +89,9 @@ const DEFAULT_LAYOUT: TemplateLayout = {
   voice: { x: 969, y: 590, size: 24, visible: true },
   contentBox: { x: 73, y: 281, width: 614, height: 360, visible: true },
   imageBox: { x: 880, y: 330, width: 300, height: 220, visible: true },
+  membersBox: { x: 969, y: 302, width: 48, height: 15, visible: true },
+  timeBox: { x: 969, y: 446, width: 48, height: 15, visible: true },
+  voiceBox: { x: 969, y: 590, width: 48, height: 15, visible: true },
   participantsBox: { x: 119, y: 180, width: 1134, height: 158, visible: true },
 };
 
@@ -121,6 +136,10 @@ function parseLayout(input: unknown): TemplateLayout {
   return {
     canvas: raw.canvas || DEFAULT_LAYOUT.canvas,
     outputScale: clamp(Number((raw as { outputScale?: number }).outputScale ?? DEFAULT_LAYOUT.outputScale), 2, 10),
+    contentLabel: typeof (raw as { contentLabel?: string }).contentLabel === 'string' ? (raw as { contentLabel?: string }).contentLabel || DEFAULT_LAYOUT.contentLabel : DEFAULT_LAYOUT.contentLabel,
+    membersLabel: typeof (raw as { membersLabel?: string }).membersLabel === 'string' ? (raw as { membersLabel?: string }).membersLabel || DEFAULT_LAYOUT.membersLabel : DEFAULT_LAYOUT.membersLabel,
+    timeLabel: typeof (raw as { timeLabel?: string }).timeLabel === 'string' ? (raw as { timeLabel?: string }).timeLabel || DEFAULT_LAYOUT.timeLabel : DEFAULT_LAYOUT.timeLabel,
+    voiceLabel: typeof (raw as { voiceLabel?: string }).voiceLabel === 'string' ? (raw as { voiceLabel?: string }).voiceLabel || DEFAULT_LAYOUT.voiceLabel : DEFAULT_LAYOUT.voiceLabel,
     title: raw.title || DEFAULT_LAYOUT.title,
     members: raw.members || DEFAULT_LAYOUT.members,
     time: raw.time || DEFAULT_LAYOUT.time,
@@ -128,6 +147,9 @@ function parseLayout(input: unknown): TemplateLayout {
     voice: raw.voice || DEFAULT_LAYOUT.voice,
     contentBox: raw.contentBox || DEFAULT_LAYOUT.contentBox,
     imageBox: raw.imageBox || DEFAULT_LAYOUT.imageBox,
+    membersBox: raw.membersBox || DEFAULT_LAYOUT.membersBox,
+    timeBox: raw.timeBox || DEFAULT_LAYOUT.timeBox,
+    voiceBox: raw.voiceBox || DEFAULT_LAYOUT.voiceBox,
     participantsBox: raw.participantsBox || DEFAULT_LAYOUT.participantsBox,
   };
 }
@@ -289,6 +311,21 @@ export default function PlusTemplatePage() {
     }));
   };
 
+  const setInfoBoxVisible = (field: InfoBoxFieldKey, visible: boolean) => {
+    setLayout((prev) => ({ ...prev, [field]: { ...prev[field], visible } }));
+  };
+
+  const setInfoBoxSize = (field: InfoBoxFieldKey, key: "width" | "height", value: number) => {
+    setLayout((prev) => ({
+      ...prev,
+      [field]: { ...prev[field], [key]: clamp(value, key === "width" ? 48 : 12, key === "width" ? 220 : 40) },
+    }));
+  };
+
+  const setLayoutText = (key: "contentLabel" | "membersLabel" | "timeLabel" | "voiceLabel", value: string) => {
+    setLayout((prev) => ({ ...prev, [key]: value }));
+  };
+
   const uploadBackgroundFile = async (file: File, guildId: string, templateName: string) => {
     const fd = new FormData();
     fd.set("guildId", guildId);
@@ -440,6 +477,13 @@ export default function PlusTemplatePage() {
             <textarea className="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 h-20" placeholder="募集内容" value={form.content} onChange={(e) => setForm({ ...form, content: e.target.value })} />
 
             <div className="grid grid-cols-2 gap-3">
+              <input className="bg-gray-900 border border-gray-600 rounded-lg px-3 py-2" placeholder="内容ラベル" value={layout.contentLabel} onChange={(e) => setLayoutText("contentLabel", e.target.value)} />
+              <input className="bg-gray-900 border border-gray-600 rounded-lg px-3 py-2" placeholder="人数ラベル" value={layout.membersLabel} onChange={(e) => setLayoutText("membersLabel", e.target.value)} />
+              <input className="bg-gray-900 border border-gray-600 rounded-lg px-3 py-2" placeholder="時間ラベル" value={layout.timeLabel} onChange={(e) => setLayoutText("timeLabel", e.target.value)} />
+              <input className="bg-gray-900 border border-gray-600 rounded-lg px-3 py-2" placeholder="通話ラベル" value={layout.voiceLabel} onChange={(e) => setLayoutText("voiceLabel", e.target.value)} />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
               <input className="bg-gray-900 border border-gray-600 rounded-lg px-3 py-2" placeholder="募集人数" value={form.participants} onChange={(e) => setForm({ ...form, participants: e.target.value })} />
               <input className="bg-gray-900 border border-gray-600 rounded-lg px-3 py-2" placeholder="開始時間" value={form.startTimeText} onChange={(e) => setForm({ ...form, startTimeText: e.target.value })} />
             </div>
@@ -562,6 +606,36 @@ export default function PlusTemplatePage() {
                     onChange={(e) => setLayout((prev) => ({ ...prev, outputScale: clamp(Number(e.target.value), 2, 10) }))}
                   />
                   <span className="text-right text-xs text-gray-400">{layout.outputScale}x</span>
+                </div>
+
+                <div className="pt-2 border-t border-gray-700 space-y-2">
+                  <p className="text-sm text-gray-300">人数・時間・通話の枠サイズ</p>
+
+                  {([
+                    ["membersBox", "人数"],
+                    ["timeBox", "時間"],
+                    ["voiceBox", "通話"],
+                  ] as const).map(([field, label]) => (
+                    <div key={field} className="space-y-2 rounded-md border border-gray-700 p-2">
+                      <div className="flex items-center justify-between text-xs text-gray-300">
+                        <span>{label}ラベル枠</span>
+                        <label className="flex items-center gap-2">
+                          <input type="checkbox" checked={layout[field].visible} onChange={(e) => setInfoBoxVisible(field, e.target.checked)} />
+                          表示
+                        </label>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 items-center text-sm">
+                        <label>幅</label>
+                        <input type="range" min={48} max={220} value={layout[field].width} onChange={(e) => setInfoBoxSize(field, "width", Number(e.target.value))} />
+                        <span className="text-right text-xs text-gray-400">{layout[field].width}px</span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 items-center text-sm">
+                        <label>高さ</label>
+                        <input type="range" min={12} max={40} value={layout[field].height} onChange={(e) => setInfoBoxSize(field, "height", Number(e.target.value))} />
+                        <span className="text-right text-xs text-gray-400">{layout[field].height}px</span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>

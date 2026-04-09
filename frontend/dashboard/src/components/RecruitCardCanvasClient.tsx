@@ -16,6 +16,10 @@ interface RecruitCardCanvasProps {
   };
   layout: {
     canvas: { width: number; height: number };
+    contentLabel: string;
+    membersLabel: string;
+    timeLabel: string;
+    voiceLabel: string;
     title: LayoutField;
     members: LayoutField;
     time: LayoutField;
@@ -23,6 +27,9 @@ interface RecruitCardCanvasProps {
     voice: LayoutField;
     contentBox: LayoutBox;
     imageBox: LayoutBox;
+    membersBox: LayoutBox;
+    timeBox: LayoutBox;
+    voiceBox: LayoutBox;
     participantsBox?: LayoutBox;
   };
   accentColor?: string;
@@ -38,6 +45,10 @@ const RECT_CANVAS_WIDTH = 160;
 const RECT_CANVAS_HEIGHT = 90;
 const DEFAULT_LAYOUT = {
   canvas: { width: 1280, height: 720 },
+  contentLabel: '募集内容',
+  membersLabel: '人数：',
+  timeLabel: '時間：',
+  voiceLabel: '通話：',
   title: { x: 420, y: 36, size: 64, visible: true },
   members: { x: 969, y: 302, size: 24, visible: true },
   time: { x: 969, y: 446, size: 24, visible: true },
@@ -45,6 +56,9 @@ const DEFAULT_LAYOUT = {
   voice: { x: 969, y: 590, size: 24, visible: true },
   contentBox: { x: 73, y: 281, width: 614, height: 360, visible: true },
   imageBox: { x: 880, y: 330, width: 300, height: 220, visible: false },
+  membersBox: { x: 969, y: 302, width: 120, height: 20, visible: true },
+  timeBox: { x: 969, y: 446, width: 120, height: 20, visible: true },
+  voiceBox: { x: 969, y: 590, width: 120, height: 20, visible: true },
   participantsBox: { x: 119, y: 180, width: 1134, height: 158, visible: true },
 };
 
@@ -179,6 +193,41 @@ function addRectStyleTitle(layer: Konva.Layer, width: number, title: string, acc
 
   drawPin(layer, 8, 8, 'rgba(46, 213, 115, 0.7)');
   drawPin(layer, width - 8, 8, 'rgba(255, 71, 87, 0.7)');
+}
+
+function renderInfoBox(
+  layer: Konva.Layer,
+  box: LayoutBox,
+  label: string,
+  value: string,
+  textColor: string,
+  draggable: boolean,
+  onDragEnd?: (x: number, y: number) => void
+) {
+  if (!box.visible) return;
+
+  const labelSize = Math.max(4, Math.round(box.height * 0.38));
+  const valueSize = Math.max(4, Math.round(box.height * 0.34));
+  const labelMeasure = createMeasure(labelSize, true);
+  const valueMeasure = createMeasure(valueSize, false);
+  const paddingX = Math.max(3, Math.round(box.height * 0.2));
+  const paddingY = Math.max(2, Math.round(box.height * 0.28));
+  const labelText = truncateTextByWidth(label, Math.max(12, Math.round(box.width * 0.42)), labelMeasure);
+  const labelWidth = Math.ceil(labelMeasure(labelText));
+  const valueX = paddingX + labelWidth + 4;
+  const valueMaxWidth = Math.max(12, box.width - valueX - paddingX);
+  const valueText = truncateTextByWidth(value, valueMaxWidth, valueMeasure);
+
+  const group = new Konva.Group({ x: box.x, y: box.y, draggable });
+  group.add(new Konva.Rect({ x: 0, y: 0, width: box.width, height: box.height, cornerRadius: Math.max(3, Math.round(box.height / 4)), fill: 'rgba(0,0,0,0.75)', stroke: 'rgba(255,255,255,0.6)', strokeWidth: 0.5 }));
+  group.add(new Konva.Text({ x: paddingX, y: paddingY, text: labelText, fill: 'rgba(255,255,255,0.75)', fontSize: labelSize, fontStyle: 'bold', fontFamily: 'CorporateRounded, Arial, sans-serif' }));
+  group.add(new Konva.Text({ x: valueX, y: paddingY, text: valueText, fill: textColor, fontSize: valueSize, fontFamily: 'CorporateRounded, Arial, sans-serif' }));
+
+  if (onDragEnd) {
+    group.on('dragend', () => onDragEnd(Math.round(group.x()), Math.round(group.y())));
+  }
+
+  layer.add(group);
 }
 
 function addTemplateTextNode(
@@ -393,6 +442,9 @@ export function RecruitCardCanvasImpl({
     const scaledTime = scaleTextFieldToRect(layout.time, layout.canvas);
     const scaledVoice = scaleTextFieldToRect(layout.voice, layout.canvas);
     const scaledContent = scaleTextFieldToRect(layout.content, layout.canvas);
+    const scaledMembersBox = scaleBoxToRect(layout.membersBox || DEFAULT_LAYOUT.membersBox, layout.canvas);
+    const scaledTimeBox = scaleBoxToRect(layout.timeBox || DEFAULT_LAYOUT.timeBox, layout.canvas);
+    const scaledVoiceBox = scaleBoxToRect(layout.voiceBox || DEFAULT_LAYOUT.voiceBox, layout.canvas);
 
     const drawAsync = async () => {
       // 背景は透明（fillなし）
@@ -424,7 +476,7 @@ export function RecruitCardCanvasImpl({
       contentGroup.add(new Konva.Text({
         x: 4,
         y: 3,
-        text: '募集内容',
+        text: layout.contentLabel || '募集内容',
         fill: 'rgba(255,255,255,0.8)',
         fontSize: 6,
         fontStyle: 'bold',
@@ -476,22 +528,21 @@ export function RecruitCardCanvasImpl({
       }
 
       const infoItems = [
-        { key: 'members', x: scaledMembers.x, y: scaledMembers.y, label: '人数：', value: `${Math.min(1, participants)}/${participants}人` },
-        { key: 'time', x: scaledTime.x, y: scaledTime.y, label: '時間：', value: `${recruitData.startTimeText || '今から'}~` },
-        { key: 'voice', x: scaledVoice.x, y: scaledVoice.y, label: '通話：', value: voiceText },
+        { key: 'members', box: scaledMembersBox, label: layout.membersLabel || '人数：', value: `${Math.min(1, participants)}/${participants}人` },
+        { key: 'time', box: scaledTimeBox, label: layout.timeLabel || '時間：', value: `${recruitData.startTimeText || '今から'}~` },
+        { key: 'voice', box: scaledVoiceBox, label: layout.voiceLabel || '通話：', value: voiceText },
       ];
 
       infoItems.forEach((item) => {
-        const infoGroup = new Konva.Group({ x: item.x, y: item.y, draggable: Boolean(onLayoutChangeRef.current) });
-        if (onLayoutChangeRef.current) {
-          infoGroup.on('dragend', () => {
-            onLayoutChangeRef.current?.(item.key, toEditorX(infoGroup.x()), toEditorY(infoGroup.y()));
-          });
-        }
-        infoGroup.add(new Konva.Rect({ x: 0, y: 0, width: 48, height: 15, cornerRadius: 3, fill: 'rgba(0,0,0,0.75)', stroke: 'rgba(255,255,255,0.6)', strokeWidth: 0.5 }));
-        infoGroup.add(new Konva.Text({ x: 3, y: 6, text: item.label, fill: 'rgba(255,255,255,0.75)', fontSize: 4, fontStyle: 'bold', fontFamily: 'CorporateRounded, Arial, sans-serif' }));
-        infoGroup.add(new Konva.Text({ x: 20, y: 6, text: truncateTextByWidth(item.value, 25, createMeasure(4)), fill: resolvedTextColor, fontSize: 4, fontFamily: 'CorporateRounded, Arial, sans-serif' }));
-        layer.add(infoGroup);
+        renderInfoBox(
+          layer,
+          item.box,
+          item.label,
+          item.value,
+          resolvedTextColor,
+          Boolean(onLayoutChangeRef.current),
+          onLayoutChangeRef.current ? (x, y) => onLayoutChangeRef.current?.(item.key, toEditorX(x), toEditorY(y)) : undefined
+        );
       });
 
       if (scaledImageBox.visible && backgroundImageUrl) {

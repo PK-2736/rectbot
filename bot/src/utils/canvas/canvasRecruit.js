@@ -5,6 +5,10 @@ registerFont(__dirname + '/../../../data/Corporate-Logo-Rounded-Bold-ver3.otf', 
 const DEFAULT_TEMPLATE_LAYOUT = {
   canvas: { width: 1280, height: 720 },
   outputScale: 5,
+  contentLabel: '募集内容',
+  membersLabel: '人数：',
+  timeLabel: '時間：',
+  voiceLabel: '通話：',
   title: { x: 420, y: 36, size: 64, visible: true },
   members: { x: 969, y: 302, size: 24, visible: true },
   time: { x: 969, y: 446, size: 24, visible: true },
@@ -12,6 +16,9 @@ const DEFAULT_TEMPLATE_LAYOUT = {
   voice: { x: 969, y: 590, size: 24, visible: true },
   contentBox: { x: 73, y: 281, width: 614, height: 360, visible: true },
   imageBox: { x: 880, y: 330, width: 300, height: 220, visible: false },
+  membersBox: { x: 969, y: 302, width: 120, height: 20, visible: true },
+  timeBox: { x: 969, y: 446, width: 120, height: 20, visible: true },
+  voiceBox: { x: 969, y: 590, width: 120, height: 20, visible: true },
   participantsBox: { x: 119, y: 180, width: 1134, height: 158, visible: true }
 };
 
@@ -246,6 +253,10 @@ function toSafeLayout(layout) {
   return {
     canvas: layout.canvas || DEFAULT_TEMPLATE_LAYOUT.canvas,
     outputScale: Number.isFinite(outputScale) ? Math.max(2, Math.min(10, Math.round(outputScale))) : DEFAULT_TEMPLATE_LAYOUT.outputScale,
+    contentLabel: typeof layout.contentLabel === 'string' ? layout.contentLabel : DEFAULT_TEMPLATE_LAYOUT.contentLabel,
+    membersLabel: typeof layout.membersLabel === 'string' ? layout.membersLabel : DEFAULT_TEMPLATE_LAYOUT.membersLabel,
+    timeLabel: typeof layout.timeLabel === 'string' ? layout.timeLabel : DEFAULT_TEMPLATE_LAYOUT.timeLabel,
+    voiceLabel: typeof layout.voiceLabel === 'string' ? layout.voiceLabel : DEFAULT_TEMPLATE_LAYOUT.voiceLabel,
     title: layout.title || DEFAULT_TEMPLATE_LAYOUT.title,
     members: layout.members || DEFAULT_TEMPLATE_LAYOUT.members,
     time: layout.time || DEFAULT_TEMPLATE_LAYOUT.time,
@@ -253,6 +264,9 @@ function toSafeLayout(layout) {
     voice: layout.voice || DEFAULT_TEMPLATE_LAYOUT.voice,
     contentBox: layout.contentBox || DEFAULT_TEMPLATE_LAYOUT.contentBox,
     imageBox: layout.imageBox || DEFAULT_TEMPLATE_LAYOUT.imageBox,
+    membersBox: layout.membersBox || DEFAULT_TEMPLATE_LAYOUT.membersBox,
+    timeBox: layout.timeBox || DEFAULT_TEMPLATE_LAYOUT.timeBox,
+    voiceBox: layout.voiceBox || DEFAULT_TEMPLATE_LAYOUT.voiceBox,
     participantsBox: layout.participantsBox || DEFAULT_TEMPLATE_LAYOUT.participantsBox
   };
 }
@@ -461,6 +475,9 @@ async function drawTemplateModeCard(ctx, recruitData, layout, canvasSize, accent
   const scaledMembers = getScaledField(layout.members, layout, canvasSize, DEFAULT_TEMPLATE_LAYOUT.members);
   const scaledTime = getScaledField(layout.time, layout, canvasSize, DEFAULT_TEMPLATE_LAYOUT.time);
   const scaledVoice = getScaledField(layout.voice, layout, canvasSize, DEFAULT_TEMPLATE_LAYOUT.voice);
+  const scaledMembersBox = getScaledBox(layout.membersBox || DEFAULT_TEMPLATE_LAYOUT.membersBox, layout, canvasSize, DEFAULT_TEMPLATE_LAYOUT.membersBox);
+  const scaledTimeBox = getScaledBox(layout.timeBox || DEFAULT_TEMPLATE_LAYOUT.timeBox, layout, canvasSize, DEFAULT_TEMPLATE_LAYOUT.timeBox);
+  const scaledVoiceBox = getScaledBox(layout.voiceBox || DEFAULT_TEMPLATE_LAYOUT.voiceBox, layout, canvasSize, DEFAULT_TEMPLATE_LAYOUT.voiceBox);
 
   // /rect と同じタイトル描画方式に統一
   drawCardTitle(ctx, canvasSize.width, recruitData.title || '募集タイトル', accentColor, textColor);
@@ -492,22 +509,15 @@ async function drawTemplateModeCard(ctx, recruitData, layout, canvasSize, accent
     contentBox.width,
     contentBox.height,
     content,
+    layout.contentLabel || DEFAULT_TEMPLATE_LAYOUT.contentLabel,
     textColor
   );
 
-  const infoItems = buildInfoItems(recruitData, participantIds);
-  drawInfoItems(ctx, infoItems, {
-    rightX: scaledMembers.x,
-    startY: scaledMembers.y,
-    itemSpacing: 20,
-    infoBoxWidth: 48,
-    infoBoxHeight: 15,
-    customPositions: [
-      { x: scaledMembers.x, y: scaledMembers.y },
-      { x: scaledTime.x, y: scaledTime.y },
-      { x: scaledVoice.x, y: scaledVoice.y }
-    ]
-  }, textColor);
+  const infoItems = buildInfoItems(recruitData, participantIds).map((item, index) => ({
+    ...item,
+    box: [scaledMembersBox, scaledTimeBox, scaledVoiceBox][index]
+  }));
+  drawInfoItems(ctx, infoItems, textColor);
 
   // 画像は「ステッカー」として最後に重ねる（枠は描画せず画像をそのまま貼付け）
   if (imageBox.visible && stickerUrl) {
@@ -590,30 +600,36 @@ function buildInfoItems(recruitData, participantIds) {
   ];
 }
 
-function drawInfoItems(ctx, items, layout, textColor = '#FFFFFF') {
-  const { rightX, startY, itemSpacing, infoBoxWidth, infoBoxHeight, customPositions } = layout;
+function drawInfoItems(ctx, items, textColor = '#FFFFFF') {
+  items.forEach((item) => {
+    const box = item.box;
+    if (!box?.visible) return;
 
-  items.forEach((item, index) => {
-    const customPos = Array.isArray(customPositions) ? customPositions[index] : null;
-    const itemX = customPos?.x ?? rightX;
-    const itemY = customPos?.y ?? (startY + (index * itemSpacing));
+    const labelSize = Math.max(4, Math.round(box.height * 0.38));
+    const valueSize = Math.max(4, Math.round(box.height * 0.34));
+    const paddingX = Math.max(3, Math.round(box.height * 0.2));
+    const paddingY = Math.max(2, Math.round(box.height * 0.28));
+
+    ctx.font = `bold ${labelSize}px CorporateRounded`;
+    const labelText = truncateText(ctx, String(item.label || ''), Math.max(12, Math.round(box.width * 0.42)));
+    const labelWidth = Math.ceil(ctx.measureText(labelText).width);
+    const valueX = paddingX + labelWidth + 4;
+    const valueMaxWidth = Math.max(12, box.width - valueX - paddingX);
 
     ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
-    drawRoundedRect(ctx, itemX, itemY, infoBoxWidth, infoBoxHeight, 3, true, false);
+    drawRoundedRect(ctx, box.x, box.y, box.width, box.height, Math.max(3, Math.round(box.height / 4)), true, false);
 
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
     ctx.lineWidth = 0.5;
-    drawRoundedRect(ctx, itemX, itemY, infoBoxWidth, infoBoxHeight, 3, false, true);
+    drawRoundedRect(ctx, box.x, box.y, box.width, box.height, Math.max(3, Math.round(box.height / 4)), false, true);
 
     ctx.fillStyle = textColor;
-    ctx.font = 'bold 4px CorporateRounded';
-    ctx.fillText(item.label, itemX + 3, itemY + 6);
+    ctx.font = `bold ${labelSize}px CorporateRounded`;
+    ctx.fillText(labelText, box.x + paddingX, box.y + paddingY);
 
-    ctx.fillStyle = textColor;
-    ctx.font = '4px CorporateRounded';
-    const maxWidth = infoBoxWidth - 23;
-    const value = truncateText(ctx, item.value, maxWidth);
-    ctx.fillText(value, itemX + 20, itemY + 6);
+    ctx.font = `${valueSize}px CorporateRounded`;
+    const valueText = truncateText(ctx, String(item.value || ''), valueMaxWidth);
+    ctx.fillText(valueText, box.x + valueX, box.y + paddingY);
   });
 }
 
@@ -738,14 +754,14 @@ async function drawParticipantCircles(ctx, participantIds, participantCount, lay
   }
 }
 
-function drawContentTextSection(ctx, boxX, boxY, boxWidth, boxHeight, content, textColor = '#FFFFFF') {
+function drawContentTextSection(ctx, boxX, boxY, boxWidth, boxHeight, content, labelText = '募集内容', textColor = '#FFFFFF') {
   ctx.fillStyle = textColor;
   ctx.font = '6px CorporateRounded';
   ctx.textBaseline = 'top';
   
   ctx.font = 'bold 6px CorporateRounded';
   ctx.fillStyle = textColor;
-  ctx.fillText('募集内容', boxX + 4, boxY + 3);
+  ctx.fillText(labelText || '募集内容', boxX + 4, boxY + 3);
   
   ctx.font = '4px CorporateRounded';
   ctx.fillStyle = textColor;
