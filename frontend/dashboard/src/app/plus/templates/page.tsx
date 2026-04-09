@@ -267,6 +267,8 @@ export default function PlusTemplatePage() {
   }, []);
 
   const selectedGuildName = guilds.find((g) => g.id === selectedGuildId)?.name || "";
+  const templateExists = templates.some((t) => t.name === form.name.trim());
+  const canCreateNewTemplate = templateExists || templates.length < 5;
 
   const setFieldVisible = (field: TextFieldKey, visible: boolean) => {
     setLayout((prev) => ({ ...prev, [field]: { ...prev[field], visible } }));
@@ -320,6 +322,10 @@ export default function PlusTemplatePage() {
         throw new Error("先にテンプレ名を入力してください");
       }
 
+      if (!templateExists && templates.length >= 5) {
+        throw new Error("テンプレートは1サーバーにつき5個までです。不要なテンプレートを削除してください。");
+      }
+
       const uploadSourceFile = selectedUploadFile;
 
       if (uploadSourceFile) {
@@ -359,6 +365,34 @@ export default function PlusTemplatePage() {
       writeEditorCache(selectedGuildId, nextForm, layout);
     } catch (e) {
       setError(e instanceof Error ? e.message : "保存に失敗しました");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const deleteTemplate = async (templateName: string) => {
+    if (!selectedGuildId || !templateName) return;
+    if (!window.confirm(`テンプレート「${templateName}」を削除しますか？`)) return;
+
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch(`${apiBaseUrl}/api/plus/templates`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ guildId: selectedGuildId, name: templateName }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || "テンプレート削除に失敗しました");
+
+      if (form.name.trim() === templateName) {
+        setForm(INITIAL_FORM);
+        setLayout(DEFAULT_LAYOUT);
+      }
+      await reloadTemplates(selectedGuildId);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "削除に失敗しました");
     } finally {
       setSaving(false);
     }
@@ -532,7 +566,8 @@ export default function PlusTemplatePage() {
               </div>
             </div>
 
-            <button type="submit" disabled={saving || !selectedGuildId} className="px-4 py-2 bg-white text-gray-900 rounded-lg font-semibold disabled:opacity-50">{saving ? "保存中..." : "テンプレ保存"}</button>
+            <button type="submit" disabled={saving || !selectedGuildId || !canCreateNewTemplate} className="px-4 py-2 bg-white text-gray-900 rounded-lg font-semibold disabled:opacity-50">{saving ? "保存中..." : "テンプレ保存"}</button>
+            {!canCreateNewTemplate && <p className="text-xs text-amber-300">テンプレートは1サーバーにつき5個までです。不要なものを削除してください。</p>}
           </form>
 
           {error && <p className="text-sm text-red-300">{error}</p>}
@@ -585,24 +620,34 @@ export default function PlusTemplatePage() {
             ) : (
               <div className="space-y-2 max-h-64 overflow-auto">
                 {templates.map((t) => (
-                  <button
-                    key={`${t.guild_id}:${t.name}`}
-                    type="button"
-                    onClick={() => {
-                      const nextForm = toForm(t);
-                      const nextLayout = parseLayout(t.layout_json);
-                      setForm(nextForm);
-                      setLayout(nextLayout);
-                      if (selectedGuildId) {
-                        writeEditorCache(selectedGuildId, nextForm, nextLayout);
-                      }
-                    }}
-                    className="w-full text-left border border-gray-700 rounded-lg p-3 hover:bg-gray-700/40 transition-colors"
-                  >
-                    <p className="font-semibold">{t.name}</p>
-                    <p className="text-sm text-gray-300">{t.title || "(タイトル未設定)"}</p>
-                    <p className="text-xs text-gray-400 mt-1">更新: {new Date(t.updated_at).toLocaleString("ja-JP")}</p>
-                  </button>
+                  <div key={`${t.guild_id}:${t.name}`} className="w-full border border-gray-700 rounded-lg p-3 bg-gray-900/20">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const nextForm = toForm(t);
+                        const nextLayout = parseLayout(t.layout_json);
+                        setForm(nextForm);
+                        setLayout(nextLayout);
+                        if (selectedGuildId) {
+                          writeEditorCache(selectedGuildId, nextForm, nextLayout);
+                        }
+                      }}
+                      className="w-full text-left"
+                    >
+                      <p className="font-semibold">{t.name}</p>
+                      <p className="text-sm text-gray-300">{t.title || "(タイトル未設定)"}</p>
+                      <p className="text-xs text-gray-400 mt-1">更新: {new Date(t.updated_at).toLocaleString("ja-JP")}</p>
+                    </button>
+                    <div className="mt-3 flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => deleteTemplate(t.name)}
+                        className="px-3 py-1 text-xs rounded-md bg-red-600 hover:bg-red-500 text-white"
+                      >
+                        削除
+                      </button>
+                    </div>
+                  </div>
                 ))}
               </div>
             )}

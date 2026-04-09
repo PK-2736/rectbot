@@ -225,6 +225,8 @@ function buildTemplatePayload(body, userId, env, existingTemplate = null) {
   };
 }
 
+const TEMPLATE_LIMIT_PER_GUILD = 5;
+
 const TEMPLATE_SELECT = 'guild_id, name, title, participants, color, notification_role_id, content, start_time_text, regulation_members, voice_place, voice_option, background_image_url, background_asset_key, title_x, title_y, members_x, members_y, font_family, font_size, text_color, layout_json, updated_at';
 
 async function listTemplates(request, env, safeHeaders) {
@@ -258,6 +260,60 @@ async function listTemplates(request, env, safeHeaders) {
   return jsonResponse({ templates: data || [] }, 200, safeHeaders);
 }
 
+async function deleteTemplate(request, env, safeHeaders) {
+  const user = await getUserFromRequest(request, env);
+  if (!user) return jsonResponse({ error: 'Unauthorized' }, 401, safeHeaders);
+
+  const body = await request.json().catch(() => ({}));
+  const guildId = String(body.guildId || '').trim();
+  const name = String(body.name || '').trim();
+  if (!guildId || !name) {
+    return jsonResponse({ error: 'guildId and name are required' }, 400, safeHeaders);
+  }
+
+  const hasAccess = await canAccessTemplates(user, guildId, env);
+  if (!hasAccess) {
+    return jsonResponse({ error: 'Premium subscription is required for this guild' }, 403, safeHeaders);
+  }
+
+  const supabase = await createSupabaseClient(env);
+  if (!supabase) return jsonResponse({ error: 'Supabase is not configured' }, 500, safeHeaders);
+
+  const { data: existingTemplate, error: fetchError } = await supabase
+    .from('recruit_templates')
+    .select('background_asset_key')
+    .eq('guild_id', guildId)
+    .eq('name', name)
+    .maybeSingle();
+
+  if (fetchError) {
+    console.error('[plus/templates] delete fetch error:', fetchError);
+    return jsonResponse({ error: 'Failed to load template before delete' }, 500, safeHeaders);
+  }
+
+  const { error } = await supabase
+    .from('recruit_templates')
+    .delete()
+    .eq('guild_id', guildId)
+    .eq('name', name);
+
+  if (error) {
+    console.error('[plus/templates] delete error:', error);
+    return jsonResponse({ error: 'Failed to delete template' }, 500, safeHeaders);
+  }
+
+  const assetKey = String(existingTemplate?.background_asset_key || '').trim();
+  if (assetKey && env.PLUS_TEMPLATES_R2) {
+    try {
+      await env.PLUS_TEMPLATES_R2.delete(assetKey);
+    } catch (assetError) {
+      console.warn('[plus/templates] delete warning: failed to delete asset', assetError?.message || assetError);
+    }
+  }
+
+  return jsonResponse({ ok: true }, 200, safeHeaders);
+}
+
 async function upsertTemplate(request, env, safeHeaders) {
   const user = await getUserFromRequest(request, env);
   if (!user) return jsonResponse({ error: 'Unauthorized' }, 401, safeHeaders);
@@ -288,12 +344,28 @@ async function upsertTemplate(request, env, safeHeaders) {
   const supabase = await createSupabaseClient(env);
   if (!supabase) return jsonResponse({ error: 'Supabase is not configured' }, 500, safeHeaders);
 
+  const { data: existingCountData, error: countError } = await supabase
+    .from('recruit_templates')
+    .select('name', { count: 'exact', head: false })
+    .eq('guild_id', guildId)
+    .limit(TEMPLATE_LIMIT_PER_GUILD + 1);
+
+  if (countError) {
+    console.error('[plus/templates] count error:', countError);
+    return jsonResponse({ error: 'Failed to validate template limit' }, 500, safeHeaders);
+  }
+
+  const templateCount = Array.isArray(existingCountData) ? existingCountData.length : 0;
   const { data: existingTemplate } = await supabase
     .from('recruit_templates')
     .select('background_asset_key, background_image_url')
     .eq('guild_id', guildId)
     .eq('name', name)
     .maybeSingle();
+
+  if (!existingTemplate && templateCount >= TEMPLATE_LIMIT_PER_GUILD) {
+    return jsonResponse({ error: `テンプレートは1サーバーにつき${TEMPLATE_LIMIT_PER_GUILD}個までです。不要なテンプレートを削除してください。` }, 400, safeHeaders);
+  }
 
   const payload = buildTemplatePayload(body, user.id, env, existingTemplate || null);
   console.log('[plus/templates] upsert resolved payload', {
@@ -603,6 +675,10 @@ export async function handlePlusTemplateRoutes(request, env, { url, safeHeaders 
 
   if (url.pathname === '/api/plus/templates' && request.method === 'POST') {
     return upsertTemplate(request, env, safeHeaders);
+  }
+
+  if (url.pathname === '/api/plus/templates' && request.method === 'DELETE') {
+    return deleteTemplate(request, env, safeHeaders);
   }
 
   if (url.pathname === '/api/plus/template-assets/upload' && request.method === 'POST') {
