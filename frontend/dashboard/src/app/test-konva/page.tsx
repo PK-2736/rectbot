@@ -5,6 +5,10 @@ import RecruitCardCanvas from "@/components/RecruitCardCanvas";
 
 const DEFAULT_LAYOUT = {
   canvas: { width: 1280, height: 720 },
+  contentLabel: '募集内容',
+  membersLabel: '人数：',
+  timeLabel: '時間：',
+  voiceLabel: '通話：',
   title: { x: 420, y: 36, size: 64, visible: true },
   members: { x: 969, y: 302, size: 24, visible: true },
   time: { x: 969, y: 446, size: 24, visible: true },
@@ -12,6 +16,9 @@ const DEFAULT_LAYOUT = {
   voice: { x: 969, y: 590, size: 24, visible: true },
   contentBox: { x: 73, y: 281, width: 614, height: 360, visible: true },
   imageBox: { x: 880, y: 330, width: 300, height: 220, visible: false },
+  membersBox: { x: 969, y: 302, width: 120, height: 20, visible: true },
+  timeBox: { x: 969, y: 446, width: 120, height: 20, visible: true },
+  voiceBox: { x: 969, y: 590, width: 120, height: 20, visible: true },
   participantsBox: { x: 119, y: 180, width: 1134, height: 158, visible: true },
 };
 
