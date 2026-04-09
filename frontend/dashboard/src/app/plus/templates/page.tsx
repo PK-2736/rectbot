@@ -533,7 +533,7 @@ export default function PlusTemplatePage() {
                   backgroundAssetKey: "",
                 }));
               }} />
-              {(uploading || saving) && <span className="text-xs text-gray-300">アップロード中...</span>}
+              {saving && <span className="text-xs text-gray-300">アップロード中...</span>}
             </div>
             {selectedFileName && <p className="text-xs text-sky-300">選択中: {selectedFileName}（保存時にステッカー画像としてR2へ保存）</p>}
             {uploadStatus && <p className="text-xs text-emerald-300">{uploadStatus}</p>}

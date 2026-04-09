@@ -236,17 +236,6 @@ function drawEmptyParticipantSlot(target: Konva.Layer | Konva.Group, x: number, 
   target.add(new Konva.Line({ points: [x, y - plusSize, x, y + plusSize], stroke: 'rgba(255,255,255,0.3)', strokeWidth: 1 }));
 }
 
-function scaleTextFieldToRect(field: LayoutField, layoutCanvas: { width: number; height: number }): LayoutField {
-  const sx = RECT_CANVAS_WIDTH / (layoutCanvas.width || DEFAULT_LAYOUT.canvas.width);
-  const sy = RECT_CANVAS_HEIGHT / (layoutCanvas.height || DEFAULT_LAYOUT.canvas.height);
-  return {
-    x: Math.round(field.x * sx),
-    y: Math.round(field.y * sy),
-    size: Math.max(4, Math.round(field.size * ((sx + sy) / 2))),
-    visible: field.visible,
-  };
-}
-
 function scaleBoxToRect(box: LayoutBox, layoutCanvas: { width: number; height: number }): LayoutBox {
   const sx = RECT_CANVAS_WIDTH / (layoutCanvas.width || DEFAULT_LAYOUT.canvas.width);
   const sy = RECT_CANVAS_HEIGHT / (layoutCanvas.height || DEFAULT_LAYOUT.canvas.height);
