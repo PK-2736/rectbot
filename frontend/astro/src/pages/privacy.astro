@@ -3,7 +3,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 ---
 <BaseLayout 
   title="プライバシーポリシー - Recrubo" 
-  description="RecruboのDiscordボットプライバシーポリシー。収集する情報、使用目的、情報の共有について記載しています。個人情報保護方針を確認できます。"
+  description="Recruboのプライバシーポリシー。収集情報、利用目的、Cookie、第三者提供、保存期間などの取り扱いを記載しています。"
 >
   <section class="section-padding bg-slate-800">
     <div class="container max-w-4xl mx-auto">
@@ -11,34 +11,51 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       
       <div class="prose prose-invert max-w-none">
         <h2 class="text-2xl font-semibold text-white mb-4">1. 収集する情報</h2>
-        <p class="text-slate-300 mb-6">
-          Recruboは、サービス提供に必要な最小限の情報のみを収集します：
-        </p>
+        <p class="text-slate-300 mb-6">Recrubo（以下「本サービス」）は、サービス提供のために次の情報を取得します。</p>
         <ul class="text-slate-300 mb-6 list-disc ml-6">
-          <li>Discord ユーザーID</li>
-          <li>サーバー情報（サーバーID、チャンネル情報）</li>
-          <li>ボット使用ログ（機能使用状況）</li>
+          <li>Discord OAuth認証で取得される情報（ユーザーID、ユーザー名、メールアドレス、アクセストークン）</li>
+          <li>Discord APIから取得するギルド情報（サーバーID、サーバー名、権限情報）</li>
+          <li>サブスクリプション管理情報（Stripeの顧客ID、サブスクリプションID、購入サーバーID、価格ID、金額、通貨、課金周期、契約状態、契約期間）</li>
+          <li>本サービス利用に必要な設定情報（ギルド設定、テンプレート設定、操作ログ）</li>
+          <li>Cookie情報（認証用 jwt Cookie、Discord API連携用 discord_at Cookie）</li>
         </ul>
 
         <h2 class="text-2xl font-semibold text-white mb-4">2. 情報の使用目的</h2>
-        <p class="text-slate-300 mb-6">
-          収集した情報は以下の目的でのみ使用されます：
-        </p>
         <ul class="text-slate-300 mb-6 list-disc ml-6">
-          <li>ボット機能の提供</li>
-          <li>サービス改善のための分析</li>
-          <li>サポート対応</li>
+          <li>ユーザー認証およびダッシュボード利用のため</li>
+          <li>サーバー一覧表示およびプレミアム適用サーバー判定のため</li>
+          <li>Stripe決済、契約状態反映、請求関連対応のため</li>
+          <li>障害対応、不正利用対策、セキュリティ維持のため</li>
+          <li>お問い合わせ対応およびサービス改善のため</li>
         </ul>
 
-        <h2 class="text-2xl font-semibold text-white mb-4">3. 情報の共有</h2>
-        <p class="text-slate-300 mb-6">
-          お客様の個人情報を第三者と共有することはありません（法的要請がある場合を除く）。
-        </p>
+        <h2 class="text-2xl font-semibold text-white mb-4">3. 第三者への提供</h2>
+        <p class="text-slate-300 mb-4">本サービスは、次の場合を除き、個人情報を第三者へ提供しません。</p>
+        <ul class="text-slate-300 mb-6 list-disc ml-6">
+          <li>決済処理のためにStripe, Inc.へ必要情報を連携する場合</li>
+          <li>Discord OAuthおよびDiscord API連携に必要な範囲でDiscordへアクセスする場合</li>
+          <li>法令に基づき開示が必要な場合</li>
+        </ul>
 
-        <h2 class="text-2xl font-semibold text-white mb-4">4. お問い合わせ</h2>
-        <p class="text-slate-300">
-         質問やお問い合わせは<a href="https://discord.com/oauth2/authorize?client_id=1048950201974542477" class="text-blue-400 hover:text-blue-300" target="_blank" rel="noopener">公式ディスコードサーバー</a>にお願いします。
-        </p>
+        <h2 class="text-2xl font-semibold text-white mb-4">4. Cookieとトークンの利用</h2>
+        <p class="text-slate-300 mb-6">本サービスは、ログイン状態維持のために jwt Cookie、Discord API連携のために discord_at Cookie を利用します。これらは HttpOnly / Secure / SameSite=Lax 属性で設定されます。jwt Cookieの有効期間は最大7日間です。discord_at CookieはDiscord側トークン有効期限に基づき失効します。</p>
+
+        <h2 class="text-2xl font-semibold text-white mb-4">5. データの保管・セキュリティ</h2>
+        <p class="text-slate-300 mb-6">本サービスは、収集情報をSupabase等のインフラ上で管理し、通信の暗号化やアクセス制御など、合理的な安全管理措置を講じます。ただし、インターネット通信の性質上、完全な安全性を保証するものではありません。</p>
+
+        <h2 class="text-2xl font-semibold text-white mb-4">6. 保存期間</h2>
+        <p class="text-slate-300 mb-6">取得した情報は、利用目的達成に必要な期間または法令上必要な期間保管します。契約情報・課金情報は、監査・不正防止・会計対応のため、契約終了後も一定期間保持する場合があります。</p>
+
+        <h2 class="text-2xl font-semibold text-white mb-4">7. 開示・訂正・削除等の請求</h2>
+        <p class="text-slate-300 mb-6">保有個人情報の開示、訂正、利用停止、削除等を希望される場合は、下記窓口までご連絡ください。ご本人確認の上、法令に従って対応します。</p>
+
+        <h2 class="text-2xl font-semibold text-white mb-4">8. ポリシーの変更</h2>
+        <p class="text-slate-300 mb-6">本ポリシーは必要に応じて改定されることがあります。重要な変更がある場合はサービス内でお知らせします。</p>
+
+        <h2 class="text-2xl font-semibold text-white mb-4">9. お問い合わせ窓口</h2>
+        <p class="text-slate-300 mb-6">サポートメール: support@recrubo.net<br />またはDiscordサポートサーバーからお問い合わせください。</p>
+
+        <p class="text-slate-400 text-sm mt-8">最終更新日: 2026年4月</p>
       </div>
     </div>
   </section>

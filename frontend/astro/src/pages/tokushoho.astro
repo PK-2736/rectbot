@@ -1,0 +1,54 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+---
+<BaseLayout
+  title="特定商取引法に基づく表示 - Recrubo"
+  description="Recruboの特定商取引法に基づく表示。販売者情報、料金、支払方法、解約・返金方針などを掲載しています。"
+>
+  <section class="section-padding bg-slate-800">
+    <div class="container max-w-4xl mx-auto">
+      <h1 class="text-4xl font-bold mb-8 gradient-text">特定商取引法に基づく表示</h1>
+
+      <div class="prose prose-invert max-w-none">
+        <h2 class="text-2xl font-semibold text-white mb-4">販売者情報</h2>
+        <ul class="text-slate-300 mb-6 list-disc ml-6">
+          <li>運営サービス名: Recrubo</li>
+          <li>販売事業者: 個人事業（請求があれば遅滞なく開示）</li>
+          <li>運営統括責任者: 請求があれば遅滞なく開示</li>
+          <li>所在地: 請求があれば遅滞なく開示</li>
+          <li>電話番号: 請求があれば遅滞なく開示</li>
+          <li>お問い合わせ: support@recrubo.net またはDiscordサポートサーバー</li>
+        </ul>
+
+        <h2 class="text-2xl font-semibold text-white mb-4">販売価格</h2>
+        <p class="text-slate-300 mb-6">プレミアムプラン 月額500円（税込）</p>
+
+        <h2 class="text-2xl font-semibold text-white mb-4">商品代金以外の必要料金</h2>
+        <p class="text-slate-300 mb-6">インターネット接続に必要な通信料等はお客様負担となります。</p>
+
+        <h2 class="text-2xl font-semibold text-white mb-4">支払方法</h2>
+        <p class="text-slate-300 mb-6">クレジットカード（Stripe決済）</p>
+
+        <h2 class="text-2xl font-semibold text-white mb-4">支払時期</h2>
+        <p class="text-slate-300 mb-6">お申し込み時に初回決済が行われ、以降はStripeの契約条件に従って自動更新課金されます。</p>
+
+        <h2 class="text-2xl font-semibold text-white mb-4">サービス提供時期</h2>
+        <p class="text-slate-300 mb-6">決済完了後、通常は即時にプレミアム機能を利用できます。システム同期により反映まで時間を要する場合があります。</p>
+
+        <h2 class="text-2xl font-semibold text-white mb-4">契約期間・更新</h2>
+        <p class="text-slate-300 mb-6">サブスクリプションは月額課金で自動更新されます。更新日はStripeに表示される契約情報に従います。</p>
+
+        <h2 class="text-2xl font-semibold text-white mb-4">解約方法</h2>
+        <p class="text-slate-300 mb-6">ダッシュボードのサブスクリプション管理画面からStripeカスタマーポータルへ遷移し、解約手続きを行えます。解約後は次回更新日以降に自動課金が停止し、支払済み期間満了まで利用可能です。</p>
+
+        <h2 class="text-2xl font-semibold text-white mb-4">キャンセル・返金について</h2>
+        <p class="text-slate-300 mb-6">サブスクリプションはいつでも解約可能です。解約後もご購入済みの期間は引き続きサービスをご利用いただけます。デジタルコンテンツの性質上、原則として返金はお受けしておりません。ただし、サービス側の重大な不具合等による場合は個別にご相談ください。</p>
+
+        <h2 class="text-2xl font-semibold text-white mb-4">動作環境</h2>
+        <p class="text-slate-300 mb-6">Discordアカウントおよびインターネット接続環境が必要です。</p>
+
+        <p class="text-slate-400 text-sm mt-8">最終更新日: 2026年4月</p>
+      </div>
+    </div>
+  </section>
+</BaseLayout>

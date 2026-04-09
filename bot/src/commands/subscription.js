@@ -15,7 +15,7 @@ const DASHBOARD_URL = process.env.DASHBOARD_URL || 'https://dash.recrubo.net';
 const SITE_BASE_URL = process.env.SITE_BASE_URL || 'https://recrubo.net';
 const TERMS_URL = process.env.TERMS_URL || `${SITE_BASE_URL}/terms`;
 const PRIVACY_POLICY_URL = process.env.PRIVACY_POLICY_URL || `${SITE_BASE_URL}/privacy`;
-const COMMERCE_POLICY_URL = process.env.COMMERCE_POLICY_URL || TERMS_URL;
+const COMMERCE_POLICY_URL = process.env.COMMERCE_POLICY_URL || `${SITE_BASE_URL}/tokushoho`;
 const STRIPE_PREMIUM_PRICE_ID = process.env.STRIPE_PREMIUM_PRICE_ID || process.env.STRIPE_PRICE_ID || null;
 
 const ID_PREFIX_GUILD_SELECT = 'subscription_guild_select:';
@@ -74,7 +74,7 @@ function buildPreCheckoutEmbed(guildName) {
     .setDescription('決済ページへ進む前に、以下の内容をご確認ください。')
     .addFields(
       { name: '対象サーバー', value: guildName || '未選択', inline: false },
-      { name: '確認必須', value: '・商品取り扱い\n・利用規約\n・プライバシーポリシー' },
+      { name: '確認必須', value: '・利用規約\n・特定商取引法に基づく表示\n・プライバシーポリシー' },
       { name: '同意方法', value: '内容確認後に「同意して決済ページへ進む」を押してください。' }
     )
     .setFooter({ text: '同意ボタン押下後にStripe Checkout URLを発行します。' })
@@ -83,8 +83,8 @@ function buildPreCheckoutEmbed(guildName) {
 
 function buildPreCheckoutComponents(userId, guildId) {
   const links = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel('商品取り扱い').setURL(COMMERCE_POLICY_URL),
     new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel('利用規約').setURL(TERMS_URL),
+    new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel('特定商取引法に基づく表示').setURL(COMMERCE_POLICY_URL),
     new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel('プライバシーポリシー').setURL(PRIVACY_POLICY_URL)
   );
 
@@ -110,6 +110,7 @@ function buildCheckoutEmbed(guildName) {
     .addFields(
       { name: '対象サーバー', value: guildName || '未選択', inline: false },
       { name: 'プラン', value: 'プレミアムプラン', inline: true },
+      { name: '料金', value: '月額500円（税込）', inline: true },
       { name: '決済方式', value: 'Stripe Checkout', inline: true }
     )
     .setFooter({ text: '決済完了後、Webhook経由で自動反映されます。' })

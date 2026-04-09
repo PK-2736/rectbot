@@ -3,40 +3,54 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 ---
 <BaseLayout 
   title="利用規約 - Recrubo" 
-  description="RecruboのDiscordボット利用規約。サービス利用時の禁止事項、サービスの変更・停止、免責事項について記載しています。"
+  description="Recruboの利用規約。適用範囲、禁止事項、料金、免責、準拠法などの利用条件を掲載しています。"
 >
   <section class="section-padding bg-slate-800">
     <div class="container max-w-4xl mx-auto">
       <h1 class="text-4xl font-bold mb-8 gradient-text">利用規約</h1>
       
       <div class="prose prose-invert max-w-none">
-        <h2 class="text-2xl font-semibold text-white mb-4">1. サービスの利用</h2>
-        <p class="text-slate-300 mb-6">
-          Recruboは、Discordサーバー向けのボットサービスです。本サービスを利用することで、本規約に同意したものとみなします。
-        </p>
+        <h2 class="text-2xl font-semibold text-white mb-4">1. 適用</h2>
+        <p class="text-slate-300 mb-6">本利用規約（以下「本規約」）は、Recrubo（以下「本サービス」）の利用条件を定めるものです。ユーザーは本規約に同意のうえ、本サービスを利用するものとします。</p>
 
-        <h2 class="text-2xl font-semibold text-white mb-4">2. 禁止事項</h2>
-        <p class="text-slate-300 mb-4">以下の行為を禁止します：</p>
+        <h2 class="text-2xl font-semibold text-white mb-4">2. サービス内容</h2>
+        <p class="text-slate-300 mb-6">本サービスは、Discordサーバーにおける募集運用支援機能および関連する管理ダッシュボード機能を提供します。一部機能は有料のプレミアムプラン契約時に利用可能です。</p>
+
+        <h2 class="text-2xl font-semibold text-white mb-4">3. アカウントおよび権限</h2>
+        <p class="text-slate-300 mb-6">ユーザーはDiscord OAuth認証を通じて本サービスを利用します。ユーザーは、自らの管理下にあるDiscordサーバーに対してのみ、プレミアム購入および各種設定を行うものとします。</p>
+
+        <h2 class="text-2xl font-semibold text-white mb-4">4. 料金および支払い</h2>
+        <p class="text-slate-300 mb-6">プレミアムプランの料金、課金周期、解約条件等は、<a href="/tokushoho" class="underline hover:text-white">特定商取引法に基づく表示</a>に定めるとおりです。決済はStripeを利用して行われます。</p>
+
+        <h2 class="text-2xl font-semibold text-white mb-4">5. 禁止事項</h2>
+        <p class="text-slate-300 mb-4">ユーザーは、以下の行為を行ってはなりません。</p>
         <ul class="text-slate-300 mb-6 list-disc ml-6">
-          <li>違法な目的での使用</li>
-          <li>他のユーザーへの迷惑行為</li>
-          <li>サービスの妨害行為</li>
-          <li>商業的な大量利用（エンタープライズプラン除く）</li>
+          <li>法令または公序良俗に違反する行為</li>
+          <li>本サービスまたは第三者の権利・利益を侵害する行為</li>
+          <li>本サービスの運営を妨害する行為、不正アクセス、過度な負荷を与える行為</li>
+          <li>不正な目的での課金、返金、認証情報の利用行為</li>
+          <li>その他、運営者が不適切と判断する行為</li>
         </ul>
 
-        <h2 class="text-2xl font-semibold text-white mb-4">3. サービスの変更・停止</h2>
-        <p class="text-slate-300 mb-6">
-          当社は、事前の通知なくサービスの内容を変更または停止する場合があります。
-        </p>
+        <h2 class="text-2xl font-semibold text-white mb-4">6. サービス変更・停止</h2>
+        <p class="text-slate-300 mb-6">本サービスは、保守、障害対応、仕様変更、法令対応その他の理由により、事前の通知なく機能追加・変更・停止を行うことがあります。</p>
 
-        <h2 class="text-2xl font-semibold text-white mb-4">4. 免責事項</h2>
-        <p class="text-slate-300 mb-6">
-          当社は、サービスの利用により生じた損害について、一切の責任を負いません。
-        </p>
+        <h2 class="text-2xl font-semibold text-white mb-4">7. 利用制限・契約解除</h2>
+        <p class="text-slate-300 mb-6">ユーザーが本規約に違反した場合、または運営上必要と判断した場合、本サービスは事前通知なく当該ユーザーの利用を制限または停止できるものとします。</p>
 
-        <p class="text-slate-400 text-sm mt-8">
-          最終更新日: 2025年9月18日
-        </p>
+        <h2 class="text-2xl font-semibold text-white mb-4">8. 免責事項</h2>
+        <p class="text-slate-300 mb-6">本サービスは現状有姿で提供され、特定目的適合性、継続性、完全性を保証しません。本サービスの利用または利用不能によりユーザーに生じた損害について、運営者に故意または重過失がある場合を除き責任を負いません。</p>
+
+        <h2 class="text-2xl font-semibold text-white mb-4">9. 規約の変更</h2>
+        <p class="text-slate-300 mb-6">本規約は、必要に応じて変更されることがあります。重要な変更は本サービス上で告知します。変更後にユーザーが本サービスを利用した場合、変更後規約に同意したものとみなします。</p>
+
+        <h2 class="text-2xl font-semibold text-white mb-4">10. 準拠法・管轄</h2>
+        <p class="text-slate-300 mb-6">本規約は日本法に準拠します。本サービスに関して紛争が生じた場合は、東京地方裁判所を第一審の専属的合意管轄裁判所とします。</p>
+
+        <h2 class="text-2xl font-semibold text-white mb-4">11. お問い合わせ</h2>
+        <p class="text-slate-300 mb-6">サポートメール: support@recrubo.net<br />またはDiscordサポートサーバーからお問い合わせください。</p>
+
+        <p class="text-slate-400 text-sm mt-8">最終更新日: 2026年4月</p>
       </div>
     </div>
   </section>
