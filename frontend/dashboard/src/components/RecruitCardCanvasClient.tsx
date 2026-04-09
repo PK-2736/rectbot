@@ -528,9 +528,9 @@ export function RecruitCardCanvasImpl({
       }
 
       const infoItems = [
-        { key: 'members', box: scaledMembersBox, label: layout.membersLabel || '人数：', value: `${Math.min(1, participants)}/${participants}人` },
-        { key: 'time', box: scaledTimeBox, label: layout.timeLabel || '時間：', value: `${recruitData.startTimeText || '今から'}~` },
-        { key: 'voice', box: scaledVoiceBox, label: layout.voiceLabel || '通話：', value: voiceText },
+        { key: 'membersBox', box: scaledMembersBox, label: layout.membersLabel || '人数：', value: `${Math.min(1, participants)}/${participants}人` },
+        { key: 'timeBox', box: scaledTimeBox, label: layout.timeLabel || '時間：', value: `${recruitData.startTimeText || '今から'}~` },
+        { key: 'voiceBox', box: scaledVoiceBox, label: layout.voiceLabel || '通話：', value: voiceText },
       ];
 
       infoItems.forEach((item) => {
