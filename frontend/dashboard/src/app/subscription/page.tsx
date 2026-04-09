@@ -6,7 +6,30 @@ import UserDashboard from "@/components/UserDashboard";
 import SubscriptionManagement from "@/components/SubscriptionManagement";
 import { DashboardShell } from "@/components/DashboardShell";
 import Link from "next/link";
-import { CircleDollarSign, LayoutGrid, ShieldCheck, Sparkles } from "lucide-react";
+
+function IconBadge({ label, className = "" }: { label: string; className?: string }) {
+  return (
+    <span className={`inline-flex items-center justify-center rounded-full border border-white/10 bg-white/5 font-semibold text-white ${className}`} aria-hidden="true">
+      {label}
+    </span>
+  );
+}
+
+function CircleDollarSign({ className = "" }: { className?: string }) {
+  return <IconBadge label="¥" className={className} />;
+}
+
+function LayoutGrid({ className = "" }: { className?: string }) {
+  return <IconBadge label="▦" className={className} />;
+}
+
+function ShieldCheck({ className = "" }: { className?: string }) {
+  return <IconBadge label="✓" className={className} />;
+}
+
+function Sparkles({ className = "" }: { className?: string }) {
+  return <IconBadge label="✦" className={className} />;
+}
 
 type SubscriptionStatus = {
   hasSubscription: boolean;
