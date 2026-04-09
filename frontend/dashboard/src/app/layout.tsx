@@ -20,7 +20,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ja">
-      <body className={inter.className}>
+      <body className={`${inter.className} bg-slate-950 text-slate-100`}>
         <Providers>
           {children}
         </Providers>

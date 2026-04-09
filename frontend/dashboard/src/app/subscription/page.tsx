@@ -4,6 +4,9 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import UserDashboard from "@/components/UserDashboard";
 import SubscriptionManagement from "@/components/SubscriptionManagement";
+import { DashboardShell } from "@/components/DashboardShell";
+import Link from "next/link";
+import { CircleDollarSign, LayoutGrid, ShieldCheck, Sparkles } from "lucide-react";
 
 type SubscriptionStatus = {
   hasSubscription: boolean;
@@ -48,41 +51,107 @@ export default function SubscriptionPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="text-white text-xl">読み込み中...</div>
-      </div>
+      <DashboardShell>
+        <div className="grid min-h-[60vh] place-items-center">
+          <div className="dashboard-panel-strong w-full max-w-md p-8 text-center">
+            <div className="mx-auto mb-5 h-14 w-14 animate-pulse rounded-2xl bg-cyan-400/20" />
+            <p className="dashboard-muted-label mb-3">Authentication</p>
+            <h1 className="font-display text-3xl font-bold text-white">読み込み中</h1>
+            <p className="mt-3 text-sm leading-6 text-slate-300">ログイン状態と契約情報を確認しています。数秒お待ちください。</p>
+          </div>
+        </div>
+      </DashboardShell>
     );
   }
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="bg-gray-800 p-8 rounded-lg border border-gray-700 text-center max-w-md">
-          <h1 className="text-3xl font-bold text-white mb-4">
-            Recrubo Subscription
-          </h1>
-          <p className="text-gray-400 mb-6">
-            この画面を利用するにはDiscordログインが必要です
-          </p>
-          <button
-            onClick={() => login('/subscription')}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200 flex items-center justify-center gap-2"
-          >
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515a.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0a12.64 12.64 0 0 0-.617-1.25a.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057a19.9 19.9 0 0 0 5.993 3.03a.078.078 0 0 0 .084-.028a14.09 14.09 0 0 0 1.226-1.994a.076.076 0 0 0-.041-.106a13.107 13.107 0 0 1-1.872-.892a.077.077 0 0 1-.008-.128a10.2 10.2 0 0 0 .372-.292a.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127a12.299 12.299 0 0 1-1.873.892a.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028a19.839 19.839 0 0 0 6.002-3.03a.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419c0-1.333.956-2.419 2.157-2.419c1.21 0 2.176 1.096 2.157 2.42c0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419c0-1.333.955-2.419 2.157-2.419c1.21 0 2.176 1.096 2.157 2.42c0 1.333-.946 2.418-2.157 2.418z"/>
-            </svg>
-            Discordでログイン
-          </button>
+      <DashboardShell>
+        <div className="grid gap-8 lg:grid-cols-[1.15fr_0.85fr] lg:items-center">
+          <section className="space-y-6">
+            <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-4 py-2 text-sm text-cyan-100">
+              <CircleDollarSign className="h-4 w-4" />
+              月額500円で募集機能を拡張
+            </div>
+            <div className="space-y-4">
+              <p className="dashboard-muted-label">Subscription Hub</p>
+              <h1 className="font-display text-4xl font-bold leading-tight text-white sm:text-5xl">
+                契約管理を、
+                <span className="bg-gradient-to-r from-cyan-300 via-sky-300 to-indigo-300 bg-clip-text text-transparent">迷わず使える画面</span>
+                に。
+              </h1>
+              <p className="max-w-2xl text-lg leading-8 text-slate-300">
+                サーバー選択、支払い管理、テンプレート編集までを1つの画面に整理しました。
+                契約状況がすぐ分かり、次に何をすればいいかも明確です。
+              </p>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-3">
+              {[
+                { icon: LayoutGrid, title: 'テンプレ管理', text: '保存・削除・編集を一箇所で' },
+                { icon: Sparkles, title: '募集拡張', text: '上限解除で運用をスムーズに' },
+                { icon: ShieldCheck, title: '法務導線', text: '利用規約・特商法・プライバシーを明示' },
+              ].map((item) => {
+                const Icon = item.icon;
+                return (
+                  <div key={item.title} className="dashboard-panel p-4">
+                    <Icon className="mb-3 h-5 w-5 text-cyan-200" />
+                    <h2 className="text-sm font-semibold text-white">{item.title}</h2>
+                    <p className="mt-1 text-sm leading-6 text-slate-400">{item.text}</p>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
+          <section className="dashboard-panel-strong p-6 sm:p-8">
+            <div className="mb-6 flex items-center justify-between gap-4">
+              <div>
+                <p className="dashboard-muted-label">Login Required</p>
+                <h2 className="font-display text-2xl font-bold text-white">Discordでログイン</h2>
+              </div>
+              <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-300">
+                約30秒で開始
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <p className="text-sm leading-6 text-slate-300">
+                この画面を利用するにはDiscordログインが必要です。ログイン後、契約状態とサーバー選択が表示されます。
+              </p>
+
+              <button
+                onClick={() => login('/subscription')}
+                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-400 via-sky-500 to-indigo-500 px-6 py-4 font-semibold text-white shadow-lg shadow-cyan-500/20 transition-transform hover:-translate-y-0.5"
+              >
+                <CircleDollarSign className="h-5 w-5" />
+                Discordでログインして続行
+              </button>
+
+              <div className="flex flex-wrap gap-2 text-xs text-slate-400">
+                <Link href="/terms" className="rounded-full border border-white/10 px-3 py-1 hover:text-white">利用規約</Link>
+                <Link href="/tokushoho" className="rounded-full border border-white/10 px-3 py-1 hover:text-white">特商法</Link>
+                <Link href="/privacy" className="rounded-full border border-white/10 px-3 py-1 hover:text-white">プライバシー</Link>
+              </div>
+            </div>
+          </section>
         </div>
-      </div>
+      </DashboardShell>
     );
   }
 
   if (subscriptionLoading) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="text-white text-xl">サブスク状態を確認中...</div>
-      </div>
+      <DashboardShell>
+        <div className="grid min-h-[60vh] place-items-center">
+          <div className="dashboard-panel-strong w-full max-w-lg p-8 text-center">
+            <div className="mx-auto mb-5 h-14 w-14 animate-spin rounded-full border-4 border-cyan-400/20 border-t-cyan-300" />
+            <p className="dashboard-muted-label mb-3">Subscription Status</p>
+            <h1 className="font-display text-3xl font-bold text-white">契約情報を確認中</h1>
+            <p className="mt-3 text-sm leading-6 text-slate-300">Stripe と Discord の状態を照合しています。あと少しで表示されます。</p>
+          </div>
+        </div>
+      </DashboardShell>
     );
   }
 

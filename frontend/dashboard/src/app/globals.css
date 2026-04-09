@@ -13,10 +13,23 @@
 @layer base {
   html {
     font-family: 'Inter', system-ui, sans-serif;
+    background:
+      radial-gradient(circle at top left, rgba(34, 211, 238, 0.12), transparent 28%),
+      radial-gradient(circle at top right, rgba(168, 85, 247, 0.14), transparent 24%),
+      #020617;
   }
   
   body {
-    @apply bg-gray-900 text-white antialiased;
+    @apply bg-slate-950 text-slate-100 antialiased;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  .font-display {
+    font-family: 'CorporateRounded', 'Inter', system-ui, sans-serif;
+    letter-spacing: 0.02em;
   }
 }
 
@@ -43,5 +56,17 @@
   
   .progress-bar-bg {
     @apply w-full bg-gray-700 rounded-full h-2 overflow-hidden;
+  }
+
+  .dashboard-panel {
+    @apply rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl shadow-2xl shadow-black/20;
+  }
+
+  .dashboard-panel-strong {
+    @apply rounded-3xl border border-white/15 bg-slate-900/75 backdrop-blur-xl shadow-2xl shadow-black/30;
+  }
+
+  .dashboard-muted-label {
+    @apply text-xs font-semibold uppercase tracking-[0.24em] text-cyan-200/80;
   }
 }
