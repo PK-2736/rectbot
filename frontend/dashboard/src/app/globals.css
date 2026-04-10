@@ -14,13 +14,13 @@
   html {
     font-family: 'Inter', system-ui, sans-serif;
     background:
-      radial-gradient(circle at top left, rgba(34, 211, 238, 0.12), transparent 28%),
-      radial-gradient(circle at top right, rgba(168, 85, 247, 0.14), transparent 24%),
-      #020617;
+      radial-gradient(circle at top right, rgba(255, 126, 66, 0.18), transparent 32%),
+      radial-gradient(circle at bottom left, rgba(255, 61, 138, 0.12), transparent 28%),
+      #fffaf4;
   }
   
   body {
-    @apply bg-slate-950 text-slate-100 antialiased;
+    @apply bg-[#fffaf4] text-slate-800 antialiased;
   }
 
   h1,
@@ -35,15 +35,15 @@
 
 @layer components {
   .btn-primary {
-    @apply bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50;
+    @apply bg-gradient-to-r from-brand-500 to-accent-500 hover:from-brand-600 hover:to-accent-600 text-white font-semibold py-2 px-4 rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-300;
   }
   
   .btn-secondary {
-    @apply bg-gray-700 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200 border border-gray-600 hover:border-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-500/50;
+    @apply bg-white/90 hover:bg-white text-slate-700 font-semibold py-2 px-4 rounded-full transition-colors duration-200 border border-brand-200 hover:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-300;
   }
   
   .card {
-    @apply bg-gray-800 rounded-xl p-6 border border-gray-700 hover:border-gray-600 transition-colors duration-200;
+    @apply bg-white/90 rounded-2xl p-6 border border-brand-100 hover:border-brand-200 transition-colors duration-200 shadow-sm;
   }
   
   .table-cell {
@@ -55,18 +55,18 @@
   }
   
   .progress-bar-bg {
-    @apply w-full bg-gray-700 rounded-full h-2 overflow-hidden;
+    @apply w-full bg-brand-100 rounded-full h-2 overflow-hidden;
   }
 
   .dashboard-panel {
-    @apply rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl shadow-2xl shadow-black/20;
+    @apply rounded-3xl border border-brand-100 bg-white/90 backdrop-blur-xl shadow-xl shadow-brand-500/10;
   }
 
   .dashboard-panel-strong {
-    @apply rounded-3xl border border-white/15 bg-slate-900/75 backdrop-blur-xl shadow-2xl shadow-black/30;
+    @apply rounded-3xl border border-brand-200 bg-white/95 backdrop-blur-xl shadow-xl shadow-brand-500/15;
   }
 
   .dashboard-muted-label {
-    @apply text-xs font-semibold uppercase tracking-[0.24em] text-cyan-200/80;
+    @apply text-xs font-semibold uppercase tracking-[0.24em] text-brand-600;
   }
 }
