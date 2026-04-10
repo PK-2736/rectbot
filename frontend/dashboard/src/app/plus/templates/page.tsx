@@ -435,265 +435,294 @@ export default function PlusTemplatePage() {
   };
 
   if (isLoading) {
-    return <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">読み込み中...</div>;
+    return <div className="min-h-screen bg-gradient-to-b from-amber-50 via-rose-50 to-white text-stone-700 flex items-center justify-center">読み込み中...</div>;
   }
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
-        <button className="px-5 py-3 bg-indigo-600 rounded-lg" onClick={() => login("/plus/templates")}>Discordでログイン</button>
+      <div className="min-h-screen bg-gradient-to-b from-amber-50 via-rose-50 to-white flex items-center justify-center px-4">
+        <div className="w-full max-w-md rounded-2xl border border-amber-200 bg-white/90 p-6 shadow-sm text-center space-y-3">
+          <h1 className="text-lg font-semibold text-stone-900">募集画像テンプレートを編集</h1>
+          <p className="text-sm text-stone-600">続行するにはDiscordアカウントでログインしてください。</p>
+          <button className="w-full px-5 py-3 bg-brand-500 hover:bg-brand-400 text-white rounded-xl font-semibold" onClick={() => login("/plus/templates")}>Discordでログイン</button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-indigo-900 to-gray-900 text-white">
-      <header className="border-b border-gray-700 bg-gray-800/40">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <h1 className="text-2xl font-bold">Recrubo Plus 募集画像エディタ</h1>
-          <Link href="/subscription" className="text-sm text-gray-300 hover:text-white">サブスク管理へ戻る</Link>
+    <div className="min-h-screen bg-gradient-to-b from-amber-50 via-rose-50 to-white text-stone-800">
+      <header className="border-b border-amber-200/80 bg-white/80 backdrop-blur">
+        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between gap-3">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold text-stone-900">募集画像エディタ</h1>
+            <p className="text-xs sm:text-sm text-stone-600">必要な設定だけ調整して、そのままテンプレート保存できます。</p>
+          </div>
+          <Link href="/subscription" className="text-sm text-brand-700 hover:text-brand-900">サブスク管理へ戻る</Link>
         </div>
       </header>
 
-      <main className="w-full py-8 grid lg:grid-cols-2 gap-0">
-        <section className="bg-gray-800/50 border-r border-gray-700 p-5 space-y-4 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 120px)' }}>
-          <h2 className="text-lg font-semibold">テンプレート設定</h2>
+      <main className="max-w-7xl mx-auto px-4 py-6 lg:py-8 grid xl:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)] gap-6 items-start">
+        <section className="space-y-4">
+          <div className="rounded-2xl border border-amber-200 bg-white/90 p-5 shadow-sm">
+            <h2 className="text-lg font-semibold text-stone-900">テンプレート設定</h2>
+            <p className="mt-1 text-sm text-stone-600">最小限の項目だけ上から入力すると、右側プレビューに即反映されます。</p>
 
-          {loadingGuilds ? <p className="text-sm text-gray-300">サーバー読み込み中...</p> : (
-            <select
-              value={selectedGuildId}
-              onChange={(e) => setSelectedGuildId(e.target.value)}
-              className="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2"
-            >
-              {guilds.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
-            </select>
-          )}
-          <p className="text-xs text-gray-400">対象サーバー: {selectedGuildName || "未選択"}</p>
-
-          <form onSubmit={saveTemplate} className="space-y-3">
-            <input className="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2" placeholder="テンプレ名（保存キー）" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
-            <input className="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2" placeholder="募集タイトル" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
-            <textarea className="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 h-20" placeholder="募集内容" value={form.content} onChange={(e) => setForm({ ...form, content: e.target.value })} />
-
-            <div className="grid grid-cols-2 gap-3">
-              <input className="bg-gray-900 border border-gray-600 rounded-lg px-3 py-2" placeholder="内容ラベル" value={layout.contentLabel} onChange={(e) => setLayoutText("contentLabel", e.target.value)} />
-              <input className="bg-gray-900 border border-gray-600 rounded-lg px-3 py-2" placeholder="人数ラベル" value={layout.membersLabel} onChange={(e) => setLayoutText("membersLabel", e.target.value)} />
-              <input className="bg-gray-900 border border-gray-600 rounded-lg px-3 py-2" placeholder="時間ラベル" value={layout.timeLabel} onChange={(e) => setLayoutText("timeLabel", e.target.value)} />
-              <input className="bg-gray-900 border border-gray-600 rounded-lg px-3 py-2" placeholder="通話ラベル" value={layout.voiceLabel} onChange={(e) => setLayoutText("voiceLabel", e.target.value)} />
+            <div className="mt-4">
+              <label className="block text-xs font-semibold text-stone-600 mb-2">対象サーバー</label>
+              {loadingGuilds ? (
+                <p className="text-sm text-stone-500">サーバー読み込み中...</p>
+              ) : (
+                <select
+                  value={selectedGuildId}
+                  onChange={(e) => setSelectedGuildId(e.target.value)}
+                  className="w-full rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm text-stone-800"
+                >
+                  {guilds.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+                </select>
+              )}
+              <p className="mt-2 text-xs text-stone-500">対象サーバー: {selectedGuildName || "未選択"}</p>
             </div>
+          </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <input className="bg-gray-900 border border-gray-600 rounded-lg px-3 py-2" placeholder="募集人数" value={form.participants} onChange={(e) => setForm({ ...form, participants: e.target.value })} />
-              <input className="bg-gray-900 border border-gray-600 rounded-lg px-3 py-2" placeholder="開始時間" value={form.startTimeText} onChange={(e) => setForm({ ...form, startTimeText: e.target.value })} />
-            </div>
-            <input className="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2" placeholder="通話表示（例: 通話あり）" value={form.voicePlace} onChange={(e) => setForm({ ...form, voicePlace: e.target.value })} />
-
-            <div className="grid grid-cols-3 gap-3">
-            <input className="bg-gray-900 border border-gray-600 rounded-lg px-3 py-2" placeholder="枠色 #RRGGBB" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} />
-              <div className="flex items-center gap-2 bg-gray-900 border border-gray-600 rounded-lg px-3 py-2">
-                <label htmlFor="text-color-picker" className="text-xs text-gray-300 whitespace-nowrap">文字色</label>
-                <input
-                  id="text-color-picker"
-                  type="color"
-                  className="h-8 w-full cursor-pointer bg-transparent"
-                  value={form.textColor || "#FFFFFF"}
-                  onChange={(e) => setForm({ ...form, textColor: e.target.value })}
-                />
+          <form onSubmit={saveTemplate} className="space-y-4">
+            <div className="rounded-2xl border border-amber-200 bg-white/90 p-5 shadow-sm space-y-3">
+              <h3 className="text-sm font-semibold text-stone-900">基本情報</h3>
+              <input className="w-full rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm" placeholder="テンプレ名（保存キー）" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+              <input className="w-full rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm" placeholder="募集タイトル" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+              <textarea className="w-full rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm h-24" placeholder="募集内容" value={form.content} onChange={(e) => setForm({ ...form, content: e.target.value })} />
+              <div className="grid sm:grid-cols-2 gap-3">
+                <input className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm" placeholder="募集人数" value={form.participants} onChange={(e) => setForm({ ...form, participants: e.target.value })} />
+                <input className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm" placeholder="開始時間" value={form.startTimeText} onChange={(e) => setForm({ ...form, startTimeText: e.target.value })} />
               </div>
-              <input className="bg-gray-900 border border-gray-600 rounded-lg px-3 py-2" placeholder="ステッカー画像URL（任意）" value={form.backgroundImageUrl} onChange={(e) => setForm({ ...form, backgroundImageUrl: e.target.value })} />
+              <input className="w-full rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm" placeholder="通話表示（例: 通話あり）" value={form.voicePlace} onChange={(e) => setForm({ ...form, voicePlace: e.target.value })} />
             </div>
 
-            <div className="flex items-center gap-3">
-              <label className="text-sm text-gray-300">ステッカー画像アップロード:</label>
-              <input ref={uploadInputRef} type="file" accept="image/*" onClick={(e) => {
-                // 同じファイルを再選択した場合も onChange が発火するようにする
-                (e.currentTarget as HTMLInputElement).value = "";
-              }} onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (!file) {
-                  setError("画像ファイルを選択してください");
-                  setSelectedFileName("");
-                  setSelectedUploadFile(null);
-                  return;
-                }
-                setError(null);
-                setUploadStatus("");
-                setSelectedFileName(file.name || "(file)");
-                setSelectedUploadFile(file);
+            <div className="rounded-2xl border border-amber-200 bg-white/90 p-5 shadow-sm space-y-3">
+              <h3 className="text-sm font-semibold text-stone-900">ラベルと配色</h3>
+              <div className="grid sm:grid-cols-2 gap-3">
+                <input className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm" placeholder="内容ラベル" value={layout.contentLabel} onChange={(e) => setLayoutText("contentLabel", e.target.value)} />
+                <input className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm" placeholder="人数ラベル" value={layout.membersLabel} onChange={(e) => setLayoutText("membersLabel", e.target.value)} />
+                <input className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm" placeholder="時間ラベル" value={layout.timeLabel} onChange={(e) => setLayoutText("timeLabel", e.target.value)} />
+                <input className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm" placeholder="通話ラベル" value={layout.voiceLabel} onChange={(e) => setLayoutText("voiceLabel", e.target.value)} />
+              </div>
 
-                // ローカルプレビューに即反映（保存時に最終合成画像を書き出してR2保存する）
-                if (localPreviewUrlRef.current) {
-                  URL.revokeObjectURL(localPreviewUrlRef.current);
-                }
-                const localUrl = URL.createObjectURL(file);
-                localPreviewUrlRef.current = localUrl;
-                setForm((prev) => ({
-                  ...prev,
-                  backgroundImageUrl: localUrl,
-                  backgroundAssetKey: "",
-                }));
-              }} />
-              {saving && <span className="text-xs text-gray-300">アップロード中...</span>}
-            </div>
-            {selectedFileName && <p className="text-xs text-sky-300">選択中: {selectedFileName}（保存時にステッカー画像としてR2へ保存）</p>}
-            {uploadStatus && <p className="text-xs text-emerald-300">{uploadStatus}</p>}
-
-            <div className="border border-gray-700 rounded-lg p-3 space-y-2">
-              <p className="text-sm text-gray-300">表示要素ON/OFFと文字サイズ</p>
-              {(["title", "members", "time", "content", "voice"] as const).map((field) => (
-                <div key={field} className="grid grid-cols-3 gap-2 items-center text-sm">
-                  <label className="capitalize">{field}</label>
+              <div className="grid sm:grid-cols-3 gap-3">
+                <input className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm" placeholder="枠色 #RRGGBB" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} />
+                <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-white px-3 py-2">
+                  <label htmlFor="text-color-picker" className="text-xs text-stone-600 whitespace-nowrap">文字色</label>
                   <input
-                    type="range"
-                    min={12}
-                    max={96}
-                    value={layout[field].size}
-                    onChange={(e) => setFieldSize(field, Number(e.target.value))}
+                    id="text-color-picker"
+                    type="color"
+                    className="h-8 w-full cursor-pointer bg-transparent"
+                    value={form.textColor || "#FFFFFF"}
+                    onChange={(e) => setForm({ ...form, textColor: e.target.value })}
                   />
-                  <label className="flex items-center gap-2 justify-end">
+                </div>
+                <input className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm" placeholder="ステッカー画像URL（任意）" value={form.backgroundImageUrl} onChange={(e) => setForm({ ...form, backgroundImageUrl: e.target.value })} />
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-amber-200 bg-white/90 p-5 shadow-sm space-y-3">
+              <h3 className="text-sm font-semibold text-stone-900">ステッカー画像</h3>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                <label className="text-sm text-stone-600">画像アップロード:</label>
+                <input ref={uploadInputRef} type="file" accept="image/*" onClick={(e) => {
+                  (e.currentTarget as HTMLInputElement).value = "";
+                }} onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) {
+                    setError("画像ファイルを選択してください");
+                    setSelectedFileName("");
+                    setSelectedUploadFile(null);
+                    return;
+                  }
+                  setError(null);
+                  setUploadStatus("");
+                  setSelectedFileName(file.name || "(file)");
+                  setSelectedUploadFile(file);
+
+                  if (localPreviewUrlRef.current) {
+                    URL.revokeObjectURL(localPreviewUrlRef.current);
+                  }
+                  const localUrl = URL.createObjectURL(file);
+                  localPreviewUrlRef.current = localUrl;
+                  setForm((prev) => ({
+                    ...prev,
+                    backgroundImageUrl: localUrl,
+                    backgroundAssetKey: "",
+                  }));
+                }} />
+                {saving && <span className="text-xs text-stone-500">アップロード中...</span>}
+              </div>
+              {selectedFileName && <p className="text-xs text-brand-700">選択中: {selectedFileName}（保存時にR2へ保存）</p>}
+              {uploadStatus && <p className="text-xs text-emerald-600">{uploadStatus}</p>}
+            </div>
+
+            <details className="rounded-2xl border border-amber-200 bg-white/90 p-5 shadow-sm" open>
+              <summary className="cursor-pointer select-none text-sm font-semibold text-stone-900">表示要素とサイズ調整</summary>
+              <div className="mt-3 space-y-3">
+                {(["title", "members", "time", "content", "voice"] as const).map((field) => (
+                  <div key={field} className="grid grid-cols-1 sm:grid-cols-3 gap-2 items-center text-sm rounded-xl border border-amber-100 px-3 py-2">
+                    <label className="capitalize text-stone-700">{field}</label>
                     <input
-                      type="checkbox"
-                      checked={layout[field].visible}
-                      onChange={(e) => setFieldVisible(field, e.target.checked)}
+                      type="range"
+                      min={12}
+                      max={96}
+                      value={layout[field].size}
+                      onChange={(e) => setFieldSize(field, Number(e.target.value))}
                     />
-                    表示
-                  </label>
+                    <label className="flex items-center gap-2 sm:justify-end text-stone-600">
+                      <input
+                        type="checkbox"
+                        checked={layout[field].visible}
+                        onChange={(e) => setFieldVisible(field, e.target.checked)}
+                      />
+                      表示
+                    </label>
+                  </div>
+                ))}
+              </div>
+            </details>
+
+            <details className="rounded-2xl border border-amber-200 bg-white/90 p-5 shadow-sm">
+              <summary className="cursor-pointer select-none text-sm font-semibold text-stone-900">上級: ボックスサイズと出力倍率</summary>
+              <div className="mt-3 space-y-4">
+                <div className="space-y-2 rounded-xl border border-amber-100 p-3">
+                  <p className="text-sm text-stone-700">内容枠・ステッカー枠</p>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 items-center text-sm">
+                    <label>内容枠 幅</label>
+                    <input type="range" min={180} max={1200} value={layout.contentBox.width} onChange={(e) => setBoxSize("contentBox", "width", Number(e.target.value))} />
+                    <label className="flex items-center gap-2 sm:justify-end">
+                      <input type="checkbox" checked={layout.contentBox.visible} onChange={(e) => setBoxVisible("contentBox", e.target.checked)} />
+                      表示
+                    </label>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 items-center text-sm">
+                    <label>内容枠 高さ</label>
+                    <input type="range" min={140} max={620} value={layout.contentBox.height} onChange={(e) => setBoxSize("contentBox", "height", Number(e.target.value))} />
+                    <span className="sm:text-right text-xs text-stone-500">{layout.contentBox.width} x {layout.contentBox.height}</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 items-center text-sm">
+                    <label>ステッカー枠 幅</label>
+                    <input type="range" min={180} max={820} value={layout.imageBox.width} onChange={(e) => setBoxSize("imageBox", "width", Number(e.target.value))} />
+                    <label className="flex items-center gap-2 sm:justify-end">
+                      <input type="checkbox" checked={layout.imageBox.visible} onChange={(e) => setBoxVisible("imageBox", e.target.checked)} />
+                      表示
+                    </label>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 items-center text-sm">
+                    <label>ステッカー枠 高さ</label>
+                    <input type="range" min={140} max={620} value={layout.imageBox.height} onChange={(e) => setBoxSize("imageBox", "height", Number(e.target.value))} />
+                    <span className="sm:text-right text-xs text-stone-500">{layout.imageBox.width} x {layout.imageBox.height}</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 items-center text-sm">
+                    <label>募集画像サイズ</label>
+                    <input
+                      type="range"
+                      min={2}
+                      max={10}
+                      step={1}
+                      value={layout.outputScale}
+                      onChange={(e) => setLayout((prev) => ({ ...prev, outputScale: clamp(Number(e.target.value), 2, 10) }))}
+                    />
+                    <span className="sm:text-right text-xs text-stone-500">{layout.outputScale}x</span>
+                  </div>
                 </div>
-              ))}
 
-              <div className="pt-2 border-t border-gray-700 space-y-2">
-                <p className="text-sm text-gray-300">内容枠・ステッカー枠（拡大縮小可）</p>
-
-                <div className="grid grid-cols-3 gap-2 items-center text-sm">
-                  <label>内容枠 幅</label>
-                  <input type="range" min={180} max={1200} value={layout.contentBox.width} onChange={(e) => setBoxSize("contentBox", "width", Number(e.target.value))} />
-                  <label className="flex items-center gap-2 justify-end">
-                    <input type="checkbox" checked={layout.contentBox.visible} onChange={(e) => setBoxVisible("contentBox", e.target.checked)} />
-                    表示
-                  </label>
-                </div>
-
-                <div className="grid grid-cols-3 gap-2 items-center text-sm">
-                  <label>内容枠 高さ</label>
-                  <input type="range" min={140} max={620} value={layout.contentBox.height} onChange={(e) => setBoxSize("contentBox", "height", Number(e.target.value))} />
-                  <span className="text-right text-xs text-gray-400">{layout.contentBox.width} x {layout.contentBox.height}</span>
-                </div>
-
-                <div className="grid grid-cols-3 gap-2 items-center text-sm">
-                  <label>ステッカー枠 幅</label>
-                  <input type="range" min={180} max={820} value={layout.imageBox.width} onChange={(e) => setBoxSize("imageBox", "width", Number(e.target.value))} />
-                  <label className="flex items-center gap-2 justify-end">
-                    <input type="checkbox" checked={layout.imageBox.visible} onChange={(e) => setBoxVisible("imageBox", e.target.checked)} />
-                    表示
-                  </label>
-                </div>
-
-                <div className="grid grid-cols-3 gap-2 items-center text-sm">
-                  <label>ステッカー枠 高さ</label>
-                  <input type="range" min={140} max={620} value={layout.imageBox.height} onChange={(e) => setBoxSize("imageBox", "height", Number(e.target.value))} />
-                  <span className="text-right text-xs text-gray-400">{layout.imageBox.width} x {layout.imageBox.height}</span>
-                </div>
-
-                <div className="grid grid-cols-3 gap-2 items-center text-sm">
-                  <label>募集画像サイズ</label>
-                  <input
-                    type="range"
-                    min={2}
-                    max={10}
-                    step={1}
-                    value={layout.outputScale}
-                    onChange={(e) => setLayout((prev) => ({ ...prev, outputScale: clamp(Number(e.target.value), 2, 10) }))}
-                  />
-                  <span className="text-right text-xs text-gray-400">{layout.outputScale}x</span>
-                </div>
-
-                <div className="pt-2 border-t border-gray-700 space-y-2">
-                  <p className="text-sm text-gray-300">人数・時間・通話の枠サイズ</p>
-
+                <div className="space-y-2 rounded-xl border border-amber-100 p-3">
+                  <p className="text-sm text-stone-700">人数・時間・通話ラベル枠</p>
                   {([
                     ["membersBox", "人数"],
                     ["timeBox", "時間"],
                     ["voiceBox", "通話"],
                   ] as const).map(([field, label]) => (
-                    <div key={field} className="space-y-2 rounded-md border border-gray-700 p-2">
-                      <div className="flex items-center justify-between text-xs text-gray-300">
+                    <div key={field} className="space-y-2 rounded-lg border border-amber-100 p-2">
+                      <div className="flex items-center justify-between text-xs text-stone-600">
                         <span>{label}ラベル枠</span>
                         <label className="flex items-center gap-2">
                           <input type="checkbox" checked={layout[field].visible} onChange={(e) => setInfoBoxVisible(field, e.target.checked)} />
                           表示
                         </label>
                       </div>
-                      <div className="grid grid-cols-3 gap-2 items-center text-sm">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 items-center text-sm">
                         <label>幅</label>
                         <input type="range" min={48} max={640} value={layout[field].width} onChange={(e) => setInfoBoxSize(field, "width", Number(e.target.value))} />
-                        <span className="text-right text-xs text-gray-400">{layout[field].width}px</span>
+                        <span className="sm:text-right text-xs text-stone-500">{layout[field].width}px</span>
                       </div>
-                      <div className="grid grid-cols-3 gap-2 items-center text-sm">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 items-center text-sm">
                         <label>高さ</label>
                         <input type="range" min={12} max={160} value={layout[field].height} onChange={(e) => setInfoBoxSize(field, "height", Number(e.target.value))} />
-                        <span className="text-right text-xs text-gray-400">{layout[field].height}px</span>
+                        <span className="sm:text-right text-xs text-stone-500">{layout[field].height}px</span>
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
+            </details>
+
+            <div className="rounded-2xl border border-amber-200 bg-white/90 p-5 shadow-sm space-y-3">
+              <button type="submit" disabled={saving || !selectedGuildId || !canCreateNewTemplate} className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-400 text-white font-semibold disabled:opacity-50">{saving ? "保存中..." : "テンプレ保存"}</button>
+              {!canCreateNewTemplate && <p className="text-xs text-amber-700">テンプレートは1サーバーにつき5個までです。不要なものを削除してください。</p>}
+              {error && <p className="text-sm text-red-600">{error}</p>}
             </div>
-
-            <button type="submit" disabled={saving || !selectedGuildId || !canCreateNewTemplate} className="px-4 py-2 bg-white text-gray-900 rounded-lg font-semibold disabled:opacity-50">{saving ? "保存中..." : "テンプレ保存"}</button>
-            {!canCreateNewTemplate && <p className="text-xs text-amber-300">テンプレートは1サーバーにつき5個までです。不要なものを削除してください。</p>}
           </form>
-
-          {error && <p className="text-sm text-red-300">{error}</p>}
         </section>
 
-        <section className="bg-gray-800/50 border-l border-gray-700 px-4 py-3 space-y-3">
-          <h2 className="text-lg font-semibold px-4 py-3 border-b border-gray-700">募集プレビュー</h2>
+        <section className="space-y-4 xl:sticky xl:top-6">
+          <div className="rounded-2xl border border-amber-200 bg-white/90 p-4 sm:p-5 shadow-sm space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-lg font-semibold text-stone-900">募集プレビュー</h2>
+              <span className="text-xs text-stone-500">表示倍率: 100%</span>
+            </div>
 
-          <div className="text-xs text-gray-400">表示倍率: 100%（固定）</div>
+            <div className="overflow-hidden rounded-xl border border-amber-200 bg-stone-950/95">
+              <RecruitCardCanvas
+                recruitData={{
+                  title: form.title || '募集タイトル',
+                  content: form.content || 'ガチエリア / 初心者歓迎',
+                  participants: parseInt(form.participants) || 4,
+                  startTimeText: form.startTimeText || '今から',
+                  voicePlace: form.voicePlace || '',
+                }}
+                layout={layout}
+                accentColor={form.color ? form.color.replace('#', '') : DEFAULT_ACCENT_COLOR}
+                textColor={form.textColor}
+                backgroundImageUrl={form.backgroundImageUrl || undefined}
+                scale={1}
+                onLayoutChange={(fieldName: string, newX: number, newY: number) => {
+                  const field = fieldName as keyof TemplateLayout;
+                  setLayout((prev) => {
+                    const next = JSON.parse(JSON.stringify(prev)) as TemplateLayout;
+                    const item = next[field];
+                    if (item && typeof item === 'object' && 'x' in item && 'y' in item) {
+                      (item as { x: number; y: number }).x = newX;
+                      (item as { x: number; y: number }).y = newY;
+                    }
+                    return next;
+                  });
+                }}
+              />
+            </div>
 
-          {/* RecruitCardCanvas コンポーネント - 全幅表示 */}
-          <div className="w-full">
-          <RecruitCardCanvas
-            recruitData={{
-              title: form.title || '募集タイトル',
-              content: form.content || 'ガチエリア / 初心者歓迎',
-              participants: parseInt(form.participants) || 4,
-              startTimeText: form.startTimeText || '今から',
-              voicePlace: form.voicePlace || '',
-            }}
-            layout={layout}
-            accentColor={form.color ? form.color.replace('#', '') : DEFAULT_ACCENT_COLOR}
-            textColor={form.textColor}
-            backgroundImageUrl={form.backgroundImageUrl || undefined}
-            scale={1}
-            onLayoutChange={(fieldName: string, newX: number, newY: number) => {
-              const field = fieldName as keyof TemplateLayout;
-              setLayout((prev) => {
-                const next = JSON.parse(JSON.stringify(prev)) as TemplateLayout;
-                const item = next[field];
-                if (item && typeof item === 'object' && 'x' in item && 'y' in item) {
-                  (item as { x: number; y: number }).x = newX;
-                  (item as { x: number; y: number }).y = newY;
-                }
-                return next;
-              });
-            }}
-          />
+            <p className="text-xs text-stone-500">テキストやボックスはドラッグして位置調整できます。</p>
           </div>
 
-          <div className="border-t border-gray-700 px-4 py-3 space-y-2">
-            <p className="text-xs text-gray-400">react-konva を使用したリアルタイム描画です。テキストやボックスはドラッグで移動できます。</p>
-
-            <div>
-            <h3 className="font-semibold mb-2 text-sm">保存済みテンプレート</h3>
+          <div className="rounded-2xl border border-amber-200 bg-white/90 p-4 sm:p-5 shadow-sm">
+            <h3 className="font-semibold text-stone-900 mb-3 text-sm">保存済みテンプレート</h3>
             {loadingTemplates ? (
-              <p className="text-sm text-gray-300">読み込み中...</p>
+              <p className="text-sm text-stone-500">読み込み中...</p>
             ) : templates.length === 0 ? (
-              <p className="text-sm text-gray-400">テンプレートはまだありません</p>
+              <p className="text-sm text-stone-500">テンプレートはまだありません</p>
             ) : (
-              <div className="space-y-2 max-h-64 overflow-auto">
+              <div className="space-y-2 max-h-80 overflow-auto pr-1">
                 {templates.map((t) => (
-                  <div key={`${t.guild_id}:${t.name}`} className="w-full border border-gray-700 rounded-lg p-3 bg-gray-900/20">
+                  <div key={`${t.guild_id}:${t.name}`} className="w-full border border-amber-200 rounded-xl p-3 bg-amber-50/50">
                     <button
                       type="button"
                       onClick={() => {
@@ -707,15 +736,15 @@ export default function PlusTemplatePage() {
                       }}
                       className="w-full text-left"
                     >
-                      <p className="font-semibold">{t.name}</p>
-                      <p className="text-sm text-gray-300">{t.title || "(タイトル未設定)"}</p>
-                      <p className="text-xs text-gray-400 mt-1">更新: {new Date(t.updated_at).toLocaleString("ja-JP")}</p>
+                      <p className="font-semibold text-stone-900">{t.name}</p>
+                      <p className="text-sm text-stone-600">{t.title || "(タイトル未設定)"}</p>
+                      <p className="text-xs text-stone-500 mt-1">更新: {new Date(t.updated_at).toLocaleString("ja-JP")}</p>
                     </button>
                     <div className="mt-3 flex justify-end">
                       <button
                         type="button"
                         onClick={() => deleteTemplate(t.name)}
-                        className="px-3 py-1 text-xs rounded-md bg-red-600 hover:bg-red-500 text-white"
+                        className="px-3 py-1 text-xs rounded-md bg-rose-500 hover:bg-rose-400 text-white"
                       >
                         削除
                       </button>
@@ -724,7 +753,6 @@ export default function PlusTemplatePage() {
                 ))}
               </div>
             )}
-          </div>
           </div>
         </section>
       </main>
