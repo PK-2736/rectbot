@@ -9,25 +9,26 @@
   }
   
   body {
-    /* Light warm background with subtle gradient */
-    @apply text-slate-800 bg-white;
-    background-image: radial-gradient(at 90% 10%, rgba(255,125,66,0.15) 0, transparent 60%),
-      radial-gradient(at 15% 80%, rgba(255,61,138,0.12) 0, transparent 55%);
+    @apply text-slate-800 bg-[#fffaf4];
+    background-image:
+      radial-gradient(at 85% 10%, rgba(255, 126, 66, 0.18) 0, transparent 58%),
+      radial-gradient(at 15% 82%, rgba(255, 61, 138, 0.12) 0, transparent 52%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.6) 0%, rgba(255, 250, 244, 0.92) 100%);
     background-attachment: fixed;
   }
 }
 
 @layer components {
   .btn-primary {
-    @apply bg-brand-500 hover:bg-brand-600 active:bg-brand-700 text-white shadow-sm hover:shadow-lg hover:-translate-y-1 font-semibold py-3 px-6 rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand-300 disabled:opacity-60 disabled:cursor-not-allowed;
+    @apply bg-gradient-to-r from-brand-500 to-accent-500 hover:from-brand-600 hover:to-accent-600 active:from-brand-700 active:to-accent-700 text-white shadow-sm hover:shadow-lg hover:-translate-y-1 font-semibold py-3 px-6 rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand-300 disabled:opacity-60 disabled:cursor-not-allowed;
   }
   
   .btn-secondary {
-    @apply bg-white/60 backdrop-blur hover:bg-white text-slate-800 font-semibold py-3 px-6 rounded-xl transition-all duration-200 border border-brand-200 hover:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-300 shadow-sm;
+    @apply bg-white/80 backdrop-blur hover:bg-white text-slate-800 font-semibold py-3 px-6 rounded-full transition-all duration-200 border border-brand-200 hover:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-300 shadow-sm;
   }
   
   .card {
-    @apply bg-white rounded-2xl p-6 border border-brand-100 hover:border-brand-200 transition-colors duration-300 shadow-sm hover:shadow-md;
+    @apply bg-white/90 rounded-3xl p-6 border border-brand-100 hover:border-brand-200 transition-colors duration-300 shadow-sm hover:shadow-md;
   }
   
   .section-padding {
