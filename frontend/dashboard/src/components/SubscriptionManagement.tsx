@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import Link from 'next/link';
+import { DashboardShell } from '@/components/DashboardShell';
 
 type SubscriptionStatus = {
   hasSubscription: boolean;
@@ -69,95 +70,58 @@ export default function SubscriptionManagement({ status }: { status: Subscriptio
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900">
-      <header className="bg-gray-800/50 backdrop-blur-sm border-b border-gray-700">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-white">サブスクリプション管理</h1>
-          <div className="flex items-center gap-4">
-            <div className="text-right">
-              <p className="text-sm text-gray-400">ログイン中</p>
-              <p className="text-white font-medium">{user?.username}</p>
+    <DashboardShell>
+      <div className="grid min-h-[70vh] place-items-center">
+        <section className="dashboard-panel-strong w-full max-w-2xl p-7 sm:p-9">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="dashboard-muted-label">Subscription Active</p>
+              <h1 className="mt-2 font-display text-3xl font-bold text-slate-900">契約情報</h1>
+              <p className="mt-2 text-sm text-slate-600">ログイン中: {user?.username}</p>
             </div>
-            <button
-              onClick={logout}
-              className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
-            >
+            <button onClick={logout} className="rounded-full border border-brand-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-brand-50">
               ログアウト
             </button>
           </div>
-        </div>
-      </header>
 
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-6">
-        <div className="bg-gray-800/50 border border-gray-700 rounded-2xl p-6">
-          <p className="text-gray-400 text-sm mb-2">現在の状態</p>
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="inline-flex items-center rounded-full bg-green-600/20 text-green-300 px-3 py-1 text-sm font-semibold">
-              {status.isPremium ? 'プレミアム有効' : '非プレミアム'}
-            </span>
-            <span className="inline-flex items-center rounded-full bg-blue-600/20 text-blue-300 px-3 py-1 text-sm">
-              status: {status.status || 'unknown'}
-            </span>
-          </div>
-        </div>
-
-        <div className="grid md:grid-cols-2 gap-6">
-          <div className="bg-gray-800/50 border border-gray-700 rounded-2xl p-6">
-            <h2 className="text-lg font-bold text-white mb-4">契約情報</h2>
-            <dl className="space-y-3 text-sm">
-              <div className="flex justify-between gap-4">
-                <dt className="text-gray-400">プラン料金</dt>
-                <dd className="text-white">{formatPrice(status.subscription?.amount, status.subscription?.currency)}</dd>
-              </div>
-              <div className="flex justify-between gap-4">
-                <dt className="text-gray-400">課金周期</dt>
-                <dd className="text-white">{status.subscription?.billing_interval || '不明'}</dd>
-              </div>
-              <div className="flex justify-between gap-4">
-                <dt className="text-gray-400">次回更新日</dt>
-                <dd className="text-white">{formatDate(status.subscription?.current_period_end)}</dd>
-              </div>
-              <div className="flex justify-between gap-4">
-                <dt className="text-gray-400">Subscription ID</dt>
-                <dd className="text-white break-all text-right">{status.subscription?.stripe_subscription_id || '不明'}</dd>
-              </div>
-            </dl>
-          </div>
-
-          <div className="bg-gray-800/50 border border-gray-700 rounded-2xl p-6">
-            <h2 className="text-lg font-bold text-white mb-4">適用サーバー</h2>
-            <div className="space-y-2 text-sm">
-              <p className="text-gray-400">現在プレミアム適用中のサーバーID</p>
-              <p className="text-white font-mono break-all">{status.activeGuildId || '未設定'}</p>
+          <div className="mt-6 grid gap-3 sm:grid-cols-2">
+            <div className="rounded-2xl border border-brand-100 bg-white p-4">
+              <p className="text-xs text-slate-500">状態</p>
+              <p className="mt-1 text-sm font-semibold text-slate-900">{status.isPremium ? 'プレミアム有効' : '非プレミアム'}</p>
             </div>
-            <p className="text-xs text-gray-500 mt-4">
-              サーバー名はDiscord API権限の都合で表示できない場合があります。
-            </p>
+            <div className="rounded-2xl border border-brand-100 bg-white p-4">
+              <p className="text-xs text-slate-500">料金</p>
+              <p className="mt-1 text-sm font-semibold text-slate-900">{formatPrice(status.subscription?.amount, status.subscription?.currency)}</p>
+            </div>
+            <div className="rounded-2xl border border-brand-100 bg-white p-4">
+              <p className="text-xs text-slate-500">次回更新</p>
+              <p className="mt-1 text-sm font-semibold text-slate-900">{formatDate(status.subscription?.current_period_end)}</p>
+            </div>
+            <div className="rounded-2xl border border-brand-100 bg-white p-4">
+              <p className="text-xs text-slate-500">適用サーバーID</p>
+              <p className="mt-1 break-all text-sm font-semibold text-slate-900">{status.activeGuildId || '未設定'}</p>
+            </div>
           </div>
-        </div>
 
-        <div className="bg-gray-800/50 border border-gray-700 rounded-2xl p-6">
-          <h2 className="text-lg font-bold text-white mb-4">お支払い管理</h2>
-          <p className="text-gray-400 text-sm mb-4">
-            プラン変更、支払い方法変更、解約はStripeのカスタマーポータルから実行できます。
-          </p>
-          <div className="flex flex-wrap gap-3">
+          <div className="mt-6 flex flex-col gap-3 sm:flex-row">
             <button
               onClick={openPortal}
               disabled={openingPortal}
-              className="px-5 py-3 bg-white text-gray-900 font-semibold rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex flex-1 items-center justify-center rounded-full bg-gradient-to-r from-brand-500 to-accent-500 px-6 py-3 text-base font-semibold text-white shadow-sm transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {openingPortal ? '起動中...' : 'サブスク管理を開く'}
+              {openingPortal ? '起動中...' : 'Stripe管理画面を開く'}
             </button>
             <Link
               href="/plus/templates"
-              className="px-5 py-3 bg-indigo-500 text-white font-semibold rounded-lg hover:bg-indigo-400"
+              className="inline-flex items-center justify-center rounded-full border border-brand-200 bg-white px-6 py-3 text-base font-semibold text-slate-700 hover:bg-brand-50"
             >
-              Plusテンプレ編集を開く
+              テンプレート編集
             </Link>
           </div>
-        </div>
-      </main>
-    </div>
+
+          <p className="mt-4 text-xs text-slate-500">解約・支払い方法変更は Stripe カスタマーポータルで行えます。</p>
+        </section>
+      </div>
+    </DashboardShell>
   );
 }

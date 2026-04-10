@@ -22,8 +22,8 @@ const Sparkles = (props: Omit<NavIconProps, 'label'>) => <ShellIcon {...props} l
 const NAV_ITEMS = [
   { href: '/subscription', label: 'サブスク', icon: CircleDollarSign },
   { href: '/plus/templates', label: 'テンプレ', icon: LayoutGrid },
-  { href: '/terms', label: '利用規約', icon: FileText },
   { href: '/privacy', label: 'プライバシー', icon: ShieldCheck },
+  { href: '/terms', label: '利用規約', icon: FileText },
   { href: '/tokushoho', label: '特商法', icon: Sparkles },
 ];
 
@@ -36,8 +36,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#fffaf4] text-slate-800">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(255,126,66,0.16),_transparent_38%),radial-gradient(circle_at_bottom_left,_rgba(255,61,138,0.10),_transparent_34%),linear-gradient(180deg,_rgba(255,255,255,0.78),_rgba(255,250,244,0.96))]" />
-      <div className="pointer-events-none absolute inset-0 opacity-40 [background-image:linear-gradient(rgba(255,126,66,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,126,66,0.08)_1px,transparent_1px)] [background-size:56px_56px]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(255,126,66,0.14),_transparent_40%),linear-gradient(180deg,_rgba(255,255,255,0.86),_rgba(255,250,244,0.98))]" />
       <div className="pointer-events-none absolute left-1/2 top-0 h-72 w-72 -translate-x-1/2 rounded-full bg-brand-300/20 blur-3xl" />
 
       <header className="relative z-10 border-b border-brand-100 bg-white/75 backdrop-blur-xl">

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/components/AuthProvider';
 import { loadStripe } from '@stripe/stripe-js';
+import { DashboardShell } from '@/components/DashboardShell';
 
 type StripeCheckout = {
   redirectToCheckout: (options: { sessionId: string }) => Promise<{ error?: { message?: string } }>;
@@ -140,313 +141,111 @@ export default function UserDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900">
-      {/* ヘッダー */}
-      <header className="bg-gray-800/50 backdrop-blur-sm border-b border-gray-700">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold text-white">Recrubo Dashboard</h1>
+    <DashboardShell>
+      <div className="grid min-h-[70vh] place-items-center">
+        <section className="dashboard-panel-strong w-full max-w-2xl p-7 sm:p-9">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="dashboard-muted-label">Subscription Checkout</p>
+              <h1 className="mt-2 font-display text-3xl font-bold text-slate-900">Recrubo Plus 決済</h1>
+              <p className="mt-3 text-sm text-slate-600">ログイン中: {user?.username}</p>
             </div>
-            <div className="flex items-center gap-4">
-              <div className="text-right">
-                <p className="text-sm text-gray-400">ログイン中</p>
-                <p className="text-white font-medium">{user?.username}</p>
-              </div>
-              <button
-                onClick={logout}
-                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
-              >
-                ログアウト
-              </button>
-            </div>
+            <button onClick={logout} className="rounded-full border border-brand-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-brand-50">
+              ログアウト
+            </button>
           </div>
-        </div>
-      </header>
 
-      {/* メインコンテンツ */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="text-center mb-12">
-          <h2 className="text-4xl font-bold text-white mb-4">
-            Recruboをアップグレード
-          </h2>
-          <p className="text-xl text-gray-300">
-            月額500円で募集機能を無制限化
-          </p>
           {!STRIPE_PUBLISHABLE_KEY_VALID && (
-            <div className="mt-4 mx-auto max-w-3xl rounded-lg border border-red-500/40 bg-red-950/30 p-4 text-left">
-              <p className="text-red-200 text-sm font-semibold">Stripe設定エラー</p>
-              <p className="text-red-100 text-sm mt-1">
-                NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY が未設定または不正形式です。
-                値は <code>pk_test_</code> または <code>pk_live_</code> で始まる必要があります。
-              </p>
+            <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 p-4">
+              <p className="text-sm font-semibold text-red-700">Stripe設定エラー</p>
+              <p className="mt-1 text-sm text-red-600">NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY が未設定または不正形式です。</p>
             </div>
           )}
-        </div>
 
-        {/* プランカード */}
-        <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
-          {/* 無料プラン */}
-          <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-8 border border-gray-700">
-            <div className="mb-6">
-              <h3 className="text-2xl font-bold text-white mb-2">無料プラン</h3>
-              <div className="flex items-baseline gap-2">
-                <span className="text-4xl font-bold text-white">¥0</span>
-                <span className="text-gray-400">/月</span>
-              </div>
+          <div className="mt-6 rounded-2xl border border-brand-100 bg-white p-5">
+            <div className="flex items-baseline gap-2">
+              <p className="text-3xl font-bold text-slate-900">¥500</p>
+              <p className="text-sm text-slate-500">/ 月</p>
             </div>
-
-            <ul className="space-y-4 mb-8">
-              <li className="flex items-start gap-3">
-                <svg className="w-6 h-6 text-green-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-                <span className="text-gray-300">基本的な募集機能</span>
-              </li>
-              <li className="flex items-start gap-3">
-                <svg className="w-6 h-6 text-green-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-                <span className="text-gray-300">募集上限: 3件</span>
-              </li>
-              <li className="flex items-start gap-3">
-                <svg className="w-6 h-6 text-green-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-                <span className="text-gray-300">募集期限: 8時間</span>
-              </li>
-              <li className="flex items-start gap-3">
-                <svg className="w-6 h-6 text-green-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-                <span className="text-gray-300">コミュニティサポート</span>
-              </li>
-            </ul>
-
-            <button
-              disabled
-              className="w-full py-3 px-6 bg-gray-700 text-gray-400 rounded-lg font-semibold cursor-not-allowed"
-            >
-              現在のプラン
-            </button>
+            <p className="mt-2 text-sm text-slate-600">募集機能の上限解除・優先サポートを利用できます。</p>
           </div>
 
-          {/* プレミアムプラン */}
-          <div className="bg-gradient-to-br from-purple-600 to-indigo-600 rounded-2xl p-8 border-2 border-purple-400 relative overflow-hidden">
-            <div className="absolute top-4 right-4 bg-yellow-400 text-gray-900 px-3 py-1 rounded-full text-sm font-bold">
-              おすすめ
-            </div>
-
-            <div className="mb-6">
-              <h3 className="text-2xl font-bold text-white mb-2">プレミアムプラン</h3>
-              <div className="flex items-baseline gap-2">
-                <span className="text-4xl font-bold text-white">¥500</span>
-                <span className="text-purple-200">/月</span>
-              </div>
-            </div>
-
-            <ul className="space-y-4 mb-6">
-              <li className="flex items-start gap-3">
-                <svg className="w-6 h-6 text-yellow-300 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-                <span className="text-white font-medium">募集数が無制限</span>
-              </li>
-              <li className="flex items-start gap-3">
-                <svg className="w-6 h-6 text-yellow-300 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-                <span className="text-white font-medium">募集期限が無制限</span>
-              </li>
-              <li className="flex items-start gap-3">
-                <svg className="w-6 h-6 text-yellow-300 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-                <span className="text-white font-medium">優先サポート</span>
-              </li>
-            </ul>
-
-            {/* サーバー選択 */}
-            <div className="mb-4">
-              <label className="block text-purple-100 text-sm font-semibold mb-2">
-                適用するサーバー
-              </label>
-              {guildsLoading ? (
-                <div className="text-purple-200 text-sm">サーバー一覧を読み込み中...</div>
-              ) : guildsError === 'NO_TOKEN' || guildsError === 'UNAUTH' ? (
-                <div className="text-yellow-200 text-sm">
-                  <button
-                    type="button"
-                    onClick={() => login('/subscription')}
-                    className="underline hover:text-yellow-100"
-                  >
-                    再ログイン
-                  </button>
-                  してサーバー一覧を取得してください。
-                </div>
-              ) : guildsError === 'RATE_LIMIT' ? (
-                <div className="text-yellow-200 text-sm">Discord APIが混雑中です。30秒ほど待ってから再読み込みしてください。</div>
-              ) : guildsError === 'API_NOT_DEPLOYED' ? (
-                <div className="space-y-2">
-                  <div className="text-yellow-200 text-sm">サーバー一覧APIが未反映です（バックエンド未デプロイ）。一時的にサーバーIDを手入力してください。</div>
-                  <input
-                    type="text"
-                    value={manualGuildId}
-                    onChange={(e) => setManualGuildId(e.target.value)}
-                    placeholder="DiscordサーバーID (例: 123456789012345678)"
-                    className="w-full px-3 py-2 rounded-lg bg-white/20 text-white placeholder:text-purple-200 border border-purple-300/40 focus:outline-none focus:ring-2 focus:ring-purple-300"
-                  />
-                </div>
-              ) : guildsError ? (
-                <div className="text-yellow-200 text-sm">サーバー一覧の取得に失敗しました。{guildsError}</div>
-              ) : guilds.length === 0 ? (
-                <div className="text-purple-200 text-sm">管理権限のあるサーバーが見つかりません。</div>
-              ) : (
-                <select
-                  value={selectedGuildId}
-                  onChange={(e) => setSelectedGuildId(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg bg-white/20 text-white border border-purple-300/40 focus:outline-none focus:ring-2 focus:ring-purple-300"
+          <div className="mt-5">
+            <label className="mb-2 block text-sm font-semibold text-slate-700">適用するサーバー</label>
+            {guildsLoading ? (
+              <div className="text-sm text-slate-500">サーバー一覧を読み込み中...</div>
+            ) : guildsError === 'NO_TOKEN' || guildsError === 'UNAUTH' ? (
+              <div className="text-sm text-slate-600">
+                <button
+                  type="button"
+                  onClick={() => login('/subscription')}
+                  className="mr-1 underline text-brand-700 hover:text-brand-800"
                 >
-                  {guilds.length > 1 && (
-                    <option value="" className="text-gray-900">-- サーバーを選択 --</option>
-                  )}
-                  {guilds.map((g) => (
-                    <option key={g.id} value={g.id} className="text-gray-900">
-                      {g.name}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
-
-            {/* 同意チェックボックス */}
-            <label className="mb-4 flex items-start gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={agreed}
-                onChange={(e) => setAgreed(e.target.checked)}
-                className="mt-1 w-4 h-4 rounded accent-purple-300 flex-shrink-0"
-              />
-              <span className="text-purple-100 text-sm leading-relaxed">
-                <Link href="/terms" target="_blank" className="underline hover:text-white">
-                  利用規約
-                </Link>
-                ・
-                <Link href="/tokushoho" target="_blank" className="underline hover:text-white">
-                  特定商取引法に基づく表示
-                </Link>
-                ・
-                <Link href="/privacy" target="_blank" className="underline hover:text-white">
-                  プライバシーポリシー
-                </Link>
-                に同意する
-              </span>
-            </label>
-
-            <button
-              onClick={handleSubscribe}
-              disabled={loading || !effectiveGuildId || !agreed}
-              className="w-full py-3 px-6 bg-white hover:bg-gray-100 text-purple-600 rounded-lg font-bold text-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? '処理中...' : 'プレミアムプランに登録'}
-            </button>
-          </div>
-        </div>
-
-        {/* 機能の詳細説明 */}
-        <div className="mt-16 max-w-5xl mx-auto">
-          <h3 className="text-2xl font-bold text-white text-center mb-8">
-            プレミアムプランの特典
-          </h3>
-          <div className="grid md:grid-cols-3 gap-6">
-            <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 border border-gray-700">
-              <div className="w-12 h-12 bg-purple-600 rounded-lg flex items-center justify-center mb-4">
-                <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
+                  再ログイン
+                </button>
+                してサーバー一覧を取得してください。
               </div>
-              <h4 className="text-lg font-bold text-white mb-2">無制限の募集</h4>
-              <p className="text-gray-400">
-                同時募集数の上限が解除されます。大規模コミュニティでも安心です。
-              </p>
-            </div>
-
-            <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 border border-gray-700">
-              <div className="w-12 h-12 bg-indigo-600 rounded-lg flex items-center justify-center mb-4">
-                <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
-                </svg>
+            ) : guildsError === 'RATE_LIMIT' ? (
+              <div className="text-sm text-slate-500">Discord APIが混雑中です。30秒ほど待って再読み込みしてください。</div>
+            ) : guildsError === 'API_NOT_DEPLOYED' ? (
+              <div className="space-y-2">
+                <div className="text-sm text-slate-600">サーバー一覧APIが未反映のため、サーバーIDを手入力してください。</div>
+                <input
+                  type="text"
+                  value={manualGuildId}
+                  onChange={(e) => setManualGuildId(e.target.value)}
+                  placeholder="DiscordサーバーID (例: 123456789012345678)"
+                  className="w-full rounded-xl border border-brand-200 bg-white px-3 py-2 text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-300"
+                />
               </div>
-              <h4 className="text-lg font-bold text-white mb-2">募集期限の無制限化</h4>
-              <p className="text-gray-400">
-                標準の8時間制限を解除し、長時間の募集運用ができます。
-              </p>
-            </div>
-
-            <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 border border-gray-700">
-              <div className="w-12 h-12 bg-pink-600 rounded-lg flex items-center justify-center mb-4">
-                <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" />
-                </svg>
-              </div>
-              <h4 className="text-lg font-bold text-white mb-2">優先サポート</h4>
-              <p className="text-gray-400">
-                問題が発生した際も、優先的にサポートチームが対応いたします。
-              </p>
-            </div>
+            ) : guildsError ? (
+              <div className="text-sm text-slate-500">サーバー一覧の取得に失敗しました。{guildsError}</div>
+            ) : guilds.length === 0 ? (
+              <div className="text-sm text-slate-500">管理権限のあるサーバーが見つかりません。</div>
+            ) : (
+              <select
+                value={selectedGuildId}
+                onChange={(e) => setSelectedGuildId(e.target.value)}
+                className="w-full rounded-xl border border-brand-200 bg-white px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-300"
+              >
+                {guilds.length > 1 && <option value="">-- サーバーを選択 --</option>}
+                {guilds.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.name}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
-        </div>
 
-        {/* FAQ */}
-        <div className="mt-16 max-w-3xl mx-auto">
-          <h3 className="text-2xl font-bold text-white text-center mb-8">
-            よくある質問
-          </h3>
-          <div className="space-y-4">
-            <details className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 border border-gray-700">
-              <summary className="text-white font-semibold cursor-pointer">
-                いつでもキャンセルできますか？
-              </summary>
-              <p className="mt-4 text-gray-400">
-                はい、いつでもキャンセル可能です。キャンセル後も、支払い済みの期間は引き続きプレミアム機能をご利用いただけます。
-              </p>
-            </details>
+          <label className="mt-5 flex items-start gap-2 text-sm text-slate-600">
+            <input
+              type="checkbox"
+              checked={agreed}
+              onChange={(e) => setAgreed(e.target.checked)}
+              className="mt-1 h-4 w-4 rounded accent-brand-500"
+            />
+            <span>
+              <Link href="/terms" target="_blank" className="underline hover:text-slate-800">利用規約</Link>
+              ・
+              <Link href="/tokushoho" target="_blank" className="underline hover:text-slate-800">特定商取引法に基づく表示</Link>
+              ・
+              <Link href="/privacy" target="_blank" className="underline hover:text-slate-800">プライバシーポリシー</Link>
+              に同意する
+            </span>
+          </label>
 
-            <details className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 border border-gray-700">
-              <summary className="text-white font-semibold cursor-pointer">
-                複数のサーバーで使えますか？
-              </summary>
-              <p className="mt-4 text-gray-400">
-                プレミアムはサーバー単位での適用です。複数サーバーで利用する場合は各サーバーごとに契約が必要です。
-              </p>
-            </details>
+          <button
+            onClick={handleSubscribe}
+            disabled={loading || !effectiveGuildId || !agreed}
+            className="mt-6 w-full rounded-full bg-gradient-to-r from-brand-500 to-accent-500 px-6 py-3 text-base font-semibold text-white shadow-sm transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {loading ? '処理中...' : 'プレミアムプランに登録'}
+          </button>
 
-            <details className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 border border-gray-700">
-              <summary className="text-white font-semibold cursor-pointer">
-                支払い方法は何がありますか？
-              </summary>
-              <p className="mt-4 text-gray-400">
-                クレジットカード（Visa、Mastercard、American Express等）での支払いに対応しています。Stripeを通じて安全に決済が行われます。
-              </p>
-            </details>
-          </div>
-        </div>
-      </main>
-
-      {/* フッター */}
-      <footer className="py-8 border-t border-gray-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-wrap justify-center gap-6 text-sm text-gray-500">
-          <Link href="/terms" className="hover:text-gray-300 transition-colors">
-            利用規約
-          </Link>
-          <Link href="/tokushoho" className="hover:text-gray-300 transition-colors">
-            特定商取引法に基づく表示
-          </Link>
-          <Link href="/privacy" className="hover:text-gray-300 transition-colors">
-            プライバシーポリシー
-          </Link>
-        </div>
-      </footer>
-    </div>
+          <p className="mt-4 text-xs text-slate-500">このページはサブスク契約専用です。その他機能は契約後に利用できます。</p>
+        </section>
+      </div>
+    </DashboardShell>
   );
 }
