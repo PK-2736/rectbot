@@ -22,7 +22,6 @@ type LayoutBox = {
   visible: boolean;
 };
 
-type TextFieldKey = "title" | "members" | "time" | "content" | "voice";
 type BoxFieldKey = "contentBox" | "imageBox" | "participantsBox";
 type InfoBoxFieldKey = "membersBox" | "timeBox" | "voiceBox";
 
@@ -291,14 +290,6 @@ export default function PlusTemplatePage() {
   const templateExists = templates.some((t) => t.name === form.name.trim());
   const canCreateNewTemplate = templateExists || templates.length < 5;
 
-  const setFieldVisible = (field: TextFieldKey, visible: boolean) => {
-    setLayout((prev) => ({ ...prev, [field]: { ...prev[field], visible } }));
-  };
-
-  const setFieldSize = (field: TextFieldKey, size: number) => {
-    setLayout((prev) => ({ ...prev, [field]: { ...prev[field], size: clamp(size, 10, 128) } }));
-  };
-
   const setBoxVisible = (field: BoxFieldKey, visible: boolean) => {
     setLayout((prev) => ({ ...prev, [field]: { ...prev[field], visible } }));
   };
@@ -561,32 +552,6 @@ export default function PlusTemplatePage() {
 
             <details className="rounded-2xl border border-amber-200 bg-white/90 p-5 shadow-sm" open>
               <summary className="cursor-pointer select-none text-sm font-semibold text-stone-900">表示要素とサイズ調整</summary>
-              <div className="mt-3 space-y-3">
-                {(["title", "members", "time", "content", "voice"] as const).map((field) => (
-                  <div key={field} className="grid grid-cols-1 sm:grid-cols-3 gap-2 items-center text-sm rounded-xl border border-amber-100 px-3 py-2">
-                    <label className="capitalize text-stone-700">{field}</label>
-                    <input
-                      type="range"
-                      min={12}
-                      max={96}
-                      value={layout[field].size}
-                      onChange={(e) => setFieldSize(field, Number(e.target.value))}
-                    />
-                    <label className="flex items-center gap-2 sm:justify-end text-stone-600">
-                      <input
-                        type="checkbox"
-                        checked={layout[field].visible}
-                        onChange={(e) => setFieldVisible(field, e.target.checked)}
-                      />
-                      表示
-                    </label>
-                  </div>
-                ))}
-              </div>
-            </details>
-
-            <details className="rounded-2xl border border-amber-200 bg-white/90 p-5 shadow-sm">
-              <summary className="cursor-pointer select-none text-sm font-semibold text-stone-900">上級: ボックスサイズと出力倍率</summary>
               <div className="mt-3 space-y-4">
                 <div className="space-y-2 rounded-xl border border-amber-100 p-3">
                   <p className="text-sm text-stone-700">内容枠・ステッカー枠</p>

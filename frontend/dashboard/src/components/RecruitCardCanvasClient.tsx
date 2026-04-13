@@ -212,22 +212,53 @@ function renderInfoBox(
 ) {
   if (!box.visible) return;
 
-  const labelSize = Math.max(4, Math.round(box.height * 0.38));
-  const valueSize = Math.max(4, Math.round(box.height * 0.34));
-  const labelMeasure = createMeasure(labelSize, true);
-  const valueMeasure = createMeasure(valueSize, false);
   const paddingX = Math.max(3, Math.round(box.height * 0.2));
-  const paddingY = Math.max(2, Math.round(box.height * 0.28));
-  const labelText = truncateTextByWidth(label, Math.max(12, Math.round(box.width * 0.42)), labelMeasure);
+  const paddingY = Math.max(2, Math.round(box.height * 0.2));
+
+  const maxLabelAreaWidth = Math.max(10, Math.round(box.width * 0.42));
+  const maxContentHeight = Math.max(6, box.height - paddingY * 2);
+
+  const fitLabelSize = () => {
+    const base = Math.max(4, Math.round(box.height * 0.32));
+    for (let size = base; size >= 2; size -= 1) {
+      const measure = createMeasure(size, true);
+      if (measure(label) <= maxLabelAreaWidth) return size;
+    }
+    return 2;
+  };
+
+  const labelSize = fitLabelSize();
+  const labelMeasure = createMeasure(labelSize, true);
+  const labelText = label;
   const labelWidth = Math.ceil(labelMeasure(labelText));
   const valueX = paddingX + labelWidth + 4;
   const valueMaxWidth = Math.max(12, box.width - valueX - paddingX);
-  const valueText = truncateTextByWidth(value, valueMaxWidth, valueMeasure);
+
+  const fitValue = () => {
+    const base = Math.max(4, Math.round(box.height * 0.3));
+    for (let size = base; size >= 2; size -= 1) {
+      const measure = createMeasure(size, false);
+      const lines = wrapTextLines(value, valueMaxWidth, measure);
+      const lineHeight = Math.max(3, Math.round(size * 1.15));
+      if (lines.length * lineHeight <= maxContentHeight) {
+        return { size, lines, lineHeight };
+      }
+    }
+    const minSize = 2;
+    const minMeasure = createMeasure(minSize, false);
+    return {
+      size: minSize,
+      lines: wrapTextLines(value, valueMaxWidth, minMeasure),
+      lineHeight: Math.max(3, Math.round(minSize * 1.15)),
+    };
+  };
+
+  const fittedValue = fitValue();
 
   const group = new Konva.Group({ x: box.x, y: box.y, draggable });
   group.add(new Konva.Rect({ x: 0, y: 0, width: box.width, height: box.height, cornerRadius: Math.max(3, Math.round(box.height / 4)), fill: 'rgba(0,0,0,0.75)', stroke: withAlpha(frameColor, 0.85), strokeWidth: 0.8 }));
   group.add(new Konva.Text({ x: paddingX, y: paddingY, text: labelText, fill: withAlpha(frameColor, 0.95), fontSize: labelSize, fontStyle: 'bold', fontFamily: 'CorporateRounded, Arial, sans-serif' }));
-  group.add(new Konva.Text({ x: valueX, y: paddingY, text: valueText, fill: textColor, fontSize: valueSize, fontFamily: 'CorporateRounded, Arial, sans-serif' }));
+  group.add(new Konva.Text({ x: valueX, y: paddingY, text: fittedValue.lines.join('\n'), fill: textColor, fontSize: fittedValue.size, lineHeight: fittedValue.lineHeight / fittedValue.size, fontFamily: 'CorporateRounded, Arial, sans-serif' }));
 
   if (onDragEnd) {
     group.on('dragend', () => onDragEnd(Math.round(group.x()), Math.round(group.y())));
