@@ -119,6 +119,16 @@ function mapStripeError(error, env) {
   const lowerMessage = message.toLowerCase();
   const keyMode = detectStripeKeyMode(env?.STRIPE_SECRET_KEY);
 
+  if (lowerMessage.includes('creating a checkout session in testmode without an existing customer')) {
+    return {
+      status: statusCode || 400,
+      payload: {
+        error: 'Stripe Checkout requires an existing customer in test mode (Accounts V2).',
+        hint: 'Create/reuse a Stripe Customer first, then pass customer to checkout.sessions.create. Alternatively test via Stripe Sandbox.'
+      }
+    };
+  }
+
   if (lowerMessage.includes('no such price')) {
     if (lowerMessage.includes('live mode') && keyMode === 'test') {
       return {
@@ -170,6 +180,31 @@ async function createStripeClient(env) {
   });
 }
 
+async function resolveOrCreateStripeCustomerId({ userId, email, username, env, stripe }) {
+  const subscription = await fetchLatestSubscriptionByUserId(userId, env);
+  const fromDb = String(subscription?.stripe_customer_id || '').trim();
+  if (fromDb) return fromDb;
+
+  const existing = await stripe.customers.list({
+    email: email || undefined,
+    limit: 20,
+  });
+  const matched = Array.isArray(existing?.data)
+    ? existing.data.find((customer) => String(customer?.metadata?.userId || '') === userId)
+    : null;
+  if (matched?.id) return matched.id;
+
+  const created = await stripe.customers.create({
+    email: email || undefined,
+    name: username || undefined,
+    metadata: {
+      userId,
+      source: 'recrubo',
+    },
+  });
+  return created.id;
+}
+
 async function createCheckoutLinkForBot(request, env) {
   try {
     if (!await verifyInternalAuth(request, env)) {
@@ -193,12 +228,20 @@ async function createCheckoutLinkForBot(request, env) {
     }
 
     const stripe = await createStripeClient(env);
+    const customerId = await resolveOrCreateStripeCustomerId({
+      userId,
+      email: null,
+      username: null,
+      env,
+      stripe,
+    });
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: [{ price: priceId, quantity: 1 }],
       mode: 'subscription',
       success_url: `${dashboardUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${dashboardUrl}/cancel`,
+      customer: customerId,
       client_reference_id: userId,
       allow_promotion_codes: true,
       subscription_data: {
@@ -683,6 +726,13 @@ async function createCheckoutSession(request, env) {
 
     const stripe = await createStripeClient(env);
     const dashboardUrl = env.DASHBOARD_URL || 'https://dash.recrubo.net';
+    const customerId = await resolveOrCreateStripeCustomerId({
+      userId: user.id,
+      email: user.email || null,
+      username: user.username || null,
+      env,
+      stripe,
+    });
 
     const sessionPayload = {
       payment_method_types: ['card'],
@@ -690,6 +740,7 @@ async function createCheckoutSession(request, env) {
       mode: 'subscription',
       success_url: `${dashboardUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${dashboardUrl}/cancel`,
+      customer: customerId,
       client_reference_id: user.id,
       subscription_data: {
         metadata: {
@@ -705,10 +756,6 @@ async function createCheckoutSession(request, env) {
         ...(guildId ? { guildId } : {}),
       },
     };
-
-    if (user.email) {
-      sessionPayload.customer_email = user.email;
-    }
 
     const session = await stripe.checkout.sessions.create(sessionPayload);
 

@@ -56,9 +56,9 @@ const DEFAULT_LAYOUT = {
   voice: { x: 969, y: 590, size: 24, visible: true },
   contentBox: { x: 73, y: 281, width: 614, height: 360, visible: true },
   imageBox: { x: 880, y: 330, width: 300, height: 220, visible: false },
-  membersBox: { x: 969, y: 302, width: 120, height: 20, visible: true },
-  timeBox: { x: 969, y: 446, width: 120, height: 20, visible: true },
-  voiceBox: { x: 969, y: 590, width: 120, height: 20, visible: true },
+  membersBox: { x: 969, y: 302, width: 280, height: 56, visible: true },
+  timeBox: { x: 969, y: 446, width: 280, height: 56, visible: true },
+  voiceBox: { x: 969, y: 590, width: 280, height: 56, visible: true },
   participantsBox: { x: 119, y: 180, width: 1134, height: 158, visible: true },
 };
 
@@ -80,6 +80,11 @@ function normalizeHexColor(hex?: string, fallback = '#FFFFFF') {
   const normalized = raw.startsWith('#') ? raw : `#${raw}`;
   if (!/^#[0-9A-Fa-f]{6}$/.test(normalized)) return fallback;
   return normalized;
+}
+
+function withAlpha(hex: string, alpha: number) {
+  const { r, g, b } = hexToRgb(hex);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
 function truncateTextByWidth(text: string, maxWidth: number, measure: (t: string) => number) {
@@ -200,6 +205,7 @@ function renderInfoBox(
   box: LayoutBox,
   label: string,
   value: string,
+  frameColor: string,
   textColor: string,
   draggable: boolean,
   onDragEnd?: (x: number, y: number) => void
@@ -219,8 +225,8 @@ function renderInfoBox(
   const valueText = truncateTextByWidth(value, valueMaxWidth, valueMeasure);
 
   const group = new Konva.Group({ x: box.x, y: box.y, draggable });
-  group.add(new Konva.Rect({ x: 0, y: 0, width: box.width, height: box.height, cornerRadius: Math.max(3, Math.round(box.height / 4)), fill: 'rgba(0,0,0,0.75)', stroke: 'rgba(255,255,255,0.6)', strokeWidth: 0.5 }));
-  group.add(new Konva.Text({ x: paddingX, y: paddingY, text: labelText, fill: 'rgba(255,255,255,0.75)', fontSize: labelSize, fontStyle: 'bold', fontFamily: 'CorporateRounded, Arial, sans-serif' }));
+  group.add(new Konva.Rect({ x: 0, y: 0, width: box.width, height: box.height, cornerRadius: Math.max(3, Math.round(box.height / 4)), fill: 'rgba(0,0,0,0.75)', stroke: withAlpha(frameColor, 0.85), strokeWidth: 0.8 }));
+  group.add(new Konva.Text({ x: paddingX, y: paddingY, text: labelText, fill: withAlpha(frameColor, 0.95), fontSize: labelSize, fontStyle: 'bold', fontFamily: 'CorporateRounded, Arial, sans-serif' }));
   group.add(new Konva.Text({ x: valueX, y: paddingY, text: valueText, fill: textColor, fontSize: valueSize, fontFamily: 'CorporateRounded, Arial, sans-serif' }));
 
   if (onDragEnd) {
@@ -230,10 +236,11 @@ function renderInfoBox(
   layer.add(group);
 }
 
-function drawEmptyParticipantSlot(target: Konva.Layer | Konva.Group, x: number, y: number, radius: number, plusSize: number) {
-  target.add(new Konva.Circle({ x, y, radius, fill: '#333', stroke: 'rgba(255,255,255,0.3)', strokeWidth: 1 }));
-  target.add(new Konva.Line({ points: [x - plusSize, y, x + plusSize, y], stroke: 'rgba(255,255,255,0.3)', strokeWidth: 1 }));
-  target.add(new Konva.Line({ points: [x, y - plusSize, x, y + plusSize], stroke: 'rgba(255,255,255,0.3)', strokeWidth: 1 }));
+function drawEmptyParticipantSlot(target: Konva.Layer | Konva.Group, x: number, y: number, radius: number, plusSize: number, frameColor: string) {
+  const strokeColor = withAlpha(frameColor, 0.7);
+  target.add(new Konva.Circle({ x, y, radius, fill: '#333', stroke: strokeColor, strokeWidth: 1 }));
+  target.add(new Konva.Line({ points: [x - plusSize, y, x + plusSize, y], stroke: strokeColor, strokeWidth: 1 }));
+  target.add(new Konva.Line({ points: [x, y - plusSize, x, y + plusSize], stroke: strokeColor, strokeWidth: 1 }));
 }
 
 function scaleBoxToRect(box: LayoutBox, layoutCanvas: { width: number; height: number }): LayoutBox {
@@ -263,6 +270,7 @@ export function RecruitCardCanvasImpl({
   const { width: canvasWidth, height: canvasHeight } = layout.canvas;
   const [containerSize, setContainerSize] = useState({ width: RECT_CANVAS_WIDTH, height: RECT_CANVAS_HEIGHT });
   const resolvedTextColor = normalizeHexColor(textColor, '#FFFFFF');
+  const resolvedFrameColor = normalizeHexColor(accentColor, `#${DEFAULT_ACCENT_COLOR}`);
   
   // コールバック参照の安定化（依存配列から除外するため）
   const onLayoutChangeRef = useRef(onLayoutChange);
@@ -358,14 +366,14 @@ export function RecruitCardCanvasImpl({
         height: scaledContentBox.height,
         cornerRadius: 6,
         fill: 'rgba(0,0,0,0.75)',
-        stroke: 'rgba(255,255,255,0.6)',
+        stroke: withAlpha(resolvedFrameColor, 0.85),
         strokeWidth: 1,
       }));
       contentGroup.add(new Konva.Text({
         x: 4,
         y: 3,
         text: layout.contentLabel || '募集内容',
-        fill: 'rgba(255,255,255,0.8)',
+        fill: withAlpha(resolvedFrameColor, 0.95),
         fontSize: 6,
         fontStyle: 'bold',
         fontFamily: 'CorporateRounded, Arial, sans-serif',
@@ -409,7 +417,8 @@ export function RecruitCardCanvasImpl({
             circleRadius + col * circleSpacing,
             circleRadius + row * rowSpacing,
             circleRadius,
-            is2Rows ? 2.5 : 4
+            is2Rows ? 2.5 : 4,
+            resolvedFrameColor
           );
         }
         layer.add(participantsGroup);
@@ -427,6 +436,7 @@ export function RecruitCardCanvasImpl({
           item.box,
           item.label,
           item.value,
+          resolvedFrameColor,
           resolvedTextColor,
           Boolean(onLayoutChangeRef.current),
           onLayoutChangeRef.current ? (x, y) => onLayoutChangeRef.current?.(item.key, toEditorX(x), toEditorY(y)) : undefined
@@ -479,7 +489,7 @@ export function RecruitCardCanvasImpl({
     return () => {
       stage.destroy();
     };
-  }, [recruitData, layout, accentColor, textColor, resolvedTextColor, backgroundImageUrl, scale, canvasWidth, canvasHeight, containerSize]);
+  }, [recruitData, layout, accentColor, textColor, resolvedTextColor, resolvedFrameColor, backgroundImageUrl, scale, canvasWidth, canvasHeight, containerSize]);
 
   return (
     <div className="w-full bg-gray-950 overflow-hidden" style={{ aspectRatio: `${layout.canvas.width} / ${layout.canvas.height}` }}>

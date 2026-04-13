@@ -89,9 +89,9 @@ const DEFAULT_LAYOUT: TemplateLayout = {
   voice: { x: 969, y: 590, size: 24, visible: true },
   contentBox: { x: 73, y: 281, width: 614, height: 360, visible: true },
   imageBox: { x: 880, y: 330, width: 300, height: 220, visible: true },
-  membersBox: { x: 969, y: 302, width: 48, height: 15, visible: true },
-  timeBox: { x: 969, y: 446, width: 48, height: 15, visible: true },
-  voiceBox: { x: 969, y: 590, width: 48, height: 15, visible: true },
+  membersBox: { x: 969, y: 302, width: 280, height: 56, visible: true },
+  timeBox: { x: 969, y: 446, width: 280, height: 56, visible: true },
+  voiceBox: { x: 969, y: 590, width: 280, height: 56, visible: true },
   participantsBox: { x: 119, y: 180, width: 1134, height: 158, visible: true },
 };
 
@@ -508,7 +508,7 @@ export default function PlusTemplatePage() {
               </div>
 
               <div className="grid sm:grid-cols-3 gap-3">
-                <input className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm" placeholder="枠色 #RRGGBB" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} />
+                <input className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm" placeholder="枠色（外枠・内枠） #RRGGBB" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} />
                 <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-white px-3 py-2">
                   <label htmlFor="text-color-picker" className="text-xs text-stone-600 whitespace-nowrap">文字色</label>
                   <input
