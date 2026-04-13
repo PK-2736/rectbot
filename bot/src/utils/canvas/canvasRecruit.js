@@ -563,6 +563,12 @@ function drawClassicTitle(ctx, width, title, textColor = '#FFFFFF') {
   drawPin(ctx, width - 8, 8, 'rgba(255, 71, 87, 0.7)');
 }
 
+function drawClassicBorder(ctx, width, height) {
+  ctx.strokeStyle = 'rgba(230, 230, 230, 0.95)';
+  ctx.lineWidth = 5;
+  ctx.strokeRect(0, 0, width, height);
+}
+
 function drawClassicInfoItem(ctx, item, box, textColor = '#FFFFFF') {
   ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
   drawRoundedRect(ctx, box.x, box.y, box.width, box.height, 3, true, false);
@@ -583,7 +589,7 @@ function drawClassicInfoItem(ctx, item, box, textColor = '#FFFFFF') {
 }
 
 async function drawClassicModeCard(ctx, recruitData, canvasSize, accentColor, participantIds = [], client = null, avatarUrls = null) {
-  drawBorder(ctx, canvasSize.width, canvasSize.height, accentColor);
+  drawClassicBorder(ctx, canvasSize.width, canvasSize.height);
   drawClassicTitle(ctx, canvasSize.width, recruitData.title || '募集タイトル');
 
   const contentBox = { x: 5, y: 36, width: 70, height: 54 };
