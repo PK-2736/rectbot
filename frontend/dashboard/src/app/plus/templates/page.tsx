@@ -98,7 +98,7 @@ const INITIAL_FORM: FormState = {
   name: "",
   title: "募集タイトル",
   participants: "4",
-  color: "#5865F2",
+  color: "#FFFFFF",
   textColor: "#FFFFFF",
   content: "ガチエリア / 初心者歓迎",
   startTimeText: "今から",
@@ -108,7 +108,7 @@ const INITIAL_FORM: FormState = {
 };
 
 const TEMPLATE_EDITOR_CACHE_PREFIX = "plus-template-editor-cache:";
-const DEFAULT_ACCENT_COLOR = "5865F2";
+const DEFAULT_ACCENT_COLOR = "FFFFFF";
 
 function toForm(t: Template): FormState {
   return {
@@ -499,6 +499,16 @@ export default function PlusTemplatePage() {
               </div>
 
               <div className="grid sm:grid-cols-3 gap-3">
+                <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-white px-3 py-2">
+                  <label htmlFor="frame-color-picker" className="text-xs text-stone-600 whitespace-nowrap">枠色</label>
+                  <input
+                    id="frame-color-picker"
+                    type="color"
+                    className="h-8 w-full cursor-pointer bg-transparent"
+                    value={form.color || "#FFFFFF"}
+                    onChange={(e) => setForm({ ...form, color: e.target.value })}
+                  />
+                </div>
                 <input className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm" placeholder="枠色（外枠・内枠） #RRGGBB" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} />
                 <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-white px-3 py-2">
                   <label htmlFor="text-color-picker" className="text-xs text-stone-600 whitespace-nowrap">文字色</label>
