@@ -792,22 +792,16 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
   const templateLayout = resolveTemplateLayout(recruitData);
   const outputScale = templateLayout?.outputScale || DEFAULT_TEMPLATE_LAYOUT.outputScale;
   const { canvas, ctx, width, height } = setupCanvas(outputScale);
-  const templateImageUrl = getTemplateBackgroundUrl(recruitData);
-  const textColor = resolveTextColor(recruitData);
-  const shouldUseTemplateMode = Boolean(templateLayout || templateImageUrl);
+  const effectiveLayout = templateLayout || DEFAULT_TEMPLATE_LAYOUT;
+  const templateDrawn = await drawTemplateModeCard(ctx, recruitData, effectiveLayout, { width, height }, accentColor, participantIds, client, avatarUrls);
 
-  if (shouldUseTemplateMode) {
-    const effectiveLayout = templateLayout || DEFAULT_TEMPLATE_LAYOUT;
-    const templateDrawn = await drawTemplateModeCard(ctx, recruitData, effectiveLayout, { width, height }, accentColor, participantIds, client, avatarUrls);
-    if (templateDrawn) {
-      applyShadowEffect(ctx);
-      // テンプレートモード（/rect）：透明背景PNG出力
-      return canvas.toBuffer('image/png', { compressionLevel: 3, filters: canvas.PNG_FILTER_NONE });
-    }
+  if (!templateDrawn) {
+    throw new Error('Failed to draw recruit card');
   }
 
-  // テンプレートモードは必須（クラシック版は廃止）
-  throw new Error('Template layout is required for generateRecruitCard');
+  applyShadowEffect(ctx);
+  // 通常募集でもデフォルトレイアウトで画像を生成する
+  return canvas.toBuffer('image/png', { compressionLevel: 3, filters: canvas.PNG_FILTER_NONE });
 }
 
 function applyGrayscaleFilter(ctx, width, height) {

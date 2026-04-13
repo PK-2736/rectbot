@@ -88,9 +88,9 @@ const DEFAULT_LAYOUT: TemplateLayout = {
   voice: { x: 969, y: 590, size: 24, visible: true },
   contentBox: { x: 73, y: 281, width: 614, height: 360, visible: true },
   imageBox: { x: 880, y: 330, width: 300, height: 220, visible: true },
-  membersBox: { x: 969, y: 302, width: 280, height: 56, visible: true },
-  timeBox: { x: 969, y: 446, width: 280, height: 56, visible: true },
-  voiceBox: { x: 969, y: 590, width: 280, height: 56, visible: true },
+  membersBox: { x: 969, y: 302, width: 400, height: 56, visible: true },
+  timeBox: { x: 969, y: 446, width: 400, height: 56, visible: true },
+  voiceBox: { x: 969, y: 590, width: 400, height: 56, visible: true },
   participantsBox: { x: 119, y: 180, width: 1134, height: 158, visible: true },
 };
 
@@ -308,7 +308,7 @@ export default function PlusTemplatePage() {
   const setInfoBoxSize = (field: InfoBoxFieldKey, key: "width" | "height", value: number) => {
     setLayout((prev) => ({
       ...prev,
-      [field]: { ...prev[field], [key]: clamp(value, key === "width" ? 48 : 12, key === "width" ? 640 : 160) },
+      [field]: { ...prev[field], [key]: clamp(value, key === "width" ? 160 : 12, key === "width" ? 640 : 160) },
     }));
   };
 
@@ -498,7 +498,7 @@ export default function PlusTemplatePage() {
                 <input className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm" placeholder="通話ラベル" value={layout.voiceLabel} onChange={(e) => setLayoutText("voiceLabel", e.target.value)} />
               </div>
 
-              <div className="grid sm:grid-cols-3 gap-3">
+              <div className="grid sm:grid-cols-2 gap-3">
                 <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-white px-3 py-2">
                   <label htmlFor="frame-color-picker" className="text-xs text-stone-600 whitespace-nowrap">枠色</label>
                   <input
@@ -509,7 +509,6 @@ export default function PlusTemplatePage() {
                     onChange={(e) => setForm({ ...form, color: e.target.value })}
                   />
                 </div>
-                <input className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm" placeholder="枠色（外枠・内枠） #RRGGBB" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} />
                 <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-white px-3 py-2">
                   <label htmlFor="text-color-picker" className="text-xs text-stone-600 whitespace-nowrap">文字色</label>
                   <input
@@ -627,7 +626,7 @@ export default function PlusTemplatePage() {
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 items-center text-sm">
                         <label>幅</label>
-                        <input type="range" min={48} max={640} value={layout[field].width} onChange={(e) => setInfoBoxSize(field, "width", Number(e.target.value))} />
+                        <input type="range" min={160} max={640} value={layout[field].width} onChange={(e) => setInfoBoxSize(field, "width", Number(e.target.value))} />
                         <span className="sm:text-right text-xs text-stone-500">{layout[field].width}px</span>
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 items-center text-sm">
