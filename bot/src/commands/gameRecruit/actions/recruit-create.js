@@ -793,6 +793,7 @@ function buildRecruitDataObject({ interaction, pendingData, participantsNum, pan
       background_asset_key: template.background_asset_key || null
     } : null,
     metadata: {
+      forceTemplateMode: Boolean(template),
       template: template,
       raw: {
         text_color: template?.text_color || null,

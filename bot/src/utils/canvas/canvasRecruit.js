@@ -620,6 +620,8 @@ async function drawClassicModeCard(ctx, recruitData, canvasSize, accentColor, pa
 function shouldUseTemplateModeForRecruit(recruitData) {
   if (recruitData?.renderMode === 'classic') return false;
   if (recruitData?.renderMode === 'template') return true;
+  if (recruitData?.metadata?.forceTemplateMode === false) return false;
+  if (recruitData?.metadata?.forceTemplateMode === true) return true;
 
   const source = getTemplateSource(recruitData);
   if (source) return true;
