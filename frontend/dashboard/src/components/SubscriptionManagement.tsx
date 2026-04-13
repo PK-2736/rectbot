@@ -28,11 +28,14 @@ function formatDate(iso?: string | null) {
 
 function formatPrice(amount?: number | null, currency?: string | null) {
   if (!amount || !currency) return '不明';
+  const code = currency.toUpperCase();
+  const zeroDecimalCurrencies = new Set(['JPY', 'KRW', 'VND']);
+  const normalizedAmount = zeroDecimalCurrencies.has(code) ? amount : amount / 100;
   return new Intl.NumberFormat('ja-JP', {
     style: 'currency',
-    currency: currency.toUpperCase(),
+    currency: code,
     minimumFractionDigits: 0,
-  }).format(amount / 100);
+  }).format(normalizedAmount);
 }
 
 export default function SubscriptionManagement({ status }: { status: SubscriptionStatus }) {

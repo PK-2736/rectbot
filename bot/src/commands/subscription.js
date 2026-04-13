@@ -50,7 +50,9 @@ function formatAmount(amount, currency) {
   if (amount == null) return '未記録';
   const value = Number(amount) / 100;
   const upperCurrency = String(currency || 'JPY').toUpperCase();
-  return `${value.toLocaleString('ja-JP')} ${upperCurrency}`;
+  const zeroDecimalCurrencies = new Set(['JPY', 'KRW', 'VND']);
+  const normalized = zeroDecimalCurrencies.has(upperCurrency) ? Number(amount) : value;
+  return `${normalized.toLocaleString('ja-JP')} ${upperCurrency}`;
 }
 
 function parseScopedId(customId, prefix) {
