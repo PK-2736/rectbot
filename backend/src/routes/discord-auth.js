@@ -113,7 +113,7 @@ async function handleCallback(request, env, { safeHeaders }) {
  * Returns Discord guilds where the authenticated user has MANAGE_GUILD or
  * ADMINISTRATOR permission. Requires discord_access_token in Supabase users table.
  */
-async function handleGetGuilds(request, env, { safeHeaders }) {
+async function handleGetGuilds(request, env, { safeHeaders, url }) {
   const jsonHeaders = { ...safeHeaders, 'Content-Type': 'application/json' };
 
   const cookies = request.headers.get('Cookie') || '';
@@ -194,7 +194,14 @@ async function handleGetGuilds(request, env, { safeHeaders }) {
     .filter(g => g.owner || ((parseInt(g.permissions) & ADMINISTRATOR) !== 0) || ((parseInt(g.permissions) & MANAGE_GUILD) !== 0))
     .map(g => ({ id: g.id, name: g.name, icon: g.icon }));
 
-  // サブスクリプション有効サーバーのみ返す
+  const premiumOnly = String(url?.searchParams?.get('premiumOnly') || '').trim() === '1';
+
+  // 既定では管理可能サーバーを全件返す
+  if (!premiumOnly) {
+    return new Response(JSON.stringify(manageableGuilds), { status: 200, headers: jsonHeaders });
+  }
+
+  // premiumOnly=1 指定時のみサブスクリプション有効サーバーへ絞る
   if (manageableGuilds.length === 0) {
     return new Response(JSON.stringify([]), { status: 200, headers: jsonHeaders });
   }

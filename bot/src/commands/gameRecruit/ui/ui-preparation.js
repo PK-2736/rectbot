@@ -89,6 +89,9 @@ async function prepareUIComponentsForCreate(recruitDataObj, interaction, guildSe
   if (forceTemplateImage) {
     style = 'image';
   }
+
+  // 描画モードを明示して、通常 /rect がテンプレート描画に混入しないようにする
+  recruitDataObj.renderMode = forceTemplateImage ? 'template' : 'classic';
   const useColor = normalizeHex(recruitDataObj.panelColor || guildSettings.defaultColor || '000000', '000000');
 
   let image = null;

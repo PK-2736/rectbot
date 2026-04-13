@@ -581,11 +581,11 @@ function drawClassicInfoItem(ctx, item, box, textColor = '#FFFFFF') {
   const valueText = String(item?.value || '');
 
   ctx.fillStyle = textColor;
-  ctx.font = 'bold 6px CorporateRounded';
+  ctx.font = 'bold 7px CorporateRounded';
   ctx.fillText(truncateText(ctx, labelText, 15), box.x + 3, box.y + 4);
 
-  ctx.font = 'bold 6px CorporateRounded';
-  ctx.fillText(truncateText(ctx, valueText, box.width - 20), box.x + 20, box.y + 4);
+  ctx.font = 'bold 7px CorporateRounded';
+  ctx.fillText(truncateText(ctx, valueText, box.width - 21), box.x + 21, box.y + 4);
 }
 
 async function drawClassicModeCard(ctx, recruitData, canvasSize, accentColor, participantIds = [], client = null, avatarUrls = null) {
@@ -606,9 +606,9 @@ async function drawClassicModeCard(ctx, recruitData, canvasSize, accentColor, pa
 
   const infoItems = buildInfoItems(recruitData, participantIds);
   const infoBoxes = [
-    { x: 86, y: 39, width: 50, height: 14 },
-    { x: 86, y: 57, width: 50, height: 14 },
-    { x: 86, y: 75, width: 50, height: 14 }
+    { x: 86, y: 39, width: 51, height: 14 },
+    { x: 86, y: 57, width: 51, height: 14 },
+    { x: 86, y: 75, width: 51, height: 14 }
   ];
   for (let i = 0; i < Math.min(infoItems.length, infoBoxes.length); i++) {
     drawClassicInfoItem(ctx, infoItems[i], infoBoxes[i]);
@@ -618,6 +618,9 @@ async function drawClassicModeCard(ctx, recruitData, canvasSize, accentColor, pa
 }
 
 function shouldUseTemplateModeForRecruit(recruitData) {
+  if (recruitData?.renderMode === 'classic') return false;
+  if (recruitData?.renderMode === 'template') return true;
+
   const source = getTemplateSource(recruitData);
   if (source) return true;
   if (recruitData?.templateName || recruitData?.template_data || recruitData?.templateData) return true;
