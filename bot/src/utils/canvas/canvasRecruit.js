@@ -509,13 +509,14 @@ function drawClassicInfoItem(ctx, item, box, textColor = '#FFFFFF') {
 
   const labelText = String(item?.label || '').replace('：', ':');
   const valueText = String(item?.value || '');
+  const infoFontSize = 5;
 
   ctx.fillStyle = textColor;
-  ctx.font = 'bold 6px CorporateRounded';
+  ctx.font = `bold ${infoFontSize}px CorporateRounded`;
   // ラベルは省略せずそのまま表示（「人...」のような崩れを防ぐ）
   ctx.fillText(labelText, box.x + 3, box.y + 4);
 
-  ctx.font = 'bold 6px CorporateRounded';
+  ctx.font = `bold ${infoFontSize}px CorporateRounded`;
   ctx.fillText(truncateText(ctx, valueText, box.width - 20), box.x + 20, box.y + 4);
 }
 
@@ -530,6 +531,9 @@ async function drawClassicModeCard(ctx, recruitData, canvasSize, accentColor, pa
   const maxMembers = getMaxMembers(recruitData, currentMembers);
   const participantCount = getParticipantCount(currentMembers, maxMembers);
   const participantLayout = getParticipantLayout(participantCount, contentBox.x, contentBox.y);
+  // クラシック表示の見た目調整: 参加者アバターを少し右下へ寄せる
+  participantLayout.participantAreaX += 1;
+  participantLayout.participantAreaY += 1;
   await drawParticipantCircles(ctx, participantIds, participantCount, participantLayout, client, avatarUrls);
 
   const content = recruitData.description || recruitData.content || '';
