@@ -459,7 +459,7 @@ async function drawTemplateModeCard(ctx, recruitData, layout, canvasSize, accent
   const stickerUrl = getTemplateBackgroundUrl(recruitData);
   const textColor = resolveTextColor(recruitData);
 
-  // テンプレートモードは透明背景で、埋め込み画像はステッカーとして imageBox に重ねる。
+  // テンプレートモードは透明背景で、埋め込み画像はステッカーとして imageBox に 重ねる。
   // 背景は透明（ctx.clearRect後の状態を保持）
   drawBorder(ctx, canvasSize.width, canvasSize.height, accentColor);
 
@@ -628,9 +628,9 @@ function shouldUseTemplateModeForRecruit(recruitData) {
 }
 
 function extractVoicePlace(recruitData) {
-  return recruitData.voiceChannelName || 
-         recruitData.voicePlace || 
-         recruitData.metadata?.note || 
+  return recruitData.voiceChannelName ||
+         recruitData.voicePlace ||
+         recruitData.metadata?.note ||
          null;
 }
 
@@ -642,15 +642,15 @@ function parseStringVoiceValue(vcLower, voicePlace) {
   if (vcLower.includes('なし')) {
     return 'なし';
   }
-  
+
   if (vcLower.includes('聞き専')) {
     return appendVoicePlace('あり(聞き専)', voicePlace);
   }
-  
+
   if (vcLower.includes('あり')) {
     return appendVoicePlace('あり', voicePlace);
   }
-  
+
   return null;
 }
 
@@ -658,11 +658,11 @@ function formatBooleanVoiceValue(vcValue, voicePlace) {
   if (vcValue === true) {
     return appendVoicePlace('あり', voicePlace);
   }
-  
+
   if (vcValue === false) {
     return 'なし';
   }
-  
+
   return null;
 }
 
@@ -759,7 +759,7 @@ function drawCardTitle(ctx, width, title, accentColor, textColor = '#FFFFFF') {
   ctx.font = 'bold 8px CorporateRounded';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
-  
+
   const titleMaxWidth = width - 16;
   const titleText = truncateText(ctx, title || 'ゲーム募集', titleMaxWidth);
   const titleWidth = ctx.measureText(titleText).width;
@@ -767,17 +767,17 @@ function drawCardTitle(ctx, width, title, accentColor, textColor = '#FFFFFF') {
   const titleBgY = 3;
   const titleBgWidth = titleWidth + 12;
   const titleBgHeight = 12;
-  
+
   ctx.fillStyle = createTitleGradient(ctx, titleBgX, titleBgY, titleBgWidth, titleBgHeight, accentColor);
   ctx.fillRect(titleBgX, titleBgY, titleBgWidth, titleBgHeight);
-  
+
   ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
   ctx.lineWidth = 1;
   ctx.strokeText(titleText, width / 2, 5);
-  
+
   ctx.fillStyle = textColor;
   ctx.fillText(titleText, width / 2, 5);
-  
+
   ctx.strokeStyle = 'rgba(0, 0, 0, 0.6)';
   ctx.lineWidth = 1;
   ctx.beginPath();
@@ -786,7 +786,7 @@ function drawCardTitle(ctx, width, title, accentColor, textColor = '#FFFFFF') {
   ctx.moveTo(titleBgX + titleBgWidth + 4, 9);
   ctx.lineTo(width - 14, 9);
   ctx.stroke();
-  
+
   ctx.textAlign = 'start';
   ctx.textBaseline = 'top';
 
@@ -797,7 +797,7 @@ function drawCardTitle(ctx, width, title, accentColor, textColor = '#FFFFFF') {
 function drawContentBoxBackground(ctx, boxX, boxY, boxWidth, boxHeight) {
   ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
   drawRoundedRect(ctx, boxX, boxY, boxWidth, boxHeight, 6, true, false);
-  
+
   ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
   ctx.lineWidth = 1;
   drawRoundedRect(ctx, boxX, boxY, boxWidth, boxHeight, 6, false, true);
@@ -808,13 +808,13 @@ function drawEmptyParticipantSlot(ctx, x, y, circleRadius, is2Rows) {
   ctx.beginPath();
   ctx.arc(x, y, circleRadius, 0, Math.PI * 2);
   ctx.fill();
-  
+
   ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
   ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.arc(x, y, circleRadius, 0, Math.PI * 2);
   ctx.stroke();
-  
+
   const plusSize = is2Rows ? 2.5 : 4;
   ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
   ctx.lineWidth = 1;
@@ -828,13 +828,13 @@ function drawEmptyParticipantSlot(ctx, x, y, circleRadius, is2Rows) {
 
 async function drawParticipantCircles(ctx, participantIds, participantCount, layout, client, avatarUrls) {
   const { participantAreaX, participantAreaY, circleSpacing, rowSpacing, circleRadius, is2Rows, maxPerRow } = layout;
-  
+
   for (let i = 0; i < participantCount; i++) {
     const row = Math.floor(i / maxPerRow);
     const col = i % maxPerRow;
     const circleX = participantAreaX + col * circleSpacing;
     const circleY = participantAreaY + row * rowSpacing;
-    
+
     if (i < participantIds.length) {
       await drawParticipantAvatar(ctx, circleX, circleY, participantIds[i], {
         circleRadius,
@@ -852,17 +852,17 @@ function drawContentTextSection(ctx, boxX, boxY, boxWidth, boxHeight, content, l
   ctx.fillStyle = textColor;
   ctx.font = '6px CorporateRounded';
   ctx.textBaseline = 'top';
-  
+
   ctx.font = 'bold 6px CorporateRounded';
   ctx.fillStyle = textColor;
   ctx.fillText(labelText || '募集内容', boxX + 4, boxY + 3);
-  
+
   ctx.font = '4px CorporateRounded';
   ctx.fillStyle = textColor;
   const lineHeight = 6;
   const maxLines = Math.floor((boxHeight - 20) / lineHeight);
   const wrappedLines = wrapTextLines(ctx, content || 'ガチエリア / 初心者歓迎', boxWidth - 16);
-  
+
   for (let i = 0; i < Math.min(wrappedLines.length, maxLines); i++) {
     ctx.fillText(wrappedLines[i], boxX + 4, boxY + 15 + i * lineHeight);
   }
@@ -905,18 +905,18 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
 function applyGrayscaleFilter(ctx, width, height) {
   const imageData = ctx.getImageData(0, 0, width, height);
   const data = imageData.data;
-  
+
   for (let i = 0; i < data.length; i += 4) {
     const r = data[i];
     const g = data[i + 1];
     const b = data[i + 2];
     const gray = Math.round((r + g + b) / 3);
-    
+
     data[i] = gray;
     data[i + 1] = gray;
     data[i + 2] = gray;
   }
-  
+
   ctx.putImageData(imageData, 0, 0);
 }
 
@@ -927,27 +927,27 @@ function drawDarkOverlay(ctx, width, height) {
 
 function drawClosedText(ctx, width, height) {
   ctx.save();
-  
+
   ctx.translate(width / 2, height / 2);
   ctx.rotate(-Math.PI / 6);
-  
+
   const fontSize = Math.floor(height / 5);
   ctx.font = `bold ${fontSize}px CorporateRounded`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  
+
   ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
   ctx.shadowBlur = 10;
   ctx.shadowOffsetX = 3;
   ctx.shadowOffsetY = 3;
-  
+
   ctx.strokeStyle = 'rgba(0, 0, 0, 0.9)';
   ctx.lineWidth = fontSize / 8;
   ctx.strokeText('CLOSED', 0, 0);
-  
+
   ctx.fillStyle = 'rgba(220, 38, 38, 0.95)';
   ctx.fillText('CLOSED', 0, 0);
-  
+
   ctx.restore();
 }
 
@@ -959,7 +959,7 @@ function drawClosedText(ctx, width, height) {
 async function generateClosedRecruitCard(originalImageBuffer) {
   try {
     const originalImage = await loadImage(originalImageBuffer);
-    
+
     const width = originalImage.width;
     const height = originalImage.height;
     const canvas = createCanvas(width, height);
