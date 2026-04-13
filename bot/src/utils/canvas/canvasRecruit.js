@@ -577,11 +577,12 @@ function drawClassicInfoItem(ctx, item, box, textColor = '#FFFFFF') {
   ctx.lineWidth = 0.5;
   drawRoundedRect(ctx, box.x, box.y, box.width, box.height, 3, false, true);
 
-  const labelText = String(item?.label || '');
+  const labelText = String(item?.label || '').replace('：', ':');
   const valueText = String(item?.value || '');
 
   ctx.fillStyle = textColor;
   ctx.font = 'bold 6px CorporateRounded';
+  // ラベルは省略せずそのまま表示（「人...」のような崩れを防ぐ）
   ctx.fillText(labelText, box.x + 3, box.y + 4);
 
   ctx.font = 'bold 6px CorporateRounded';
@@ -890,7 +891,7 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
   const { canvas, ctx, width, height } = setupCanvas(outputScale);
   const useTemplateMode = shouldUseTemplateModeForRecruit(recruitData);
 
-  console.log('[generateRecruitCard] mode=', useTemplateMode ? 'template' : 'classic', 'renderMode=', recruitData?.renderMode || null, 'templateName=', recruitData?.templateName || null, 'hasTemplate=', Boolean(getTemplateSource(recruitData)));
+  console.log('[generateRecruitCard] mode=', useTemplateMode ? 'template' : 'classic', 'renderMode=', recruitData?.renderMode || null, 'templateName=', recruitData?.templateName || null, 'hasTemplate=', Boolean(getTemplateSource(recruitData)), 'classicLabelFix=v2');
 
   if (useTemplateMode) {
     const effectiveLayout = templateLayout || DEFAULT_TEMPLATE_LAYOUT;
