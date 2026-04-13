@@ -375,86 +375,6 @@ function getScaledField(field, layout, canvasSize, fallback) {
   };
 }
 
-function drawTemplateTextNode(ctx, field, text, layout, canvasSize, textColor = '#FFFFFF') {
-  if (!field?.visible || !text) return;
-
-  const baseWidth = layout.canvas?.width || DEFAULT_TEMPLATE_LAYOUT.canvas.width;
-  const baseHeight = layout.canvas?.height || DEFAULT_TEMPLATE_LAYOUT.canvas.height;
-  const scaleX = canvasSize.width / baseWidth;
-  const scaleY = canvasSize.height / baseHeight;
-  const x = Math.round((field.x || 0) * scaleX);
-  const y = Math.round((field.y || 0) * scaleY);
-  // Scale directly from editor font size into the 140x100 canvas coordinate space.
-  // Using /3 made text too small and looked like a visual jump after drag.
-  const sizePx = Math.max(4, Math.round((field.size || 24) * ((scaleX + scaleY) / 2)));
-
-  ctx.font = `bold ${sizePx}px CorporateRounded`;
-  ctx.textBaseline = 'top';
-
-  const textPaddingX = Math.max(8, Math.round(sizePx * 0.25));
-  const textPaddingY = Math.max(4, Math.round(sizePx * 0.2));
-  const textWidth = Math.ceil(ctx.measureText(text).width);
-  const rectWidth = textWidth + textPaddingX * 2;
-  const rectHeight = sizePx + textPaddingY * 2;
-
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
-  drawRoundedRect(ctx, x, y, rectWidth, rectHeight, Math.max(6, Math.round(sizePx * 0.2)), true, false);
-
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
-  ctx.lineWidth = 1;
-  drawRoundedRect(ctx, x, y, rectWidth, rectHeight, Math.max(6, Math.round(sizePx * 0.2)), false, true);
-
-  ctx.fillStyle = textColor;
-  ctx.fillText(text, x + textPaddingX, y + textPaddingY);
-}
-
-function drawTemplateContentNode(ctx, field, text, layout, canvasSize, textColor = '#FFFFFF') {
-  if (!field?.visible) return;
-
-  const baseWidth = layout.canvas?.width || DEFAULT_TEMPLATE_LAYOUT.canvas.width;
-  const baseHeight = layout.canvas?.height || DEFAULT_TEMPLATE_LAYOUT.canvas.height;
-  const scaleX = canvasSize.width / baseWidth;
-  const scaleY = canvasSize.height / baseHeight;
-  const x = Math.round((field.x || 0) * scaleX);
-  const y = Math.round((field.y || 0) * scaleY);
-  // Keep the same scaling rule as other template text nodes.
-  const sizePx = Math.max(4, Math.round((field.size || 24) * ((scaleX + scaleY) / 2)));
-  const contentText = text || '募集内容を入力';
-  const contentBox = getScaledBox(layout.contentBox, layout, canvasSize, DEFAULT_TEMPLATE_LAYOUT.contentBox);
-
-  ctx.font = `${sizePx}px CorporateRounded`;
-  ctx.textBaseline = 'top';
-  const maxWidth = Math.max(120, contentBox.visible ? contentBox.width - 24 : Math.round(canvasSize.width * 0.66));
-  const lines = wrapTextLines(ctx, contentText, maxWidth).slice(0, 6);
-  const lineHeight = Math.round(sizePx * 1.25);
-  const maxTextWidth = Math.min(maxWidth, Math.max(...lines.map(line => Math.ceil(ctx.measureText(line).width)), 40));
-
-  const textPaddingX = Math.max(8, Math.round(sizePx * 0.25));
-  const textPaddingY = Math.max(4, Math.round(sizePx * 0.2));
-  const rectX = contentBox.visible ? contentBox.x : x;
-  const rectY = contentBox.visible ? contentBox.y : y;
-  const rectWidth = contentBox.visible ? contentBox.width : maxTextWidth + textPaddingX * 2;
-  const rectHeight = contentBox.visible ? contentBox.height : lineHeight * lines.length + textPaddingY * 2;
-
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
-  drawRoundedRect(ctx, rectX, rectY, rectWidth, rectHeight, Math.max(6, Math.round(sizePx * 0.2)), true, false);
-
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
-  ctx.lineWidth = 1;
-  drawRoundedRect(ctx, rectX, rectY, rectWidth, rectHeight, Math.max(6, Math.round(sizePx * 0.2)), false, true);
-
-  ctx.fillStyle = textColor;
-  const startX = contentBox.visible ? rectX + 12 : x + textPaddingX;
-  const startY = contentBox.visible ? rectY + 12 : y + textPaddingY;
-  const maxLines = contentBox.visible
-    ? Math.max(1, Math.floor((rectHeight - 24) / lineHeight))
-    : lines.length;
-  const clipped = lines.slice(0, maxLines);
-  for (let i = 0; i < clipped.length; i++) {
-    ctx.fillText(clipped[i], startX, startY + i * lineHeight);
-  }
-}
-
 async function drawTemplateModeCard(ctx, recruitData, layout, canvasSize, accentColor, participantIds = [], client = null, avatarUrls = null) {
   const stickerUrl = getTemplateBackgroundUrl(recruitData);
   const textColor = resolveTextColor(recruitData);
@@ -555,6 +475,16 @@ function drawClassicTitle(ctx, width, title, textColor = '#FFFFFF') {
 
   ctx.fillStyle = textColor;
   ctx.fillText(titleText, width / 2, 5);
+
+  // /rect 従来表示のタイトル左右の装飾線を復元
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.6)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(14, 9);
+  ctx.lineTo(titleBgX - 4, 9);
+  ctx.moveTo(titleBgX + titleBgWidth + 4, 9);
+  ctx.lineTo(width - 14, 9);
+  ctx.stroke();
 
   ctx.textAlign = 'start';
   ctx.textBaseline = 'top';
