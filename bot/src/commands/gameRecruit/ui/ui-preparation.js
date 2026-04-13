@@ -10,7 +10,7 @@ const { normalizeHex } = require('../ui/message-updater');
 const { buildVoiceLabel, buildDetailsText, buildExtraCreateVCButtons, buildSubHeaderText } = require('../ui/text-builders');
 const { fetchUserAvatarUrl } = require('../data/data-loader');
 
-const CREATE_IMAGE_TIMEOUT_MS = Number(process.env.RECRUIT_CREATE_IMAGE_TIMEOUT_MS || 900);
+const CREATE_IMAGE_TIMEOUT_MS = Number(process.env.RECRUIT_CREATE_IMAGE_TIMEOUT_MS || 6000);
 
 async function withTimeout(promise, timeoutMs, timeoutMessage) {
   return await Promise.race([
@@ -105,13 +105,22 @@ async function prepareUIComponentsForCreate(recruitDataObj, interaction, guildSe
       image = new AttachmentBuilder(buffer, { name: 'recruit-card.png' });
       console.log('[prepareUIComponentsForCreate] Image generated successfully');
     } catch (e) {
+      // タイムアウト/一時的な失敗時は、即座にシンプルへ落とす前に1回だけ再試行する
+      // （遅延環境で画像スタイル設定なのにsimple表示になるのを防ぐ）
+      try {
+        console.warn('[prepareUIComponentsForCreate] First image generation failed. Retrying once...', e?.message || e);
+        const retryBuffer = await generateRecruitCardQueued(recruitDataObj, currentParticipants, interaction.client, useColor);
+        image = new AttachmentBuilder(retryBuffer, { name: 'recruit-card.png' });
+        console.log('[prepareUIComponentsForCreate] Image generated successfully on retry');
+      } catch (retryError) {
       if (forceTemplateImage) {
-        console.error('[prepareUIComponentsForCreate] Template image generation failed (no simple fallback):', e?.message || e);
-        throw e;
+        console.error('[prepareUIComponentsForCreate] Template image generation failed (no simple fallback):', retryError?.message || retryError);
+        throw retryError;
       }
-      console.warn('[prepareUIComponentsForCreate] Image generation failed, falling back to text:', e?.message || e);
-      // 通常の /rect は従来どおり text スタイルにフォールバック
+      console.warn('[prepareUIComponentsForCreate] Image generation failed after retry, falling back to text:', retryError?.message || retryError);
+      // 通常の /rect は最終手段として text スタイルにフォールバック
       style = 'simple';
+      }
     }
   }
 
