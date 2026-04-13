@@ -533,6 +533,91 @@ async function drawTemplateModeCard(ctx, recruitData, layout, canvasSize, accent
   return true;
 }
 
+function drawClassicTitle(ctx, width, title, textColor = '#FFFFFF') {
+  ctx.font = 'bold 8px CorporateRounded';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+
+  const titleMaxWidth = width - 16;
+  const titleText = truncateText(ctx, title || 'ゲーム募集', titleMaxWidth);
+  const titleWidth = ctx.measureText(titleText).width;
+  const titleBgX = (width - titleWidth) / 2 - 6;
+  const titleBgY = 3;
+  const titleBgWidth = titleWidth + 12;
+  const titleBgHeight = 12;
+
+  ctx.fillStyle = 'rgba(240, 240, 240, 0.95)';
+  ctx.fillRect(titleBgX, titleBgY, titleBgWidth, titleBgHeight);
+
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.65)';
+  ctx.lineWidth = 1;
+  ctx.strokeText(titleText, width / 2, 5);
+
+  ctx.fillStyle = textColor;
+  ctx.fillText(titleText, width / 2, 5);
+
+  ctx.textAlign = 'start';
+  ctx.textBaseline = 'top';
+
+  drawPin(ctx, 8, 8, 'rgba(46, 213, 115, 0.7)');
+  drawPin(ctx, width - 8, 8, 'rgba(255, 71, 87, 0.7)');
+}
+
+function drawClassicInfoItem(ctx, item, box, textColor = '#FFFFFF') {
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+  drawRoundedRect(ctx, box.x, box.y, box.width, box.height, 3, true, false);
+
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+  ctx.lineWidth = 0.5;
+  drawRoundedRect(ctx, box.x, box.y, box.width, box.height, 3, false, true);
+
+  const labelText = String(item?.label || '').replace('：', ':');
+  const valueText = String(item?.value || '');
+
+  ctx.fillStyle = textColor;
+  ctx.font = 'bold 6px CorporateRounded';
+  ctx.fillText(truncateText(ctx, labelText, 15), box.x + 3, box.y + 4);
+
+  ctx.font = 'bold 6px CorporateRounded';
+  ctx.fillText(truncateText(ctx, valueText, box.width - 20), box.x + 20, box.y + 4);
+}
+
+async function drawClassicModeCard(ctx, recruitData, canvasSize, accentColor, participantIds = [], client = null, avatarUrls = null) {
+  drawBorder(ctx, canvasSize.width, canvasSize.height, accentColor);
+  drawClassicTitle(ctx, canvasSize.width, recruitData.title || '募集タイトル');
+
+  const contentBox = { x: 5, y: 36, width: 70, height: 54 };
+  drawContentBoxBackground(ctx, contentBox.x, contentBox.y, contentBox.width, contentBox.height);
+
+  const currentMembers = getCurrentMembers(recruitData, participantIds);
+  const maxMembers = getMaxMembers(recruitData, currentMembers);
+  const participantCount = getParticipantCount(currentMembers, maxMembers);
+  const participantLayout = getParticipantLayout(participantCount, contentBox.x, contentBox.y);
+  await drawParticipantCircles(ctx, participantIds, participantCount, participantLayout, client, avatarUrls);
+
+  const content = recruitData.description || recruitData.content || '';
+  drawContentTextSection(ctx, contentBox.x, contentBox.y, contentBox.width, contentBox.height, content);
+
+  const infoItems = buildInfoItems(recruitData, participantIds);
+  const infoBoxes = [
+    { x: 86, y: 39, width: 50, height: 14 },
+    { x: 86, y: 57, width: 50, height: 14 },
+    { x: 86, y: 75, width: 50, height: 14 }
+  ];
+  for (let i = 0; i < Math.min(infoItems.length, infoBoxes.length); i++) {
+    drawClassicInfoItem(ctx, infoItems[i], infoBoxes[i]);
+  }
+
+  return true;
+}
+
+function shouldUseTemplateModeForRecruit(recruitData) {
+  const source = getTemplateSource(recruitData);
+  if (source) return true;
+  if (recruitData?.templateName || recruitData?.template_data || recruitData?.templateData) return true;
+  return Boolean(getTemplateBackgroundUrl(recruitData));
+}
+
 function extractVoicePlace(recruitData) {
   return recruitData.voiceChannelName || 
          recruitData.voicePlace || 
@@ -792,15 +877,19 @@ async function generateRecruitCard(recruitData, participantIds = [], client = nu
   const templateLayout = resolveTemplateLayout(recruitData);
   const outputScale = templateLayout?.outputScale || DEFAULT_TEMPLATE_LAYOUT.outputScale;
   const { canvas, ctx, width, height } = setupCanvas(outputScale);
-  const effectiveLayout = templateLayout || DEFAULT_TEMPLATE_LAYOUT;
-  const templateDrawn = await drawTemplateModeCard(ctx, recruitData, effectiveLayout, { width, height }, accentColor, participantIds, client, avatarUrls);
+  const useTemplateMode = shouldUseTemplateModeForRecruit(recruitData);
 
-  if (!templateDrawn) {
-    throw new Error('Failed to draw recruit card');
+  if (useTemplateMode) {
+    const effectiveLayout = templateLayout || DEFAULT_TEMPLATE_LAYOUT;
+    const templateDrawn = await drawTemplateModeCard(ctx, recruitData, effectiveLayout, { width, height }, accentColor, participantIds, client, avatarUrls);
+    if (!templateDrawn) {
+      throw new Error('Failed to draw recruit card (template mode)');
+    }
+  } else {
+    await drawClassicModeCard(ctx, recruitData, { width, height }, accentColor, participantIds, client, avatarUrls);
   }
 
   applyShadowEffect(ctx);
-  // 通常募集でもデフォルトレイアウトで画像を生成する
   return canvas.toBuffer('image/png', { compressionLevel: 3, filters: canvas.PNG_FILTER_NONE });
 }
 

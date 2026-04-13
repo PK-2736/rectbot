@@ -25,13 +25,6 @@ export default function SubscriptionPage() {
   const { user, login, isLoading } = useAuth();
   const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus | null>(null);
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
-  const [addMode, setAddMode] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const params = new URLSearchParams(window.location.search);
-    setAddMode(params.get('mode') === 'add');
-  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -116,7 +109,7 @@ export default function SubscriptionPage() {
     );
   }
 
-  if (subscriptionStatus?.hasSubscription && subscriptionStatus?.isPremium && !addMode) {
+  if (subscriptionStatus?.hasSubscription && subscriptionStatus?.isPremium) {
     return <SubscriptionManagement status={subscriptionStatus} />;
   }
 

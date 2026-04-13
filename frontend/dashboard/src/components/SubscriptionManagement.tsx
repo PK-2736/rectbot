@@ -112,7 +112,7 @@ export default function SubscriptionManagement({ status }: { status: Subscriptio
               {openingPortal ? '起動中...' : 'Stripe管理画面を開く'}
             </button>
             <Link
-              href="/subscription?mode=add"
+              href="/subscription/add"
               className="inline-flex items-center justify-center rounded-full border border-brand-200 bg-white px-6 py-3 text-base font-semibold text-slate-700 hover:bg-brand-50"
             >
               別サーバーを追加契約
