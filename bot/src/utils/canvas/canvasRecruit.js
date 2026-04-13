@@ -577,7 +577,7 @@ function drawClassicInfoItem(ctx, item, box, textColor = '#FFFFFF') {
   ctx.lineWidth = 0.5;
   drawRoundedRect(ctx, box.x, box.y, box.width, box.height, 3, false, true);
 
-  const labelText = String(item?.label || '').replace('：', ':');
+  const labelText = String(item?.label || '');
   const valueText = String(item?.value || '');
 
   ctx.fillStyle = textColor;
