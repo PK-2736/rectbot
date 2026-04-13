@@ -317,6 +317,74 @@ async function fetchLatestSubscriptionByUserId(userId, env) {
   return base.data || null;
 }
 
+async function fetchActiveSubscriptionByUserId(userId, env) {
+  const supabase = await createSupabaseClient(env);
+  if (!supabase) return null;
+
+  const extended = await supabase
+    .from('subscriptions')
+    .select(EXTENDED_SUBSCRIPTION_SELECT)
+    .eq('user_id', userId)
+    .in('status', ['active', 'trialing'])
+    .order('updated_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!extended.error) {
+    return extended.data || null;
+  }
+
+  if (!isMissingDbColumnError(extended.error)) {
+    console.error('[stripe] Failed to fetch active subscription status:', extended.error);
+    return null;
+  }
+
+  const base = await supabase
+    .from('subscriptions')
+    .select(BASE_SUBSCRIPTION_SELECT)
+    .eq('user_id', userId)
+    .in('status', ['active', 'trialing'])
+    .order('updated_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (base.error) {
+    console.error('[stripe] Failed to fetch active subscription status (fallback):', base.error);
+    return null;
+  }
+
+  return base.data || null;
+}
+
+async function fetchActiveSubscriptionByUserIdAndGuildId(userId, guildId, env) {
+  const normalizedGuildId = String(guildId || '').trim();
+  if (!normalizedGuildId) return null;
+
+  const supabase = await createSupabaseClient(env);
+  if (!supabase) return null;
+
+  const extended = await supabase
+    .from('subscriptions')
+    .select(EXTENDED_SUBSCRIPTION_SELECT)
+    .eq('user_id', userId)
+    .eq('purchased_guild_id', normalizedGuildId)
+    .in('status', ['active', 'trialing'])
+    .order('updated_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!extended.error) {
+    return extended.data || null;
+  }
+
+  if (!isMissingDbColumnError(extended.error)) {
+    console.error('[stripe] Failed to fetch guild active subscription status:', extended.error);
+    return null;
+  }
+
+  return null;
+}
+
 async function fetchLatestPurchaseByUserId(userId, env) {
   const supabase = await createSupabaseClient(env);
   if (!supabase) return null;
@@ -543,21 +611,39 @@ async function getSubscriptionStatusForBot(request, url, env) {
       return jsonResponse({ error: 'userId is required' }, 400);
     }
 
-    const subscription = await fetchLatestSubscriptionByUserId(userId, env);
+    const guildScopedSubscription = guildId
+      ? await fetchActiveSubscriptionByUserIdAndGuildId(userId, guildId, env)
+      : null;
+    const activeSubscription = await fetchActiveSubscriptionByUserId(userId, env);
+    const latestSubscription = await fetchLatestSubscriptionByUserId(userId, env);
+    const subscription = guildScopedSubscription || activeSubscription || latestSubscription;
     const latestPurchase = await fetchLatestPurchaseByUserId(userId, env);
     const guildSubscription = guildId ? await fetchGuildSubscriptionStatus(guildId, env) : null;
     if (!subscription) {
       const reconciled = await reconcileSubscriptionFromStripe(userId, guildId, env);
       if (reconciled) {
-        const recoveredSubscription = await fetchLatestSubscriptionByUserId(userId, env);
+        const recoveredGuildScoped = guildId
+          ? await fetchActiveSubscriptionByUserIdAndGuildId(userId, guildId, env)
+          : null;
+        const recoveredActive = await fetchActiveSubscriptionByUserId(userId, env);
+        const recoveredLatest = await fetchLatestSubscriptionByUserId(userId, env);
+        const recoveredSubscription = recoveredGuildScoped || recoveredActive || recoveredLatest;
         const recoveredLatestPurchase = await fetchLatestPurchaseByUserId(userId, env);
         const recoveredGuildSubscription = guildId ? await fetchGuildSubscriptionStatus(guildId, env) : null;
 
         if (recoveredSubscription) {
+          const guildPremium = !!(recoveredGuildSubscription?.premium_enabled || recoveredGuildSubscription?.enable_dedicated_channel);
+          const guildMatch = guildId
+            ? String(recoveredSubscription?.purchased_guild_id || '').trim() === guildId
+            : false;
+          const premium = guildId
+            ? (guildPremium || (guildMatch && isPremiumStatus(recoveredSubscription.status)))
+            : isPremiumStatus(recoveredSubscription.status);
+
           return jsonResponse({
             hasSubscription: true,
-            isPremium: isPremiumStatus(recoveredSubscription.status),
-            status: recoveredSubscription.status,
+            isPremium: premium,
+            status: premium ? recoveredSubscription.status : 'none',
             subscription: recoveredSubscription,
             latestPurchase: recoveredLatestPurchase || null,
             guildSubscription: recoveredGuildSubscription || null,
@@ -575,10 +661,18 @@ async function getSubscriptionStatusForBot(request, url, env) {
       });
     }
 
+    const guildPremium = !!(guildSubscription?.premium_enabled || guildSubscription?.enable_dedicated_channel);
+    const guildMatch = guildId
+      ? String(subscription?.purchased_guild_id || '').trim() === guildId
+      : false;
+    const premium = guildId
+      ? (guildPremium || (guildMatch && isPremiumStatus(subscription.status)))
+      : isPremiumStatus(subscription.status);
+
     return jsonResponse({
       hasSubscription: true,
-      isPremium: isPremiumStatus(subscription.status),
-      status: subscription.status,
+      isPremium: premium,
+      status: premium ? subscription.status : 'none',
       subscription: subscription,
       latestPurchase: latestPurchase || null,
       guildSubscription: guildSubscription || null
@@ -597,15 +691,21 @@ async function getSubscriptionStatusForDashboard(request, env) {
     }
 
     const userId = String(user.id).trim();
-    let subscription = await fetchLatestSubscriptionByUserId(userId, env);
+    let subscription = await fetchActiveSubscriptionByUserId(userId, env);
     const latestPurchase = await fetchLatestPurchaseByUserId(userId, env);
 
     if (!subscription) {
       const reconciled = await reconcileSubscriptionFromStripe(userId, '', env);
       if (reconciled) {
-        subscription = await fetchLatestSubscriptionByUserId(userId, env);
+        subscription = await fetchActiveSubscriptionByUserId(userId, env);
       }
     }
+
+    if (!subscription) {
+      subscription = await fetchLatestSubscriptionByUserId(userId, env);
+    }
+
+    const hasActiveSubscription = !!subscription && isPremiumStatus(subscription.status);
 
     const activeGuildId = String(
       subscription?.purchased_guild_id || latestPurchase?.purchased_guild_id || ''
@@ -627,8 +727,8 @@ async function getSubscriptionStatusForDashboard(request, env) {
 
     return jsonResponse({
       hasSubscription: true,
-      isPremium: isPremiumStatus(subscription.status),
-      status: subscription.status,
+      isPremium: hasActiveSubscription,
+      status: hasActiveSubscription ? subscription.status : 'none',
       subscription,
       activeGuildId,
       latestPurchase: latestPurchase || null,

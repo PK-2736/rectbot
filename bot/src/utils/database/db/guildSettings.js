@@ -209,7 +209,10 @@ function getAndParseRedisSettings(redis, key) {
 }
 
 function shouldFetchFromApi(val, normalized) {
-  return !val || !hasEssentialSettings(normalized);
+  // Redisに設定が存在する場合はRedisを常に優先する。
+  // ここでAPI値を再マージすると、直近で切り替えた recruit_style が
+  // 古いAPI値で上書きされ、表示スタイル不一致の原因になる。
+  return !val;
 }
 
 // Hybrid getter: prefer Redis, but if missing/empty, fetch from backend API and cache.
