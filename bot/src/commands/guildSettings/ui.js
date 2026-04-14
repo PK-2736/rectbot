@@ -531,7 +531,10 @@ async function showDedicatedChannelTypeSelect(interaction) {
 }
 
 function buildTemplateCustomizerUrl(interaction) {
-  const base = String(config.DASHBOARD_BASE_URL || 'https://recrubo.net').replace(/\/$/, '');
+  let base = String(config.DASHBOARD_BASE_URL || 'https://dash.recrubo.net').replace(/\/$/, '');
+  if (/^https?:\/\/recrubo\.net$/i.test(base)) {
+    base = 'https://dash.recrubo.net';
+  }
   const guildId = encodeURIComponent(interaction.guildId || '');
   return `${base}/plus/templates?guildId=${guildId}`;
 }
