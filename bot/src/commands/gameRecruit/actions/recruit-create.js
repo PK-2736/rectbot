@@ -152,7 +152,8 @@ function generateRecruitId(messageId) {
 }
 
 function prepareFinalRecruitData(recruitDataObj, actualRecruitId, interaction, actualMessageId, guildSettings, premiumEnabled) {
-  const veryFarFuture = new Date(Date.now() + 10 * 365 * 24 * 60 * 60 * 1000).toISOString();
+  const ttlHours = premiumEnabled ? 24 : 8;
+  const expiresAt = new Date(Date.now() + ttlHours * 60 * 60 * 1000).toISOString();
 
   return {
     ...recruitDataObj,
@@ -162,7 +163,7 @@ function prepareFinalRecruitData(recruitDataObj, actualRecruitId, interaction, a
     channelId: interaction.channelId,
     message_id: actualMessageId,
     status: 'recruiting',
-    expiresAt: premiumEnabled ? veryFarFuture : null,
+    expiresAt,
     premiumEnabled,
     start_time: new Date().toISOString(),
     startTimeNotified: false

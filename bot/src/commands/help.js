@@ -23,7 +23,7 @@ const COMMAND_DETAILS = {
     examples: '`/rect` → モーダルが開き、募集内容を入力',
     fields: [
       { name: '📝 入力項目', value: '• **タイトル**\n• **募集内容**\n• **参加人数**: 1-16人\n• **開始時間**\n• **VC有無**', inline: false },
-      { name: '🎯 機能', value: '• 募集カード生成\n• 参加/取り消しボタン\n• 参加者表示の自動更新\n• 自動締切（8時間）', inline: false }
+      { name: '🎯 機能', value: '• 募集カード生成\n• 参加/取り消しボタン\n• 参加者表示の自動更新\n• 自動締切（通常8時間 / サブスク24時間）', inline: false }
     ]
   },
   rect_template: {
@@ -227,6 +227,7 @@ module.exports = {
         .setDescription('特定のコマンドの詳細を表示')
         .addChoices(
           { name: 'rect', value: 'rect' },
+          { name: 'rect_template', value: 'rect_template' },
           { name: 'rect_edit', value: 'rect_edit' },
           { name: 'rect_close', value: 'rect_close' },
           { name: 'id_add', value: 'id_add' },

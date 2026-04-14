@@ -599,6 +599,34 @@ function isPremiumStatus(status) {
   return isActiveOrTrialing(status);
 }
 
+async function refreshSubscriptionForStatus({ subscription, userId, guildId, env }) {
+  if (!subscription?.stripe_subscription_id) return subscription;
+  if (!isActiveOrTrialing(subscription?.status)) return subscription;
+
+  try {
+    const stripe = await createStripeClient(env);
+    const latest = await retrieveSubscription(stripe, subscription.stripe_subscription_id);
+    if (!latest?.id) return subscription;
+
+    await upsertSubscriptionFromStripe({
+      subscription: latest,
+      userId,
+      guildId: String(guildId || '').trim() || latest?.metadata?.guildId,
+      env,
+    });
+
+    const refreshedGuildScoped = guildId
+      ? await fetchActiveSubscriptionByUserIdAndGuildId(userId, guildId, env)
+      : null;
+    const refreshedActive = await fetchActiveSubscriptionByUserId(userId, env);
+    const refreshedLatest = await fetchLatestSubscriptionByUserId(userId, env);
+    return refreshedGuildScoped || refreshedActive || refreshedLatest || subscription;
+  } catch (error) {
+    console.warn('[stripe] Failed to refresh subscription for status:', error?.message || error);
+    return subscription;
+  }
+}
+
 async function getSubscriptionStatusForBot(request, url, env) {
   try {
     if (!await verifyInternalAuth(request, env)) {
@@ -616,7 +644,8 @@ async function getSubscriptionStatusForBot(request, url, env) {
       : null;
     const activeSubscription = await fetchActiveSubscriptionByUserId(userId, env);
     const latestSubscription = await fetchLatestSubscriptionByUserId(userId, env);
-    const subscription = guildScopedSubscription || activeSubscription || latestSubscription;
+    let subscription = guildScopedSubscription || activeSubscription || latestSubscription;
+    subscription = await refreshSubscriptionForStatus({ subscription, userId, guildId, env });
     const latestPurchase = await fetchLatestPurchaseByUserId(userId, env);
     const guildSubscription = guildId ? await fetchGuildSubscriptionStatus(guildId, env) : null;
     if (!subscription) {

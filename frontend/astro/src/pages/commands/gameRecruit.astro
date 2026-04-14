@@ -2,7 +2,7 @@
 import CommandLayout from "./CommandLayout.astro";
 
 const title = "ゲーム募集機能のコマンド";
-const description = "Recruboのゲーム募集コマンド（/rect, /setting, /rect-edit, /rect-close）の使い方。埋め込み画像で視覚的にわかりやすい募集を作成・管理する方法を解説。";
+const description = "Recruboのゲーム募集コマンド（/rect, /rect_template, /setting, /rect-edit, /rect-close）の使い方。埋め込み画像で視覚的にわかりやすい募集を作成・管理する方法を解説。";
 ---
 <CommandLayout title={title} description={description}>
   <p class="text-lg text-slate-600 mb-8 text-center">ゲーム募集を作成・管理するためのコマンド一覧と使い方を紹介します。</p>
@@ -12,6 +12,10 @@ const description = "Recruboのゲーム募集コマンド（/rect, /setting, /r
     <div class="bg-gradient-to-br from-brand-50 to-white p-6 rounded-xl border border-brand-200 shadow-sm hover:shadow-md transition-shadow">
       <h3 class="text-xl font-bold mb-2 text-brand-600">📝 /rect</h3>
       <p class="text-slate-700">ゲーム募集を作成</p>
+    </div>
+    <div class="bg-gradient-to-br from-indigo-50 to-white p-6 rounded-xl border border-indigo-200 shadow-sm hover:shadow-md transition-shadow">
+      <h3 class="text-xl font-bold mb-2 text-indigo-600">🧩 /rect_template</h3>
+      <p class="text-slate-700">テンプレートから募集を作成</p>
     </div>
     <div class="bg-gradient-to-br from-purple-50 to-white p-6 rounded-xl border border-purple-200 shadow-sm hover:shadow-md transition-shadow">
       <h3 class="text-xl font-bold mb-2 text-purple-600">⚙️ /setting</h3>
@@ -57,6 +61,30 @@ const description = "Recruboのゲーム募集コマンド（/rect, /setting, /r
 
     <div class="bg-blue-50 border-l-4 border-blue-400 p-4 mb-6">
       <p class="text-blue-800"><strong>💡 ヒント:</strong> タイトルにゲーム名を入れると、他のプレイヤーが見つけやすくなります</p>
+    </div>
+  </div>
+
+  <!-- /rect_template コマンド詳細 -->
+  <div class="mb-12">
+    <h2 class="text-2xl font-bold mb-6 text-slate-900 border-b-2 border-indigo-200 pb-2">🧩 /rect_template - テンプレートから募集を作成する</h2>
+
+    <div class="mb-6">
+      <h3 class="text-lg font-semibold mb-3 text-slate-800">🎯 基本的な使い方</h3>
+      <ol class="list-decimal list-inside space-y-3 text-slate-700 bg-slate-50 p-5 rounded-lg">
+        <li><code class="bg-white px-2 py-1 rounded border">/rect_template</code> と入力</li>
+        <li><strong>テンプレート</strong>を必須で選択</li>
+        <li>必要に応じて、タイトル・人数・開始時間・色・通話設定を上書き</li>
+        <li>送信すると、テンプレートをベースに募集カードが投稿されます</li>
+      </ol>
+    </div>
+
+    <div class="bg-indigo-50 border-l-4 border-indigo-400 p-4 mb-6">
+      <p class="text-indigo-800"><strong>🔐 利用条件:</strong> このコマンドはサブスクリプション有効サーバー向けのテンプレート機能です</p>
+    </div>
+
+    <div class="bg-white p-6 rounded-xl border-2 border-indigo-200 shadow-sm">
+      <h4 class="text-md font-semibold mb-3 text-slate-800">💡 便利な使い方</h4>
+      <p class="text-slate-700">定期的な募集（例: 毎晩ランク、週末カジュアル）をテンプレート化しておくと、入力ミスを減らしつつ数秒で募集を開始できます。</p>
     </div>
   </div>
 

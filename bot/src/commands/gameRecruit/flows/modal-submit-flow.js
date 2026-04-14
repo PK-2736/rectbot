@@ -8,6 +8,7 @@ const { recruitParticipants, pendingModalOptions, startNotifySent } = require('.
 const { safeReply } = require('../../../utils/safeReply');
 const { createErrorEmbed } = require('../../../utils/embedHelpers');
 const { getGuildSettings, saveRecruitToRedis, saveParticipantsToRedis, setCooldown, getParticipantsFromRedis, saveRecruitmentData } = require('../../../utils/database');
+const backendFetch = require('../../../utils/common/backendFetch');
 const { EXEMPT_GUILD_IDS } = require('../data/constants');
 const { hexToIntColor } = require('../actions/buttonActions');
 const { createFinalRecruitData, fetchUserAvatarUrl } = require('../data/data-loader');
@@ -15,12 +16,52 @@ const { buildStartVCButton } = require('../ui/text-builders');
 
 /** 満員DMの重複送信防止 */
 const _fullNotifySent = new Set();
+const DEFAULT_RECRUIT_TTL_HOURS = 8;
+const PREMIUM_RECRUIT_TTL_HOURS = 24;
 
 /**
  * ギルドが除外対象かチェック
  */
 function isGuildExempt(guildId) {
   return EXEMPT_GUILD_IDS.has(String(guildId));
+}
+
+function isPremiumEnabled(guildSettings) {
+  return !!(guildSettings?.premium_enabled || guildSettings?.enable_dedicated_channel);
+}
+
+async function hasPremiumSubscription(userId, guildId) {
+  if (!userId) return false;
+  try {
+    const params = new URLSearchParams({ userId: String(userId) });
+    if (guildId) params.set('guildId', String(guildId));
+
+    const status = await backendFetch(`/api/stripe/bot/subscription-status?${params.toString()}`, {
+      method: 'GET'
+    });
+
+    return !!(
+      status?.isPremium ||
+      status?.guildSubscription?.premium_enabled ||
+      status?.guildSubscription?.enable_dedicated_channel
+    );
+  } catch (error) {
+    console.warn('[modal-submit-flow] failed to fetch subscription status:', error?.message || error);
+    return false;
+  }
+}
+
+function buildExpiresAtFromHours(hours) {
+  const ttlHours = Number(hours);
+  const safeHours = Number.isFinite(ttlHours) && ttlHours > 0 ? ttlHours : DEFAULT_RECRUIT_TTL_HOURS;
+  return new Date(Date.now() + safeHours * 60 * 60 * 1000).toISOString();
+}
+
+async function resolveRecruitTtlHours(interaction, guildSettings) {
+  if (isPremiumEnabled(guildSettings)) return PREMIUM_RECRUIT_TTL_HOURS;
+
+  const premiumBySubscription = await hasPremiumSubscription(interaction.user?.id, interaction.guildId);
+  return premiumBySubscription ? PREMIUM_RECRUIT_TTL_HOURS : DEFAULT_RECRUIT_TTL_HOURS;
 }
 
 /**
@@ -55,13 +96,29 @@ async function ensureNoActiveRecruit(interaction) {
   if (isGuildExempt(interaction.guildId)) return true;
   const { listRecruitsFromRedis } = require('../../../utils/database');
   try {
+    const guildSettings = await getGuildSettings(interaction.guildId);
+    if (isPremiumEnabled(guildSettings)) {
+      return true;
+    }
+
+    const premiumBySubscription = await hasPremiumSubscription(interaction.user?.id, interaction.guildId);
+    if (premiumBySubscription) {
+      return true;
+    }
+
     const allRecruits = await listRecruitsFromRedis();
     const guildIdStr = String(interaction.guildId);
     if (Array.isArray(allRecruits)) {
-      const guildRecruit = allRecruits.find(r => r && (String(r.guildId) === guildIdStr || String(r.guild_id) === guildIdStr) && r.status !== 'closed');
-      if (guildRecruit) {
+      const guildRecruitCount = allRecruits.filter(r => {
+        if (!r) return false;
+        const gid = String(r.guildId ?? r.guild_id ?? r.guild ?? r.metadata?.guildId ?? r.metadata?.guild ?? '');
+        const status = String(r.status ?? '').toLowerCase();
+        return gid === guildIdStr && (status === 'recruiting' || status === 'active');
+      }).length;
+
+      if (guildRecruitCount >= 3) {
         await safeReply(interaction, {
-          content: '❌ このサーバーには既に進行中の募集があります。締め切るか完了してから新しい募集を作成してください。',
+          content: '❌ このサーバーでは同時に実行できる募集は3件までです。既存の募集をいくつか締め切ってから新しい募集を作成してください。',
           flags: MessageFlags.Ephemeral,
           allowedMentions: { roles: [], users: [] }
         });
@@ -290,6 +347,10 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
   const actualMessageId = followUpMessage.id;
   const actualRecruitId = actualMessageId.slice(-8);
   const avatarUrl = await fetchUserAvatarUrl(interaction);
+
+  const ttlHours = await resolveRecruitTtlHours(interaction, guildSettings);
+  recruitDataObj.expiresAt = buildExpiresAtFromHours(ttlHours);
+  console.log('[modal-submit-flow] recruit ttlHours=', ttlHours, 'expiresAt=', recruitDataObj.expiresAt);
 
   // ステップ1: 最終データの初期化と永続化
   await initializeAndPersistData(actualRecruitId, actualMessageId, recruitDataObj, interaction, currentParticipants, null, avatarUrl);
