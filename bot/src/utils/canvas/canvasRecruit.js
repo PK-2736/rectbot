@@ -22,6 +22,9 @@ const DEFAULT_TEMPLATE_LAYOUT = {
   participantsBox: { x: 119, y: 180, width: 1134, height: 158, visible: true }
 };
 
+const DEFAULT_TITLE_TEXT_COLOR = '#FFFFFF';
+const DEFAULT_TITLE_FONT_SIZE = 8;
+
 function truncateText(ctx, text, maxWidth) {
   let result = text;
   if (ctx.measureText(result).width > maxWidth) {
@@ -295,18 +298,6 @@ function resolveTextColor(recruitData) {
   return normalizeHexColor(direct, '#FFFFFF');
 }
 
-function resolveTitleTextColor(recruitData, accentColor) {
-  const source = getTemplateSource(recruitData);
-  const direct = source?.title_text_color
-    || source?.titleTextColor
-    || recruitData?.title_text_color
-    || recruitData?.titleTextColor
-    || recruitData?.metadata?.title_text_color
-    || null;
-  const fallback = normalizeHexColor(accentColor, '#FFFFFF');
-  return normalizeHexColor(direct, fallback);
-}
-
 function resolveTemplateLayout(recruitData) {
   const source = getTemplateSource(recruitData);
   const layout = source?.layout_json
@@ -395,7 +386,6 @@ function getScaledField(field, layout, canvasSize, fallback) {
 async function drawTemplateModeCard(ctx, recruitData, layout, canvasSize, accentColor, participantIds = [], client = null, avatarUrls = null) {
   const stickerUrl = getTemplateBackgroundUrl(recruitData);
   const textColor = resolveTextColor(recruitData);
-  const titleTextColor = resolveTitleTextColor(recruitData, accentColor);
 
   // テンプレートモードは透明背景で、埋め込み画像はステッカーとして imageBox に 重ねる。
   // 背景は透明（ctx.clearRect後の状態を保持）
@@ -418,7 +408,7 @@ async function drawTemplateModeCard(ctx, recruitData, layout, canvasSize, accent
   const scaledVoiceBox = getScaledBox(layout.voiceBox || DEFAULT_TEMPLATE_LAYOUT.voiceBox, layout, canvasSize, DEFAULT_TEMPLATE_LAYOUT.voiceBox);
 
   // /rect と同じタイトル描画方式に統一
-  drawCardTitle(ctx, canvasSize.width, recruitData.title || '募集タイトル', accentColor, titleTextColor);
+  drawCardTitle(ctx, canvasSize.width, recruitData.title || '募集タイトル', accentColor);
 
   if (contentBox.visible) {
     ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
@@ -471,8 +461,8 @@ async function drawTemplateModeCard(ctx, recruitData, layout, canvasSize, accent
   return true;
 }
 
-function drawClassicTitle(ctx, width, title, textColor = '#FFFFFF') {
-  ctx.font = 'bold 8px CorporateRounded';
+function drawClassicTitle(ctx, width, title) {
+  ctx.font = `bold ${DEFAULT_TITLE_FONT_SIZE}px CorporateRounded`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
 
@@ -491,7 +481,7 @@ function drawClassicTitle(ctx, width, title, textColor = '#FFFFFF') {
   ctx.lineWidth = 1;
   ctx.strokeText(titleText, width / 2, 5);
 
-  ctx.fillStyle = textColor;
+  ctx.fillStyle = DEFAULT_TITLE_TEXT_COLOR;
   ctx.fillText(titleText, width / 2, 5);
 
   // /rect 従来表示のタイトル左右の装飾線を復元
@@ -541,8 +531,7 @@ function drawClassicInfoItem(ctx, item, box, textColor = '#FFFFFF') {
 
 async function drawClassicModeCard(ctx, recruitData, canvasSize, accentColor, participantIds = [], client = null, avatarUrls = null) {
   drawClassicBorder(ctx, canvasSize.width, canvasSize.height, accentColor);
-  const titleTextColor = resolveTitleTextColor(recruitData, accentColor);
-  drawClassicTitle(ctx, canvasSize.width, recruitData.title || '募集タイトル', titleTextColor);
+  drawClassicTitle(ctx, canvasSize.width, recruitData.title || '募集タイトル');
 
   const contentBox = { x: 5, y: 36, width: 70, height: 54 };
   drawContentBoxBackground(ctx, contentBox.x, contentBox.y, contentBox.width, contentBox.height);
@@ -711,9 +700,9 @@ function drawBorder(ctx, width, height, accentColor) {
   ctx.strokeRect(0, 0, width, height);
 }
 
-function drawCardTitle(ctx, width, title, accentColor, textColor = '#FFFFFF') {
-  ctx.fillStyle = textColor;
-  ctx.font = 'bold 8px CorporateRounded';
+function drawCardTitle(ctx, width, title, accentColor) {
+  ctx.fillStyle = DEFAULT_TITLE_TEXT_COLOR;
+  ctx.font = `bold ${DEFAULT_TITLE_FONT_SIZE}px CorporateRounded`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
 
@@ -732,7 +721,7 @@ function drawCardTitle(ctx, width, title, accentColor, textColor = '#FFFFFF') {
   ctx.lineWidth = 1;
   ctx.strokeText(titleText, width / 2, 5);
 
-  ctx.fillStyle = textColor;
+  ctx.fillStyle = DEFAULT_TITLE_TEXT_COLOR;
   ctx.fillText(titleText, width / 2, 5);
 
   ctx.strokeStyle = 'rgba(0, 0, 0, 0.6)';
