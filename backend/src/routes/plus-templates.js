@@ -2,6 +2,76 @@ import { jsonResponse } from '../worker/http.js';
 import { verifyJWT } from '../worker/utils/auth.js';
 import { verifyInternalAuth } from '../worker/auth.js';
 
+function base64UrlToUint8Array(base64url) {
+  const b64 = String(base64url || '').replace(/-/g, '+').replace(/_/g, '/');
+  const padded = b64 + '==='.slice((b64.length + 3) % 4);
+  const raw = atob(padded);
+  const out = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i += 1) out[i] = raw.charCodeAt(i);
+  return out;
+}
+
+function base64UrlToString(base64url) {
+  const bytes = base64UrlToUint8Array(base64url);
+  return new TextDecoder().decode(bytes);
+}
+
+function timingSafeEqualSimple(a, b) {
+  const aa = String(a || '');
+  const bb = String(b || '');
+  if (aa.length !== bb.length) return false;
+  let mismatch = 0;
+  for (let i = 0; i < aa.length; i += 1) {
+    mismatch |= aa.charCodeAt(i) ^ bb.charCodeAt(i);
+  }
+  return mismatch === 0;
+}
+
+async function verifyTemplateGuestToken(token, env) {
+  try {
+    const secret = String(env.TEMPLATE_GUEST_TOKEN_SECRET || '').trim();
+    if (!secret) return null;
+
+    const [payloadPart, sigPart] = String(token || '').split('.');
+    if (!payloadPart || !sigPart) return null;
+
+    const key = await crypto.subtle.importKey(
+      'raw',
+      new TextEncoder().encode(secret),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign']
+    );
+
+    const computedSigBytes = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(payloadPart));
+    const computedSig = btoa(String.fromCharCode(...new Uint8Array(computedSigBytes)))
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/g, '');
+
+    if (!timingSafeEqualSimple(computedSig, sigPart)) return null;
+
+    const payload = JSON.parse(base64UrlToString(payloadPart));
+    const gid = String(payload?.gid || '').trim();
+    const uid = String(payload?.uid || '').trim();
+    const exp = Number(payload?.exp || 0);
+    if (!gid || !uid || !Number.isFinite(exp)) return null;
+    if (Math.floor(Date.now() / 1000) > exp) return null;
+
+    return { guildId: gid, userId: uid };
+  } catch (_e) {
+    return null;
+  }
+}
+
+function readGuestToken(request, url) {
+  const fromHeader = String(request.headers.get('x-template-guest-token') || '').trim();
+  if (fromHeader) return fromHeader;
+  const fromQuery = String(url.searchParams.get('guestToken') || '').trim();
+  if (fromQuery) return fromQuery;
+  return null;
+}
+
 function parseCookies(cookieHeader) {
   const cookies = {};
   String(cookieHeader || '').split(';').forEach((part) => {
@@ -125,6 +195,26 @@ async function canAccessTemplates(user, guildId, env) {
   return ensurePremiumForGuild(user.id, guildId, env);
 }
 
+async function resolveTemplateActor(request, url, env, guildId) {
+  const user = await getUserFromRequest(request, env);
+  if (user) {
+    const hasAccess = await canAccessTemplates(user, guildId, env);
+    if (hasAccess) {
+      return { ok: true, actorType: 'user', userId: user.id };
+    }
+  }
+
+  const guestToken = readGuestToken(request, url);
+  if (guestToken) {
+    const guest = await verifyTemplateGuestToken(guestToken, env);
+    if (guest && guest.guildId === String(guildId || '').trim()) {
+      return { ok: true, actorType: 'guest', userId: guest.userId };
+    }
+  }
+
+  return { ok: false };
+}
+
 async function ensurePremiumForGuild(userId, guildId, env) {
   const supabase = await createSupabaseClient(env);
   if (!supabase) return false;
@@ -230,16 +320,13 @@ const TEMPLATE_LIMIT_PER_GUILD = 5;
 const TEMPLATE_SELECT = 'guild_id, name, title, participants, color, notification_role_id, content, start_time_text, regulation_members, voice_place, voice_option, background_image_url, background_asset_key, title_x, title_y, members_x, members_y, font_family, font_size, text_color, layout_json, updated_at';
 
 async function listTemplates(request, env, safeHeaders) {
-  const user = await getUserFromRequest(request, env);
-  if (!user) return jsonResponse({ error: 'Unauthorized' }, 401, safeHeaders);
-
   const url = new URL(request.url);
   const guildId = String(url.searchParams.get('guildId') || '').trim();
   if (!guildId) return jsonResponse({ error: 'guildId is required' }, 400, safeHeaders);
 
-  const hasAccess = await canAccessTemplates(user, guildId, env);
-  if (!hasAccess) {
-    return jsonResponse({ error: 'Premium subscription is required for this guild' }, 403, safeHeaders);
+  const actor = await resolveTemplateActor(request, url, env, guildId);
+  if (!actor.ok) {
+    return jsonResponse({ error: 'Unauthorized for this guild' }, 403, safeHeaders);
   }
 
   const supabase = await createSupabaseClient(env);
@@ -261,9 +348,6 @@ async function listTemplates(request, env, safeHeaders) {
 }
 
 async function deleteTemplate(request, env, safeHeaders) {
-  const user = await getUserFromRequest(request, env);
-  if (!user) return jsonResponse({ error: 'Unauthorized' }, 401, safeHeaders);
-
   const body = await request.json().catch(() => ({}));
   const guildId = String(body.guildId || '').trim();
   const name = String(body.name || '').trim();
@@ -271,9 +355,10 @@ async function deleteTemplate(request, env, safeHeaders) {
     return jsonResponse({ error: 'guildId and name are required' }, 400, safeHeaders);
   }
 
-  const hasAccess = await canAccessTemplates(user, guildId, env);
-  if (!hasAccess) {
-    return jsonResponse({ error: 'Premium subscription is required for this guild' }, 403, safeHeaders);
+  const url = new URL(request.url);
+  const actor = await resolveTemplateActor(request, url, env, guildId);
+  if (!actor.ok) {
+    return jsonResponse({ error: 'Unauthorized for this guild' }, 403, safeHeaders);
   }
 
   const supabase = await createSupabaseClient(env);
@@ -315,9 +400,6 @@ async function deleteTemplate(request, env, safeHeaders) {
 }
 
 async function upsertTemplate(request, env, safeHeaders) {
-  const user = await getUserFromRequest(request, env);
-  if (!user) return jsonResponse({ error: 'Unauthorized' }, 401, safeHeaders);
-
   const body = await request.json().catch(() => ({}));
   const guildId = String(body.guildId || '').trim();
   const name = String(body.name || '').trim();
@@ -336,9 +418,10 @@ async function upsertTemplate(request, env, safeHeaders) {
     return jsonResponse({ error: 'guildId and name are required' }, 400, safeHeaders);
   }
 
-  const hasAccess = await canAccessTemplates(user, guildId, env);
-  if (!hasAccess) {
-    return jsonResponse({ error: 'Premium subscription is required for this guild' }, 403, safeHeaders);
+  const url = new URL(request.url);
+  const actor = await resolveTemplateActor(request, url, env, guildId);
+  if (!actor.ok) {
+    return jsonResponse({ error: 'Unauthorized for this guild' }, 403, safeHeaders);
   }
 
   const supabase = await createSupabaseClient(env);
@@ -367,7 +450,7 @@ async function upsertTemplate(request, env, safeHeaders) {
     return jsonResponse({ error: `テンプレートは1サーバーにつき${TEMPLATE_LIMIT_PER_GUILD}個までです。不要なテンプレートを削除してください。` }, 400, safeHeaders);
   }
 
-  const payload = buildTemplatePayload(body, user.id, env, existingTemplate || null);
+  const payload = buildTemplatePayload(body, actor.userId, env, existingTemplate || null);
   console.log('[plus/templates] upsert resolved payload', {
     guildId,
     name,
@@ -389,12 +472,6 @@ async function upsertTemplate(request, env, safeHeaders) {
 }
 
 async function uploadTemplateAsset(request, env, safeHeaders) {
-  const user = await getUserFromRequest(request, env);
-  if (!user) {
-    console.warn('[plus/templates] upload rejected: unauthorized');
-    return jsonResponse({ error: 'Unauthorized' }, 401, safeHeaders);
-  }
-
   if (!env.PLUS_TEMPLATES_R2) {
     console.error('[plus/templates] upload rejected: R2 binding missing');
     return jsonResponse({ error: 'R2 bucket binding PLUS_TEMPLATES_R2 is not configured' }, 500, safeHeaders);
@@ -411,21 +488,23 @@ async function uploadTemplateAsset(request, env, safeHeaders) {
     return jsonResponse({ error: 'file is required' }, 400, safeHeaders);
   }
 
+  const url = new URL(request.url);
+  const actor = await resolveTemplateActor(request, url, env, guildId);
+  if (!actor.ok) {
+    console.warn('[plus/templates] upload rejected: unauthorized');
+    return jsonResponse({ error: 'Unauthorized for this guild' }, 403, safeHeaders);
+  }
+
   const fileName = String(file?.name || 'template.png');
   const fileSize = Number(file?.size || 0);
   console.log('[plus/templates] upload request', {
-    userId: user.id,
+    userId: actor.userId,
     guildId,
     templateName,
     fileName,
     fileSize,
     contentType: String(file?.type || ''),
   });
-
-  const hasPremium = await ensurePremiumForGuild(user.id, guildId, env);
-  if (!hasPremium) {
-    return jsonResponse({ error: 'Premium subscription is required for this guild' }, 403, safeHeaders);
-  }
 
   const supabase = await createSupabaseClient(env);
   if (!supabase) return jsonResponse({ error: 'Supabase is not configured' }, 500, safeHeaders);
@@ -472,7 +551,7 @@ async function uploadTemplateAsset(request, env, safeHeaders) {
     await env.PLUS_TEMPLATES_R2.put(key, bytes, {
       httpMetadata: { contentType: mimeType || 'application/octet-stream' },
       customMetadata: {
-        uploadedBy: user.id,
+        uploadedBy: actor.userId,
         guildId,
         templateName: sanitizeFileName(templateName),
       },
@@ -514,7 +593,7 @@ async function uploadTemplateAsset(request, env, safeHeaders) {
           content: 'ガチエリア / 初心者歓迎',
           start_time_text: '今から',
           voice_place: '通話あり',
-          created_by: user.id,
+          created_by: actor.userId,
           updated_at: now,
           background_asset_key: key,
           background_image_url: backgroundImageUrl,
@@ -610,18 +689,16 @@ async function listTemplatesForBot(request, url, env, safeHeaders) {
 }
 
 async function previewTemplate(request, env, safeHeaders) {
-  const user = await getUserFromRequest(request, env);
-  if (!user) return jsonResponse({ error: 'Unauthorized' }, 401, safeHeaders);
-
   const body = await request.json().catch(() => ({}));
   const guildId = String(body.guildId || '').trim();
   if (!guildId) {
     return jsonResponse({ error: 'guildId is required' }, 400, safeHeaders);
   }
 
-  const hasAccess = await canAccessTemplates(user, guildId, env);
-  if (!hasAccess) {
-    return jsonResponse({ error: 'Premium subscription is required for this guild' }, 403, safeHeaders);
+  const url = new URL(request.url);
+  const actor = await resolveTemplateActor(request, url, env, guildId);
+  if (!actor.ok) {
+    return jsonResponse({ error: 'Unauthorized for this guild' }, 403, safeHeaders);
   }
 
   const internalBase = resolveInternalBotBase(env);

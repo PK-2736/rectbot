@@ -38,6 +38,7 @@ jobs:
           STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
           STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
           STRIPE_PREMIUM_PRICE_ID: ${{ secrets.STRIPE_PREMIUM_PRICE_ID }}
+          TEMPLATE_GUEST_TOKEN_SECRET: ${{ secrets.TEMPLATE_GUEST_TOKEN_SECRET }}
         run: |
           echo "Checking GitHub Secrets for Workers..."
           missing=()
@@ -101,6 +102,7 @@ jobs:
           STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
           STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
           STRIPE_PREMIUM_PRICE_ID: ${{ secrets.STRIPE_PREMIUM_PRICE_ID }}
+          TEMPLATE_GUEST_TOKEN_SECRET: ${{ secrets.TEMPLATE_GUEST_TOKEN_SECRET }}
         run: |
           cd backend
           set -euo pipefail
@@ -141,6 +143,7 @@ jobs:
           register_secret STRIPE_SECRET_KEY STRIPE_SECRET_KEY
           register_secret STRIPE_WEBHOOK_SECRET STRIPE_WEBHOOK_SECRET
           register_secret STRIPE_PREMIUM_PRICE_ID STRIPE_PREMIUM_PRICE_ID
+          register_secret TEMPLATE_GUEST_TOKEN_SECRET TEMPLATE_GUEST_TOKEN_SECRET
 
       - name: List registered wrangler secrets (for debug)
         run: |

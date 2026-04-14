@@ -72,3 +72,4 @@ R2_PUBLIC_BASE_URL = "https://api.recrubo.net/api/plus/assets"
 # - STRIPE_SECRET_KEY (Stripe API Secret Key)
 # - STRIPE_WEBHOOK_SECRET (Stripe Webhook Signing Secret)
 # - STRIPE_PREMIUM_PRICE_ID (Stripe Price ID for premium subscription)
+# - TEMPLATE_GUEST_TOKEN_SECRET (Discord経由のゲスト編集URL署名用)

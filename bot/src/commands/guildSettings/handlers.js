@@ -4,6 +4,7 @@ const {
   MessageFlags,
   ChannelType,
 } = require('discord.js');
+const crypto = require('crypto');
 
 const { saveGuildSettingsToRedis, getGuildSettingsFromRedis, getGuildSettingsSmart, finalizeGuildSettings, upsertTemplate } = require('../../utils/database');
 const { safeReply } = require('../../utils/safeReply');
@@ -21,6 +22,7 @@ const {
   showColorModal,
   showDedicatedChannelTypeSelect,
 } = require('./ui');
+const config = require('../../config');
 
 function isGuildOwner(interaction) {
   const userId = interaction.user?.id;
@@ -152,6 +154,39 @@ async function canAccessTemplateCustomizer(interaction) {
   return false;
 }
 
+function toBase64Url(input) {
+  return Buffer.from(input)
+    .toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/g, '');
+}
+
+function generateTemplateGuestToken(interaction) {
+  const secret = String(config.TEMPLATE_GUEST_TOKEN_SECRET || '').trim();
+  if (!secret) return null;
+
+  const ttl = Number.isFinite(config.TEMPLATE_GUEST_TOKEN_TTL_SECONDS)
+    ? Math.max(60, Math.trunc(config.TEMPLATE_GUEST_TOKEN_TTL_SECONDS))
+    : 1800;
+  const payload = {
+    gid: String(interaction.guildId || ''),
+    uid: String(interaction.user?.id || ''),
+    exp: Math.floor(Date.now() / 1000) + ttl,
+  };
+
+  const payloadPart = toBase64Url(JSON.stringify(payload));
+  const sigPart = crypto
+    .createHmac('sha256', secret)
+    .update(payloadPart)
+    .digest('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/g, '');
+
+  return `${payloadPart}.${sigPart}`;
+}
+
 async function ensureAdmin(interaction) {
   const isAdmin = await isAdminUser(interaction);
   if (!isAdmin) {
@@ -213,7 +248,8 @@ async function handleButtonInteraction(interaction) {
         return;
       }
 
-      await showTemplateCustomizerWebLink(interaction);
+      const guestToken = generateTemplateGuestToken(interaction);
+      await showTemplateCustomizerWebLink(interaction, guestToken);
       return;
     }
 

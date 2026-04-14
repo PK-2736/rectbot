@@ -530,13 +530,14 @@ async function showDedicatedChannelTypeSelect(interaction) {
   });
 }
 
-function buildTemplateCustomizerUrl(interaction) {
+function buildTemplateCustomizerUrl(interaction, guestToken = null) {
   let base = String(config.DASHBOARD_BASE_URL || 'https://dash.recrubo.net').replace(/\/$/, '');
   if (/^https?:\/\/recrubo\.net$/i.test(base)) {
     base = 'https://dash.recrubo.net';
   }
   const guildId = encodeURIComponent(interaction.guildId || '');
-  return `${base}/plus/templates?guildId=${guildId}`;
+  const tokenParam = guestToken ? `&guestToken=${encodeURIComponent(String(guestToken))}` : '';
+  return `${base}/plus/templates?guildId=${guildId}${tokenParam}`;
 }
 
 async function showTemplateCustomizerModeSelect(interaction) {
@@ -620,8 +621,8 @@ async function showTemplateCustomizerUserSelect(interaction) {
   });
 }
 
-async function showTemplateCustomizerWebLink(interaction) {
-  const url = buildTemplateCustomizerUrl(interaction);
+async function showTemplateCustomizerWebLink(interaction, guestToken = null) {
+  const url = buildTemplateCustomizerUrl(interaction, guestToken);
   const linkRow = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setLabel('Webカスタマイズページへ移動')

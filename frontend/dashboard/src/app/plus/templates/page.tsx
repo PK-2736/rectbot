@@ -174,6 +174,9 @@ function parseLayout(input: unknown): TemplateLayout {
 
 export default function PlusTemplatePage() {
   const { user, login, isLoading } = useAuth();
+  const [guestGuildId, setGuestGuildId] = useState("");
+  const [guestToken, setGuestToken] = useState("");
+  const isGuestMode = !!guestGuildId && !!guestToken;
 
   const [guilds, setGuilds] = useState<Guild[]>([]);
   const [selectedGuildId, setSelectedGuildId] = useState("");
@@ -194,6 +197,25 @@ export default function PlusTemplatePage() {
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api.recrubo.net";
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search || "");
+    setGuestGuildId(String(params.get("guildId") || "").trim());
+    setGuestToken(String(params.get("guestToken") || "").trim());
+  }, []);
+
+  const guestHeaders = () => {
+    if (!isGuestMode) return undefined;
+    return { "x-template-guest-token": guestToken };
+  };
+
+  useEffect(() => {
+    if (isGuestMode) {
+      setSelectedGuildId(guestGuildId);
+      setGuilds([{ id: guestGuildId, name: `固定サーバー (${guestGuildId})`, icon: null }]);
+      setLoadingGuilds(false);
+      return;
+    }
+
     if (!user) return;
     setLoadingGuilds(true);
     fetch(`${apiBaseUrl}/api/discord/guilds`, { credentials: "include" })
@@ -205,7 +227,7 @@ export default function PlusTemplatePage() {
       })
       .catch((e) => setError(e instanceof Error ? e.message : "サーバー一覧の取得に失敗しました"))
       .finally(() => setLoadingGuilds(false));
-  }, [user, apiBaseUrl]);
+  }, [user, apiBaseUrl, isGuestMode, guestGuildId]);
 
   const readEditorCache = (guildId: string): { form: FormState; layout: TemplateLayout } | null => {
     try {
@@ -249,8 +271,9 @@ export default function PlusTemplatePage() {
   const reloadTemplates = async (guildId: string) => {
     setLoadingTemplates(true);
     try {
-      const res = await fetch(`${apiBaseUrl}/api/plus/templates?guildId=${encodeURIComponent(guildId)}`, {
-        credentials: "include",
+      const listUrl = `${apiBaseUrl}/api/plus/templates?guildId=${encodeURIComponent(guildId)}${isGuestMode ? `&guestToken=${encodeURIComponent(guestToken)}` : ''}`;
+      const res = await fetch(listUrl, {
+        credentials: isGuestMode ? "omit" : "include",
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || `template fetch failed (${res.status})`);
@@ -347,7 +370,8 @@ export default function PlusTemplatePage() {
 
     const res = await fetch(`${apiBaseUrl}/api/plus/template-assets/upload`, {
       method: "POST",
-      credentials: "include",
+        credentials: isGuestMode ? "omit" : "include",
+        headers: guestHeaders(),
       body: fd,
     });
     const data = await res.json().catch(() => ({}));
@@ -404,8 +428,8 @@ export default function PlusTemplatePage() {
 
       const res = await fetch(`${apiBaseUrl}/api/plus/templates`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
+        headers: { "Content-Type": "application/json", ...(guestHeaders() || {}) },
+        credentials: isGuestMode ? "omit" : "include",
         body: JSON.stringify(payload),
       });
       const data = await res.json().catch(() => ({}));
@@ -429,8 +453,8 @@ export default function PlusTemplatePage() {
     try {
       const res = await fetch(`${apiBaseUrl}/api/plus/templates`, {
         method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
+        headers: { "Content-Type": "application/json", ...(guestHeaders() || {}) },
+        credentials: isGuestMode ? "omit" : "include",
         body: JSON.stringify({ guildId: selectedGuildId, name: templateName }),
       });
       const data = await res.json().catch(() => ({}));
@@ -448,11 +472,11 @@ export default function PlusTemplatePage() {
     }
   };
 
-  if (isLoading) {
+  if (!isGuestMode && isLoading) {
     return <div className="min-h-screen bg-gradient-to-b from-amber-50 via-rose-50 to-white text-stone-700 flex items-center justify-center">読み込み中...</div>;
   }
 
-  if (!user) {
+  if (!isGuestMode && !user) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-amber-50 via-rose-50 to-white flex items-center justify-center px-4">
         <div className="w-full max-w-md rounded-2xl border border-amber-200 bg-white/90 p-6 shadow-sm text-center space-y-3">
@@ -490,6 +514,7 @@ export default function PlusTemplatePage() {
                 <select
                   value={selectedGuildId}
                   onChange={(e) => setSelectedGuildId(e.target.value)}
+                  disabled={isGuestMode}
                   className="w-full rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm text-stone-800"
                 >
                   {guilds.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}

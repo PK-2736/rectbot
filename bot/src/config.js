@@ -7,6 +7,8 @@ module.exports = {
   BACKEND_API_URL: process.env.BACKEND_API_URL || process.env.BACKEND_URL || 'https://api.recrubo.net',
   // Web dashboard base URL for template customization page links
   DASHBOARD_BASE_URL: process.env.DASHBOARD_BASE_URL || process.env.DASHBOARD_URL || process.env.FRONTEND_BASE_URL || 'https://dash.recrubo.net',
+  TEMPLATE_GUEST_TOKEN_SECRET: process.env.TEMPLATE_GUEST_TOKEN_SECRET,
+  TEMPLATE_GUEST_TOKEN_TTL_SECONDS: Number(process.env.TEMPLATE_GUEST_TOKEN_TTL_SECONDS || 1800),
   // Redis connection helpers
   REDIS_HOST: process.env.REDIS_HOST || 'localhost',
   REDIS_PORT: process.env.REDIS_PORT || 6379,

@@ -63,6 +63,7 @@ jobs:
           # Stripe 関連の環境変数
           STRIPE_PREMIUM_PRICE_ID: ${{ secrets.STRIPE_PREMIUM_PRICE_ID }}
           STRIPE_PRICE_ID: ${{ secrets.STRIPE_PRICE_ID }}
+          TEMPLATE_GUEST_TOKEN_SECRET: ${{ secrets.TEMPLATE_GUEST_TOKEN_SECRET }}
         run: |
           ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no $OCI_USER@$OCI_HOST '
             export SERVICE_TOKEN="'"$SERVICE_TOKEN"'" || true; \
@@ -80,6 +81,7 @@ jobs:
             export REDIS_PORT="'"$REDIS_PORT"'" || true; \
             export STRIPE_PREMIUM_PRICE_ID="'"$STRIPE_PREMIUM_PRICE_ID"'" || true; \
             export STRIPE_PRICE_ID="'"$STRIPE_PRICE_ID"'" || true; \
+            export TEMPLATE_GUEST_TOKEN_SECRET="'"$TEMPLATE_GUEST_TOKEN_SECRET"'" || true; \
             source ~/.bashrc || true; \
             source ~/.nvm/nvm.sh || true; \
             cd ~/rectbot || exit 1; \
