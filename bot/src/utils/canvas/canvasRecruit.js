@@ -501,7 +501,7 @@ function drawClassicTitle(ctx, width, title, textColor = '#FFFFFF') {
 function drawClassicBorder(ctx, width, height, accentColor) {
   const borderColor = resolveClassicBorderColor(accentColor);
   ctx.strokeStyle = borderColor;
-  ctx.lineWidth = 4;
+  ctx.lineWidth = 5;
   ctx.strokeRect(0, 0, width, height);
 }
 
@@ -674,7 +674,6 @@ function setupCanvas(outputScale = DEFAULT_TEMPLATE_LAYOUT.outputScale) {
   const width = 140;
   const height = 100;
   const scale = Math.max(2, Math.min(10, Math.round(Number(outputScale) || DEFAULT_TEMPLATE_LAYOUT.outputScale)));
-  const contentScale = 0.92;
   const canvas = createCanvas(width * scale, height * scale);
   const ctx = canvas.getContext('2d');
 
@@ -685,14 +684,9 @@ function setupCanvas(outputScale = DEFAULT_TEMPLATE_LAYOUT.outputScale) {
   ctx.antialias = 'subpixel';
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
-  // 先に実ピクセル基準でクリアしてから描画変換を適用
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.scale(scale, scale);
-  // 解像度は維持したまま、描画内容のみ少し縮小して中央寄せ
-  const marginX = (width * (1 - contentScale)) / 2;
-  const marginY = (height * (1 - contentScale)) / 2;
-  ctx.translate(marginX, marginY);
-  ctx.scale(contentScale, contentScale);
+  // 透明な背景として初期化（アルファチャンネルを保持）
+  ctx.clearRect(0, 0, width, height);
 
   return { canvas, ctx, width, height };
 }
