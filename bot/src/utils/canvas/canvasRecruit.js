@@ -530,7 +530,7 @@ async function drawClassicModeCard(ctx, recruitData, canvasSize, accentColor, pa
   drawClassicBorder(ctx, canvasSize.width, canvasSize.height, accentColor);
   drawClassicTitle(ctx, canvasSize.width, recruitData.title || '募集タイトル');
 
-  const contentBox = { x: 5, y: 36, width: 70, height: 54 };
+  const contentBox = { x: 3, y: 36, width: 70, height: 54 };
   drawContentBoxBackground(ctx, contentBox.x, contentBox.y, contentBox.width, contentBox.height);
 
   const currentMembers = getCurrentMembers(recruitData, participantIds);
@@ -547,9 +547,9 @@ async function drawClassicModeCard(ctx, recruitData, canvasSize, accentColor, pa
 
   const infoItems = buildInfoItems(recruitData, participantIds);
   const infoBoxes = [
-    { x: 86, y: 39, width: 50, height: 14 },
-    { x: 86, y: 57, width: 50, height: 14 },
-    { x: 86, y: 75, width: 50, height: 14 }
+    { x: 84, y: 39, width: 50, height: 14 },
+    { x: 84, y: 57, width: 50, height: 14 },
+    { x: 84, y: 75, width: 50, height: 14 }
   ];
   for (let i = 0; i < Math.min(infoItems.length, infoBoxes.length); i++) {
     drawClassicInfoItem(ctx, infoItems[i], infoBoxes[i]);
