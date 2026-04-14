@@ -249,6 +249,13 @@ async function handleButtonInteraction(interaction) {
       }
 
       const guestToken = generateTemplateGuestToken(interaction);
+      if (!guestToken) {
+        await safeReply(interaction, {
+          content: '❌ ゲスト編集リンクを発行できませんでした。管理者に `TEMPLATE_GUEST_TOKEN_SECRET` の設定を依頼してください。',
+          flags: MessageFlags.Ephemeral
+        });
+        return;
+      }
       await showTemplateCustomizerWebLink(interaction, guestToken);
       return;
     }

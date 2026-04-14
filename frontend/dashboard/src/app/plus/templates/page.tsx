@@ -177,6 +177,7 @@ export default function PlusTemplatePage() {
   const [guestGuildId, setGuestGuildId] = useState("");
   const [guestToken, setGuestToken] = useState("");
   const isGuestMode = !!guestGuildId && !!guestToken;
+  const hasGuildOnlyLink = !!guestGuildId && !guestToken;
 
   const [guilds, setGuilds] = useState<Guild[]>([]);
   const [selectedGuildId, setSelectedGuildId] = useState("");
@@ -477,6 +478,18 @@ export default function PlusTemplatePage() {
   }
 
   if (!isGuestMode && !user) {
+    if (hasGuildOnlyLink) {
+      return (
+        <div className="min-h-screen bg-gradient-to-b from-amber-50 via-rose-50 to-white flex items-center justify-center px-4">
+          <div className="w-full max-w-md rounded-2xl border border-amber-200 bg-white/90 p-6 shadow-sm text-center space-y-3">
+            <h1 className="text-lg font-semibold text-stone-900">リンクが不完全です</h1>
+            <p className="text-sm text-stone-600">このURLにはゲストトークンが含まれていないため、ログインなしで編集できません。</p>
+            <p className="text-xs text-stone-500">Discord の「カスタマイズページを開く」ボタンから再度開いてください。</p>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="min-h-screen bg-gradient-to-b from-amber-50 via-rose-50 to-white flex items-center justify-center px-4">
         <div className="w-full max-w-md rounded-2xl border border-amber-200 bg-white/90 p-6 shadow-sm text-center space-y-3">
