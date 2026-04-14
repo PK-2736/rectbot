@@ -38,8 +38,8 @@ module.exports = {
         return;
       }
 
-      // Role/Channel select menus
-      if (interaction.isRoleSelectMenu?.() || interaction.isChannelSelectMenu?.()) {
+      // Role/Channel/User select menus
+      if (interaction.isRoleSelectMenu?.() || interaction.isChannelSelectMenu?.() || interaction.isUserSelectMenu?.()) {
         await handleRoleOrChannelSelectMenu(interaction, client);
         return;
       }

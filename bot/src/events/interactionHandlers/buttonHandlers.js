@@ -27,7 +27,11 @@ const guildSettingsButtons = new Set([
   'set_update_channel',
   'reset_all_settings',
   'finalize_settings',
-  'create_template'
+  'create_template',
+  'open_template_customizer_web',
+  'set_template_customizer_mode',
+  'set_template_customizer_roles',
+  'set_template_customizer_users'
 ]);
 
 /**
