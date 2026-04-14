@@ -501,7 +501,7 @@ function drawClassicTitle(ctx, width, title, textColor = '#FFFFFF') {
 function drawClassicBorder(ctx, width, height, accentColor) {
   const borderColor = resolveClassicBorderColor(accentColor);
   ctx.strokeStyle = borderColor;
-  ctx.lineWidth = 5;
+  ctx.lineWidth = 4;
   ctx.strokeRect(0, 0, width, height);
 }
 
@@ -530,7 +530,7 @@ async function drawClassicModeCard(ctx, recruitData, canvasSize, accentColor, pa
   drawClassicBorder(ctx, canvasSize.width, canvasSize.height, accentColor);
   drawClassicTitle(ctx, canvasSize.width, recruitData.title || '募集タイトル');
 
-  const contentBox = { x: 3, y: 36, width: 70, height: 54 };
+  const contentBox = { x: 5, y: 36, width: 70, height: 54 };
   drawContentBoxBackground(ctx, contentBox.x, contentBox.y, contentBox.width, contentBox.height);
 
   const currentMembers = getCurrentMembers(recruitData, participantIds);
