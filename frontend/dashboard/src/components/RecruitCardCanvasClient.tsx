@@ -292,8 +292,9 @@ function scaleBoxToRect(box: LayoutBox, layoutCanvas: { width: number; height: n
   return {
     x: Math.round(box.x * sx),
     y: Math.round(box.y * sy),
-    width: Math.max(16, Math.round(box.width * sx)),
-    height: Math.max(16, Math.round(box.height * sy)),
+    // Keep a small floor so slider changes (especially height) remain visible in preview.
+    width: Math.max(2, Math.round(box.width * sx)),
+    height: Math.max(2, Math.round(box.height * sy)),
     visible: box.visible,
   };
 }
