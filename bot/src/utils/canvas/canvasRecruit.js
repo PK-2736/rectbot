@@ -279,6 +279,11 @@ function normalizeHexColor(value, fallback = '#FFFFFF') {
   return normalized;
 }
 
+function resolveClassicBorderColor(accentColor) {
+  const hex = normalizeHexColor(accentColor, '#FFFFFF');
+  return hex;
+}
+
 function resolveTextColor(recruitData) {
   const source = getTemplateSource(recruitData);
   const direct = source?.text_color
@@ -493,8 +498,9 @@ function drawClassicTitle(ctx, width, title, textColor = '#FFFFFF') {
   drawPin(ctx, width - 8, 8, 'rgba(255, 71, 87, 0.7)');
 }
 
-function drawClassicBorder(ctx, width, height) {
-  ctx.strokeStyle = 'rgba(230, 230, 230, 0.95)';
+function drawClassicBorder(ctx, width, height, accentColor) {
+  const borderColor = resolveClassicBorderColor(accentColor);
+  ctx.strokeStyle = borderColor;
   ctx.lineWidth = 5;
   ctx.strokeRect(0, 0, width, height);
 }
@@ -521,7 +527,7 @@ function drawClassicInfoItem(ctx, item, box, textColor = '#FFFFFF') {
 }
 
 async function drawClassicModeCard(ctx, recruitData, canvasSize, accentColor, participantIds = [], client = null, avatarUrls = null) {
-  drawClassicBorder(ctx, canvasSize.width, canvasSize.height);
+  drawClassicBorder(ctx, canvasSize.width, canvasSize.height, accentColor);
   drawClassicTitle(ctx, canvasSize.width, recruitData.title || '募集タイトル');
 
   const contentBox = { x: 5, y: 36, width: 70, height: 54 };

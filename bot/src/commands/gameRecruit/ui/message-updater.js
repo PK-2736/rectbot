@@ -11,7 +11,7 @@ const { buildSimpleDetailsText, buildContentText, buildStartVCButton } = require
 /**
  * HEX文字列を正規化（#を除去し、6桁チェック）
  */
-function normalizeHex(color, fallback = '000000') {
+function normalizeHex(color, fallback = 'FFFFFF') {
   let use = color;
   if (typeof use === 'string' && use.startsWith('#')) use = use.slice(1);
   if (typeof use !== 'string' || !/^[0-9A-Fa-f]{6}$/.test(use)) return fallback;

@@ -8,7 +8,7 @@ const {
 
 function normalizeAccentColor(accentColor) {
   if (typeof accentColor === 'number') return accentColor;
-  return parseInt(String(accentColor), 16) || 0x000000;
+  return parseInt(String(accentColor), 16) || 0xFFFFFF;
 }
 
 function buildFooterText(recruitIdText, footerExtra) {
@@ -91,7 +91,7 @@ function addFooterComponents(container, participantText, recruitIdText, footerEx
 }
 
 // Build a consistent ContainerBuilder for recruit messages
-function buildContainer({ headerTitle = '募集', participantText = '', recruitIdText = '(unknown)', accentColor = 0x000000, imageAttachmentName = 'attachment://recruit-card.png', recruiterId: _recruiterId = null, requesterId: _requesterId = null, footerExtra = null, subHeaderText = null, contentText = '', titleText = '', avatarUrl: _avatarUrl = null, extraActionButtons = [] }) {
+function buildContainer({ headerTitle = '募集', participantText = '', recruitIdText = '(unknown)', accentColor = 0xFFFFFF, imageAttachmentName = 'attachment://recruit-card.png', recruiterId: _recruiterId = null, requesterId: _requesterId = null, footerExtra = null, subHeaderText = null, contentText = '', titleText = '', avatarUrl: _avatarUrl = null, extraActionButtons = [] }) {
   const container = new ContainerBuilder();
   container.setAccentColor(normalizeAccentColor(accentColor));
   
@@ -191,7 +191,7 @@ function buildHeaderSection(titleText, headerTitle, subHeaderText, avatarUrl) {
 }
 
 // Simple text-first container (no image gallery, but with header section that can have avatar)
-function buildContainerSimple({ headerTitle = '募集', detailsText = '', participantText = '', recruitIdText = '(unknown)', accentColor = 0x000000, footerExtra = null, subHeaderText = null, contentText = '', titleText = '', avatarUrl = null, extraActionButtons = [] }) {
+function buildContainerSimple({ headerTitle = '募集', detailsText = '', participantText = '', recruitIdText = '(unknown)', accentColor = 0xFFFFFF, footerExtra = null, subHeaderText = null, contentText = '', titleText = '', avatarUrl = null, extraActionButtons = [] }) {
   const container = new ContainerBuilder();
   container.setAccentColor(normalizeAccentColor(accentColor));
   

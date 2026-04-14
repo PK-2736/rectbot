@@ -23,8 +23,8 @@ async function withTimeout(promise, timeoutMs, timeoutMessage) {
  * アクセントカラーを構築（パネル色 → デフォルト色）
  */
 function buildAccentColor(panelColor, defaultColor) {
-  const useColor = normalizeHex(panelColor, defaultColor && /^[0-9A-Fa-f]{6}$/.test(defaultColor) ? defaultColor : '000000');
-  return /^[0-9A-Fa-f]{6}$/.test(useColor) ? parseInt(useColor, 16) : 0x000000;
+  const useColor = normalizeHex(panelColor, defaultColor && /^[0-9A-Fa-f]{6}$/.test(defaultColor) ? defaultColor : 'FFFFFF');
+  return /^[0-9A-Fa-f]{6}$/.test(useColor) ? parseInt(useColor, 16) : 0xFFFFFF;
 }
 
 /**
@@ -92,7 +92,7 @@ async function prepareUIComponentsForCreate(recruitDataObj, interaction, guildSe
 
   // 描画モードを明示して、通常 /rect がテンプレート描画に混入しないようにする
   recruitDataObj.renderMode = forceTemplateImage ? 'template' : 'classic';
-  const useColor = normalizeHex(recruitDataObj.panelColor || guildSettings.defaultColor || '000000', '000000');
+  const useColor = normalizeHex(recruitDataObj.panelColor || guildSettings.defaultColor || 'FFFFFF', 'FFFFFF');
 
   let image = null;
   

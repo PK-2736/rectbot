@@ -82,7 +82,7 @@ function resolvePanelColor(interaction, guildSettings) {
     } else if (guildSettings?.defaultColor && typeof guildSettings.defaultColor === 'string') {
       panelColor = guildSettings.defaultColor;
     } else {
-      panelColor = '5865F2';
+      panelColor = 'FFFFFF';
     }
   } catch (e) {
     console.warn('handleModalSubmit: failed to retrieve pending modal options:', e?.message || e);
@@ -91,7 +91,7 @@ function resolvePanelColor(interaction, guildSettings) {
     } else if (guildSettings?.defaultColor) {
       panelColor = guildSettings.defaultColor;
     } else {
-      panelColor = '5865F2';
+      panelColor = 'FFFFFF';
     }
   }
   return panelColor;
