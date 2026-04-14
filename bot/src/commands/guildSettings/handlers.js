@@ -124,12 +124,21 @@ async function canAccessTemplateCustomizer(interaction) {
   if (isAdmin) return true;
 
   const settings = await getGuildSettingsSmart(interaction.guildId);
-  const mode = String(settings?.template_customizer_access_mode || 'admin');
+  const allowedRoleIds = Array.isArray(settings?.template_customizer_role_ids)
+    ? settings.template_customizer_role_ids.map(String)
+    : [];
+  const allowedUserIds = Array.isArray(settings?.template_customizer_user_ids)
+    ? settings.template_customizer_user_ids.map(String)
+    : [];
+
+  let mode = String(settings?.template_customizer_access_mode || 'admin');
+  // 互換: 旧データや設定途中で mode が admin のままでも、許可リストがある場合はそちらを優先
+  if (mode === 'admin') {
+    if (allowedUserIds.length > 0) mode = 'user';
+    else if (allowedRoleIds.length > 0) mode = 'role';
+  }
 
   if (mode === 'role') {
-    const allowedRoleIds = Array.isArray(settings?.template_customizer_role_ids)
-      ? settings.template_customizer_role_ids.map(String)
-      : [];
     if (allowedRoleIds.length === 0) return false;
 
     const memberRoleIds = await getMemberRoleIds(interaction);
@@ -137,9 +146,6 @@ async function canAccessTemplateCustomizer(interaction) {
   }
 
   if (mode === 'user') {
-    const allowedUserIds = Array.isArray(settings?.template_customizer_user_ids)
-      ? settings.template_customizer_user_ids.map(String)
-      : [];
     return allowedUserIds.includes(String(interaction.user?.id || ''));
   }
 
@@ -587,14 +593,20 @@ function buildSettingPayload(settingKey, value) {
       const roleIds = Array.isArray(value)
         ? [...new Set(value.filter(Boolean).map(String))].slice(0, 25)
         : [];
-      return { template_customizer_role_ids: roleIds };
+      return {
+        template_customizer_role_ids: roleIds,
+        ...(roleIds.length > 0 ? { template_customizer_access_mode: 'role' } : {})
+      };
     }
 
     case 'template_customizer_user_ids': {
       const userIds = Array.isArray(value)
         ? [...new Set(value.filter(Boolean).map(String))].slice(0, 25)
         : [];
-      return { template_customizer_user_ids: userIds };
+      return {
+        template_customizer_user_ids: userIds,
+        ...(userIds.length > 0 ? { template_customizer_access_mode: 'user' } : {})
+      };
     }
     
     case 'dedicated_channel_category_id':
