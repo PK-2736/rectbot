@@ -295,6 +295,18 @@ function resolveTextColor(recruitData) {
   return normalizeHexColor(direct, '#FFFFFF');
 }
 
+function resolveTitleTextColor(recruitData, accentColor) {
+  const source = getTemplateSource(recruitData);
+  const direct = source?.title_text_color
+    || source?.titleTextColor
+    || recruitData?.title_text_color
+    || recruitData?.titleTextColor
+    || recruitData?.metadata?.title_text_color
+    || null;
+  const fallback = normalizeHexColor(accentColor, '#FFFFFF');
+  return normalizeHexColor(direct, fallback);
+}
+
 function resolveTemplateLayout(recruitData) {
   const source = getTemplateSource(recruitData);
   const layout = source?.layout_json
@@ -383,6 +395,7 @@ function getScaledField(field, layout, canvasSize, fallback) {
 async function drawTemplateModeCard(ctx, recruitData, layout, canvasSize, accentColor, participantIds = [], client = null, avatarUrls = null) {
   const stickerUrl = getTemplateBackgroundUrl(recruitData);
   const textColor = resolveTextColor(recruitData);
+  const titleTextColor = resolveTitleTextColor(recruitData, accentColor);
 
   // テンプレートモードは透明背景で、埋め込み画像はステッカーとして imageBox に 重ねる。
   // 背景は透明（ctx.clearRect後の状態を保持）
@@ -405,7 +418,7 @@ async function drawTemplateModeCard(ctx, recruitData, layout, canvasSize, accent
   const scaledVoiceBox = getScaledBox(layout.voiceBox || DEFAULT_TEMPLATE_LAYOUT.voiceBox, layout, canvasSize, DEFAULT_TEMPLATE_LAYOUT.voiceBox);
 
   // /rect と同じタイトル描画方式に統一
-  drawCardTitle(ctx, canvasSize.width, recruitData.title || '募集タイトル', accentColor, textColor);
+  drawCardTitle(ctx, canvasSize.width, recruitData.title || '募集タイトル', accentColor, titleTextColor);
 
   if (contentBox.visible) {
     ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
@@ -528,7 +541,8 @@ function drawClassicInfoItem(ctx, item, box, textColor = '#FFFFFF') {
 
 async function drawClassicModeCard(ctx, recruitData, canvasSize, accentColor, participantIds = [], client = null, avatarUrls = null) {
   drawClassicBorder(ctx, canvasSize.width, canvasSize.height, accentColor);
-  drawClassicTitle(ctx, canvasSize.width, recruitData.title || '募集タイトル');
+  const titleTextColor = resolveTitleTextColor(recruitData, accentColor);
+  drawClassicTitle(ctx, canvasSize.width, recruitData.title || '募集タイトル', titleTextColor);
 
   const contentBox = { x: 5, y: 36, width: 70, height: 54 };
   drawContentBoxBackground(ctx, contentBox.x, contentBox.y, contentBox.width, contentBox.height);
@@ -539,7 +553,7 @@ async function drawClassicModeCard(ctx, recruitData, canvasSize, accentColor, pa
   const participantLayout = getParticipantLayout(participantCount, contentBox.x, contentBox.y);
   // クラシック表示の見た目調整: 参加者アバターを少し右下へ寄せる
   participantLayout.participantAreaX += 4;
-  participantLayout.participantAreaY += 4;
+  participantLayout.participantAreaY += 3;
   await drawParticipantCircles(ctx, participantIds, participantCount, participantLayout, client, avatarUrls);
 
   const content = recruitData.description || recruitData.content || '';
