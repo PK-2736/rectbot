@@ -67,6 +67,7 @@ jobs:
           # Stripe設定（サブスクリプション機能用）
           STRIPE_PREMIUM_PRICE_ID: ${{ secrets.STRIPE_PREMIUM_PRICE_ID }}
           STRIPE_PRICE_ID: ${{ secrets.STRIPE_PRICE_ID }}
+          TEMPLATE_GUEST_TOKEN_SECRET: ${{ secrets.TEMPLATE_GUEST_TOKEN_SECRET }}
         run: |
           # 必須シークレットの最低限チェック
           : "${SERVICE_TOKEN_DEV:?Missing SERVICE_TOKEN_DEV}"
@@ -97,6 +98,7 @@ jobs:
             export NOTIFICATION_EMAIL_TO="'"$NOTIFICATION_EMAIL_TO"'"; \
             export STRIPE_PREMIUM_PRICE_ID="'"$STRIPE_PREMIUM_PRICE_ID"'"; \
             export STRIPE_PRICE_ID="'"$STRIPE_PRICE_ID"'"; \
+            export TEMPLATE_GUEST_TOKEN_SECRET="'"$TEMPLATE_GUEST_TOKEN_SECRET"'"; \
             export SERVICE_TOKEN="$SERVICE_TOKEN_DEV"; \
             export JWT_PRIVATE_KEY="$JWT_PRIVATE_KEY"; \
             export SERVICE_JWT_PRIVATE_KEY="$SERVICE_JWT_PRIVATE_KEY"; \
@@ -109,6 +111,7 @@ jobs:
             export INTERNAL_SECRET="$INTERNAL_SECRET_DEV"; \
             export SUPABASE_URL="$SUPABASE_URL"; \
             export SUPABASE_SERVICE_ROLE_KEY="$SUPABASE_SERVICE_ROLE_KEY"; \
+            export TEMPLATE_GUEST_TOKEN_SECRET="$TEMPLATE_GUEST_TOKEN_SECRET"; \
             export GUILD_ID="${DISCORD_GUILD_ID_DEV:-802345513495822336}"; \
             source ~/.bashrc || true; \
             source ~/.nvm/nvm.sh || true; \

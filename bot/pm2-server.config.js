@@ -14,6 +14,7 @@ module.exports = {
         SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
         DISCORD_BOT_TOKEN: process.env.DISCORD_BOT_TOKEN,
         SERVICE_TOKEN: process.env.SERVICE_TOKEN,
+        TEMPLATE_GUEST_TOKEN_SECRET: process.env.TEMPLATE_GUEST_TOKEN_SECRET,
         REDIS_HOST: process.env.REDIS_HOST,
         REDIS_PORT: process.env.REDIS_PORT,
         INTERNAL_SECRET: process.env.INTERNAL_SECRET
@@ -41,6 +42,7 @@ module.exports = {
         SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
         DISCORD_BOT_TOKEN: process.env.DISCORD_BOT_TOKEN,
         SERVICE_TOKEN: process.env.SERVICE_TOKEN,
+        TEMPLATE_GUEST_TOKEN_SECRET: process.env.TEMPLATE_GUEST_TOKEN_SECRET,
         REDIS_HOST: process.env.REDIS_HOST,
         REDIS_PORT: process.env.REDIS_PORT,
         INTERNAL_SECRET: process.env.INTERNAL_SECRET
