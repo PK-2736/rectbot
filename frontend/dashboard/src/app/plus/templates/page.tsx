@@ -24,6 +24,7 @@ type LayoutBox = {
 
 type BoxFieldKey = "contentBox" | "imageBox" | "participantsBox";
 type InfoBoxFieldKey = "membersBox" | "timeBox" | "voiceBox";
+type LayoutColorKey = "contentBoxColor" | "imageBoxColor" | "participantsBoxColor" | "membersBoxColor" | "timeBoxColor" | "voiceBoxColor";
 
 type TemplateLayout = {
   canvas: { width: number; height: number };
@@ -43,6 +44,12 @@ type TemplateLayout = {
   timeBox: LayoutBox;
   voiceBox: LayoutBox;
   participantsBox: LayoutBox;
+  contentBoxColor: string;
+  imageBoxColor: string;
+  participantsBoxColor: string;
+  membersBoxColor: string;
+  timeBoxColor: string;
+  voiceBoxColor: string;
 };
 
 type Template = {
@@ -92,6 +99,12 @@ const DEFAULT_LAYOUT: TemplateLayout = {
   timeBox: { x: 969, y: 446, width: 400, height: 56, visible: true },
   voiceBox: { x: 969, y: 590, width: 400, height: 56, visible: true },
   participantsBox: { x: 119, y: 180, width: 1134, height: 158, visible: true },
+  contentBoxColor: "#FFFFFF",
+  imageBoxColor: "#FFFFFF",
+  participantsBoxColor: "#FFFFFF",
+  membersBoxColor: "#FFFFFF",
+  timeBoxColor: "#FFFFFF",
+  voiceBoxColor: "#FFFFFF",
 };
 
 const INITIAL_FORM: FormState = {
@@ -150,6 +163,12 @@ function parseLayout(input: unknown): TemplateLayout {
     timeBox: raw.timeBox || DEFAULT_LAYOUT.timeBox,
     voiceBox: raw.voiceBox || DEFAULT_LAYOUT.voiceBox,
     participantsBox: raw.participantsBox || DEFAULT_LAYOUT.participantsBox,
+    contentBoxColor: typeof (raw as { contentBoxColor?: string }).contentBoxColor === 'string' ? (raw as { contentBoxColor?: string }).contentBoxColor || DEFAULT_LAYOUT.contentBoxColor : DEFAULT_LAYOUT.contentBoxColor,
+    imageBoxColor: typeof (raw as { imageBoxColor?: string }).imageBoxColor === 'string' ? (raw as { imageBoxColor?: string }).imageBoxColor || DEFAULT_LAYOUT.imageBoxColor : DEFAULT_LAYOUT.imageBoxColor,
+    participantsBoxColor: typeof (raw as { participantsBoxColor?: string }).participantsBoxColor === 'string' ? (raw as { participantsBoxColor?: string }).participantsBoxColor || DEFAULT_LAYOUT.participantsBoxColor : DEFAULT_LAYOUT.participantsBoxColor,
+    membersBoxColor: typeof (raw as { membersBoxColor?: string }).membersBoxColor === 'string' ? (raw as { membersBoxColor?: string }).membersBoxColor || DEFAULT_LAYOUT.membersBoxColor : DEFAULT_LAYOUT.membersBoxColor,
+    timeBoxColor: typeof (raw as { timeBoxColor?: string }).timeBoxColor === 'string' ? (raw as { timeBoxColor?: string }).timeBoxColor || DEFAULT_LAYOUT.timeBoxColor : DEFAULT_LAYOUT.timeBoxColor,
+    voiceBoxColor: typeof (raw as { voiceBoxColor?: string }).voiceBoxColor === 'string' ? (raw as { voiceBoxColor?: string }).voiceBoxColor || DEFAULT_LAYOUT.voiceBoxColor : DEFAULT_LAYOUT.voiceBoxColor,
   };
 }
 
@@ -313,6 +332,10 @@ export default function PlusTemplatePage() {
   };
 
   const setLayoutText = (key: "contentLabel" | "membersLabel" | "timeLabel" | "voiceLabel", value: string) => {
+    setLayout((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const setLayoutColor = (key: LayoutColorKey, value: string) => {
     setLayout((prev) => ({ ...prev, [key]: value }));
   };
 
@@ -500,7 +523,7 @@ export default function PlusTemplatePage() {
 
               <div className="grid sm:grid-cols-2 gap-3">
                 <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-white px-3 py-2">
-                  <label htmlFor="frame-color-picker" className="text-xs text-stone-600 whitespace-nowrap">枠色</label>
+                  <label htmlFor="frame-color-picker" className="text-xs text-stone-600 whitespace-nowrap">外枠色</label>
                   <input
                     id="frame-color-picker"
                     type="color"
@@ -606,6 +629,36 @@ export default function PlusTemplatePage() {
                       onChange={(e) => setLayout((prev) => ({ ...prev, outputScale: clamp(Number(e.target.value), 2, 10) }))}
                     />
                     <span className="sm:text-right text-xs text-stone-500">{layout.outputScale}x</span>
+                  </div>
+                </div>
+
+                <div className="space-y-2 rounded-xl border border-amber-100 p-3">
+                  <p className="text-sm text-stone-700">枠色（種類別）</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    <label className="space-y-1 text-xs text-stone-600">
+                      <span>内容枠</span>
+                      <input type="color" className="h-9 w-full cursor-pointer rounded-lg border border-amber-200 bg-white" value={layout.contentBoxColor} onChange={(e) => setLayoutColor("contentBoxColor", e.target.value)} />
+                    </label>
+                    <label className="space-y-1 text-xs text-stone-600">
+                      <span>画像枠</span>
+                      <input type="color" className="h-9 w-full cursor-pointer rounded-lg border border-amber-200 bg-white" value={layout.imageBoxColor} onChange={(e) => setLayoutColor("imageBoxColor", e.target.value)} />
+                    </label>
+                    <label className="space-y-1 text-xs text-stone-600">
+                      <span>参加枠</span>
+                      <input type="color" className="h-9 w-full cursor-pointer rounded-lg border border-amber-200 bg-white" value={layout.participantsBoxColor} onChange={(e) => setLayoutColor("participantsBoxColor", e.target.value)} />
+                    </label>
+                    <label className="space-y-1 text-xs text-stone-600">
+                      <span>人数枠</span>
+                      <input type="color" className="h-9 w-full cursor-pointer rounded-lg border border-amber-200 bg-white" value={layout.membersBoxColor} onChange={(e) => setLayoutColor("membersBoxColor", e.target.value)} />
+                    </label>
+                    <label className="space-y-1 text-xs text-stone-600">
+                      <span>時間枠</span>
+                      <input type="color" className="h-9 w-full cursor-pointer rounded-lg border border-amber-200 bg-white" value={layout.timeBoxColor} onChange={(e) => setLayoutColor("timeBoxColor", e.target.value)} />
+                    </label>
+                    <label className="space-y-1 text-xs text-stone-600">
+                      <span>通話枠</span>
+                      <input type="color" className="h-9 w-full cursor-pointer rounded-lg border border-amber-200 bg-white" value={layout.voiceBoxColor} onChange={(e) => setLayoutColor("voiceBoxColor", e.target.value)} />
+                    </label>
                   </div>
                 </div>
 

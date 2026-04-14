@@ -305,16 +305,20 @@ function getFeaturesContent(dedicatedStatus, dedicatedType, dedicatedTarget) {
     `📁 作成先: ${dedicatedTarget}`;
 }
 
-async function getTemplatesContent(guildId) {
+async function getTemplatesContentWithSettings(guildId, settings) {
   try {
+    const creationPermission = settings?.allow_member_template_create
+      ? '✅ 一般ユーザー作成: 許可'
+      : '🔒 一般ユーザー作成: 禁止';
+
     const templates = await listTemplates(guildId);
     if (templates && templates.length > 0) {
       const templateList = templates.slice(0, 5)
         .map((t, i) => `${i + 1}. **${t.name}** (${t.title}) - ${t.participants}人 - <@&${t.notification_role_id}>`)
         .join('\n');
-      return `**保存済みテンプレート**\n${templateList}`;
+      return `**現在の設定**\n${creationPermission}\n\n**保存済みテンプレート**\n${templateList}`;
     }
-    return `**保存済みテンプレート**\nテンプレートがありません`;
+    return `**現在の設定**\n${creationPermission}\n\n**保存済みテンプレート**\nテンプレートがありません`;
   } catch (err) {
     console.error('[guildSettings] Template list load error:', err);
     return '**保存済みテンプレート**\nテンプレートを読み込めませんでした。';
@@ -322,7 +326,7 @@ async function getTemplatesContent(guildId) {
 }
 
 // カテゴリ別のコンテンツを取得
-async function getCategoryContent(category, values, interaction) {
+async function getCategoryContent(category, values, interaction, settings) {
   const {
     recruitChannelValue,
     updateChannelValue,
@@ -345,10 +349,30 @@ async function getCategoryContent(category, values, interaction) {
     case 'features':
       return getFeaturesContent(dedicatedStatus, dedicatedType, dedicatedTarget);
     case 'templates':
-      return await getTemplatesContent(interaction.guildId);
+      return await getTemplatesContentWithSettings(interaction.guildId, settings);
     default:
       return '';
   }
+}
+
+function getTemplateButtons(settings, isAdmin) {
+  const buttons = [];
+  const allowMemberTemplateCreate = !!settings?.allow_member_template_create;
+
+  if (isAdmin || allowMemberTemplateCreate) {
+    buttons.push({ customId: 'create_template', label: 'テンプレート作成', style: ButtonStyle.Primary, emoji: '📄' });
+  }
+
+  if (isAdmin) {
+    buttons.push({
+      customId: 'toggle_template_creation_permission',
+      label: `一般ユーザー作成: ${allowMemberTemplateCreate ? '許可中' : '禁止中'}`,
+      style: allowMemberTemplateCreate ? ButtonStyle.Success : ButtonStyle.Secondary,
+      emoji: allowMemberTemplateCreate ? '✅' : '🔒'
+    });
+  }
+
+  return buttons;
 }
 
 // ボタン行を構築
@@ -378,15 +402,24 @@ function buildButtonRows(buttons) {
 }
 
 // カテゴリUIにボタンを追加
-function addCategoryButtons(container, config, isAdmin, category) {
-  if (isAdmin && config.buttons.length > 0) {
-    console.log(`[guildSettings] Adding ${config.buttons.length} buttons for category: ${category}`);
-    const buttonRows = buildButtonRows(config.buttons);
+function addCategoryButtons(container, config, isAdmin, category, settings) {
+  const buttons = category === 'templates'
+    ? getTemplateButtons(settings, isAdmin)
+    : config.buttons;
+  const canUseButtons = isAdmin || (category === 'templates' && !!settings?.allow_member_template_create);
+
+  if (canUseButtons && buttons.length > 0) {
+    console.log(`[guildSettings] Adding ${buttons.length} buttons for category: ${category}`);
+    const buttonRows = buildButtonRows(buttons);
     buttonRows.forEach(row => container.addActionRowComponents(row));
   } else if (!isAdmin) {
     console.log('[guildSettings] User is not admin, hiding buttons');
     container.addTextDisplayComponents(
-      new TextDisplayBuilder().setContent('🔒 **変更には管理者権限が必要です**')
+      new TextDisplayBuilder().setContent(
+        category === 'templates'
+          ? '🔒 **このサーバーでは一般ユーザーのテンプレート作成が許可されていません**'
+          : '🔒 **変更には管理者権限が必要です**'
+      )
     );
   } else {
     console.log(`[guildSettings] No buttons configured for category: ${category}`);
@@ -419,14 +452,14 @@ async function showSettingsCategoryUI(interaction, category, settings = {}, isAd
   );
 
   const values = formatSettingValues(settings);
-  const content = await getCategoryContent(category, values, interaction);
+  const content = await getCategoryContent(category, values, interaction, settings);
   
   container.addTextDisplayComponents(new TextDisplayBuilder().setContent(content));
   container.addSeparatorComponents(
     new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
   );
 
-  addCategoryButtons(container, config, isAdmin, category);
+  addCategoryButtons(container, config, isAdmin, category, settings);
 
   container.addSeparatorComponents(
     new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)

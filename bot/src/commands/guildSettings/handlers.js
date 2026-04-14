@@ -16,6 +16,7 @@ const {
   showTitleModal,
   showColorModal,
   showDedicatedChannelTypeSelect,
+  showTemplateModal,
 } = require('./ui');
 
 function isGuildOwner(interaction) {
@@ -92,6 +93,19 @@ async function execute(interaction) {
   }
 }
 
+async function canUseTemplateCreation(interaction) {
+  const isAdmin = await isAdminUser(interaction);
+  if (isAdmin) return true;
+
+  try {
+    const settings = await getGuildSettingsSmart(interaction.guildId);
+    return !!settings?.allow_member_template_create;
+  } catch (error) {
+    console.warn('[guildSettings] canUseTemplateCreation check failed:', error?.message || error);
+    return false;
+  }
+}
+
 async function ensureAdmin(interaction) {
   const isAdmin = await isAdminUser(interaction);
   if (!isAdmin) {
@@ -128,6 +142,7 @@ function getSettingLabel(settingKey) {
     update_channel: 'アップデート通知チャンネル',
     recruit_channels: '募集可能チャンネル',
     enable_dedicated_channel: '専用チャンネルボタン',
+    allow_member_template_create: '一般ユーザーのテンプレート作成',
     dedicated_channel_type: '専用チャンネル種類',
     dedicated_channel_category_id: '専用チャンネル作成カテゴリ',
     dedicated_thread_parent_channel_id: '専用スレッド作成先チャンネル',
@@ -139,6 +154,20 @@ async function handleButtonInteraction(interaction) {
   const { customId } = interaction;
   console.log(`[guildSettings] Button pressed: ${customId}`);
   try {
+    if (customId === 'create_template') {
+      const canUse = await canUseTemplateCreation(interaction);
+      if (!canUse) {
+        await safeReply(interaction, {
+          content: '❌ テンプレート作成は管理者が許可したサーバーでのみ利用できます。',
+          flags: MessageFlags.Ephemeral
+        });
+        return;
+      }
+
+      await showTemplateModal(interaction);
+      return;
+    }
+
     const isAdmin = await ensureAdmin(interaction);
     if (!isAdmin) return;
 
@@ -155,10 +184,7 @@ async function handleButtonInteraction(interaction) {
       finalize_settings: () => finalizeSettingsHandler(interaction),
       toggle_recruit_style: () => toggleRecruitStyle(interaction),
       toggle_dedicated_channel: () => toggleDedicatedChannel(interaction),
-      create_template: () => safeReply(interaction, { 
-        content: '🚧 この機能は現在作成中のため使用できません。\nしばらくお待ちください。',
-        flags: MessageFlags.Ephemeral
-      }),
+      toggle_template_creation_permission: () => toggleTemplateCreationPermission(interaction),
       set_dedicated_channel_type: () => showDedicatedChannelTypeSelect(interaction)
     };
 
@@ -210,8 +236,18 @@ async function handleModalSubmit(interaction) {
   const { customId } = interaction;
   try {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-    const isAdmin = await ensureAdmin(interaction);
-    if (!isAdmin) return;
+
+    const templateModalIds = new Set(['template_create_modal', 'template_optional_modal']);
+    if (templateModalIds.has(customId)) {
+      const canUse = await canUseTemplateCreation(interaction);
+      if (!canUse) {
+        await interaction.editReply({ content: '❌ テンプレート作成は管理者が許可したサーバーでのみ利用できます。' });
+        return;
+      }
+    } else {
+      const isAdmin = await ensureAdmin(interaction);
+      if (!isAdmin) return;
+    }
 
     const handlers = {
       default_title_modal: () => handleDefaultTitleModal(interaction),
@@ -468,6 +504,9 @@ function buildSettingPayload(settingKey, value) {
     
     case 'enable_dedicated_channel':
       return { enable_dedicated_channel: !!value };
+
+    case 'allow_member_template_create':
+      return { allow_member_template_create: !!value };
     
     case 'dedicated_channel_category_id':
       return { dedicated_channel_category_id: value ? String(value) : null };
@@ -594,6 +633,7 @@ async function resetAllSettings(interaction) {
       recruit_style: 'image',
       recruit_channels: [],
       enable_dedicated_channel: false,
+      allow_member_template_create: false,
       dedicated_channel_type: 'voice',
       dedicated_channel_category_id: null,
       dedicated_thread_parent_channel_id: null,
@@ -639,6 +679,32 @@ async function toggleDedicatedChannel(interaction) {
     console.error('Toggle dedicated channel error:', error);
     if (!interaction.replied && !interaction.deferred) {
       await safeReply(interaction, { content: '❌ 専用チャンネル設定の切り替えに失敗しました。', flags: MessageFlags.Ephemeral });
+    }
+  }
+}
+
+async function toggleTemplateCreationPermission(interaction) {
+  try {
+    const isAdmin = await ensureAdmin(interaction);
+    if (!isAdmin) return;
+
+    const guildId = interaction.guildId;
+    const currentSettings = await getGuildSettingsFromRedis(guildId);
+    const next = !currentSettings?.allow_member_template_create;
+
+    await saveGuildSettingsToRedis(guildId, { allow_member_template_create: next });
+    await safeReply(interaction, {
+      content: `✅ 一般ユーザーのテンプレート作成を「${next ? '許可' : '禁止'}」にしました。`,
+      flags: MessageFlags.Ephemeral
+    });
+    scheduleSettingsRefresh(interaction, guildId, 500);
+  } catch (error) {
+    console.error('Toggle template creation permission error:', error);
+    if (!interaction.replied && !interaction.deferred) {
+      await safeReply(interaction, {
+        content: '❌ テンプレート作成権限の切り替えに失敗しました。',
+        flags: MessageFlags.Ephemeral
+      });
     }
   }
 }

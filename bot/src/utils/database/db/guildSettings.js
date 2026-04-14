@@ -95,12 +95,21 @@ function normalizeDedicatedChannelSettings(normalized) {
   }
 }
 
+function normalizeTemplateCreationPermission(normalized) {
+  if (Object.prototype.hasOwnProperty.call(normalized, 'allow_member_template_create')) {
+    normalized.allow_member_template_create = !!normalized.allow_member_template_create;
+  } else {
+    normalized.allow_member_template_create = false;
+  }
+}
+
 function normalizeGuildSettingsObject(input) {
   const normalized = { ...(input || {}) };
   normalizeRecruitStyle(normalized);
   normalizeNotificationRoles(normalized);
   normalizeRecruitChannels(normalized);
   normalizeDedicatedChannelSettings(normalized);
+  normalizeTemplateCreationPermission(normalized);
   return normalized;
 }
 
@@ -169,6 +178,12 @@ function mergeRecruitChannels(merged, fromApi, normalized) {
   }
 }
 
+function mergeTemplateCreationPermission(merged, fromApi, normalized) {
+  if (!Object.prototype.hasOwnProperty.call(fromApi || {}, 'allow_member_template_create')) {
+    merged.allow_member_template_create = !!normalized.allow_member_template_create;
+  }
+}
+
 function mergeApiResponseWithCache(fromApi, normalized) {
   const merged = normalizeGuildSettingsObject({ ...fromApi });
   mergeRecruitStyle(merged, fromApi, normalized);
@@ -177,6 +192,7 @@ function mergeApiResponseWithCache(fromApi, normalized) {
   mergeDedicatedChannelCategory(merged, fromApi, normalized);
   mergeDedicatedThreadParent(merged, fromApi, normalized);
   mergeRecruitChannels(merged, fromApi, normalized);
+  mergeTemplateCreationPermission(merged, fromApi, normalized);
   return merged;
 }
 

@@ -31,6 +31,12 @@ interface RecruitCardCanvasProps {
     timeBox: LayoutBox;
     voiceBox: LayoutBox;
     participantsBox?: LayoutBox;
+    contentBoxColor?: string;
+    imageBoxColor?: string;
+    participantsBoxColor?: string;
+    membersBoxColor?: string;
+    timeBoxColor?: string;
+    voiceBoxColor?: string;
   };
   accentColor?: string;
   textColor?: string;
@@ -60,6 +66,12 @@ const DEFAULT_LAYOUT = {
   timeBox: { x: 969, y: 446, width: 400, height: 56, visible: true },
   voiceBox: { x: 969, y: 590, width: 400, height: 56, visible: true },
   participantsBox: { x: 119, y: 180, width: 1134, height: 158, visible: true },
+  contentBoxColor: '#FFFFFF',
+  imageBoxColor: '#FFFFFF',
+  participantsBoxColor: '#FFFFFF',
+  membersBoxColor: '#FFFFFF',
+  timeBoxColor: '#FFFFFF',
+  voiceBoxColor: '#FFFFFF',
 };
 
 function clamp(v: number, min: number, max: number) {
@@ -302,6 +314,12 @@ export function RecruitCardCanvasImpl({
   const [containerSize, setContainerSize] = useState({ width: RECT_CANVAS_WIDTH, height: RECT_CANVAS_HEIGHT });
   const resolvedTextColor = normalizeHexColor(textColor, '#FFFFFF');
   const resolvedFrameColor = normalizeHexColor(accentColor, `#${DEFAULT_ACCENT_COLOR}`);
+  const contentBoxFrameColor = normalizeHexColor(layout.contentBoxColor, resolvedFrameColor);
+  const imageBoxFrameColor = normalizeHexColor(layout.imageBoxColor, resolvedFrameColor);
+  const participantsBoxFrameColor = normalizeHexColor(layout.participantsBoxColor, resolvedFrameColor);
+  const membersBoxFrameColor = normalizeHexColor(layout.membersBoxColor, resolvedFrameColor);
+  const timeBoxFrameColor = normalizeHexColor(layout.timeBoxColor, resolvedFrameColor);
+  const voiceBoxFrameColor = normalizeHexColor(layout.voiceBoxColor, resolvedFrameColor);
   
   // コールバック参照の安定化（依存配列から除外するため）
   const onLayoutChangeRef = useRef(onLayoutChange);
@@ -397,14 +415,14 @@ export function RecruitCardCanvasImpl({
         height: scaledContentBox.height,
         cornerRadius: 6,
         fill: 'rgba(0,0,0,0.75)',
-        stroke: withAlpha(resolvedFrameColor, 0.85),
+        stroke: withAlpha(contentBoxFrameColor, 0.85),
         strokeWidth: 1,
       }));
       contentGroup.add(new Konva.Text({
         x: 4,
         y: 3,
         text: layout.contentLabel || '募集内容',
-        fill: withAlpha(resolvedFrameColor, 0.95),
+        fill: withAlpha(contentBoxFrameColor, 0.95),
         fontSize: 6,
         fontStyle: 'bold',
         fontFamily: 'CorporateRounded, Arial, sans-serif',
@@ -449,16 +467,16 @@ export function RecruitCardCanvasImpl({
             circleRadius + row * rowSpacing,
             circleRadius,
             is2Rows ? 2.5 : 4,
-            resolvedFrameColor
+            participantsBoxFrameColor
           );
         }
         layer.add(participantsGroup);
       }
 
       const infoItems = [
-        { key: 'membersBox', box: scaledMembersBox, label: layout.membersLabel || '人数：', value: `${Math.min(1, participants)}/${participants}人` },
-        { key: 'timeBox', box: scaledTimeBox, label: layout.timeLabel || '時間：', value: `${recruitData.startTimeText || '今から'}~` },
-        { key: 'voiceBox', box: scaledVoiceBox, label: layout.voiceLabel || '通話：', value: voiceText },
+        { key: 'membersBox', box: scaledMembersBox, label: layout.membersLabel || '人数：', value: `${Math.min(1, participants)}/${participants}人`, frameColor: membersBoxFrameColor },
+        { key: 'timeBox', box: scaledTimeBox, label: layout.timeLabel || '時間：', value: `${recruitData.startTimeText || '今から'}~`, frameColor: timeBoxFrameColor },
+        { key: 'voiceBox', box: scaledVoiceBox, label: layout.voiceLabel || '通話：', value: voiceText, frameColor: voiceBoxFrameColor },
       ];
 
       infoItems.forEach((item) => {
@@ -467,43 +485,60 @@ export function RecruitCardCanvasImpl({
           item.box,
           item.label,
           item.value,
-          resolvedFrameColor,
+          item.frameColor,
           resolvedTextColor,
           Boolean(onLayoutChangeRef.current),
           onLayoutChangeRef.current ? (x, y) => onLayoutChangeRef.current?.(item.key, toEditorX(x), toEditorY(y)) : undefined
         );
       });
 
-      if (scaledImageBox.visible && backgroundImageUrl) {
-        try {
-          const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-            const i = new window.Image();
-            i.crossOrigin = 'anonymous';
-            i.onload = () => resolve(i);
-            i.onerror = reject;
-            i.src = backgroundImageUrl;
-          });
-
-          // ステッカー画像は枠なしでそのまま貼り付ける
-          const imageNode = new Konva.Image({
+      if (scaledImageBox.visible) {
+        const drawImageBorder = () => {
+          layer.add(new Konva.Rect({
             x: scaledImageBox.x,
             y: scaledImageBox.y,
             width: scaledImageBox.width,
             height: scaledImageBox.height,
-            image: img,
-            draggable: Boolean(onLayoutChangeRef.current),
-            dragBoundFunc: (pos) => pos,
-          });
-          if (onLayoutChangeRef.current) {
-            imageNode.on('dragend', () => {
-              if (onLayoutChangeRef.current) {
-                onLayoutChangeRef.current('imageBox', toEditorX(imageNode.x()), toEditorY(imageNode.y()));
-              }
+            cornerRadius: 6,
+            stroke: withAlpha(imageBoxFrameColor, 0.9),
+            strokeWidth: 1,
+            fillEnabled: false,
+          }));
+        };
+
+        if (backgroundImageUrl) {
+          try {
+            const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+              const i = new window.Image();
+              i.crossOrigin = 'anonymous';
+              i.onload = () => resolve(i);
+              i.onerror = reject;
+              i.src = backgroundImageUrl;
             });
+
+            const imageNode = new Konva.Image({
+              x: scaledImageBox.x,
+              y: scaledImageBox.y,
+              width: scaledImageBox.width,
+              height: scaledImageBox.height,
+              image: img,
+              draggable: Boolean(onLayoutChangeRef.current),
+              dragBoundFunc: (pos) => pos,
+            });
+            if (onLayoutChangeRef.current) {
+              imageNode.on('dragend', () => {
+                if (onLayoutChangeRef.current) {
+                  onLayoutChangeRef.current('imageBox', toEditorX(imageNode.x()), toEditorY(imageNode.y()));
+                }
+              });
+            }
+            layer.add(imageNode);
+            drawImageBorder();
+          } catch {
+            drawImageBorder();
           }
-          layer.add(imageNode);
-        } catch {
-          // keep placeholder when image load fails
+        } else {
+          drawImageBorder();
         }
       }
 
@@ -520,7 +555,7 @@ export function RecruitCardCanvasImpl({
     return () => {
       stage.destroy();
     };
-  }, [recruitData, layout, accentColor, textColor, resolvedTextColor, resolvedFrameColor, backgroundImageUrl, scale, canvasWidth, canvasHeight, containerSize]);
+  }, [recruitData, layout, accentColor, textColor, resolvedTextColor, resolvedFrameColor, contentBoxFrameColor, imageBoxFrameColor, participantsBoxFrameColor, membersBoxFrameColor, timeBoxFrameColor, voiceBoxFrameColor, backgroundImageUrl, scale, canvasWidth, canvasHeight, containerSize]);
 
   return (
     <div className="w-full bg-gray-950 overflow-hidden" style={{ aspectRatio: `${layout.canvas.width} / ${layout.canvas.height}` }}>
