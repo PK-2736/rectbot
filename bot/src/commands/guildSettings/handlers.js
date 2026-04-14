@@ -13,6 +13,10 @@ const {
   showSettingsCategoryUI,
   showChannelSelect,
   showRoleSelect,
+  showTemplateCustomizerModeSelect,
+  showTemplateCustomizerRoleSelect,
+  showTemplateCustomizerUserSelect,
+  showTemplateCustomizerWebLink,
   showTitleModal,
   showColorModal,
   showDedicatedChannelTypeSelect,
@@ -92,8 +96,53 @@ async function execute(interaction) {
   }
 }
 
-async function canUseTemplateCreation(interaction) {
-  void interaction;
+async function getMemberRoleIds(interaction) {
+  if (Array.isArray(interaction.member?.roles)) {
+    return interaction.member.roles.map(String);
+  }
+
+  const roleCache = interaction.member?.roles?.cache;
+  if (roleCache && typeof roleCache.values === 'function') {
+    return Array.from(roleCache.values()).map((r) => String(r?.id)).filter(Boolean);
+  }
+
+  try {
+    const fetchedMember = await interaction.guild.members.fetch(interaction.user.id);
+    const fetchedRoleCache = fetchedMember?.roles?.cache;
+    if (fetchedRoleCache && typeof fetchedRoleCache.values === 'function') {
+      return Array.from(fetchedRoleCache.values()).map((r) => String(r?.id)).filter(Boolean);
+    }
+  } catch (_) {
+    // no-op
+  }
+
+  return [];
+}
+
+async function canAccessTemplateCustomizer(interaction) {
+  const isAdmin = await isAdminUser(interaction);
+  if (isAdmin) return true;
+
+  const settings = await getGuildSettingsSmart(interaction.guildId);
+  const mode = String(settings?.template_customizer_access_mode || 'admin');
+
+  if (mode === 'role') {
+    const allowedRoleIds = Array.isArray(settings?.template_customizer_role_ids)
+      ? settings.template_customizer_role_ids.map(String)
+      : [];
+    if (allowedRoleIds.length === 0) return false;
+
+    const memberRoleIds = await getMemberRoleIds(interaction);
+    return memberRoleIds.some((roleId) => allowedRoleIds.includes(roleId));
+  }
+
+  if (mode === 'user') {
+    const allowedUserIds = Array.isArray(settings?.template_customizer_user_ids)
+      ? settings.template_customizer_user_ids.map(String)
+      : [];
+    return allowedUserIds.includes(String(interaction.user?.id || ''));
+  }
+
   return false;
 }
 
@@ -134,6 +183,9 @@ function getSettingLabel(settingKey) {
     recruit_channels: '募集可能チャンネル',
     enable_dedicated_channel: '専用チャンネルボタン',
     allow_member_template_create: '一般ユーザーのテンプレート作成',
+    template_customizer_access_mode: 'テンプレカスタマイズ権限モード',
+    template_customizer_role_ids: 'テンプレカスタマイズ許可ロール',
+    template_customizer_user_ids: 'テンプレカスタマイズ許可ユーザー',
     dedicated_channel_type: '専用チャンネル種類',
     dedicated_channel_category_id: '専用チャンネル作成カテゴリ',
     dedicated_thread_parent_channel_id: '専用スレッド作成先チャンネル',
@@ -145,11 +197,17 @@ async function handleButtonInteraction(interaction) {
   const { customId } = interaction;
   console.log(`[guildSettings] Button pressed: ${customId}`);
   try {
-    if (customId === 'create_template') {
-      await safeReply(interaction, {
-        content: '🌐 テンプレート作成は Web で行ってください。',
-        flags: MessageFlags.Ephemeral
-      });
+    if (customId === 'open_template_customizer_web' || customId === 'create_template') {
+      const canAccess = await canAccessTemplateCustomizer(interaction);
+      if (!canAccess) {
+        await safeReply(interaction, {
+          content: '❌ Webカスタマイズページを利用する権限がありません。サーバー管理者に許可設定を依頼してください。',
+          flags: MessageFlags.Ephemeral
+        });
+        return;
+      }
+
+      await showTemplateCustomizerWebLink(interaction);
       return;
     }
 
@@ -170,6 +228,9 @@ async function handleButtonInteraction(interaction) {
       toggle_recruit_style: () => toggleRecruitStyle(interaction),
       toggle_dedicated_channel: () => toggleDedicatedChannel(interaction),
       toggle_template_creation_permission: () => toggleTemplateCreationPermission(interaction),
+      set_template_customizer_mode: () => showTemplateCustomizerModeSelect(interaction),
+      set_template_customizer_roles: () => showTemplateCustomizerRoleSelect(interaction),
+      set_template_customizer_users: () => showTemplateCustomizerUserSelect(interaction),
       set_dedicated_channel_type: () => showDedicatedChannelTypeSelect(interaction)
     };
 
@@ -201,8 +262,18 @@ async function handleSelectMenuInteraction(interaction) {
       return;
     }
 
+    if (customId === 'template_customizer_mode_select') {
+      await handleTemplateCustomizerModeSelect(interaction, values);
+      return;
+    }
+
     if (customId === 'dedicated_channel_type_select') {
       await handleDedicatedChannelTypeSelect(interaction, values);
+      return;
+    }
+
+    if (customId.startsWith('user_select_')) {
+      await handleUserSelect(interaction, customId, values);
       return;
     }
 
@@ -314,6 +385,11 @@ async function handleRoleSelect(interaction, customId, values) {
   const settingType = customId.replace('role_select_', '');
   const roleIds = Array.isArray(values) ? values : [];
 
+  if (settingType === 'template_customizer_role_ids') {
+    await updateGuildSetting(interaction, settingType, roleIds);
+    return;
+  }
+
   const currentSettings = await getGuildSettingsFromRedis(interaction.guildId);
   const existingRoles = Array.isArray(currentSettings.notification_roles)
     ? currentSettings.notification_roles.filter(Boolean).map(String)
@@ -322,6 +398,18 @@ async function handleRoleSelect(interaction, customId, values) {
 
   const mergedRoles = [...specialMentions, ...roleIds];
   await updateGuildSetting(interaction, settingType, mergedRoles);
+}
+
+async function handleUserSelect(interaction, customId, values) {
+  const settingType = customId.replace('user_select_', '');
+  const userIds = Array.isArray(values) ? values : [];
+  await updateGuildSetting(interaction, settingType, userIds);
+}
+
+async function handleTemplateCustomizerModeSelect(interaction, values) {
+  const raw = Array.isArray(values) && values.length > 0 ? String(values[0]) : 'admin';
+  const mode = ['admin', 'role', 'user'].includes(raw) ? raw : 'admin';
+  await updateGuildSetting(interaction, 'template_customizer_access_mode', mode);
 }
 
 async function handleDefaultTitleModal(interaction) {
@@ -489,6 +577,25 @@ function buildSettingPayload(settingKey, value) {
 
     case 'allow_member_template_create':
       return { allow_member_template_create: !!value };
+
+    case 'template_customizer_access_mode': {
+      const mode = String(value || 'admin').toLowerCase();
+      return { template_customizer_access_mode: ['admin', 'role', 'user'].includes(mode) ? mode : 'admin' };
+    }
+
+    case 'template_customizer_role_ids': {
+      const roleIds = Array.isArray(value)
+        ? [...new Set(value.filter(Boolean).map(String))].slice(0, 25)
+        : [];
+      return { template_customizer_role_ids: roleIds };
+    }
+
+    case 'template_customizer_user_ids': {
+      const userIds = Array.isArray(value)
+        ? [...new Set(value.filter(Boolean).map(String))].slice(0, 25)
+        : [];
+      return { template_customizer_user_ids: userIds };
+    }
     
     case 'dedicated_channel_category_id':
       return { dedicated_channel_category_id: value ? String(value) : null };
@@ -616,6 +723,9 @@ async function resetAllSettings(interaction) {
       recruit_channels: [],
       enable_dedicated_channel: false,
       allow_member_template_create: false,
+      template_customizer_access_mode: 'admin',
+      template_customizer_role_ids: [],
+      template_customizer_user_ids: [],
       dedicated_channel_type: 'voice',
       dedicated_channel_category_id: null,
       dedicated_thread_parent_channel_id: null,

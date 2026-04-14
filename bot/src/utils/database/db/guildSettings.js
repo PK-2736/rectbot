@@ -103,6 +103,21 @@ function normalizeTemplateCreationPermission(normalized) {
   }
 }
 
+function normalizeTemplateCustomizerAccess(normalized) {
+  const rawMode = String(normalized.template_customizer_access_mode || 'admin').toLowerCase();
+  normalized.template_customizer_access_mode = ['admin', 'role', 'user'].includes(rawMode) ? rawMode : 'admin';
+
+  const roleIds = Array.isArray(normalized.template_customizer_role_ids)
+    ? normalized.template_customizer_role_ids.filter(Boolean).map(String)
+    : [];
+  const userIds = Array.isArray(normalized.template_customizer_user_ids)
+    ? normalized.template_customizer_user_ids.filter(Boolean).map(String)
+    : [];
+
+  normalized.template_customizer_role_ids = [...new Set(roleIds)].slice(0, 25);
+  normalized.template_customizer_user_ids = [...new Set(userIds)].slice(0, 25);
+}
+
 function normalizeGuildSettingsObject(input) {
   const normalized = { ...(input || {}) };
   normalizeRecruitStyle(normalized);
@@ -110,6 +125,7 @@ function normalizeGuildSettingsObject(input) {
   normalizeRecruitChannels(normalized);
   normalizeDedicatedChannelSettings(normalized);
   normalizeTemplateCreationPermission(normalized);
+  normalizeTemplateCustomizerAccess(normalized);
   return normalized;
 }
 
@@ -184,6 +200,24 @@ function mergeTemplateCreationPermission(merged, fromApi, normalized) {
   }
 }
 
+function mergeTemplateCustomizerAccess(merged, fromApi, normalized) {
+  if (!Object.prototype.hasOwnProperty.call(fromApi || {}, 'template_customizer_access_mode')) {
+    merged.template_customizer_access_mode = normalized.template_customizer_access_mode || 'admin';
+  }
+
+  if (!Object.prototype.hasOwnProperty.call(fromApi || {}, 'template_customizer_role_ids')) {
+    merged.template_customizer_role_ids = Array.isArray(normalized.template_customizer_role_ids)
+      ? normalized.template_customizer_role_ids
+      : [];
+  }
+
+  if (!Object.prototype.hasOwnProperty.call(fromApi || {}, 'template_customizer_user_ids')) {
+    merged.template_customizer_user_ids = Array.isArray(normalized.template_customizer_user_ids)
+      ? normalized.template_customizer_user_ids
+      : [];
+  }
+}
+
 function mergeApiResponseWithCache(fromApi, normalized) {
   const merged = normalizeGuildSettingsObject({ ...fromApi });
   mergeRecruitStyle(merged, fromApi, normalized);
@@ -193,6 +227,7 @@ function mergeApiResponseWithCache(fromApi, normalized) {
   mergeDedicatedThreadParent(merged, fromApi, normalized);
   mergeRecruitChannels(merged, fromApi, normalized);
   mergeTemplateCreationPermission(merged, fromApi, normalized);
+  mergeTemplateCustomizerAccess(merged, fromApi, normalized);
   return merged;
 }
 

@@ -2,11 +2,12 @@ const {
   ContainerBuilder, TextDisplayBuilder,
   SeparatorBuilder, SeparatorSpacingSize,
   ActionRowBuilder, ButtonBuilder, ButtonStyle,
-  RoleSelectMenuBuilder, ChannelSelectMenuBuilder,
+  RoleSelectMenuBuilder, UserSelectMenuBuilder, ChannelSelectMenuBuilder,
   StringSelectMenuBuilder, StringSelectMenuOptionBuilder,
   ChannelType, MessageFlags, ComponentType,
   ModalBuilder, TextInputBuilder, TextInputStyle
 } = require('discord.js');
+const config = require('../../config');
 
 const { getGuildSettingsFromRedis, listTemplates } = require('../../utils/database');
 const { safeRespond } = require('../../utils/interactionHandler');
@@ -305,7 +306,18 @@ function getFeaturesContent(dedicatedStatus, dedicatedType, dedicatedTarget) {
 
 async function getTemplatesContentWithSettings(guildId, settings) {
   try {
-    const creationPermission = '🌐 テンプレート作成は Web で行ってください';
+    const mode = String(settings?.template_customizer_access_mode || 'admin');
+    const roleIds = Array.isArray(settings?.template_customizer_role_ids) ? settings.template_customizer_role_ids : [];
+    const userIds = Array.isArray(settings?.template_customizer_user_ids) ? settings.template_customizer_user_ids : [];
+    const modeLabel = mode === 'role' ? '指定ロールのみ' : mode === 'user' ? '指定ユーザーのみ' : '管理者のみ';
+    const roleLabel = roleIds.length > 0 ? roleIds.slice(0, 5).map((id) => `<@&${id}>`).join(', ') : '未設定';
+    const userLabel = userIds.length > 0 ? userIds.slice(0, 5).map((id) => `<@${id}>`).join(', ') : '未設定';
+
+    const creationPermission =
+      `🌐 テンプレート作成ページ: Web\n` +
+      `🔐 カスタマイズ可能ユーザー: ${modeLabel}\n` +
+      `👥 許可ロール: ${roleLabel}\n` +
+      `🙋 許可ユーザー: ${userLabel}`;
 
     const templates = await listTemplates(guildId);
     if (templates && templates.length > 0) {
@@ -352,9 +364,21 @@ async function getCategoryContent(category, values, interaction, settings) {
 }
 
 function getTemplateButtons(settings, isAdmin) {
-  void settings;
-  void isAdmin;
-  return [];
+  const buttons = [
+    { customId: 'open_template_customizer_web', label: 'カスタマイズページを開く', style: ButtonStyle.Primary, emoji: '🌐' }
+  ];
+
+  if (isAdmin) {
+    const mode = String(settings?.template_customizer_access_mode || 'admin');
+    const modeLabel = mode === 'role' ? 'ロール制限' : mode === 'user' ? '個人制限' : '管理者のみ';
+    buttons.push(
+      { customId: 'set_template_customizer_mode', label: `制限モード: ${modeLabel}`, style: ButtonStyle.Secondary, emoji: '🔐' },
+      { customId: 'set_template_customizer_roles', label: '許可ロール設定', style: ButtonStyle.Secondary, emoji: '👥' },
+      { customId: 'set_template_customizer_users', label: '許可ユーザー設定', style: ButtonStyle.Secondary, emoji: '🙋' }
+    );
+  }
+
+  return buttons;
 }
 
 // ボタン行を構築
@@ -388,7 +412,7 @@ function addCategoryButtons(container, config, isAdmin, category, settings) {
   const buttons = category === 'templates'
     ? getTemplateButtons(settings, isAdmin)
     : config.buttons;
-  const canUseButtons = isAdmin;
+  const canUseButtons = isAdmin || category === 'templates';
 
   if (canUseButtons && buttons.length > 0) {
     console.log(`[guildSettings] Adding ${buttons.length} buttons for category: ${category}`);
@@ -399,7 +423,7 @@ function addCategoryButtons(container, config, isAdmin, category, settings) {
     container.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
         category === 'templates'
-          ? 'ℹ️ **テンプレート作成は Web から利用できます**'
+          ? 'ℹ️ **テンプレートの閲覧・Web遷移は利用できます**'
           : '🔒 **変更には管理者権限が必要です**'
       )
     );
@@ -502,6 +526,110 @@ async function showDedicatedChannelTypeSelect(interaction) {
   await safeRespond(interaction, {
     content: '🧭 専用チャンネルの種類を選択してください。選択後に作成先を指定します。',
     components: [actionRow],
+    flags: MessageFlags.Ephemeral
+  });
+}
+
+function buildTemplateCustomizerUrl(interaction) {
+  const base = String(config.DASHBOARD_BASE_URL || 'https://recrubo.net').replace(/\/$/, '');
+  const guildId = encodeURIComponent(interaction.guildId || '');
+  return `${base}/plus/templates?guildId=${guildId}`;
+}
+
+async function showTemplateCustomizerModeSelect(interaction) {
+  const currentSettings = await getGuildSettingsFromRedis(interaction.guildId).catch(() => ({}));
+  const currentMode = String(currentSettings?.template_customizer_access_mode || 'admin');
+
+  const modeSelect = new StringSelectMenuBuilder()
+    .setCustomId('template_customizer_mode_select')
+    .setPlaceholder('カスタマイズ可能ユーザーの制限モードを選択')
+    .setMinValues(1)
+    .setMaxValues(1)
+    .addOptions(
+      new StringSelectMenuOptionBuilder()
+        .setLabel('管理者のみ')
+        .setValue('admin')
+        .setDescription('管理者だけがWebカスタマイズページへ進めます')
+        .setDefault(currentMode === 'admin'),
+      new StringSelectMenuOptionBuilder()
+        .setLabel('指定ロールのみ')
+        .setValue('role')
+        .setDescription('選択したロールを持つユーザーのみ許可')
+        .setDefault(currentMode === 'role'),
+      new StringSelectMenuOptionBuilder()
+        .setLabel('指定ユーザーのみ')
+        .setValue('user')
+        .setDescription('選択した個人ユーザーのみ許可')
+        .setDefault(currentMode === 'user')
+    );
+
+  const actionRow = new ActionRowBuilder().addComponents(modeSelect);
+  await safeRespond(interaction, {
+    content: '🔐 Webカスタマイズページを利用できるユーザー制限を選択してください。',
+    components: [actionRow],
+    flags: MessageFlags.Ephemeral
+  });
+}
+
+async function showTemplateCustomizerRoleSelect(interaction) {
+  const currentSettings = await getGuildSettingsFromRedis(interaction.guildId).catch(() => ({}));
+  const selected = Array.isArray(currentSettings?.template_customizer_role_ids)
+    ? currentSettings.template_customizer_role_ids.slice(0, 25)
+    : [];
+
+  const roleSelect = new RoleSelectMenuBuilder()
+    .setCustomId('role_select_template_customizer_role_ids')
+    .setPlaceholder('許可するロールを選択（最大25）')
+    .setMinValues(0)
+    .setMaxValues(25);
+
+  if (selected.length > 0 && typeof roleSelect.setDefaultRoles === 'function') {
+    roleSelect.setDefaultRoles(...selected);
+  }
+
+  await safeRespond(interaction, {
+    content: '👥 Webカスタマイズページを利用できるロールを選択してください。',
+    components: [new ActionRowBuilder().addComponents(roleSelect)],
+    flags: MessageFlags.Ephemeral
+  });
+}
+
+async function showTemplateCustomizerUserSelect(interaction) {
+  const currentSettings = await getGuildSettingsFromRedis(interaction.guildId).catch(() => ({}));
+  const selected = Array.isArray(currentSettings?.template_customizer_user_ids)
+    ? currentSettings.template_customizer_user_ids.slice(0, 25)
+    : [];
+
+  const userSelect = new UserSelectMenuBuilder()
+    .setCustomId('user_select_template_customizer_user_ids')
+    .setPlaceholder('許可するユーザーを選択（最大25）')
+    .setMinValues(0)
+    .setMaxValues(25);
+
+  if (selected.length > 0 && typeof userSelect.setDefaultUsers === 'function') {
+    userSelect.setDefaultUsers(...selected);
+  }
+
+  await safeRespond(interaction, {
+    content: '🙋 Webカスタマイズページを利用できるユーザーを選択してください。',
+    components: [new ActionRowBuilder().addComponents(userSelect)],
+    flags: MessageFlags.Ephemeral
+  });
+}
+
+async function showTemplateCustomizerWebLink(interaction) {
+  const url = buildTemplateCustomizerUrl(interaction);
+  const linkRow = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setLabel('Webカスタマイズページへ移動')
+      .setStyle(ButtonStyle.Link)
+      .setURL(url)
+      .setEmoji('🌐')
+  );
+
+  await safeRespond(interaction, {
+    content: '以下のボタンから Web のテンプレートカスタマイズページへ移動できます。',
+    components: [linkRow],
     flags: MessageFlags.Ephemeral
   });
 }
@@ -880,6 +1008,10 @@ module.exports = {
   showSettingsCategoryUI,
   showChannelSelect,
   showRoleSelect,
+  showTemplateCustomizerModeSelect,
+  showTemplateCustomizerRoleSelect,
+  showTemplateCustomizerUserSelect,
+  showTemplateCustomizerWebLink,
   showTitleModal,
   showColorModal,
   showDedicatedChannelTypeSelect,
