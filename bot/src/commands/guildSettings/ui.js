@@ -205,10 +205,8 @@ const CATEGORY_CONFIGS = {
   },
   templates: {
     title: '### 📄 募集テンプレート',
-    description: 'タイトル・人数・色・通知ロールをテンプレ化して素早く募集を開始',
-    buttons: [
-      { customId: 'create_template', label: 'テンプレート作成', style: ButtonStyle.Primary, emoji: '📄' }
-    ]
+    description: 'テンプレート作成は Web から行います（Discord では閲覧のみ）',
+    buttons: []
   }
 };
 
@@ -307,9 +305,7 @@ function getFeaturesContent(dedicatedStatus, dedicatedType, dedicatedTarget) {
 
 async function getTemplatesContentWithSettings(guildId, settings) {
   try {
-    const creationPermission = settings?.allow_member_template_create
-      ? '✅ 一般ユーザー作成: 許可'
-      : '🔒 一般ユーザー作成: 禁止';
+    const creationPermission = '🌐 テンプレート作成は Web で行ってください';
 
     const templates = await listTemplates(guildId);
     if (templates && templates.length > 0) {
@@ -356,23 +352,9 @@ async function getCategoryContent(category, values, interaction, settings) {
 }
 
 function getTemplateButtons(settings, isAdmin) {
-  const buttons = [];
-  const allowMemberTemplateCreate = !!settings?.allow_member_template_create;
-
-  if (isAdmin || allowMemberTemplateCreate) {
-    buttons.push({ customId: 'create_template', label: 'テンプレート作成', style: ButtonStyle.Primary, emoji: '📄' });
-  }
-
-  if (isAdmin) {
-    buttons.push({
-      customId: 'toggle_template_creation_permission',
-      label: `一般ユーザー作成: ${allowMemberTemplateCreate ? '許可中' : '禁止中'}`,
-      style: allowMemberTemplateCreate ? ButtonStyle.Success : ButtonStyle.Secondary,
-      emoji: allowMemberTemplateCreate ? '✅' : '🔒'
-    });
-  }
-
-  return buttons;
+  void settings;
+  void isAdmin;
+  return [];
 }
 
 // ボタン行を構築
@@ -406,7 +388,7 @@ function addCategoryButtons(container, config, isAdmin, category, settings) {
   const buttons = category === 'templates'
     ? getTemplateButtons(settings, isAdmin)
     : config.buttons;
-  const canUseButtons = isAdmin || (category === 'templates' && !!settings?.allow_member_template_create);
+  const canUseButtons = isAdmin;
 
   if (canUseButtons && buttons.length > 0) {
     console.log(`[guildSettings] Adding ${buttons.length} buttons for category: ${category}`);
@@ -417,7 +399,7 @@ function addCategoryButtons(container, config, isAdmin, category, settings) {
     container.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
         category === 'templates'
-          ? '🔒 **このサーバーでは一般ユーザーのテンプレート作成が許可されていません**'
+          ? 'ℹ️ **テンプレート作成は Web から利用できます**'
           : '🔒 **変更には管理者権限が必要です**'
       )
     );

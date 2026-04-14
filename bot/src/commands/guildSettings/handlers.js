@@ -16,7 +16,6 @@ const {
   showTitleModal,
   showColorModal,
   showDedicatedChannelTypeSelect,
-  showTemplateModal,
 } = require('./ui');
 
 function isGuildOwner(interaction) {
@@ -94,16 +93,8 @@ async function execute(interaction) {
 }
 
 async function canUseTemplateCreation(interaction) {
-  const isAdmin = await isAdminUser(interaction);
-  if (isAdmin) return true;
-
-  try {
-    const settings = await getGuildSettingsSmart(interaction.guildId);
-    return !!settings?.allow_member_template_create;
-  } catch (error) {
-    console.warn('[guildSettings] canUseTemplateCreation check failed:', error?.message || error);
-    return false;
-  }
+  void interaction;
+  return false;
 }
 
 async function ensureAdmin(interaction) {
@@ -155,16 +146,10 @@ async function handleButtonInteraction(interaction) {
   console.log(`[guildSettings] Button pressed: ${customId}`);
   try {
     if (customId === 'create_template') {
-      const canUse = await canUseTemplateCreation(interaction);
-      if (!canUse) {
-        await safeReply(interaction, {
-          content: '❌ テンプレート作成は管理者が許可したサーバーでのみ利用できます。',
-          flags: MessageFlags.Ephemeral
-        });
-        return;
-      }
-
-      await showTemplateModal(interaction);
+      await safeReply(interaction, {
+        content: '🌐 テンプレート作成は Web で行ってください。',
+        flags: MessageFlags.Ephemeral
+      });
       return;
     }
 
@@ -239,11 +224,8 @@ async function handleModalSubmit(interaction) {
 
     const templateModalIds = new Set(['template_create_modal', 'template_optional_modal']);
     if (templateModalIds.has(customId)) {
-      const canUse = await canUseTemplateCreation(interaction);
-      if (!canUse) {
-        await interaction.editReply({ content: '❌ テンプレート作成は管理者が許可したサーバーでのみ利用できます。' });
-        return;
-      }
+      await interaction.editReply({ content: '🌐 テンプレート作成は Web で行ってください。' });
+      return;
     } else {
       const isAdmin = await ensureAdmin(interaction);
       if (!isAdmin) return;
@@ -684,29 +666,7 @@ async function toggleDedicatedChannel(interaction) {
 }
 
 async function toggleTemplateCreationPermission(interaction) {
-  try {
-    const isAdmin = await ensureAdmin(interaction);
-    if (!isAdmin) return;
-
-    const guildId = interaction.guildId;
-    const currentSettings = await getGuildSettingsFromRedis(guildId);
-    const next = !currentSettings?.allow_member_template_create;
-
-    await saveGuildSettingsToRedis(guildId, { allow_member_template_create: next });
-    await safeReply(interaction, {
-      content: `✅ 一般ユーザーのテンプレート作成を「${next ? '許可' : '禁止'}」にしました。`,
-      flags: MessageFlags.Ephemeral
-    });
-    scheduleSettingsRefresh(interaction, guildId, 500);
-  } catch (error) {
-    console.error('Toggle template creation permission error:', error);
-    if (!interaction.replied && !interaction.deferred) {
-      await safeReply(interaction, {
-        content: '❌ テンプレート作成権限の切り替えに失敗しました。',
-        flags: MessageFlags.Ephemeral
-      });
-    }
-  }
+  void interaction;
 }
 
 async function toggleSpecialMention(interaction, mentionType) {
