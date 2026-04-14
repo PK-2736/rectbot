@@ -94,10 +94,10 @@ const DEFAULT_LAYOUT: TemplateLayout = {
   content: { x: 110, y: 389, size: 24, visible: true },
   voice: { x: 969, y: 590, size: 24, visible: true },
   contentBox: { x: 73, y: 281, width: 614, height: 360, visible: true },
-  imageBox: { x: 880, y: 330, width: 300, height: 220, visible: true },
-  membersBox: { x: 969, y: 302, width: 400, height: 56, visible: true },
-  timeBox: { x: 969, y: 446, width: 400, height: 56, visible: true },
-  voiceBox: { x: 969, y: 590, width: 400, height: 56, visible: true },
+  imageBox: { x: 880, y: 330, width: 300, height: 220, visible: false },
+  membersBox: { x: 969, y: 302, width: 120, height: 20, visible: true },
+  timeBox: { x: 969, y: 446, width: 120, height: 20, visible: true },
+  voiceBox: { x: 969, y: 590, width: 120, height: 20, visible: true },
   participantsBox: { x: 119, y: 180, width: 1134, height: 158, visible: true },
   contentBoxColor: "#FFFFFF",
   imageBoxColor: "#FFFFFF",
@@ -351,7 +351,7 @@ export default function PlusTemplatePage() {
   const setInfoBoxSize = (field: InfoBoxFieldKey, key: "width" | "height", value: number) => {
     setLayout((prev) => ({
       ...prev,
-      [field]: { ...prev[field], [key]: clamp(value, key === "width" ? 160 : 12, key === "width" ? 640 : 160) },
+      [field]: { ...prev[field], [key]: clamp(value, key === "width" ? 48 : 12, key === "width" ? 640 : 160) },
     }));
   };
 
@@ -717,7 +717,7 @@ export default function PlusTemplatePage() {
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 items-center text-sm">
                         <label>幅</label>
-                        <input type="range" min={160} max={640} value={layout[field].width} onChange={(e) => setInfoBoxSize(field, "width", Number(e.target.value))} />
+                        <input type="range" min={48} max={640} value={layout[field].width} onChange={(e) => setInfoBoxSize(field, "width", Number(e.target.value))} />
                         <span className="sm:text-right text-xs text-stone-500">{layout[field].width}px</span>
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 items-center text-sm">
