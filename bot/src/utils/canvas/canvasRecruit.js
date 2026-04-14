@@ -532,8 +532,8 @@ async function drawClassicModeCard(ctx, recruitData, canvasSize, accentColor, pa
   const participantCount = getParticipantCount(currentMembers, maxMembers);
   const participantLayout = getParticipantLayout(participantCount, contentBox.x, contentBox.y);
   // クラシック表示の見た目調整: 参加者アバターを少し右下へ寄せる
-  participantLayout.participantAreaX += 1;
-  participantLayout.participantAreaY += 1;
+  participantLayout.participantAreaX += 4;
+  participantLayout.participantAreaY += 4;
   await drawParticipantCircles(ctx, participantIds, participantCount, participantLayout, client, avatarUrls);
 
   const content = recruitData.description || recruitData.content || '';
