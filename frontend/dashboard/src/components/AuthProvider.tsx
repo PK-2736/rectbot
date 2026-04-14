@@ -28,11 +28,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // Cookie から JWT をチェックしてユーザー情報を取得
     const checkAuth = async () => {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
       try {
         // Worker の /api/auth/me を呼び出して認証状態とユーザー情報を確認
-  const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://api.recrubo.net';
+        const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://api.recrubo.net';
         const response = await fetch(`${apiBaseUrl}/api/auth/me`, {
           credentials: 'include', // Cookie を送信
+          signal: controller.signal,
+          cache: 'no-store',
         });
 
         if (response.ok) {
@@ -58,9 +62,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser(null);
         }
       } catch (error) {
-        console.error('Auth check failed:', error);
+        if ((error as { name?: string })?.name === 'AbortError') {
+          console.warn('Auth check timed out');
+        } else {
+          console.error('Auth check failed:', error);
+        }
         setUser(null);
       } finally {
+        clearTimeout(timeoutId);
         setIsLoading(false);
       }
     };
