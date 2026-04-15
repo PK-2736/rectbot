@@ -4,6 +4,8 @@ registerFont(__dirname + '/../../../data/Corporate-Logo-Rounded-Bold-ver3.otf', 
 
 const DEFAULT_TEMPLATE_LAYOUT = {
   canvas: { width: 1280, height: 720 },
+  outputWidth: 140,
+  outputHeight: 100,
   outputScale: 5,
   contentLabel: '募集内容',
   membersLabel: '人数：',
@@ -253,6 +255,8 @@ function getTemplateSource(recruitData) {
 
 function toSafeLayout(layout) {
   if (!layout || typeof layout !== 'object') return null;
+  const outputWidth = Number(layout.outputWidth ?? DEFAULT_TEMPLATE_LAYOUT.outputWidth);
+  const outputHeight = Number(layout.outputHeight ?? DEFAULT_TEMPLATE_LAYOUT.outputHeight);
   const outputScale = Number(layout.outputScale ?? DEFAULT_TEMPLATE_LAYOUT.outputScale);
   const rawStickerImages = Array.isArray(layout.stickerImages) ? layout.stickerImages : [];
   const stickerImages = rawStickerImages
@@ -267,6 +271,8 @@ function toSafeLayout(layout) {
 
   return {
     canvas: layout.canvas || DEFAULT_TEMPLATE_LAYOUT.canvas,
+    outputWidth: Number.isFinite(outputWidth) ? Math.max(64, Math.min(2048, Math.round(outputWidth))) : DEFAULT_TEMPLATE_LAYOUT.outputWidth,
+    outputHeight: Number.isFinite(outputHeight) ? Math.max(64, Math.min(2048, Math.round(outputHeight))) : DEFAULT_TEMPLATE_LAYOUT.outputHeight,
     outputScale: Number.isFinite(outputScale) ? Math.max(2, Math.min(10, Math.round(outputScale))) : DEFAULT_TEMPLATE_LAYOUT.outputScale,
     contentLabel: typeof layout.contentLabel === 'string' ? layout.contentLabel : DEFAULT_TEMPLATE_LAYOUT.contentLabel,
     membersLabel: typeof layout.membersLabel === 'string' ? layout.membersLabel : DEFAULT_TEMPLATE_LAYOUT.membersLabel,
@@ -738,9 +744,9 @@ function drawInfoItems(ctx, items, textColor = '#FFFFFF') {
   });
 }
 
-function setupCanvas(outputScale = DEFAULT_TEMPLATE_LAYOUT.outputScale) {
-  const width = 140;
-  const height = 100;
+function setupCanvas(outputScale = DEFAULT_TEMPLATE_LAYOUT.outputScale, outputWidth = DEFAULT_TEMPLATE_LAYOUT.outputWidth, outputHeight = DEFAULT_TEMPLATE_LAYOUT.outputHeight) {
+  const width = Math.max(64, Math.min(2048, Math.round(Number(outputWidth) || DEFAULT_TEMPLATE_LAYOUT.outputWidth)));
+  const height = Math.max(64, Math.min(2048, Math.round(Number(outputHeight) || DEFAULT_TEMPLATE_LAYOUT.outputHeight)));
   const scale = Math.max(2, Math.min(10, Math.round(Number(outputScale) || DEFAULT_TEMPLATE_LAYOUT.outputScale)));
   const canvas = createCanvas(width * scale, height * scale);
   const ctx = canvas.getContext('2d');
@@ -896,7 +902,9 @@ function applyShadowEffect(ctx) {
 async function generateRecruitCard(recruitData, participantIds = [], client = null, accentColor = null, avatarUrls = null) {
   const templateLayout = resolveTemplateLayout(recruitData);
   const outputScale = templateLayout?.outputScale || DEFAULT_TEMPLATE_LAYOUT.outputScale;
-  const { canvas, ctx, width, height } = setupCanvas(outputScale);
+  const outputWidth = templateLayout?.outputWidth || DEFAULT_TEMPLATE_LAYOUT.outputWidth;
+  const outputHeight = templateLayout?.outputHeight || DEFAULT_TEMPLATE_LAYOUT.outputHeight;
+  const { canvas, ctx, width, height } = setupCanvas(outputScale, outputWidth, outputHeight);
   const useTemplateMode = shouldUseTemplateModeForRecruit(recruitData);
 
   console.log('[generateRecruitCard] mode=', useTemplateMode ? 'template' : 'classic', 'renderMode=', recruitData?.renderMode || null, 'templateName=', recruitData?.templateName || null, 'hasTemplate=', Boolean(getTemplateSource(recruitData)), 'classicLabelFix=v2');

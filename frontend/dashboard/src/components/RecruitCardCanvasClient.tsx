@@ -17,6 +17,8 @@ interface RecruitCardCanvasProps {
   };
   layout: {
     canvas: { width: number; height: number };
+    outputWidth?: number;
+    outputHeight?: number;
     contentLabel: string;
     membersLabel: string;
     timeLabel: string;
@@ -62,10 +64,12 @@ function getCoverCrop(imgWidth: number, imgHeight: number, boxWidth: number, box
 }
 
 const DEFAULT_ACCENT_COLOR = 'FF6B9D';
-const RECT_CANVAS_WIDTH = 140;
-const RECT_CANVAS_HEIGHT = 100;
+const DEFAULT_OUTPUT_WIDTH = 140;
+const DEFAULT_OUTPUT_HEIGHT = 100;
 const DEFAULT_LAYOUT = {
   canvas: { width: 1280, height: 720 },
+  outputWidth: DEFAULT_OUTPUT_WIDTH,
+  outputHeight: DEFAULT_OUTPUT_HEIGHT,
   contentLabel: '募集内容',
   membersLabel: '人数：',
   timeLabel: '時間：',
@@ -301,9 +305,13 @@ function drawEmptyParticipantSlot(target: Konva.Layer | Konva.Group, x: number, 
   target.add(new Konva.Line({ points: [x, y - plusSize, x, y + plusSize], stroke: strokeColor, strokeWidth: 1 }));
 }
 
-function scaleBoxToRect(box: LayoutBox, layoutCanvas: { width: number; height: number }): LayoutBox {
-  const sx = RECT_CANVAS_WIDTH / (layoutCanvas.width || DEFAULT_LAYOUT.canvas.width);
-  const sy = RECT_CANVAS_HEIGHT / (layoutCanvas.height || DEFAULT_LAYOUT.canvas.height);
+function scaleBoxToRect(
+  box: LayoutBox,
+  layoutCanvas: { width: number; height: number },
+  outputCanvas: { width: number; height: number }
+): LayoutBox {
+  const sx = outputCanvas.width / (layoutCanvas.width || DEFAULT_LAYOUT.canvas.width);
+  const sy = outputCanvas.height / (layoutCanvas.height || DEFAULT_LAYOUT.canvas.height);
   return {
     x: Math.round(box.x * sx),
     y: Math.round(box.y * sy),
@@ -327,7 +335,9 @@ export function RecruitCardCanvasImpl({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const stageRef = useRef<Konva.Stage | null>(null);
   const { width: canvasWidth, height: canvasHeight } = layout.canvas;
-  const [containerSize, setContainerSize] = useState({ width: RECT_CANVAS_WIDTH, height: RECT_CANVAS_HEIGHT });
+  const outputCanvasWidth = clamp(Number(layout.outputWidth ?? DEFAULT_LAYOUT.outputWidth), 64, 2048);
+  const outputCanvasHeight = clamp(Number(layout.outputHeight ?? DEFAULT_LAYOUT.outputHeight), 64, 2048);
+  const [containerSize, setContainerSize] = useState({ width: outputCanvasWidth, height: outputCanvasHeight });
   const resolvedTextColor = normalizeHexColor(textColor, '#FFFFFF');
   const resolvedFrameColor = normalizeHexColor(accentColor, `#${DEFAULT_ACCENT_COLOR}`);
   const contentBoxFrameColor = normalizeHexColor(layout.contentBoxColor, resolvedFrameColor);
@@ -372,17 +382,14 @@ export function RecruitCardCanvasImpl({
     });
     stageRef.current = stage;
 
-    const baseFitScale = Math.min(
-      containerSize.width / RECT_CANVAS_WIDTH,
-      containerSize.height / RECT_CANVAS_HEIGHT
-    );
+    const baseFitScale = Math.min(containerSize.width / outputCanvasWidth, containerSize.height / outputCanvasHeight);
     const safeScale = Number.isFinite(scale) && scale > 0 ? scale : 1;
     const effectiveScale = baseFitScale * safeScale;
-    const offsetX = (containerSize.width - RECT_CANVAS_WIDTH * effectiveScale) / 2;
-    const offsetY = (containerSize.height - RECT_CANVAS_HEIGHT * effectiveScale) / 2;
+    const offsetX = (containerSize.width - outputCanvasWidth * effectiveScale) / 2;
+    const offsetY = (containerSize.height - outputCanvasHeight * effectiveScale) / 2;
 
-    const sx = RECT_CANVAS_WIDTH / (canvasWidth || DEFAULT_LAYOUT.canvas.width);
-    const sy = RECT_CANVAS_HEIGHT / (canvasHeight || DEFAULT_LAYOUT.canvas.height);
+    const sx = outputCanvasWidth / (canvasWidth || DEFAULT_LAYOUT.canvas.width);
+    const sy = outputCanvasHeight / (canvasHeight || DEFAULT_LAYOUT.canvas.height);
     const toEditorX = (x: number) => Math.round(x / sx);
     const toEditorY = (y: number) => Math.round(y / sy);
 
@@ -397,21 +404,24 @@ export function RecruitCardCanvasImpl({
     const participants = clamp(Number(recruitData.participants || 4), 0, 16);
     const voiceText = recruitData.voicePlace || '指定なし';
     
-    const scaledImageBox = scaleBoxToRect(layout.imageBox, layout.canvas);
-    const scaledContentBox = scaleBoxToRect(layout.contentBox, layout.canvas);
+    const outputCanvas = { width: outputCanvasWidth, height: outputCanvasHeight };
+
+    const scaledImageBox = scaleBoxToRect(layout.imageBox, layout.canvas, outputCanvas);
+    const scaledContentBox = scaleBoxToRect(layout.contentBox, layout.canvas, outputCanvas);
     const scaledParticipantsBox = scaleBoxToRect(
       layout.participantsBox || DEFAULT_LAYOUT.participantsBox,
-      layout.canvas
+      layout.canvas,
+      outputCanvas
     );
-    const scaledMembersBox = scaleBoxToRect(layout.membersBox || DEFAULT_LAYOUT.membersBox, layout.canvas);
-    const scaledTimeBox = scaleBoxToRect(layout.timeBox || DEFAULT_LAYOUT.timeBox, layout.canvas);
-    const scaledVoiceBox = scaleBoxToRect(layout.voiceBox || DEFAULT_LAYOUT.voiceBox, layout.canvas);
+    const scaledMembersBox = scaleBoxToRect(layout.membersBox || DEFAULT_LAYOUT.membersBox, layout.canvas, outputCanvas);
+    const scaledTimeBox = scaleBoxToRect(layout.timeBox || DEFAULT_LAYOUT.timeBox, layout.canvas, outputCanvas);
+    const scaledVoiceBox = scaleBoxToRect(layout.voiceBox || DEFAULT_LAYOUT.voiceBox, layout.canvas, outputCanvas);
 
     const drawAsync = async () => {
       // 背景は透明（fillなし）
-      addGradientBorder(layer, RECT_CANVAS_WIDTH, RECT_CANVAS_HEIGHT, accentColor);
+      addGradientBorder(layer, outputCanvasWidth, outputCanvasHeight, accentColor);
 
-      addRectStyleTitle(layer, RECT_CANVAS_WIDTH, recruitData.title || '募集タイトル', accentColor, resolvedTextColor);
+      addRectStyleTitle(layer, outputCanvasWidth, recruitData.title || '募集タイトル', accentColor, resolvedTextColor);
 
       const contentGroup = new Konva.Group({
         x: scaledContentBox.x,
@@ -598,10 +608,10 @@ export function RecruitCardCanvasImpl({
     return () => {
       stage.destroy();
     };
-  }, [recruitData, layout, accentColor, textColor, resolvedTextColor, resolvedFrameColor, contentBoxFrameColor, imageBoxFrameColor, participantsBoxFrameColor, membersBoxFrameColor, timeBoxFrameColor, voiceBoxFrameColor, backgroundImageUrl, scale, canvasWidth, canvasHeight, containerSize]);
+  }, [recruitData, layout, accentColor, textColor, resolvedTextColor, resolvedFrameColor, contentBoxFrameColor, imageBoxFrameColor, participantsBoxFrameColor, membersBoxFrameColor, timeBoxFrameColor, voiceBoxFrameColor, backgroundImageUrl, scale, canvasWidth, canvasHeight, outputCanvasWidth, outputCanvasHeight, containerSize]);
 
   return (
-    <div className="w-full bg-gray-950 overflow-hidden" style={{ aspectRatio: `${layout.canvas.width} / ${layout.canvas.height}` }}>
+    <div className="w-full bg-gray-950 overflow-hidden" style={{ aspectRatio: `${outputCanvasWidth} / ${outputCanvasHeight}` }}>
       <div ref={containerRef} className="w-full h-full" />
     </div>
   );

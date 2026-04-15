@@ -33,6 +33,8 @@ type LayoutColorKey = "contentBoxColor" | "imageBoxColor" | "participantsBoxColo
 
 type TemplateLayout = {
   canvas: { width: number; height: number };
+  outputWidth: number;
+  outputHeight: number;
   outputScale: number;
   contentLabel: string;
   membersLabel: string;
@@ -90,6 +92,8 @@ type FormState = {
 
 const DEFAULT_LAYOUT: TemplateLayout = {
   canvas: { width: 1280, height: 720 },
+  outputWidth: 140,
+  outputHeight: 100,
   outputScale: 5,
   contentLabel: "募集内容",
   membersLabel: "人数：",
@@ -150,6 +154,12 @@ function clamp(v: number, min: number, max: number) {
   return Math.max(min, Math.min(max, v));
 }
 
+function normalizeOutputDimension(value: unknown, fallback: number) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return clamp(Math.round(n), 64, 2048);
+}
+
 function parseLayout(input: unknown): TemplateLayout {
   if (!input || typeof input !== "object") return DEFAULT_LAYOUT;
   const raw = input as TemplateLayout;
@@ -169,6 +179,8 @@ function parseLayout(input: unknown): TemplateLayout {
 
   return {
     canvas: raw.canvas || DEFAULT_LAYOUT.canvas,
+    outputWidth: normalizeOutputDimension((raw as { outputWidth?: number }).outputWidth, DEFAULT_LAYOUT.outputWidth),
+    outputHeight: normalizeOutputDimension((raw as { outputHeight?: number }).outputHeight, DEFAULT_LAYOUT.outputHeight),
     outputScale: clamp(Number((raw as { outputScale?: number }).outputScale ?? DEFAULT_LAYOUT.outputScale), 2, 10),
     contentLabel: typeof (raw as { contentLabel?: string }).contentLabel === 'string' ? (raw as { contentLabel?: string }).contentLabel || DEFAULT_LAYOUT.contentLabel : DEFAULT_LAYOUT.contentLabel,
     membersLabel: typeof (raw as { membersLabel?: string }).membersLabel === 'string' ? (raw as { membersLabel?: string }).membersLabel || DEFAULT_LAYOUT.membersLabel : DEFAULT_LAYOUT.membersLabel,
@@ -359,6 +371,29 @@ export default function PlusTemplatePage() {
   const selectedGuildName = guilds.find((g) => g.id === selectedGuildId)?.name || "";
   const templateExists = templates.some((t) => t.name === form.name.trim());
   const canCreateNewTemplate = templateExists || templates.length < 5;
+  const outputAspect = `${layout.outputWidth}:${layout.outputHeight}`;
+
+  const setOutputWidth = (value: number) => {
+    setLayout((prev) => ({
+      ...prev,
+      outputWidth: normalizeOutputDimension(value, prev.outputWidth),
+    }));
+  };
+
+  const setOutputHeight = (value: number) => {
+    setLayout((prev) => ({
+      ...prev,
+      outputHeight: normalizeOutputDimension(value, prev.outputHeight),
+    }));
+  };
+
+  const applyOutputAspectPreset = (ratio: number) => {
+    setLayout((prev) => {
+      const width = prev.outputWidth;
+      const height = normalizeOutputDimension(Math.round(width / ratio), prev.outputHeight);
+      return { ...prev, outputHeight: height };
+    });
+  };
 
   const setBoxVisible = (field: BoxFieldKey, visible: boolean) => {
     setLayout((prev) => ({ ...prev, [field]: { ...prev[field], visible } }));
@@ -816,6 +851,55 @@ export default function PlusTemplatePage() {
                       onChange={(e) => setLayout((prev) => ({ ...prev, outputScale: clamp(Number(e.target.value), 2, 10) }))}
                     />
                     <span className="sm:text-right text-xs text-stone-500">{layout.outputScale}x</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 items-center text-sm">
+                    <label>出力幅(px)</label>
+                    <input
+                      type="range"
+                      min={80}
+                      max={600}
+                      step={1}
+                      value={layout.outputWidth}
+                      onChange={(e) => setOutputWidth(Number(e.target.value))}
+                    />
+                    <span className="sm:text-right text-xs text-stone-500">{layout.outputWidth}px</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 items-center text-sm">
+                    <label>出力高さ(px)</label>
+                    <input
+                      type="range"
+                      min={80}
+                      max={600}
+                      step={1}
+                      value={layout.outputHeight}
+                      onChange={(e) => setOutputHeight(Number(e.target.value))}
+                    />
+                    <span className="sm:text-right text-xs text-stone-500">{layout.outputHeight}px</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 items-center text-sm">
+                    <label>縦横比プリセット</label>
+                    <select
+                      className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm"
+                      value={outputAspect}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        if (value === "16:9") applyOutputAspectPreset(16 / 9);
+                        else if (value === "4:3") applyOutputAspectPreset(4 / 3);
+                        else if (value === "1:1") applyOutputAspectPreset(1);
+                        else if (value === "9:16") applyOutputAspectPreset(9 / 16);
+                        else applyOutputAspectPreset(140 / 100);
+                      }}
+                    >
+                      <option value="140:100">標準 (7:5)</option>
+                      <option value="16:9">横長 (16:9)</option>
+                      <option value="4:3">横長 (4:3)</option>
+                      <option value="1:1">正方形 (1:1)</option>
+                      <option value="9:16">縦長 (9:16)</option>
+                    </select>
+                    <span className="sm:text-right text-xs text-stone-500">現在: {layout.outputWidth}:{layout.outputHeight}</span>
                   </div>
                 </div>
 
