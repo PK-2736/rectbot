@@ -16,10 +16,11 @@ const DEFAULT_TEMPLATE_LAYOUT = {
   voice: { x: 969, y: 590, size: 24, visible: true },
   contentBox: { x: 73, y: 281, width: 614, height: 360, visible: true },
   imageBox: { x: 880, y: 330, width: 300, height: 220, visible: false },
-  membersBox: { x: 969, y: 302, width: 120, height: 20, visible: true },
-  timeBox: { x: 969, y: 446, width: 120, height: 20, visible: true },
-  voiceBox: { x: 969, y: 590, width: 120, height: 20, visible: true },
-  participantsBox: { x: 119, y: 180, width: 1134, height: 158, visible: true }
+  membersBox: { x: 969, y: 302, width: 400, height: 56, visible: true },
+  timeBox: { x: 969, y: 446, width: 400, height: 56, visible: true },
+  voiceBox: { x: 969, y: 590, width: 400, height: 56, visible: true },
+  participantsBox: { x: 119, y: 180, width: 1134, height: 158, visible: true },
+  stickerImages: []
 };
 
 const DEFAULT_TITLE_TEXT_COLOR = '#FFFFFF';
@@ -253,6 +254,17 @@ function getTemplateSource(recruitData) {
 function toSafeLayout(layout) {
   if (!layout || typeof layout !== 'object') return null;
   const outputScale = Number(layout.outputScale ?? DEFAULT_TEMPLATE_LAYOUT.outputScale);
+  const rawStickerImages = Array.isArray(layout.stickerImages) ? layout.stickerImages : [];
+  const stickerImages = rawStickerImages
+    .map((item) => {
+      if (!item || typeof item !== 'object') return null;
+      const url = String(item.url || '').trim();
+      if (!url) return null;
+      const assetKey = item.assetKey == null ? null : String(item.assetKey || '').trim() || null;
+      return { url, assetKey };
+    })
+    .filter(Boolean);
+
   return {
     canvas: layout.canvas || DEFAULT_TEMPLATE_LAYOUT.canvas,
     outputScale: Number.isFinite(outputScale) ? Math.max(2, Math.min(10, Math.round(outputScale))) : DEFAULT_TEMPLATE_LAYOUT.outputScale,
@@ -270,7 +282,8 @@ function toSafeLayout(layout) {
     membersBox: layout.membersBox || DEFAULT_TEMPLATE_LAYOUT.membersBox,
     timeBox: layout.timeBox || DEFAULT_TEMPLATE_LAYOUT.timeBox,
     voiceBox: layout.voiceBox || DEFAULT_TEMPLATE_LAYOUT.voiceBox,
-    participantsBox: layout.participantsBox || DEFAULT_TEMPLATE_LAYOUT.participantsBox
+    participantsBox: layout.participantsBox || DEFAULT_TEMPLATE_LAYOUT.participantsBox,
+    stickerImages,
   };
 }
 
@@ -384,7 +397,7 @@ function getScaledField(field, layout, canvasSize, fallback) {
 }
 
 async function drawTemplateModeCard(ctx, recruitData, layout, canvasSize, accentColor, participantIds = [], client = null, avatarUrls = null) {
-  const stickerUrl = getTemplateBackgroundUrl(recruitData);
+  const legacyStickerUrl = getTemplateBackgroundUrl(recruitData);
   const textColor = resolveTextColor(recruitData);
 
   // テンプレートモードは透明背景で、埋め込み画像はステッカーとして imageBox に 重ねる。
@@ -447,14 +460,33 @@ async function drawTemplateModeCard(ctx, recruitData, layout, canvasSize, accent
   }));
   drawInfoItems(ctx, infoItems, textColor);
 
-  // 画像は「ステッカー」として最後に重ねる（枠は描画せず画像をそのまま貼付け）
-  if (imageBox.visible && stickerUrl) {
-    try {
-      const sticker = await loadImage(stickerUrl);
-      // ステッカー枠など装飾は描画せず、画像をそのまま貼付ける
-      drawImageCover(ctx, sticker, imageBox.x, imageBox.y, imageBox.width, imageBox.height);
-    } catch (e) {
-      console.warn('[canvasRecruit] failed to load template sticker image:', e?.message || e);
+  // 画像は「ステッカー」として最後に重ねる（複数枚対応）
+  const stickerUrls = (Array.isArray(layout.stickerImages) ? layout.stickerImages : [])
+    .map((item) => String(item?.url || '').trim())
+    .filter(Boolean);
+  if (stickerUrls.length === 0 && legacyStickerUrl) {
+    stickerUrls.push(legacyStickerUrl);
+  }
+
+  if (imageBox.visible && stickerUrls.length > 0) {
+    const count = stickerUrls.length;
+    const cols = Math.ceil(Math.sqrt(count));
+    const rows = Math.ceil(count / cols);
+    const gap = 4;
+    const cellWidth = Math.max(12, Math.floor((imageBox.width - gap * (cols - 1)) / cols));
+    const cellHeight = Math.max(12, Math.floor((imageBox.height - gap * (rows - 1)) / rows));
+
+    for (let idx = 0; idx < stickerUrls.length; idx += 1) {
+      try {
+        const sticker = await loadImage(stickerUrls[idx]);
+        const col = idx % cols;
+        const row = Math.floor(idx / cols);
+        const x = imageBox.x + col * (cellWidth + gap);
+        const y = imageBox.y + row * (cellHeight + gap);
+        drawImageCover(ctx, sticker, x, y, cellWidth, cellHeight);
+      } catch (e) {
+        console.warn('[canvasRecruit] failed to load template sticker image:', e?.message || e);
+      }
     }
   }
 
@@ -645,16 +677,48 @@ function drawInfoItems(ctx, items, textColor = '#FFFFFF') {
     const box = item.box;
     if (!box?.visible) return;
 
-    const labelSize = Math.max(4, Math.round(box.height * 0.38));
-    const valueSize = Math.max(4, Math.round(box.height * 0.34));
     const paddingX = Math.max(3, Math.round(box.height * 0.2));
-    const paddingY = Math.max(2, Math.round(box.height * 0.28));
+    const paddingY = Math.max(2, Math.round(box.height * 0.2));
+    const maxLabelAreaWidth = Math.max(12, Math.round(box.width * 0.42));
+    const maxContentHeight = Math.max(6, box.height - paddingY * 2);
 
+    const fitLabelSize = () => {
+      const base = Math.max(4, Math.round(box.height * 0.32));
+      for (let size = base; size >= 2; size -= 1) {
+        ctx.font = `bold ${size}px CorporateRounded`;
+        if (ctx.measureText(String(item.label || '')).width <= maxLabelAreaWidth) return size;
+      }
+      return 2;
+    };
+
+    const labelSize = fitLabelSize();
     ctx.font = `bold ${labelSize}px CorporateRounded`;
-    const labelText = truncateText(ctx, String(item.label || ''), Math.max(12, Math.round(box.width * 0.42)));
+    const labelText = String(item.label || '');
     const labelWidth = Math.ceil(ctx.measureText(labelText).width);
     const valueX = paddingX + labelWidth + 4;
     const valueMaxWidth = Math.max(12, box.width - valueX - paddingX);
+
+    const fitValue = () => {
+      const base = Math.max(4, Math.round(box.height * 0.3));
+      const rawValue = String(item.value || '');
+      for (let size = base; size >= 2; size -= 1) {
+        ctx.font = `${size}px CorporateRounded`;
+        const lines = wrapTextLines(ctx, rawValue, valueMaxWidth);
+        const lineHeight = Math.max(3, Math.round(size * 1.15));
+        if (lines.length * lineHeight <= maxContentHeight) {
+          return { size, lines, lineHeight };
+        }
+      }
+
+      ctx.font = `2px CorporateRounded`;
+      return {
+        size: 2,
+        lines: wrapTextLines(ctx, String(item.value || ''), valueMaxWidth),
+        lineHeight: 3,
+      };
+    };
+
+    const fittedValue = fitValue();
 
     ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
     drawRoundedRect(ctx, box.x, box.y, box.width, box.height, Math.max(3, Math.round(box.height / 4)), true, false);
@@ -667,9 +731,10 @@ function drawInfoItems(ctx, items, textColor = '#FFFFFF') {
     ctx.font = `bold ${labelSize}px CorporateRounded`;
     ctx.fillText(labelText, box.x + paddingX, box.y + paddingY);
 
-    ctx.font = `${valueSize}px CorporateRounded`;
-    const valueText = truncateText(ctx, String(item.value || ''), valueMaxWidth);
-    ctx.fillText(valueText, box.x + valueX, box.y + paddingY);
+    ctx.font = `${fittedValue.size}px CorporateRounded`;
+    fittedValue.lines.forEach((line, idx) => {
+      ctx.fillText(line, box.x + valueX, box.y + paddingY + idx * fittedValue.lineHeight);
+    });
   });
 }
 

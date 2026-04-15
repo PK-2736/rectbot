@@ -200,7 +200,7 @@ async function resolveTemplateActor(request, url, env, guildId) {
   if (user) {
     const hasAccess = await canAccessTemplates(user, guildId, env);
     if (hasAccess) {
-      return { ok: true, actorType: 'user', userId: user.id };
+      return { ok: true, actorType: 'user', userId: user.id, userName: user.username || null };
     }
   }
 
@@ -208,7 +208,7 @@ async function resolveTemplateActor(request, url, env, guildId) {
   if (guestToken) {
     const guest = await verifyTemplateGuestToken(guestToken, env);
     if (guest && guest.guildId === String(guildId || '').trim()) {
-      return { ok: true, actorType: 'guest', userId: guest.userId };
+      return { ok: true, actorType: 'guest', userId: guest.userId, userName: null };
     }
   }
 
@@ -450,7 +450,7 @@ async function upsertTemplate(request, env, safeHeaders) {
     return jsonResponse({ error: `テンプレートは1サーバーにつき${TEMPLATE_LIMIT_PER_GUILD}個までです。不要なテンプレートを削除してください。` }, 400, safeHeaders);
   }
 
-  const payload = buildTemplatePayload(body, actor.userId, env, existingTemplate || null);
+  const payload = buildTemplatePayload(body, actor.userName || actor.userId, env, existingTemplate || null);
   console.log('[plus/templates] upsert resolved payload', {
     guildId,
     name,
@@ -593,7 +593,7 @@ async function uploadTemplateAsset(request, env, safeHeaders) {
           content: 'ガチエリア / 初心者歓迎',
           start_time_text: '今から',
           voice_place: '通話あり',
-          created_by: actor.userId,
+          created_by: actor.userName || actor.userId,
           updated_at: now,
           background_asset_key: key,
           background_image_url: backgroundImageUrl,

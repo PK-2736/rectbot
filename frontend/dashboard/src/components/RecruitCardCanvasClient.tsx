@@ -5,6 +5,7 @@ import Konva from 'konva';
 
 type LayoutField = { x: number; y: number; size: number; visible: boolean };
 type LayoutBox = { x: number; y: number; width: number; height: number; visible: boolean };
+type StickerImage = { url: string; assetKey?: string | null };
 
 interface RecruitCardCanvasProps {
   recruitData: {
@@ -31,6 +32,7 @@ interface RecruitCardCanvasProps {
     timeBox: LayoutBox;
     voiceBox: LayoutBox;
     participantsBox?: LayoutBox;
+    stickerImages?: StickerImage[];
     contentBoxColor?: string;
     imageBoxColor?: string;
     participantsBoxColor?: string;
@@ -44,6 +46,19 @@ interface RecruitCardCanvasProps {
   scale?: number;
   onLayoutChange?: (field: string, x: number, y: number) => void;
   onRenderedDataUrl?: (dataUrl: string) => void;
+}
+
+function getCoverCrop(imgWidth: number, imgHeight: number, boxWidth: number, boxHeight: number) {
+  const imgRatio = imgWidth / imgHeight;
+  const boxRatio = boxWidth / boxHeight;
+  if (imgRatio > boxRatio) {
+    const cropWidth = imgHeight * boxRatio;
+    const cropX = (imgWidth - cropWidth) / 2;
+    return { x: cropX, y: 0, width: cropWidth, height: imgHeight };
+  }
+  const cropHeight = imgWidth / boxRatio;
+  const cropY = (imgHeight - cropHeight) / 2;
+  return { x: 0, y: cropY, width: imgWidth, height: cropHeight };
 }
 
 const DEFAULT_ACCENT_COLOR = 'FF6B9D';
@@ -62,9 +77,9 @@ const DEFAULT_LAYOUT = {
   voice: { x: 969, y: 590, size: 24, visible: true },
   contentBox: { x: 73, y: 281, width: 614, height: 360, visible: true },
   imageBox: { x: 880, y: 330, width: 300, height: 220, visible: false },
-  membersBox: { x: 969, y: 302, width: 120, height: 20, visible: true },
-  timeBox: { x: 969, y: 446, width: 120, height: 20, visible: true },
-  voiceBox: { x: 969, y: 590, width: 120, height: 20, visible: true },
+  membersBox: { x: 969, y: 302, width: 400, height: 56, visible: true },
+  timeBox: { x: 969, y: 446, width: 400, height: 56, visible: true },
+  voiceBox: { x: 969, y: 590, width: 400, height: 56, visible: true },
   participantsBox: { x: 119, y: 180, width: 1134, height: 158, visible: true },
   contentBoxColor: '#FFFFFF',
   imageBoxColor: '#FFFFFF',
@@ -507,33 +522,60 @@ export function RecruitCardCanvasImpl({
           }));
         };
 
-        if (backgroundImageUrl) {
-          try {
-            const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-              const i = new window.Image();
-              i.crossOrigin = 'anonymous';
-              i.onload = () => resolve(i);
-              i.onerror = reject;
-              i.src = backgroundImageUrl;
-            });
+        const stickerUrls = (Array.isArray(layout.stickerImages) ? layout.stickerImages : [])
+          .map((s) => String(s?.url || '').trim())
+          .filter(Boolean);
+        if (stickerUrls.length === 0 && backgroundImageUrl) {
+          stickerUrls.push(backgroundImageUrl);
+        }
 
-            const imageNode = new Konva.Image({
+        if (stickerUrls.length > 0) {
+          try {
+            const imageGroup = new Konva.Group({
               x: scaledImageBox.x,
               y: scaledImageBox.y,
-              width: scaledImageBox.width,
-              height: scaledImageBox.height,
-              image: img,
               draggable: Boolean(onLayoutChangeRef.current),
-              dragBoundFunc: (pos) => pos,
             });
             if (onLayoutChangeRef.current) {
-              imageNode.on('dragend', () => {
+              imageGroup.on('dragend', () => {
                 if (onLayoutChangeRef.current) {
-                  onLayoutChangeRef.current('imageBox', toEditorX(imageNode.x()), toEditorY(imageNode.y()));
+                  onLayoutChangeRef.current('imageBox', toEditorX(imageGroup.x()), toEditorY(imageGroup.y()));
                 }
               });
             }
-            layer.add(imageNode);
+
+            const count = stickerUrls.length;
+            const cols = Math.ceil(Math.sqrt(count));
+            const rows = Math.ceil(count / cols);
+            const gap = 2;
+            const cellWidth = Math.max(8, Math.floor((scaledImageBox.width - gap * (cols - 1)) / cols));
+            const cellHeight = Math.max(8, Math.floor((scaledImageBox.height - gap * (rows - 1)) / rows));
+
+            for (let idx = 0; idx < count; idx += 1) {
+              const url = stickerUrls[idx];
+              const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+                const i = new window.Image();
+                i.crossOrigin = 'anonymous';
+                i.onload = () => resolve(i);
+                i.onerror = reject;
+                i.src = url;
+              });
+              const col = idx % cols;
+              const row = Math.floor(idx / cols);
+              const x = col * (cellWidth + gap);
+              const y = row * (cellHeight + gap);
+              const crop = getCoverCrop(img.width || 1, img.height || 1, cellWidth, cellHeight);
+              imageGroup.add(new Konva.Image({
+                x,
+                y,
+                width: cellWidth,
+                height: cellHeight,
+                image: img,
+                crop,
+              }));
+            }
+
+            layer.add(imageGroup);
             drawImageBorder();
           } catch {
             drawImageBorder();

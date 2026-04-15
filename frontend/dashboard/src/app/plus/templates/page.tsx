@@ -22,6 +22,11 @@ type LayoutBox = {
   visible: boolean;
 };
 
+type StickerItem = {
+  url: string;
+  assetKey?: string | null;
+};
+
 type BoxFieldKey = "contentBox" | "imageBox" | "participantsBox";
 type InfoBoxFieldKey = "membersBox" | "timeBox" | "voiceBox";
 type LayoutColorKey = "contentBoxColor" | "imageBoxColor" | "participantsBoxColor" | "membersBoxColor" | "timeBoxColor" | "voiceBoxColor";
@@ -50,11 +55,13 @@ type TemplateLayout = {
   membersBoxColor: string;
   timeBoxColor: string;
   voiceBoxColor: string;
+  stickerImages: StickerItem[];
 };
 
 type Template = {
   guild_id: string;
   name: string;
+  created_by?: string | null;
   title: string | null;
   participants: number | null;
   color: string | null;
@@ -95,9 +102,9 @@ const DEFAULT_LAYOUT: TemplateLayout = {
   voice: { x: 969, y: 590, size: 24, visible: true },
   contentBox: { x: 73, y: 281, width: 614, height: 360, visible: true },
   imageBox: { x: 880, y: 330, width: 300, height: 220, visible: false },
-  membersBox: { x: 969, y: 302, width: 120, height: 20, visible: true },
-  timeBox: { x: 969, y: 446, width: 120, height: 20, visible: true },
-  voiceBox: { x: 969, y: 590, width: 120, height: 20, visible: true },
+  membersBox: { x: 969, y: 302, width: 400, height: 56, visible: true },
+  timeBox: { x: 969, y: 446, width: 400, height: 56, visible: true },
+  voiceBox: { x: 969, y: 590, width: 400, height: 56, visible: true },
   participantsBox: { x: 119, y: 180, width: 1134, height: 158, visible: true },
   contentBoxColor: "#FFFFFF",
   imageBoxColor: "#FFFFFF",
@@ -105,6 +112,7 @@ const DEFAULT_LAYOUT: TemplateLayout = {
   membersBoxColor: "#FFFFFF",
   timeBoxColor: "#FFFFFF",
   voiceBoxColor: "#FFFFFF",
+  stickerImages: [],
 };
 
 const INITIAL_FORM: FormState = {
@@ -145,6 +153,20 @@ function clamp(v: number, min: number, max: number) {
 function parseLayout(input: unknown): TemplateLayout {
   if (!input || typeof input !== "object") return DEFAULT_LAYOUT;
   const raw = input as TemplateLayout;
+  const rawStickerImages = (raw as { stickerImages?: unknown }).stickerImages;
+  const stickerImages = Array.isArray(rawStickerImages)
+    ? rawStickerImages
+        .map((item) => {
+          if (!item || typeof item !== "object") return null;
+          const mapped = item as { url?: unknown; assetKey?: unknown };
+          const url = String(mapped.url || "").trim();
+          if (!url) return null;
+          const assetKey = mapped.assetKey == null ? null : String(mapped.assetKey || "").trim() || null;
+          return { url, assetKey };
+        })
+        .filter(Boolean) as StickerItem[]
+    : [];
+
   return {
     canvas: raw.canvas || DEFAULT_LAYOUT.canvas,
     outputScale: clamp(Number((raw as { outputScale?: number }).outputScale ?? DEFAULT_LAYOUT.outputScale), 2, 10),
@@ -169,6 +191,7 @@ function parseLayout(input: unknown): TemplateLayout {
     membersBoxColor: typeof (raw as { membersBoxColor?: string }).membersBoxColor === 'string' ? (raw as { membersBoxColor?: string }).membersBoxColor || DEFAULT_LAYOUT.membersBoxColor : DEFAULT_LAYOUT.membersBoxColor,
     timeBoxColor: typeof (raw as { timeBoxColor?: string }).timeBoxColor === 'string' ? (raw as { timeBoxColor?: string }).timeBoxColor || DEFAULT_LAYOUT.timeBoxColor : DEFAULT_LAYOUT.timeBoxColor,
     voiceBoxColor: typeof (raw as { voiceBoxColor?: string }).voiceBoxColor === 'string' ? (raw as { voiceBoxColor?: string }).voiceBoxColor || DEFAULT_LAYOUT.voiceBoxColor : DEFAULT_LAYOUT.voiceBoxColor,
+    stickerImages,
   };
 }
 
@@ -188,6 +211,7 @@ export default function PlusTemplatePage() {
   const [uploadStatus, setUploadStatus] = useState<string>("");
   const [selectedFileName, setSelectedFileName] = useState<string>("");
   const [selectedUploadFile, setSelectedUploadFile] = useState<File | null>(null);
+  const [pendingLocalStickerUrl, setPendingLocalStickerUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
@@ -219,11 +243,14 @@ export default function PlusTemplatePage() {
 
     if (!user) return;
     setLoadingGuilds(true);
-    fetch(`${apiBaseUrl}/api/discord/guilds`, { credentials: "include" })
+    fetch(`${apiBaseUrl}/api/discord/guilds?premiumOnly=1`, { credentials: "include" })
       .then(async (res) => {
         if (!res.ok) throw new Error(`guild fetch failed (${res.status})`);
         const data: Guild[] = await res.json();
         setGuilds(data);
+        if (data.length === 0) {
+          setError("テンプレート機能を利用できるサブスク対象サーバーがありません");
+        }
         if (data.length > 0) setSelectedGuildId((prev) => prev || data[0].id);
       })
       .catch((e) => setError(e instanceof Error ? e.message : "サーバー一覧の取得に失敗しました"))
@@ -363,6 +390,42 @@ export default function PlusTemplatePage() {
     setLayout((prev) => ({ ...prev, [key]: value }));
   };
 
+  const addStickerUrl = (url: string, assetKey: string | null = null) => {
+    const trimmed = String(url || "").trim();
+    if (!trimmed) return;
+    setLayout((prev) => ({
+      ...prev,
+      stickerImages: [...(prev.stickerImages || []), { url: trimmed, assetKey }],
+    }));
+  };
+
+  const updateStickerUrl = (index: number, url: string) => {
+    setLayout((prev) => {
+      const next = [...(prev.stickerImages || [])];
+      if (!next[index]) return prev;
+      next[index] = { ...next[index], url };
+      return { ...prev, stickerImages: next };
+    });
+  };
+
+  const removeSticker = (index: number) => {
+    setLayout((prev) => {
+      const next = [...(prev.stickerImages || [])];
+      const removed = next[index];
+      if (!removed) return prev;
+      if (removed.url.startsWith("blob:")) {
+        URL.revokeObjectURL(removed.url);
+        if (pendingLocalStickerUrl === removed.url) {
+          setPendingLocalStickerUrl(null);
+          setSelectedUploadFile(null);
+          setSelectedFileName("");
+        }
+      }
+      next.splice(index, 1);
+      return { ...prev, stickerImages: next };
+    });
+  };
+
   const uploadBackgroundFile = async (file: File, guildId: string, templateName: string) => {
     const fd = new FormData();
     fd.set("guildId", guildId);
@@ -402,17 +465,40 @@ export default function PlusTemplatePage() {
       }
 
       const uploadSourceFile = selectedUploadFile;
+      let nextLayout = layout;
 
       if (uploadSourceFile) {
         const uploadData = await uploadBackgroundFile(uploadSourceFile, selectedGuildId, form.name.trim());
+        const uploadedUrl = String(uploadData?.publicUrl || "").trim();
+        const uploadedAssetKey = String(uploadData?.objectKey || "").trim() || null;
+
+        if (pendingLocalStickerUrl && uploadedUrl) {
+          nextLayout = {
+            ...nextLayout,
+            stickerImages: (nextLayout.stickerImages || []).map((sticker) =>
+              sticker.url === pendingLocalStickerUrl
+                ? { url: uploadedUrl, assetKey: uploadedAssetKey }
+                : sticker
+            ),
+          };
+        } else if (uploadedUrl) {
+          nextLayout = {
+            ...nextLayout,
+            stickerImages: [...(nextLayout.stickerImages || []), { url: uploadedUrl, assetKey: uploadedAssetKey }],
+          };
+        }
+
+        const primarySticker = (nextLayout.stickerImages || []).find((s) => String(s.url || "").trim());
         nextForm = {
           ...form,
-          backgroundImageUrl: uploadData?.publicUrl || form.backgroundImageUrl,
-          backgroundAssetKey: uploadData?.objectKey || form.backgroundAssetKey,
+          backgroundImageUrl: primarySticker?.url || form.backgroundImageUrl,
+          backgroundAssetKey: primarySticker?.assetKey || form.backgroundAssetKey,
         };
         setForm(nextForm);
+        setLayout(nextLayout);
         setSelectedFileName("");
         setSelectedUploadFile(null);
+        setPendingLocalStickerUrl(null);
         setUploadStatus(`ステッカー画像を保存しました: ${String(uploadData?.objectKey || "(key不明)")}`);
         if (uploadInputRef.current) uploadInputRef.current.value = "";
         if (localPreviewUrlRef.current) {
@@ -421,10 +507,29 @@ export default function PlusTemplatePage() {
         }
       }
 
+      const normalizedStickerImages = (nextLayout.stickerImages || [])
+        .map((sticker) => ({
+          url: String(sticker?.url || "").trim(),
+          assetKey: sticker?.assetKey ? String(sticker.assetKey) : null,
+        }))
+        .filter((sticker) => !!sticker.url && !sticker.url.startsWith("blob:"));
+
+      const primarySticker = normalizedStickerImages[0] || null;
+      nextForm = {
+        ...nextForm,
+        backgroundImageUrl: primarySticker?.url || "",
+        backgroundAssetKey: primarySticker?.assetKey || "",
+      };
+
+      nextLayout = {
+        ...nextLayout,
+        stickerImages: normalizedStickerImages,
+      };
+
       const payload = {
         guildId: selectedGuildId,
         ...nextForm,
-        layout,
+        layout: nextLayout,
       };
 
       const res = await fetch(`${apiBaseUrl}/api/plus/templates`, {
@@ -437,7 +542,7 @@ export default function PlusTemplatePage() {
       if (!res.ok) throw new Error(data?.error || "テンプレート保存に失敗しました");
 
       await reloadTemplates(selectedGuildId);
-      writeEditorCache(selectedGuildId, nextForm, layout);
+      writeEditorCache(selectedGuildId, nextForm, nextLayout);
     } catch (e) {
       setError(e instanceof Error ? e.message : "保存に失敗しました");
     } finally {
@@ -580,7 +685,19 @@ export default function PlusTemplatePage() {
                     onChange={(e) => setForm({ ...form, textColor: e.target.value })}
                   />
                 </div>
-                <input className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm" placeholder="ステッカー画像URL（任意）" value={form.backgroundImageUrl} onChange={(e) => setForm({ ...form, backgroundImageUrl: e.target.value })} />
+                <input className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm" placeholder="ステッカー画像URL（先頭互換）" value={form.backgroundImageUrl} onChange={(e) => {
+                  const value = e.target.value;
+                  setForm({ ...form, backgroundImageUrl: value });
+                  setLayout((prev) => {
+                    const next = [...(prev.stickerImages || [])];
+                    if (next.length === 0 && value.trim()) {
+                      next.push({ url: value.trim(), assetKey: null });
+                    } else if (next.length > 0) {
+                      next[0] = { ...next[0], url: value.trim() };
+                    }
+                    return { ...prev, stickerImages: next.filter((s) => s.url) };
+                  });
+                }} />
               </div>
             </div>
 
@@ -603,21 +720,53 @@ export default function PlusTemplatePage() {
                   setSelectedFileName(file.name || "(file)");
                   setSelectedUploadFile(file);
 
+                  const localUrl = URL.createObjectURL(file);
+                  if (pendingLocalStickerUrl) {
+                    setLayout((prev) => ({
+                      ...prev,
+                      stickerImages: (prev.stickerImages || []).filter((s) => s.url !== pendingLocalStickerUrl),
+                    }));
+                    URL.revokeObjectURL(pendingLocalStickerUrl);
+                  }
                   if (localPreviewUrlRef.current) {
                     URL.revokeObjectURL(localPreviewUrlRef.current);
                   }
-                  const localUrl = URL.createObjectURL(file);
                   localPreviewUrlRef.current = localUrl;
-                  setForm((prev) => ({
-                    ...prev,
-                    backgroundImageUrl: localUrl,
-                    backgroundAssetKey: "",
-                  }));
+                  setPendingLocalStickerUrl(localUrl);
+                  addStickerUrl(localUrl, null);
                 }} />
                 {saving && <span className="text-xs text-stone-500">アップロード中...</span>}
               </div>
               {selectedFileName && <p className="text-xs text-brand-700">選択中: {selectedFileName}（保存時にR2へ保存）</p>}
               {uploadStatus && <p className="text-xs text-emerald-600">{uploadStatus}</p>}
+
+              <div className="space-y-2">
+                <p className="text-xs text-stone-600">ステッカー一覧（複数可）</p>
+                {(layout.stickerImages || []).length === 0 ? (
+                  <p className="text-xs text-stone-500">ステッカーはまだありません</p>
+                ) : (
+                  <div className="space-y-2">
+                    {(layout.stickerImages || []).map((sticker, idx) => (
+                      <div key={`sticker-${idx}`} className="grid grid-cols-[1fr_auto] gap-2 items-center">
+                        <input
+                          className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-xs"
+                          placeholder="ステッカー画像URL"
+                          value={sticker.url}
+                          onChange={(e) => updateStickerUrl(idx, e.target.value)}
+                        />
+                        <button type="button" onClick={() => removeSticker(idx)} className="px-3 py-2 text-xs rounded-md bg-rose-500 hover:bg-rose-400 text-white">削除</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => addStickerUrl("https://")}
+                  className="px-3 py-1.5 text-xs rounded-md border border-amber-300 text-stone-700 hover:bg-amber-50"
+                >
+                  URLステッカーを追加
+                </button>
+              </div>
             </div>
 
             <details className="rounded-2xl border border-amber-200 bg-white/90 p-5 shadow-sm" open>
@@ -758,7 +907,7 @@ export default function PlusTemplatePage() {
                 layout={layout}
                 accentColor={form.color ? form.color.replace('#', '') : DEFAULT_ACCENT_COLOR}
                 textColor={form.textColor}
-                backgroundImageUrl={form.backgroundImageUrl || undefined}
+                backgroundImageUrl={(layout.stickerImages?.[0]?.url || form.backgroundImageUrl) || undefined}
                 scale={1}
                 onLayoutChange={(fieldName: string, newX: number, newY: number) => {
                   const field = fieldName as keyof TemplateLayout;
@@ -803,6 +952,7 @@ export default function PlusTemplatePage() {
                     >
                       <p className="font-semibold text-stone-900">{t.name}</p>
                       <p className="text-sm text-stone-600">{t.title || "(タイトル未設定)"}</p>
+                      <p className="text-xs text-stone-500 mt-1">作成者: {t.created_by || "不明"}</p>
                       <p className="text-xs text-stone-500 mt-1">更新: {new Date(t.updated_at).toLocaleString("ja-JP")}</p>
                     </button>
                     <div className="mt-3 flex justify-end">
