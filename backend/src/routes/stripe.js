@@ -219,6 +219,36 @@ function mapStripeError(error, env) {
   const lowerMessage = message.toLowerCase();
   const keyMode = detectStripeKeyMode(env?.STRIPE_SECRET_KEY);
 
+  if (lowerMessage.includes('no such customer')) {
+    if (lowerMessage.includes('live mode') && keyMode === 'live') {
+      return {
+        status: 400,
+        payload: {
+          error: 'Stripe customer mode mismatch: test customer ID is being used with a live secret key.',
+          hint: 'Reset stored stripe_customer_id for the user or let the backend recreate customer automatically with live mode.'
+        }
+      };
+    }
+
+    if (lowerMessage.includes('test mode') && keyMode === 'test') {
+      return {
+        status: 400,
+        payload: {
+          error: 'Stripe customer mode mismatch: live customer ID is being used with a test secret key.',
+          hint: 'Use test-mode customer or switch STRIPE_SECRET_KEY to live mode to match existing customer IDs.'
+        }
+      };
+    }
+
+    return {
+      status: statusCode || 400,
+      payload: {
+        error: message || 'Invalid Stripe customer ID.',
+        hint: 'The stored Stripe customer ID may belong to a different Stripe mode/account.'
+      }
+    };
+  }
+
   if (lowerMessage.includes('creating a checkout session in testmode without an existing customer')) {
     return {
       status: statusCode || 400,
@@ -283,7 +313,23 @@ async function createStripeClient(env) {
 async function resolveOrCreateStripeCustomerId({ userId, email, username, env, stripe }) {
   const subscription = await fetchLatestSubscriptionByUserId(userId, env);
   const fromDb = String(subscription?.stripe_customer_id || '').trim();
-  if (fromDb) return fromDb;
+  if (fromDb) {
+    try {
+      const existingCustomer = await stripe.customers.retrieve(fromDb);
+      if (existingCustomer && !existingCustomer.deleted) {
+        return fromDb;
+      }
+    } catch (error) {
+      const message = String(error?.message || '').toLowerCase();
+      if (!message.includes('no such customer')) {
+        throw error;
+      }
+      console.warn('[stripe] Stored customer id is invalid in current mode, recreating customer:', {
+        userId,
+        fromDb,
+      });
+    }
+  }
 
   const existing = await stripe.customers.list({
     email: email || undefined,
@@ -894,12 +940,42 @@ async function createPortalLinkForDashboard(request, env) {
     }
 
     const stripe = await createStripeClient(env);
+    let customerId = String(subscription.stripe_customer_id || '').trim();
+    if (!customerId) {
+      return jsonResponse({ error: 'No customer found for user' }, 404);
+    }
+
+    try {
+      const existingCustomer = await stripe.customers.retrieve(customerId);
+      if (!existingCustomer || existingCustomer.deleted) {
+        customerId = await resolveOrCreateStripeCustomerId({
+          userId,
+          email: user.email || null,
+          username: user.username || null,
+          env,
+          stripe,
+        });
+      }
+    } catch (error) {
+      const message = String(error?.message || '').toLowerCase();
+      if (!message.includes('no such customer')) {
+        throw error;
+      }
+      customerId = await resolveOrCreateStripeCustomerId({
+        userId,
+        email: user.email || null,
+        username: user.username || null,
+        env,
+        stripe,
+      });
+    }
+
     const dashboardUrl = getDashboardUrl(env);
     const body = await request.json().catch(() => ({}));
     const returnUrl = String(body?.returnUrl || '').trim() || `${dashboardUrl}/subscription`;
 
     const portal = await stripe.billingPortal.sessions.create({
-      customer: subscription.stripe_customer_id,
+      customer: customerId,
       return_url: returnUrl,
     });
 
@@ -929,8 +1005,34 @@ async function createPortalLinkForBot(request, env) {
     }
 
     const stripe = await createStripeClient(env);
+    let customerId = String(subscription.stripe_customer_id || '').trim();
+    try {
+      const existingCustomer = await stripe.customers.retrieve(customerId);
+      if (!existingCustomer || existingCustomer.deleted) {
+        customerId = await resolveOrCreateStripeCustomerId({
+          userId,
+          email: null,
+          username: null,
+          env,
+          stripe,
+        });
+      }
+    } catch (error) {
+      const message = String(error?.message || '').toLowerCase();
+      if (!message.includes('no such customer')) {
+        throw error;
+      }
+      customerId = await resolveOrCreateStripeCustomerId({
+        userId,
+        email: null,
+        username: null,
+        env,
+        stripe,
+      });
+    }
+
     const portal = await stripe.billingPortal.sessions.create({
-      customer: subscription.stripe_customer_id,
+      customer: customerId,
       return_url: returnUrl
     });
 
