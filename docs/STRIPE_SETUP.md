@@ -126,6 +126,9 @@ CREATE INDEX idx_subscriptions_stripe_subscription_id ON subscriptions(stripe_su
    - `STRIPE_WEBHOOK_SECRET` = `whsec_...`
    - `STRIPE_PREMIUM_PRICE_ID` = `price_...`
    - `STRIPE_PURCHASE_DISCORD_WEBHOOK_URL` = Stripe購入通知用 Discord Webhook URL
+   - `DISCORD_BOT_TOKEN` = 購入完了サーバーへ通知を送るBotトークン
+   - `STRIPE_PURCHASE_DISCORD_MENTION` = 任意（例: `@here`）
+   - `STRIPE_PURCHASE_DISCORD_EMBED_COLOR` = 任意（例: `#22c55e`）
    - `DASHBOARD_URL` = `https://dash.recrubo.net`（必要に応じて）
 
 #### GitHub CLI で Secrets を投入する例
@@ -136,6 +139,9 @@ gh secret set STRIPE_SECRET_KEY -b "sk_live_xxx"
 gh secret set STRIPE_WEBHOOK_SECRET -b "whsec_xxx"
 gh secret set STRIPE_PREMIUM_PRICE_ID -b "price_xxx"
 gh secret set STRIPE_PURCHASE_DISCORD_WEBHOOK_URL -b "https://discord.com/api/webhooks/..."
+gh secret set DISCORD_BOT_TOKEN -b "<your_discord_bot_token>"
+gh secret set STRIPE_PURCHASE_DISCORD_MENTION -b "@here"
+gh secret set STRIPE_PURCHASE_DISCORD_EMBED_COLOR -b "#22c55e"
 gh secret set DASHBOARD_URL -b "https://dash.recrubo.net"
 ```
 

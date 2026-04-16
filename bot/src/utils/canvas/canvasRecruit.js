@@ -145,8 +145,10 @@ function drawPin(ctx, x, y, color) {
 
 function getRawMaxMembers(recruitData) {
   return recruitData.maxMembers
+    ?? recruitData.participants
     ?? recruitData.metadata?.raw?.maxMembers
     ?? recruitData.metadata?.raw?.participants
+    ?? recruitData.metadata?.participants
     ?? recruitData.raw?.maxMembers
     ?? recruitData.raw?.participants
     ?? recruitData.participantsCount

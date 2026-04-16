@@ -85,6 +85,7 @@ function getStripePurchaseWebhookUrl(env) {
   return String(
     env.STRIPE_PURCHASE_DISCORD_WEBHOOK_URL
       || env.STRIPE_DISCORD_WEBHOOK_URL
+      || env.DEFAULT_STRIPE_PURCHASE_DISCORD_WEBHOOK_URL
       || env.DISCORD_WEBHOOK_URL
       || ''
   ).trim();
@@ -129,7 +130,10 @@ function formatAmount(amount, currency) {
 
 async function notifyStripePurchaseToDiscord({ env, userId, username, guildId, guildName, subscriptionId, amount, currency, billingInterval, checkoutSessionId }) {
   const webhookUrl = getStripePurchaseWebhookUrl(env);
-  if (!webhookUrl) return;
+  if (!webhookUrl) {
+    console.warn('[stripe] Purchase Discord webhook URL is not configured.');
+    return;
+  }
 
   const mentionPrefix = getStripePurchaseMentionText(env);
   const userMention = userId ? `<@${userId}>` : '';
@@ -177,6 +181,89 @@ async function notifyStripePurchaseToDiscord({ env, userId, username, guildId, g
     }
   } catch (error) {
     console.warn('[stripe] Discord webhook notify error:', error?.message || error);
+  }
+}
+
+function resolveGuildNotifyChannelId(settings) {
+  if (!settings || typeof settings !== 'object') return null;
+  const updateChannelId = String(settings.update_channel_id || '').trim();
+  if (updateChannelId) return updateChannelId;
+
+  const recruitChannelId = String(settings.recruit_channel_id || '').trim();
+  if (recruitChannelId) return recruitChannelId;
+
+  const recruitChannelIds = Array.isArray(settings.recruit_channel_ids)
+    ? settings.recruit_channel_ids.map((v) => String(v || '').trim()).filter(Boolean)
+    : [];
+  return recruitChannelIds[0] || null;
+}
+
+async function fetchGuildSettingsForNotify(guildId, env) {
+  const normalizedGuildId = String(guildId || '').trim();
+  if (!normalizedGuildId) return null;
+
+  const supabase = await createSupabaseClient(env);
+  if (!supabase) return null;
+
+  const { data, error } = await supabase
+    .from('guild_settings')
+    .select('guild_id, guild_name, update_channel_id, recruit_channel_id, recruit_channel_ids')
+    .eq('guild_id', normalizedGuildId)
+    .maybeSingle();
+
+  if (error) {
+    if (!isMissingDbColumnError(error)) {
+      console.warn('[stripe] Failed to fetch guild settings for notify:', error?.message || error);
+    }
+    return null;
+  }
+
+  return data || null;
+}
+
+async function notifyPurchasedGuildChannel({ env, guildId, guildName, userId, amount, currency, billingInterval }) {
+  const botToken = String(env.DISCORD_BOT_TOKEN || '').trim();
+  if (!botToken) return;
+
+  const settings = await fetchGuildSettingsForNotify(guildId, env);
+  const channelId = resolveGuildNotifyChannelId(settings);
+  if (!channelId) return;
+
+  const targetGuildName = String(guildName || settings?.guild_name || guildId || '').trim() || '不明なサーバー';
+  const amountText = formatAmount(amount, currency);
+  const billingText = formatBillingInterval(billingInterval);
+
+  const payload = {
+    content: `<@${userId}> サブスクリプションの登録が完了しました！`,
+    embeds: [
+      {
+        title: 'Recrubo Plus 有効化完了',
+        color: parseEmbedColor(env),
+        description: '/subscription status で確認してください。',
+        fields: [
+          { name: '対象サーバー', value: targetGuildName, inline: false },
+          { name: 'プラン', value: `${amountText} (${billingText})`, inline: true },
+        ],
+      },
+    ],
+  };
+
+  try {
+    const response = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bot ${botToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const text = await response.text().catch(() => '');
+      console.warn('[stripe] Failed to notify purchased guild channel:', response.status, text.slice(0, 300));
+    }
+  } catch (error) {
+    console.warn('[stripe] Purchased guild channel notify error:', error?.message || error);
   }
 }
 
@@ -1286,6 +1373,16 @@ async function handleCheckoutSessionCompleted(session, env, stripe) {
     currency,
     billingInterval,
     checkoutSessionId,
+  });
+
+  await notifyPurchasedGuildChannel({
+    env,
+    guildId: purchasedGuildId,
+    guildName: String(session?.metadata?.guildName || fullSession?.metadata?.guildName || '').trim() || null,
+    userId,
+    amount,
+    currency,
+    billingInterval,
   });
 }
 

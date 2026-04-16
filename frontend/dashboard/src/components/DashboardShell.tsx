@@ -35,8 +35,8 @@ export function DashboardShell({ children }: DashboardShellProps) {
   const pathname = usePathname();
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#f5f7fa] text-slate-800">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(85,124,162,0.12),_transparent_42%),linear-gradient(180deg,_rgba(255,255,255,0.9),_rgba(245,247,250,0.98))]" />
+    <div className="relative min-h-screen overflow-hidden bg-[#f6f4f1] text-slate-800">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(184,119,85,0.1),_transparent_42%),radial-gradient(circle_at_bottom_left,_rgba(95,152,139,0.08),_transparent_36%),linear-gradient(180deg,_rgba(255,255,255,0.9),_rgba(246,244,241,0.98))]" />
       <div className="pointer-events-none absolute left-1/2 top-0 h-72 w-72 -translate-x-1/2 rounded-full bg-brand-300/20 blur-3xl" />
 
       <header className="relative z-10 border-b border-brand-100 bg-white/75 backdrop-blur-xl">

@@ -166,10 +166,10 @@ function buildGuildSelectComponents(userId, options) {
   return [new ActionRowBuilder().addComponents(menu)];
 }
 
-async function createCheckoutLink(userId, guildId) {
+async function createCheckoutLink(userId, guildId, guildName) {
   return backendFetch('/api/stripe/bot/create-checkout-link', {
     method: 'POST',
-    body: JSON.stringify({ userId, guildId }),
+    body: JSON.stringify({ userId, guildId, guildName }),
   });
 }
 
@@ -228,7 +228,7 @@ async function handlePayAgreement(interaction) {
     return;
   }
 
-  const result = await createCheckoutLink(interaction.user.id, guildId);
+  const result = await createCheckoutLink(interaction.user.id, guildId, interaction.client.guilds.cache.get(guildId)?.name || '');
   if (!result?.checkoutUrl) {
     throw new Error('checkoutUrl is missing');
   }
