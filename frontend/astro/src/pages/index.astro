@@ -5,6 +5,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 const supportUrl = import.meta.env.PUBLIC_SUPPORT_PORTAL_URL ?? 'https://support.recrubo.net';
 // サポートサーバー招待（固定URL指定）
 const supportServerUrl = 'https://discord.gg/tJAGc9aRdc';
+const subscriptionUrl = 'https://dash.recrubo.net/subscription';
 // APIベース URL（環境変数で上書き可能 / 末尾スラッシュ除去）
 const apiBaseUrl = (import.meta.env.PUBLIC_API_BASE_URL && import.meta.env.PUBLIC_API_BASE_URL.trim() !== '')
   ? import.meta.env.PUBLIC_API_BASE_URL.trim().replace(/\/$/, '')
@@ -58,7 +59,7 @@ const faqSchema = {
   <script type="application/ld+json" set:html={JSON.stringify(faqSchema)}></script>
 
   <section class="relative overflow-hidden pt-20 pb-16 sm:pt-24 sm:pb-20 lg:pt-28 lg:pb-24">
-    <div class="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,126,66,0.18),transparent_40%),radial-gradient(circle_at_bottom_left,rgba(255,61,138,0.10),transparent_34%)]"></div>
+    <div class="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(217,137,79,0.18),transparent_40%),radial-gradient(circle_at_bottom_left,rgba(201,115,61,0.10),transparent_34%)]"></div>
     <div class="container relative z-10">
       <div class="grid items-center gap-12 lg:grid-cols-[1.1fr_0.9fr]">
         <div class="max-w-2xl animate-fade-in-up">
@@ -89,6 +90,9 @@ const faqSchema = {
             <a href="/commands" class="btn-secondary px-6 py-3 text-base">
               コマンドヘルプ
             </a>
+            <a href={subscriptionUrl} class="btn-secondary px-6 py-3 text-base">
+              サブスク画面
+            </a>
             <a href={supportUrl} class="btn-secondary px-6 py-3 text-base" target="_blank" rel="noopener">
               サポート
             </a>
@@ -111,8 +115,8 @@ const faqSchema = {
         </div>
 
         <div class="relative">
-          <div class="absolute -inset-4 rounded-[2rem] bg-gradient-to-br from-brand-200/40 via-white/60 to-accent-200/30 blur-2xl"></div>
-          <div class="relative overflow-hidden rounded-[2rem] border border-brand-100 bg-white/85 p-4 shadow-[0_30px_80px_rgba(255,126,66,0.14)] backdrop-blur">
+          <div class="absolute -inset-4 rounded-[2rem] bg-gradient-to-br from-brand-200/38 via-white/68 to-accent-200/26 blur-2xl"></div>
+          <div class="relative overflow-hidden rounded-[2rem] border border-brand-100 bg-white/85 p-4 shadow-[0_30px_80px_rgba(201,115,61,0.12)] backdrop-blur">
             <div class="rounded-[1.5rem] border border-brand-100 bg-gradient-to-br from-brand-50 via-white to-accent-50 p-4 sm:p-6">
               <div class="flex items-center justify-between border-b border-brand-100 pb-3">
                 <div>
@@ -198,7 +202,7 @@ const faqSchema = {
 
   <section id="invite" class="pb-20 sm:pb-24">
     <div class="container">
-      <div class="rounded-[2rem] border border-brand-200 bg-gradient-to-r from-brand-500 via-brand-500 to-accent-500 px-6 py-10 text-white shadow-[0_24px_70px_rgba(255,126,66,0.25)] sm:px-8 lg:px-10">
+      <div class="rounded-[2rem] border border-brand-200 bg-gradient-to-r from-brand-500 via-brand-500 to-accent-500 px-6 py-10 text-white shadow-[0_24px_70px_rgba(201,115,61,0.23)] sm:px-8 lg:px-10">
         <div class="grid gap-8 lg:grid-cols-[1fr_auto] lg:items-center">
           <div class="max-w-2xl">
             <p class="text-sm font-semibold uppercase tracking-[0.28em] text-white/80">Get Started</p>

@@ -2,7 +2,7 @@ name: Backup Supabase To R2
 
 on:
   schedule:
-    - cron: '0 18 * * 1'
+    - cron: '0 18 */3 * *'
   workflow_dispatch:
     inputs:
       target_env:
@@ -107,3 +107,26 @@ jobs:
           name: backup-log
           path: backup.log
           retention-days: 30
+
+      - name: Notify Discord webhook
+        if: always()
+        env:
+          DISCORD_WEBHOOK_URL: https://discord.com/api/webhooks/1426044588740710460/RElua00Jvi-937tbGtwv9wfq123mdff097HvaJgb-qILNsc79yzei9x8vZrM2OKYsETI
+          JOB_STATUS: ${{ job.status }}
+          TARGET_ENV: ${{ github.event.inputs.target_env || 'test' }}
+          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ "$JOB_STATUS" = "success" ]; then
+            STATUS_ICON="✅"
+            STATUS_TEXT="完了"
+          else
+            STATUS_ICON="❌"
+            STATUS_TEXT="失敗"
+          fi
+
+          MESSAGE="$STATUS_ICON Supabase Backup ($TARGET_ENV) が$STATUS_TEXTしました\nRun: $RUN_URL"
+          PAYLOAD=$(printf '{"content":"%s"}' "$MESSAGE")
+
+          curl -sS -X POST "$DISCORD_WEBHOOK_URL" \
+            -H "Content-Type: application/json" \
+            --data "$PAYLOAD"

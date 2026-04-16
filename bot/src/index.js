@@ -24,6 +24,7 @@ try {
 const { Client, GatewayIntentBits, Partials, ActivityType } = require("discord.js");
 const fs = require('fs');
 const path = require('path');
+const { startSubscriptionRoleSync } = require('./utils/subscriptionRoleSync');
 
 console.log(`[boot] Starting bot. Node: ${process.version}, env: ${process.env.NODE_ENV || 'development'}`);
 
@@ -38,6 +39,7 @@ if (!TOKEN) {
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMembers,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.GuildMessageReactions, // リアクション機能用
@@ -211,6 +213,8 @@ client.once('clientReady', () => {
   setInterval(() => {
     updateBotStatus();
   }, 5 * 60 * 1000);
+
+  startSubscriptionRoleSync(client);
 });
 
 // ギルド参加時と退出時にもギルド数を更新

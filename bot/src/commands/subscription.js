@@ -13,6 +13,7 @@ const { safeReply } = require('../utils/safeReply');
 
 const DASHBOARD_URL = process.env.DASHBOARD_URL || 'https://dash.recrubo.net';
 const SITE_BASE_URL = process.env.SITE_BASE_URL || 'https://recrubo.net';
+const OFFICIAL_SUPPORT_SERVER_URL = process.env.OFFICIAL_SUPPORT_SERVER_URL || 'https://discord.gg/tJAGc9aRdc';
 const TERMS_URL = process.env.TERMS_URL || `${SITE_BASE_URL}/terms`;
 const PRIVACY_POLICY_URL = process.env.PRIVACY_POLICY_URL || `${SITE_BASE_URL}/privacy`;
 const COMMERCE_POLICY_URL = process.env.COMMERCE_POLICY_URL || `${SITE_BASE_URL}/tokushoho`;
@@ -76,6 +77,7 @@ function buildPreCheckoutEmbed(guildName) {
     .setDescription('決済ページへ進む前に、以下の内容をご確認ください。')
     .addFields(
       { name: '対象サーバー', value: guildName || '未選択', inline: false },
+      { name: 'お願い', value: `お問い合わせや大切なお知らせのため、先に公式サーバーへ参加してください。\n${OFFICIAL_SUPPORT_SERVER_URL}` },
       { name: '確認必須', value: '・利用規約\n・特定商取引法に基づく表示\n・プライバシーポリシー' },
       { name: '同意方法', value: '内容確認後に「同意して決済ページへ進む」を押してください。' }
     )
@@ -85,6 +87,7 @@ function buildPreCheckoutEmbed(guildName) {
 
 function buildPreCheckoutComponents(userId, guildId) {
   const links = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel('公式サーバーに参加').setURL(OFFICIAL_SUPPORT_SERVER_URL),
     new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel('利用規約').setURL(TERMS_URL),
     new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel('特定商取引法に基づく表示').setURL(COMMERCE_POLICY_URL),
     new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel('プライバシーポリシー').setURL(PRIVACY_POLICY_URL)

@@ -39,7 +39,7 @@ const ogImageUrl = '/image.png'; // OGP画像（募集スクリーンショッ�
     
     <title>{title}</title>
     <meta name="description" content={description} />
-    <meta name="theme-color" content="#ff7e42" />
+    <meta name="theme-color" content="#d9894f" />
     <meta name="keywords" content="Discord,ボット,ゲーム募集,フレンドコード,Recrubo,りくるぼ,コミュニティ管理,Discord bot,game recruitment,gaming community" />
     <meta name="author" content="Recrubo" />
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
@@ -202,9 +202,9 @@ const ogImageUrl = '/image.png'; // OGP画像（募集スクリーンショッ�
   <link rel="icon" type="image/png" sizes="512x512" href="/logo.png" />
   <link rel="icon" type="image/png" sizes="1024x1024" href="/logo.png" />
   <link rel="apple-touch-icon" sizes="180x180" href="/logo.png" />
-  <link rel="mask-icon" href="/favicon.svg" color="#F97316" />
+  <link rel="mask-icon" href="/favicon.svg" color="#d9894f" />
   <meta name="msapplication-TileImage" content="/logo.png" />
-  <meta name="msapplication-TileColor" content="#ff7e42" />
+  <meta name="msapplication-TileColor" content="#d9894f" />
     <meta name="apple-mobile-web-app-title" content="Recrubo" />
     
     <!-- PWA Manifest -->
@@ -215,7 +215,7 @@ const ogImageUrl = '/image.png'; // OGP画像（募集スクリーンショッ�
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
   </head>
-  <body class="font-inter antialiased bg-[#fffaf4] text-slate-800">
+  <body class="font-inter antialiased bg-[#fffaf6] text-slate-800">
     <!-- Navigation -->
     <nav class="fixed w-full z-50 bg-white/75 backdrop-blur-md border-b border-brand-100">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -228,6 +228,7 @@ const ogImageUrl = '/image.png'; // OGP画像（募集スクリーンショッ�
           <div class="hidden md:block">
             <div class="ml-10 flex items-baseline space-x-8">
               <a href="#features" class="text-slate-600 hover:text-slate-900 px-3 py-2 text-sm font-medium transition-colors">機能</a>
+              <a href="/commands" class="text-slate-600 hover:text-slate-900 px-3 py-2 text-sm font-medium transition-colors">コマンド</a>
               <a href="/support" class="text-slate-600 hover:text-slate-900 px-3 py-2 text-sm font-medium transition-colors">サポート</a>
               <!-- <a href="https://dash.recrubo.net" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">ダッシュボード</a> -->
             </div>
@@ -246,6 +247,7 @@ const ogImageUrl = '/image.png'; // OGP画像（募集スクリーンショッ�
       <div class="md:hidden hidden" id="mobile-menu">
         <div class="px-2 pt-2 pb-3 space-y-1 bg-white/90 backdrop-blur-md border-t border-brand-100">
           <a href="#features" class="text-slate-700 hover:text-slate-900 block px-3 py-2 text-base font-medium">機能</a>
+          <a href="/commands" class="text-slate-700 hover:text-slate-900 block px-3 py-2 text-base font-medium">コマンド</a>
           <a href="/support" class="text-slate-700 hover:text-slate-900 block px-3 py-2 text-base font-medium">サポート</a>
           <!-- <a href="https://dash.recrubo.net" class="bg-blue-600 hover:bg-blue-700 text-white block px-3 py-2 rounded-lg text-base font-medium">ダッシュボード</a> -->
         </div>
@@ -258,7 +260,7 @@ const ogImageUrl = '/image.png'; // OGP画像（募集スクリーンショッ�
     </main>
 
     <!-- Footer -->
-    <footer class="bg-[#fffaf4] border-t border-brand-100">
+    <footer class="bg-[#fffaf6] border-t border-brand-100">
       <div class="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
         <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
           <div class="col-span-1 md:col-span-2">
@@ -283,6 +285,7 @@ const ogImageUrl = '/image.png'; // OGP画像（募集スクリーンショッ�
             <h4 class="text-slate-900 font-semibold mb-4">製品</h4>
             <ul class="space-y-2">
               <li><a href="#features" class="text-slate-500 hover:text-slate-900 transition-colors">機能一覧</a></li>
+              <li><a href="/commands" class="text-slate-500 hover:text-slate-900 transition-colors">コマンド一覧</a></li>
               <!-- <li><a href="/dashboard" class="text-slate-400 hover:text-white transition-colors">ダッシュボード</a></li> -->
             </ul>
           </div>

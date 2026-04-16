@@ -9,11 +9,11 @@
   }
   
   body {
-    @apply text-slate-800 bg-[#fffaf4];
+    @apply text-slate-800 bg-[#fffaf6];
     background-image:
-      radial-gradient(at 85% 10%, rgba(255, 126, 66, 0.18) 0, transparent 58%),
-      radial-gradient(at 15% 82%, rgba(255, 61, 138, 0.12) 0, transparent 52%),
-      linear-gradient(180deg, rgba(255, 255, 255, 0.6) 0%, rgba(255, 250, 244, 0.92) 100%);
+      radial-gradient(at 85% 10%, rgba(217, 137, 79, 0.18) 0, transparent 58%),
+      radial-gradient(at 15% 82%, rgba(207, 111, 77, 0.11) 0, transparent 52%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.68) 0%, rgba(255, 250, 246, 0.94) 100%);
     background-attachment: fixed;
   }
 }
