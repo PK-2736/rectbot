@@ -91,8 +91,10 @@ jobs:
             if [ -d ~/rectbot/bot ]; then \
               cd ~/rectbot/bot || exit 1; \
               node src/deploy-commands.js || true; \
-              pm2 restart rectbot-server --update-env || pm2 start pm2-server.config.js --only rectbot-server --update-env; \
-              pm2 restart rectbot-image-worker --update-env || pm2 start pm2-server.config.js --only rectbot-image-worker --update-env; \
+              pm2 delete rectbot-server || true; \
+              pm2 delete rectbot-image-worker || true; \
+              pm2 start pm2-server.config.js --only rectbot-server --update-env; \
+              pm2 start pm2-server.config.js --only rectbot-image-worker --update-env; \
               pm2 save || true; \
             else \
               echo "Bot directory not found, skipping bot deployment"; \
