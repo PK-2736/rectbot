@@ -109,6 +109,51 @@ CREATE INDEX idx_subscriptions_stripe_subscription_id ON subscriptions(stripe_su
 
 ## デプロイ手順
 
+### 本番移行チェックリスト（Live）
+
+1. Stripe ダッシュボードを Live モードに切り替える
+2. 本番キーを取得する
+   - 公開鍵: `pk_live_...`
+   - 秘密鍵: `sk_live_...`
+3. 本番の Price ID を作成して控える
+   - `price_...`（Liveモードで作成したもの）
+4. 本番 Webhook エンドポイントを設定
+   - `https://api.recrubo.net/api/stripe/webhook`
+   - 署名シークレット `whsec_...`
+5. GitHub Secrets に本番値を設定
+   - `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` = `pk_live_...`
+   - `STRIPE_SECRET_KEY` = `sk_live_...`
+   - `STRIPE_WEBHOOK_SECRET` = `whsec_...`
+   - `STRIPE_PREMIUM_PRICE_ID` = `price_...`
+   - `STRIPE_PURCHASE_DISCORD_WEBHOOK_URL` = Stripe購入通知用 Discord Webhook URL
+   - `DASHBOARD_URL` = `https://dash.recrubo.net`（必要に応じて）
+
+#### GitHub CLI で Secrets を投入する例
+
+```bash
+gh secret set NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY -b "pk_live_xxx"
+gh secret set STRIPE_SECRET_KEY -b "sk_live_xxx"
+gh secret set STRIPE_WEBHOOK_SECRET -b "whsec_xxx"
+gh secret set STRIPE_PREMIUM_PRICE_ID -b "price_xxx"
+gh secret set STRIPE_PURCHASE_DISCORD_WEBHOOK_URL -b "https://discord.com/api/webhooks/..."
+gh secret set DASHBOARD_URL -b "https://dash.recrubo.net"
+```
+
+#### Cloudflare Workers へ直接投入する例（手動運用時）
+
+```bash
+cd /workspaces/rectbot/backend
+printf "%s" "sk_live_xxx" | npx wrangler secret put STRIPE_SECRET_KEY
+printf "%s" "whsec_xxx" | npx wrangler secret put STRIPE_WEBHOOK_SECRET
+printf "%s" "price_xxx" | npx wrangler secret put STRIPE_PREMIUM_PRICE_ID
+printf "%s" "https://discord.com/api/webhooks/..." | npx wrangler secret put STRIPE_PURCHASE_DISCORD_WEBHOOK_URL
+```
+
+#### Live モード整合の注意
+
+- `STRIPE_SECRET_KEY` と `STRIPE_PREMIUM_PRICE_ID` は必ず同じモード（両方 live）に揃える
+- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` も `pk_live_...` を使う
+
 ### 1. フロントエンド
 
 ```bash

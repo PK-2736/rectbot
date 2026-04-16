@@ -22,8 +22,6 @@ const stripePromise = STRIPE_PUBLISHABLE_KEY_VALID
   ? loadStripe(STRIPE_PUBLISHABLE_KEY)
   : Promise.resolve(null);
 
-const PREMIUM_PRICE_ID = process.env.NEXT_PUBLIC_STRIPE_PREMIUM_PRICE_ID || process.env.NEXT_PUBLIC_STRIPE_PRICE_ID || '';
-
 export default function UserDashboard() {
   const { user, logout, login } = useAuth();
   const [loading, setLoading] = useState(false);
@@ -34,6 +32,7 @@ export default function UserDashboard() {
   const [guildsError, setGuildsError] = useState<string | null>(null);
   const [agreed, setAgreed] = useState(false);
   const effectiveGuildId = selectedGuildId || manualGuildId.trim();
+  const selectedGuildName = guilds.find((g) => g.id === selectedGuildId)?.name || '';
 
   useEffect(() => {
     const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://api.recrubo.net';
@@ -94,8 +93,8 @@ export default function UserDashboard() {
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          ...(PREMIUM_PRICE_ID ? { priceId: PREMIUM_PRICE_ID } : {}),
           guildId: effectiveGuildId,
+          guildName: selectedGuildName || undefined,
         }),
       });
 

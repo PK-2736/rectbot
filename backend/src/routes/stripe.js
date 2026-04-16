@@ -81,6 +81,105 @@ function toIsoOrNull(unixSeconds) {
   return new Date(n * 1000).toISOString();
 }
 
+function getStripePurchaseWebhookUrl(env) {
+  return String(
+    env.STRIPE_PURCHASE_DISCORD_WEBHOOK_URL
+      || env.STRIPE_DISCORD_WEBHOOK_URL
+      || env.DISCORD_WEBHOOK_URL
+      || ''
+  ).trim();
+}
+
+function getStripePurchaseMentionText(env) {
+  return String(env.STRIPE_PURCHASE_DISCORD_MENTION || '').trim();
+}
+
+function parseEmbedColor(env, fallback = 0x22c55e) {
+  const raw = String(env.STRIPE_PURCHASE_DISCORD_EMBED_COLOR || '').trim();
+  if (!raw) return fallback;
+  const normalized = raw.startsWith('#') ? raw.slice(1) : raw;
+  if (!/^[0-9A-Fa-f]{6}$/.test(normalized)) return fallback;
+  return parseInt(normalized, 16);
+}
+
+function formatBillingInterval(interval) {
+  const v = String(interval || '').toLowerCase();
+  if (v === 'month') return '月額';
+  if (v === 'year') return '年額';
+  if (!v) return '-';
+  return v;
+}
+
+function formatAmount(amount, currency) {
+  const n = Number(amount);
+  if (!Number.isFinite(n)) return '-';
+  const normalizedCurrency = String(currency || 'JPY').toUpperCase();
+  const zeroDecimalCurrencies = new Set(['JPY', 'KRW', 'VND', 'CLP', 'XOF', 'XAF', 'GNF', 'PYG', 'RWF', 'MGA', 'BIF', 'DJF', 'KMF', 'UGX']);
+  const value = zeroDecimalCurrencies.has(normalizedCurrency) ? n : n / 100;
+  try {
+    return new Intl.NumberFormat('ja-JP', {
+      style: 'currency',
+      currency: normalizedCurrency,
+      maximumFractionDigits: zeroDecimalCurrencies.has(normalizedCurrency) ? 0 : 2,
+    }).format(value);
+  } catch {
+    return `${value} ${normalizedCurrency}`;
+  }
+}
+
+async function notifyStripePurchaseToDiscord({ env, userId, username, guildId, guildName, subscriptionId, amount, currency, billingInterval, checkoutSessionId }) {
+  const webhookUrl = getStripePurchaseWebhookUrl(env);
+  if (!webhookUrl) return;
+
+  const mentionPrefix = getStripePurchaseMentionText(env);
+  const userMention = userId ? `<@${userId}>` : '';
+  const mentionText = [mentionPrefix, userMention].filter(Boolean).join(' ').trim();
+  const billingLabel = formatBillingInterval(billingInterval);
+  const amountText = formatAmount(amount, currency);
+  const guildDisplayName = String(guildName || '').trim();
+  const embedColor = parseEmbedColor(env);
+
+  const nowIso = new Date().toISOString();
+  const fields = [
+    { name: 'User ID', value: userId || '-', inline: true },
+    { name: '購入者', value: userMention || '-', inline: true },
+    { name: 'Guild ID', value: guildId || '-', inline: true },
+    { name: '購入サーバー', value: guildDisplayName || '-', inline: true },
+    { name: '金額', value: `${amountText} (${billingLabel})`, inline: true },
+    { name: 'Billing', value: billingLabel, inline: true },
+    { name: 'Subscription ID', value: subscriptionId || '-', inline: false },
+    { name: 'Checkout Session', value: checkoutSessionId || '-', inline: false },
+  ];
+
+  const body = {
+    username: 'Recrubo Billing Bot',
+    content: `${mentionText} Recrubo Plus のサブスク購入が完了しました。`.trim(),
+    embeds: [
+      {
+        title: 'Stripe Subscription Purchased',
+        color: embedColor,
+        fields,
+        footer: { text: username ? `user: ${username}` : 'user: unknown' },
+        timestamp: nowIso,
+      },
+    ],
+  };
+
+  try {
+    const res = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      console.warn('[stripe] Failed to notify Discord webhook:', res.status, text.slice(0, 300));
+    }
+  } catch (error) {
+    console.warn('[stripe] Discord webhook notify error:', error?.message || error);
+  }
+}
+
 async function createSupabaseClient(env) {
   const supabaseUrl = env.SUPABASE_URL;
   const supabaseServiceKey = resolveSupabaseServiceKey(env);
@@ -98,7 +197,8 @@ async function createSupabaseClient(env) {
 }
 
 function getStripePriceId(env, bodyPriceId) {
-  return bodyPriceId || env.STRIPE_PREMIUM_PRICE_ID || env.STRIPE_PRICE_ID || null;
+  // Prefer backend env as source of truth to avoid frontend/backend mode drift.
+  return env.STRIPE_PREMIUM_PRICE_ID || env.STRIPE_PRICE_ID || bodyPriceId || null;
 }
 
 function getStripePriceIdForBot(env, bodyPriceId) {
@@ -214,6 +314,7 @@ async function createCheckoutLinkForBot(request, env) {
     const body = await request.json().catch(() => ({}));
     const userId = String(body?.userId || '').trim();
     const guildId = String(body?.guildId || '').trim();
+    const guildName = String(body?.guildName || '').trim();
     const priceId = getStripePriceIdForBot(env, body?.priceId);
     const dashboardUrl = getDashboardUrl(env);
 
@@ -248,12 +349,14 @@ async function createCheckoutLinkForBot(request, env) {
         metadata: {
           userId,
           guildId,
+          ...(guildName ? { guildName } : {}),
           source: 'discord_bot'
         }
       },
       metadata: {
         userId,
         guildId,
+        ...(guildName ? { guildName } : {}),
         source: 'discord_bot'
       }
     });
@@ -848,6 +951,7 @@ async function createCheckoutSession(request, env) {
     const body = await request.json().catch(() => ({}));
     const priceId = getStripePriceId(env, body?.priceId);
     const guildId = String(body?.guildId || '').trim();
+    const guildName = String(body?.guildName || '').trim();
 
     if (!priceId) {
       return jsonResponse({ error: 'priceId is required (or set STRIPE_PREMIUM_PRICE_ID)' }, 400);
@@ -877,12 +981,14 @@ async function createCheckoutSession(request, env) {
           username: user.username,
           source: 'dashboard',
           ...(guildId ? { guildId } : {}),
+          ...(guildName ? { guildName } : {}),
         },
       },
       metadata: {
         userId: user.id,
         username: user.username,
         ...(guildId ? { guildId } : {}),
+        ...(guildName ? { guildName } : {}),
       },
     };
 
@@ -1064,6 +1170,19 @@ async function handleCheckoutSessionCompleted(session, env, stripe) {
   }
 
   await setGuildSubscriptionState(purchasedGuildId, subscriptionId, true, env);
+
+  await notifyStripePurchaseToDiscord({
+    env,
+    userId,
+    username: String(session?.metadata?.username || fullSession?.metadata?.username || '').trim() || null,
+    guildId: purchasedGuildId,
+    guildName: String(session?.metadata?.guildName || fullSession?.metadata?.guildName || '').trim() || null,
+    subscriptionId,
+    amount,
+    currency,
+    billingInterval,
+    checkoutSessionId,
+  });
 }
 
 async function retrieveCheckoutSession(stripe, sessionId) {
