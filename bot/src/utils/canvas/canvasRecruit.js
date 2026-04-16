@@ -173,6 +173,11 @@ function getParticipantCount(currentMembers, maxMembers) {
 
 function getParticipantLayout(participantCount, boxX, boxY, boxWidth = 124, boxHeight = 16) {
   const slots = Math.max(1, Math.min(Number(participantCount) || 1, 16));
+  const is2Rows = slots > 8;
+  const firstRowCount = is2Rows ? Math.ceil(slots / 2) : slots;
+  const secondRowCount = is2Rows ? slots - firstRowCount : 0;
+  const maxPerRow = is2Rows ? Math.max(firstRowCount, secondRowCount) : slots;
+
   const paddingX = 1;
   const paddingY = 1;
   const minGap = 1;
@@ -181,20 +186,29 @@ function getParticipantLayout(participantCount, boxX, boxY, boxWidth = 124, boxH
 
   const usableWidth = Math.max(8, boxWidth - paddingX * 2);
   const usableHeight = Math.max(6, boxHeight - paddingY * 2);
-  const radiusByCount = (usableWidth - minGap * (slots - 1)) / (slots * 2);
-  const radiusByHeight = usableHeight / 2;
+  const rowCount = is2Rows ? 2 : 1;
+  const availableRowHeight = Math.max(4, (usableHeight - minGap * (rowCount - 1)) / rowCount);
+  const radiusByCount = (usableWidth - minGap * (maxPerRow - 1)) / (maxPerRow * 2);
+  const radiusByHeight = availableRowHeight / 2;
   const circleRadius = Math.max(minRadius, Math.min(maxRadius, radiusByCount, radiusByHeight));
   const trackWidth = Math.max(0, usableWidth - circleRadius * 2);
-  const circleSpacing = slots > 1 ? trackWidth / (slots - 1) : 0;
+  const circleSpacing = maxPerRow > 1 ? trackWidth / (maxPerRow - 1) : 0;
+  const rowSpacing = is2Rows ? Math.max(circleRadius * 2 + minGap, availableRowHeight + minGap) : 0;
+  const participantAreaY = boxY + paddingY + (is2Rows ? circleRadius : (usableHeight / 2));
+  const participantAreaX = boxX + paddingX + circleRadius;
 
   return {
-    is2Rows: false,
+    is2Rows,
     circleRadius,
     circleSpacing,
-    rowSpacing: 0,
-    participantAreaY: boxY + paddingY + (usableHeight / 2),
-    participantAreaX: boxX + paddingX + circleRadius,
-    maxPerRow: 16
+    rowSpacing,
+    participantAreaY,
+    participantAreaX,
+    maxPerRow,
+    firstRowCount,
+    secondRowCount,
+    boxInnerX: boxX + paddingX,
+    boxInnerWidth: usableWidth
   };
 }
 
@@ -859,25 +873,55 @@ function drawEmptyParticipantSlot(ctx, x, y, circleRadius, is2Rows) {
 }
 
 async function drawParticipantCircles(ctx, participantIds, participantCount, layout, client, avatarUrls) {
-  const { participantAreaX, participantAreaY, circleSpacing, rowSpacing, circleRadius, is2Rows, maxPerRow } = layout;
+  const {
+    participantAreaY,
+    circleRadius,
+    is2Rows,
+    firstRowCount,
+    secondRowCount,
+    rowSpacing,
+    boxInnerX,
+    boxInnerWidth,
+    circleSpacing,
+    participantAreaX,
+  } = layout;
 
-  for (let i = 0; i < participantCount; i++) {
-    const row = Math.floor(i / maxPerRow);
-    const col = i % maxPerRow;
-    const circleX = participantAreaX + col * circleSpacing;
-    const circleY = participantAreaY + row * rowSpacing;
+  const drawRow = async (rowIndex, count, startIndex) => {
+    if (!count || count <= 0) return;
 
-    if (i < participantIds.length) {
-      await drawParticipantAvatar(ctx, circleX, circleY, participantIds[i], {
-        circleRadius,
-        is2Rows,
-        client,
-        avatarUrls
-      });
-    } else {
-      drawEmptyParticipantSlot(ctx, circleX, circleY, circleRadius, is2Rows);
+    const rowTrackWidth = Math.max(0, boxInnerWidth - circleRadius * 2);
+    const rowSpacingX = count > 1
+      ? (is2Rows ? rowTrackWidth / (count - 1) : circleSpacing)
+      : 0;
+    const rowStartX = count > 1
+      ? boxInnerX + circleRadius
+      : boxInnerX + (boxInnerWidth / 2);
+    const rowY = participantAreaY + rowIndex * rowSpacing;
+
+    for (let col = 0; col < count; col++) {
+      const idx = startIndex + col;
+      const circleX = rowStartX + col * rowSpacingX;
+
+      if (idx < participantIds.length) {
+        await drawParticipantAvatar(ctx, circleX, rowY, participantIds[idx], {
+          circleRadius,
+          is2Rows,
+          client,
+          avatarUrls
+        });
+      } else {
+        drawEmptyParticipantSlot(ctx, circleX, rowY, circleRadius, is2Rows);
+      }
     }
+  };
+
+  if (is2Rows) {
+    await drawRow(0, firstRowCount, 0);
+    await drawRow(1, secondRowCount, firstRowCount);
+    return;
   }
+
+  await drawRow(0, participantCount, 0);
 }
 
 function drawContentTextSection(ctx, boxX, boxY, boxWidth, boxHeight, content, labelText = '募集内容', textColor = '#FFFFFF') {
