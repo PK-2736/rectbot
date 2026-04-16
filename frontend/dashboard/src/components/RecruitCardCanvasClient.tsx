@@ -81,9 +81,9 @@ const DEFAULT_LAYOUT = {
   voice: { x: 780, y: 590, size: 24, visible: true },
   contentBox: { x: 73, y: 281, width: 614, height: 360, visible: true },
   imageBox: { x: 880, y: 330, width: 300, height: 220, visible: false },
-  membersBox: { x: 780, y: 302, width: 100, height: 56, visible: true },
-  timeBox: { x: 780, y: 446, width: 100, height: 56, visible: true },
-  voiceBox: { x: 780, y: 590, width: 100, height: 56, visible: true },
+  membersBox: { x: 780, y: 285, width: 420, height: 90, visible: true },
+  timeBox: { x: 780, y: 429, width: 420, height: 90, visible: true },
+  voiceBox: { x: 780, y: 573, width: 420, height: 90, visible: true },
   participantsBox: { x: 155, y: 156, width: 1134, height: 158, visible: true },
   contentBoxColor: '#FFFFFF',
   imageBoxColor: '#FFFFFF',
@@ -243,53 +243,53 @@ function renderInfoBox(
 ) {
   if (!box.visible) return;
 
-  const paddingX = Math.max(3, Math.round(box.height * 0.2));
-  const paddingY = Math.max(2, Math.round(box.height * 0.2));
+  const paddingX = Math.max(4, Math.round(box.width * 0.08));
+  const maxTextWidth = Math.max(12, box.width - paddingX * 2);
 
-  const maxLabelAreaWidth = Math.max(10, Math.round(box.width * 0.42));
-  const maxContentHeight = Math.max(6, box.height - paddingY * 2);
-
-  const fitLabelSize = () => {
-    const base = Math.max(4, Math.round(box.height * 0.32));
+  const fitText = () => {
+    const base = Math.max(4, Math.round(box.height * 0.24));
     for (let size = base; size >= 2; size -= 1) {
-      const measure = createMeasure(size, true);
-      if (measure(label) <= maxLabelAreaWidth) return size;
-    }
-    return 2;
-  };
-
-  const labelSize = fitLabelSize();
-  const labelMeasure = createMeasure(labelSize, true);
-  const labelText = label;
-  const labelWidth = Math.ceil(labelMeasure(labelText));
-  const valueX = paddingX + labelWidth + 4;
-  const valueMaxWidth = Math.max(12, box.width - valueX - paddingX);
-
-  const fitValue = () => {
-    const base = Math.max(4, Math.round(box.height * 0.3));
-    for (let size = base; size >= 2; size -= 1) {
-      const measure = createMeasure(size, false);
-      const lines = wrapTextLines(value, valueMaxWidth, measure);
+      const labelMeasure = createMeasure(size, true);
+      const valueMeasure = createMeasure(size, false);
+      const labelLine = truncateTextByWidth(label, maxTextWidth, labelMeasure);
+      const valueLines = wrapTextLines(value, maxTextWidth, valueMeasure);
       const lineHeight = Math.max(3, Math.round(size * 1.15));
-      if (lines.length * lineHeight <= maxContentHeight) {
-        return { size, lines, lineHeight };
+      const totalHeight = lineHeight * (1 + valueLines.length);
+      if (totalHeight <= box.height - 6) {
+        return { size, lineHeight, labelLine, valueLines };
       }
     }
+
     const minSize = 2;
-    const minMeasure = createMeasure(minSize, false);
+    const labelMeasure = createMeasure(minSize, true);
+    const valueMeasure = createMeasure(minSize, false);
     return {
       size: minSize,
-      lines: wrapTextLines(value, valueMaxWidth, minMeasure),
-      lineHeight: Math.max(3, Math.round(minSize * 1.15)),
+      lineHeight: 3,
+      labelLine: truncateTextByWidth(label, maxTextWidth, labelMeasure),
+      valueLines: wrapTextLines(value, maxTextWidth, valueMeasure),
     };
   };
 
-  const fittedValue = fitValue();
+  const fitted = fitText();
+  const textLines = [fitted.labelLine, ...fitted.valueLines];
+  const totalTextHeight = fitted.lineHeight * textLines.length;
+  const startY = Math.round((box.height - totalTextHeight) / 2);
 
   const group = new Konva.Group({ x: box.x, y: box.y, draggable });
   group.add(new Konva.Rect({ x: 0, y: 0, width: box.width, height: box.height, cornerRadius: Math.max(3, Math.round(box.height / 4)), fill: 'rgba(0,0,0,0.75)', stroke: withAlpha(frameColor, 0.85), strokeWidth: 0.8 }));
-  group.add(new Konva.Text({ x: paddingX, y: paddingY, text: labelText, fill: withAlpha(frameColor, 0.95), fontSize: labelSize, fontStyle: 'bold', fontFamily: 'CorporateRounded, Arial, sans-serif' }));
-  group.add(new Konva.Text({ x: valueX, y: paddingY, text: fittedValue.lines.join('\n'), fill: textColor, fontSize: fittedValue.size, lineHeight: fittedValue.lineHeight / fittedValue.size, fontFamily: 'CorporateRounded, Arial, sans-serif' }));
+  group.add(new Konva.Text({
+    x: paddingX,
+    y: startY,
+    width: Math.max(12, box.width - paddingX * 2),
+    align: 'center',
+    text: textLines.join('\n'),
+    fill: textColor,
+    fontSize: fitted.size,
+    lineHeight: fitted.lineHeight / fitted.size,
+    fontStyle: 'normal',
+    fontFamily: 'CorporateRounded, Arial, sans-serif',
+  }));
 
   if (onDragEnd) {
     group.on('dragend', () => onDragEnd(Math.round(group.x()), Math.round(group.y())));

@@ -18,9 +18,9 @@ const DEFAULT_TEMPLATE_LAYOUT = {
   voice: { x: 780, y: 590, size: 24, visible: true },
   contentBox: { x: 73, y: 281, width: 614, height: 360, visible: true },
   imageBox: { x: 880, y: 330, width: 300, height: 220, visible: false },
-  membersBox: { x: 780, y: 302, width: 100, height: 56, visible: true },
-  timeBox: { x: 780, y: 446, width: 100, height: 56, visible: true },
-  voiceBox: { x: 780, y: 590, width: 100, height: 56, visible: true },
+  membersBox: { x: 780, y: 285, width: 420, height: 90, visible: true },
+  timeBox: { x: 780, y: 429, width: 420, height: 90, visible: true },
+  voiceBox: { x: 780, y: 573, width: 420, height: 90, visible: true },
   participantsBox: { x: 155, y: 156, width: 1134, height: 158, visible: true },
   stickerImages: []
 };
@@ -683,48 +683,41 @@ function drawInfoItems(ctx, items, textColor = '#FFFFFF') {
     const box = item.box;
     if (!box?.visible) return;
 
-    const paddingX = Math.max(3, Math.round(box.height * 0.2));
-    const paddingY = Math.max(2, Math.round(box.height * 0.2));
-    const maxLabelAreaWidth = Math.max(12, Math.round(box.width * 0.42));
-    const maxContentHeight = Math.max(6, box.height - paddingY * 2);
+    const paddingX = Math.max(4, Math.round(box.width * 0.08));
+    const maxTextWidth = Math.max(12, box.width - paddingX * 2);
 
-    const fitLabelSize = () => {
-      const base = Math.max(4, Math.round(box.height * 0.32));
+    const fitText = () => {
+      const base = Math.max(4, Math.round(box.height * 0.24));
+      const labelRaw = String(item.label || '');
+      const valueRaw = String(item.value || '');
+
       for (let size = base; size >= 2; size -= 1) {
         ctx.font = `bold ${size}px CorporateRounded`;
-        if (ctx.measureText(String(item.label || '')).width <= maxLabelAreaWidth) return size;
-      }
-      return 2;
-    };
-
-    const labelSize = fitLabelSize();
-    ctx.font = `bold ${labelSize}px CorporateRounded`;
-    const labelText = String(item.label || '');
-    const labelWidth = Math.ceil(ctx.measureText(labelText).width);
-    const valueX = paddingX + labelWidth + 4;
-    const valueMaxWidth = Math.max(12, box.width - valueX - paddingX);
-
-    const fitValue = () => {
-      const base = Math.max(4, Math.round(box.height * 0.3));
-      const rawValue = String(item.value || '');
-      for (let size = base; size >= 2; size -= 1) {
+        const labelLine = truncateText(ctx, labelRaw, maxTextWidth);
         ctx.font = `${size}px CorporateRounded`;
-        const lines = wrapTextLines(ctx, rawValue, valueMaxWidth);
+        const valueLines = wrapTextLines(ctx, valueRaw, maxTextWidth);
         const lineHeight = Math.max(3, Math.round(size * 1.15));
-        if (lines.length * lineHeight <= maxContentHeight) {
-          return { size, lines, lineHeight };
+        const totalHeight = lineHeight * (1 + valueLines.length);
+        if (totalHeight <= box.height - 6) {
+          return { size, lineHeight, labelLine, valueLines };
         }
       }
 
-      ctx.font = `2px CorporateRounded`;
+      ctx.font = 'bold 2px CorporateRounded';
+      const labelLine = truncateText(ctx, labelRaw, maxTextWidth);
+      ctx.font = '2px CorporateRounded';
       return {
         size: 2,
-        lines: wrapTextLines(ctx, String(item.value || ''), valueMaxWidth),
         lineHeight: 3,
+        labelLine,
+        valueLines: wrapTextLines(ctx, valueRaw, maxTextWidth),
       };
     };
 
-    const fittedValue = fitValue();
+    const fitted = fitText();
+    const textLines = [fitted.labelLine, ...fitted.valueLines];
+    const totalTextHeight = fitted.lineHeight * textLines.length;
+    const startY = Math.round(box.y + (box.height - totalTextHeight) / 2);
 
     ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
     drawRoundedRect(ctx, box.x, box.y, box.width, box.height, Math.max(3, Math.round(box.height / 4)), true, false);
@@ -734,13 +727,14 @@ function drawInfoItems(ctx, items, textColor = '#FFFFFF') {
     drawRoundedRect(ctx, box.x, box.y, box.width, box.height, Math.max(3, Math.round(box.height / 4)), false, true);
 
     ctx.fillStyle = textColor;
-    ctx.font = `bold ${labelSize}px CorporateRounded`;
-    ctx.fillText(labelText, box.x + paddingX, box.y + paddingY);
-
-    ctx.font = `${fittedValue.size}px CorporateRounded`;
-    fittedValue.lines.forEach((line, idx) => {
-      ctx.fillText(line, box.x + valueX, box.y + paddingY + idx * fittedValue.lineHeight);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.font = `${fitted.size}px CorporateRounded`;
+    textLines.forEach((line, idx) => {
+      ctx.fillText(line, box.x + box.width / 2, startY + idx * fitted.lineHeight);
     });
+    ctx.textAlign = 'start';
+    ctx.textBaseline = 'top';
   });
 }
 
