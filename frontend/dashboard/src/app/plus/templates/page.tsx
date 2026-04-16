@@ -100,15 +100,15 @@ const DEFAULT_LAYOUT: TemplateLayout = {
   timeLabel: "時間：",
   voiceLabel: "通話：",
   title: { x: 420, y: 36, size: 64, visible: true },
-  members: { x: 850, y: 302, size: 24, visible: true },
-  time: { x: 850, y: 446, size: 24, visible: true },
+  members: { x: 780, y: 302, size: 24, visible: true },
+  time: { x: 780, y: 446, size: 24, visible: true },
   content: { x: 110, y: 389, size: 24, visible: true },
-  voice: { x: 850, y: 590, size: 24, visible: true },
+  voice: { x: 780, y: 590, size: 24, visible: true },
   contentBox: { x: 73, y: 281, width: 614, height: 360, visible: true },
   imageBox: { x: 880, y: 330, width: 300, height: 220, visible: false },
-  membersBox: { x: 850, y: 302, width: 400, height: 56, visible: true },
-  timeBox: { x: 850, y: 446, width: 400, height: 56, visible: true },
-  voiceBox: { x: 850, y: 590, width: 400, height: 56, visible: true },
+  membersBox: { x: 780, y: 302, width: 100, height: 56, visible: true },
+  timeBox: { x: 780, y: 446, width: 100, height: 56, visible: true },
+  voiceBox: { x: 780, y: 590, width: 100, height: 56, visible: true },
   participantsBox: { x: 155, y: 156, width: 1134, height: 158, visible: true },
   contentBoxColor: "#FFFFFF",
   imageBoxColor: "#FFFFFF",
@@ -371,7 +371,17 @@ export default function PlusTemplatePage() {
   const selectedGuildName = guilds.find((g) => g.id === selectedGuildId)?.name || "";
   const templateExists = templates.some((t) => t.name === form.name.trim());
   const canCreateNewTemplate = templateExists || templates.length < 5;
-  const outputAspect = `${layout.outputWidth}:${layout.outputHeight}`;
+  const outputAspectRatio = layout.outputWidth / Math.max(1, layout.outputHeight);
+  const resolveAspectPreset = () => {
+    if (Math.abs(outputAspectRatio - 7 / 5) < 0.02) return "7:5";
+    if (Math.abs(outputAspectRatio - 16 / 9) < 0.02) return "16:9";
+    if (Math.abs(outputAspectRatio - 4 / 3) < 0.02) return "4:3";
+    if (Math.abs(outputAspectRatio - 1) < 0.02) return "1:1";
+    if (Math.abs(outputAspectRatio - 9 / 16) < 0.02) return "9:16";
+    return "custom";
+  };
+
+  const outputAspectPreset = resolveAspectPreset();
 
   const setOutputWidth = (value: number) => {
     setLayout((prev) => ({
@@ -883,21 +893,23 @@ export default function PlusTemplatePage() {
                     <label>縦横比プリセット</label>
                     <select
                       className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm"
-                      value={outputAspect}
+                      value={outputAspectPreset}
                       onChange={(e) => {
                         const value = e.target.value;
-                        if (value === "16:9") applyOutputAspectPreset(16 / 9);
+                        if (value === "7:5") applyOutputAspectPreset(7 / 5);
+                        else if (value === "16:9") applyOutputAspectPreset(16 / 9);
                         else if (value === "4:3") applyOutputAspectPreset(4 / 3);
                         else if (value === "1:1") applyOutputAspectPreset(1);
                         else if (value === "9:16") applyOutputAspectPreset(9 / 16);
-                        else applyOutputAspectPreset(140 / 100);
+                        else applyOutputAspectPreset(outputAspectRatio);
                       }}
                     >
-                      <option value="140:100">標準 (7:5)</option>
+                      <option value="7:5">標準 (7:5)</option>
                       <option value="16:9">横長 (16:9)</option>
                       <option value="4:3">横長 (4:3)</option>
                       <option value="1:1">正方形 (1:1)</option>
                       <option value="9:16">縦長 (9:16)</option>
+                      <option value="custom">カスタム</option>
                     </select>
                     <span className="sm:text-right text-xs text-stone-500">現在: {layout.outputWidth}:{layout.outputHeight}</span>
                   </div>
