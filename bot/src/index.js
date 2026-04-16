@@ -36,14 +36,26 @@ if (!TOKEN) {
 }
 
 // P0修正: Intents/Partials を必要最小限かつ適切に設定
+function isEnvFlagEnabled(name, fallback = false) {
+  const raw = process.env[name];
+  if (raw == null || raw === '') return fallback;
+  return ['1', 'true', 'yes', 'on'].includes(String(raw).trim().toLowerCase());
+}
+
+const enableGuildMembersIntent = isEnvFlagEnabled('ENABLE_GUILD_MEMBERS_INTENT', false);
+const enableMessageContentIntent = isEnvFlagEnabled('ENABLE_MESSAGE_CONTENT_INTENT', false);
+
+const intents = [
+  GatewayIntentBits.Guilds,
+  GatewayIntentBits.GuildMessages,
+  GatewayIntentBits.GuildMessageReactions, // リアクション機能用
+];
+
+if (enableGuildMembersIntent) intents.push(GatewayIntentBits.GuildMembers);
+if (enableMessageContentIntent) intents.push(GatewayIntentBits.MessageContent);
+
 const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMembers,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent,
-    GatewayIntentBits.GuildMessageReactions, // リアクション機能用
-  ],
+  intents,
   partials: [
     Partials.Message,      // 古いメッセージへのリアクション対応
     Partials.Reaction,     // リアクションのpartial対応
@@ -57,6 +69,12 @@ const client = new Client({
     roles: [],
     repliedUser: false
   }
+});
+
+console.log('[boot] intents config:', {
+  ENABLE_GUILD_MEMBERS_INTENT: enableGuildMembersIntent,
+  ENABLE_MESSAGE_CONTENT_INTENT: enableMessageContentIntent,
+  intents,
 });
 
 // 同一インタラクションの重複処理を防ぐための簡易デデュープ
@@ -214,7 +232,11 @@ client.once('clientReady', () => {
     updateBotStatus();
   }, 5 * 60 * 1000);
 
-  startSubscriptionRoleSync(client);
+  if (enableGuildMembersIntent) {
+    startSubscriptionRoleSync(client);
+  } else {
+    console.warn('[subscription-role-sync] skipped because ENABLE_GUILD_MEMBERS_INTENT is disabled.');
+  }
 });
 
 // ギルド参加時と退出時にもギルド数を更新
