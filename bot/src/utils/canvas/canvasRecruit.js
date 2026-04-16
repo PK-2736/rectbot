@@ -686,38 +686,26 @@ function drawInfoItems(ctx, items, textColor = '#FFFFFF') {
     const paddingX = Math.max(4, Math.round(box.width * 0.08));
     const maxTextWidth = Math.max(12, box.width - paddingX * 2);
 
-    const fitText = () => {
-      const base = Math.max(4, Math.round(box.height * 0.24));
-      const labelRaw = String(item.label || '');
-      const valueRaw = String(item.value || '');
-
+    const fitSingleLine = () => {
+      const base = Math.max(4, Math.round(box.height * 0.34));
+      const textRaw = `${String(item.label || '')}${String(item.value || '')}`;
       for (let size = base; size >= 2; size -= 1) {
-        ctx.font = `bold ${size}px CorporateRounded`;
-        const labelLine = truncateText(ctx, labelRaw, maxTextWidth);
         ctx.font = `${size}px CorporateRounded`;
-        const valueLines = wrapTextLines(ctx, valueRaw, maxTextWidth);
         const lineHeight = Math.max(3, Math.round(size * 1.15));
-        const totalHeight = lineHeight * (1 + valueLines.length);
-        if (totalHeight <= box.height - 6) {
-          return { size, lineHeight, labelLine, valueLines };
+        if (lineHeight <= box.height - 6) {
+          return { size, lineHeight, text: truncateText(ctx, textRaw, maxTextWidth) };
         }
       }
-
-      ctx.font = 'bold 2px CorporateRounded';
-      const labelLine = truncateText(ctx, labelRaw, maxTextWidth);
       ctx.font = '2px CorporateRounded';
       return {
         size: 2,
         lineHeight: 3,
-        labelLine,
-        valueLines: wrapTextLines(ctx, valueRaw, maxTextWidth),
+        text: truncateText(ctx, textRaw, maxTextWidth),
       };
     };
 
-    const fitted = fitText();
-    const textLines = [fitted.labelLine, ...fitted.valueLines];
-    const totalTextHeight = fitted.lineHeight * textLines.length;
-    const startY = Math.round(box.y + (box.height - totalTextHeight) / 2);
+    const fitted = fitSingleLine();
+    const startY = Math.round(box.y + (box.height - fitted.lineHeight) / 2);
 
     ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
     drawRoundedRect(ctx, box.x, box.y, box.width, box.height, Math.max(3, Math.round(box.height / 4)), true, false);
@@ -730,9 +718,7 @@ function drawInfoItems(ctx, items, textColor = '#FFFFFF') {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
     ctx.font = `${fitted.size}px CorporateRounded`;
-    textLines.forEach((line, idx) => {
-      ctx.fillText(line, box.x + box.width / 2, startY + idx * fitted.lineHeight);
-    });
+    ctx.fillText(fitted.text, box.x + box.width / 2, startY);
     ctx.textAlign = 'start';
     ctx.textBaseline = 'top';
   });

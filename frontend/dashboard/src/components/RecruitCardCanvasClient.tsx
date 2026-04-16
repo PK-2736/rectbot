@@ -246,35 +246,27 @@ function renderInfoBox(
   const paddingX = Math.max(4, Math.round(box.width * 0.08));
   const maxTextWidth = Math.max(12, box.width - paddingX * 2);
 
-  const fitText = () => {
-    const base = Math.max(4, Math.round(box.height * 0.24));
+  const fitSingleLine = () => {
+    const base = Math.max(4, Math.round(box.height * 0.34));
     for (let size = base; size >= 2; size -= 1) {
-      const labelMeasure = createMeasure(size, true);
-      const valueMeasure = createMeasure(size, false);
-      const labelLine = truncateTextByWidth(label, maxTextWidth, labelMeasure);
-      const valueLines = wrapTextLines(value, maxTextWidth, valueMeasure);
+      const measure = createMeasure(size, false);
       const lineHeight = Math.max(3, Math.round(size * 1.15));
-      const totalHeight = lineHeight * (1 + valueLines.length);
-      if (totalHeight <= box.height - 6) {
-        return { size, lineHeight, labelLine, valueLines };
+      if (lineHeight <= box.height - 6) {
+        const singleLine = truncateTextByWidth(`${label}${value}`, maxTextWidth, measure);
+        return { size, lineHeight, singleLine };
       }
     }
-
     const minSize = 2;
-    const labelMeasure = createMeasure(minSize, true);
-    const valueMeasure = createMeasure(minSize, false);
+    const measure = createMeasure(minSize, false);
     return {
       size: minSize,
       lineHeight: 3,
-      labelLine: truncateTextByWidth(label, maxTextWidth, labelMeasure),
-      valueLines: wrapTextLines(value, maxTextWidth, valueMeasure),
+      singleLine: truncateTextByWidth(`${label}${value}`, maxTextWidth, measure),
     };
   };
 
-  const fitted = fitText();
-  const textLines = [fitted.labelLine, ...fitted.valueLines];
-  const totalTextHeight = fitted.lineHeight * textLines.length;
-  const startY = Math.round((box.height - totalTextHeight) / 2);
+  const fitted = fitSingleLine();
+  const startY = Math.round((box.height - fitted.lineHeight) / 2);
 
   const group = new Konva.Group({ x: box.x, y: box.y, draggable });
   group.add(new Konva.Rect({ x: 0, y: 0, width: box.width, height: box.height, cornerRadius: Math.max(3, Math.round(box.height / 4)), fill: 'rgba(0,0,0,0.75)', stroke: withAlpha(frameColor, 0.85), strokeWidth: 0.8 }));
@@ -283,7 +275,7 @@ function renderInfoBox(
     y: startY,
     width: Math.max(12, box.width - paddingX * 2),
     align: 'center',
-    text: textLines.join('\n'),
+    text: fitted.singleLine,
     fill: textColor,
     fontSize: fitted.size,
     lineHeight: fitted.lineHeight / fitted.size,
