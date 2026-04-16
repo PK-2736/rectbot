@@ -171,16 +171,30 @@ function getParticipantCount(currentMembers, maxMembers) {
   return Math.min(Math.max(currentMembers, maxMembers), 16);
 }
 
-function getParticipantLayout(participantCount, boxX, boxY) {
-  const is2Rows = participantCount > 8;
+function getParticipantLayout(participantCount, boxX, boxY, boxWidth = 124, boxHeight = 16) {
+  const slots = Math.max(1, Math.min(Number(participantCount) || 1, 16));
+  const paddingX = 1;
+  const paddingY = 1;
+  const minGap = 1;
+  const minRadius = 2.2;
+  const maxRadius = 6.5;
+
+  const usableWidth = Math.max(8, boxWidth - paddingX * 2);
+  const usableHeight = Math.max(6, boxHeight - paddingY * 2);
+  const radiusByCount = (usableWidth - minGap * (slots - 1)) / (slots * 2);
+  const radiusByHeight = usableHeight / 2;
+  const circleRadius = Math.max(minRadius, Math.min(maxRadius, radiusByCount, radiusByHeight));
+  const trackWidth = Math.max(0, usableWidth - circleRadius * 2);
+  const circleSpacing = slots > 1 ? trackWidth / (slots - 1) : 0;
+
   return {
-    is2Rows,
-    circleRadius: is2Rows ? 4.0 : 6.5,
-    circleSpacing: is2Rows ? 11 : 16,
-    rowSpacing: is2Rows ? 10 : 15,
-    participantAreaY: is2Rows ? boxY - 18 : boxY - 14,
-    participantAreaX: boxX + 5,
-    maxPerRow: 8
+    is2Rows: false,
+    circleRadius,
+    circleSpacing,
+    rowSpacing: 0,
+    participantAreaY: boxY + paddingY + (usableHeight / 2),
+    participantAreaX: boxX + paddingX + circleRadius,
+    maxPerRow: 16
   };
 }
 
@@ -445,9 +459,13 @@ async function drawTemplateModeCard(ctx, recruitData, layout, canvasSize, accent
   const content = recruitData.description || recruitData.content || '';
 
   if (participantsBox.visible) {
-    const participantLayout = getParticipantLayout(participantCount, contentBox.x, contentBox.y);
-    participantLayout.participantAreaX = participantsBox.x + participantLayout.circleRadius;
-    participantLayout.participantAreaY = participantsBox.y + participantLayout.circleRadius;
+    const participantLayout = getParticipantLayout(
+      participantCount,
+      participantsBox.x,
+      participantsBox.y,
+      participantsBox.width,
+      participantsBox.height
+    );
     await drawParticipantCircles(ctx, participantIds, participantCount, participantLayout, client, avatarUrls);
   }
 
@@ -579,10 +597,7 @@ async function drawClassicModeCard(ctx, recruitData, canvasSize, accentColor, pa
   const currentMembers = getCurrentMembers(recruitData, participantIds);
   const maxMembers = getMaxMembers(recruitData, currentMembers);
   const participantCount = getParticipantCount(currentMembers, maxMembers);
-  const participantLayout = getParticipantLayout(participantCount, contentBox.x, contentBox.y);
-  // クラシック表示の見た目調整: 参加者アバターを少し右下へ寄せる
-  participantLayout.participantAreaX += 4;
-  participantLayout.participantAreaY += 3;
+  const participantLayout = getParticipantLayout(participantCount, 9, 24, canvasSize.width - 18, 14);
   await drawParticipantCircles(ctx, participantIds, participantCount, participantLayout, client, avatarUrls);
 
   const content = recruitData.description || recruitData.content || '';
@@ -690,24 +705,38 @@ function drawInfoItems(ctx, items, textColor = '#FFFFFF') {
 
     const fitSingleLine = () => {
       const base = Math.max(4, Math.round(box.height * 0.34));
-      const textRaw = `${String(item.label || '')}${String(item.value || '')}`;
       for (let size = base; size >= 2; size -= 1) {
         ctx.font = `${size}px CorporateRounded`;
         const lineHeight = Math.max(3, Math.round(size * 1.15));
         if (lineHeight <= box.height - 6) {
-          return { size, lineHeight, text: truncateText(ctx, textRaw, maxTextWidth) };
+          const gap = Math.max(2, Math.round(size * 0.4));
+          const labelText = truncateText(ctx, String(item.label || ''), Math.max(6, maxTextWidth * 0.55));
+          const labelWidth = Math.ceil(ctx.measureText(labelText).width);
+          const valueAreaWidth = Math.max(6, maxTextWidth - labelWidth - gap);
+          const valueText = truncateText(ctx, String(item.value || ''), valueAreaWidth);
+          return { size, lineHeight, labelText, valueText, labelWidth, gap };
         }
       }
       ctx.font = '2px CorporateRounded';
+      const gap = 2;
+      const labelText = truncateText(ctx, String(item.label || ''), Math.max(6, maxTextWidth * 0.55));
+      const labelWidth = Math.ceil(ctx.measureText(labelText).width);
+      const valueAreaWidth = Math.max(6, maxTextWidth - labelWidth - gap);
+      const valueText = truncateText(ctx, String(item.value || ''), valueAreaWidth);
       return {
         size: 2,
         lineHeight: 3,
-        text: truncateText(ctx, textRaw, maxTextWidth),
+        labelText,
+        valueText,
+        labelWidth,
+        gap,
       };
     };
 
     const fitted = fitSingleLine();
     const startY = Math.round(box.y + (box.height - fitted.lineHeight) / 2);
+    const valueX = box.x + paddingX + fitted.labelWidth + fitted.gap;
+    const valueWidth = Math.max(6, box.x + box.width - paddingX - valueX);
 
     ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
     drawRoundedRect(ctx, box.x, box.y, box.width, box.height, Math.max(3, Math.round(box.height / 4)), true, false);
@@ -717,10 +746,14 @@ function drawInfoItems(ctx, items, textColor = '#FFFFFF') {
     drawRoundedRect(ctx, box.x, box.y, box.width, box.height, Math.max(3, Math.round(box.height / 4)), false, true);
 
     ctx.fillStyle = textColor;
-    ctx.textAlign = 'center';
+    ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
+    ctx.font = `bold ${fitted.size}px CorporateRounded`;
+    ctx.fillText(fitted.labelText, box.x + paddingX, startY);
+
+    ctx.textAlign = 'center';
     ctx.font = `${fitted.size}px CorporateRounded`;
-    ctx.fillText(fitted.text, box.x + box.width / 2, startY);
+    ctx.fillText(fitted.valueText, valueX + valueWidth / 2, startY);
     ctx.textAlign = 'start';
     ctx.textBaseline = 'top';
   });

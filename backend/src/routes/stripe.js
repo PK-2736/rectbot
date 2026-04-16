@@ -708,6 +708,67 @@ function isActiveOrTrialing(status) {
   return normalized === 'active' || normalized === 'trialing';
 }
 
+function isMissingStripeSubscriptionError(error) {
+  const code = String(error?.code || '').toLowerCase();
+  const param = String(error?.param || '').toLowerCase();
+  const type = String(error?.type || '').toLowerCase();
+  const message = String(error?.message || '').toLowerCase();
+
+  if (code === 'resource_missing' && (param === 'id' || param === 'subscription')) {
+    return true;
+  }
+
+  if (type === 'invalid_request_error' && message.includes('no such subscription')) {
+    return true;
+  }
+
+  return false;
+}
+
+async function cancelSubscriptionInDbByStripeId(subscriptionId, env) {
+  const normalizedSubscriptionId = String(subscriptionId || '').trim();
+  if (!normalizedSubscriptionId) return;
+
+  const supabase = await createSupabaseClient(env);
+  if (!supabase) return;
+
+  let purchasedGuildId = null;
+  const { data: existing } = await supabase
+    .from('subscriptions')
+    .select('purchased_guild_id')
+    .eq('stripe_subscription_id', normalizedSubscriptionId)
+    .maybeSingle();
+
+  purchasedGuildId = String(existing?.purchased_guild_id || '').trim() || null;
+
+  const updatePayload = {
+    status: 'canceled',
+    cancel_at_period_end: false,
+    current_period_end: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+
+  const updateRes = await supabase
+    .from('subscriptions')
+    .update(updatePayload)
+    .eq('stripe_subscription_id', normalizedSubscriptionId);
+
+  if (updateRes.error && isMissingDbColumnError(updateRes.error)) {
+    const fallback = await supabase
+      .from('subscriptions')
+      .update({ status: 'canceled', updated_at: new Date().toISOString() })
+      .eq('stripe_subscription_id', normalizedSubscriptionId);
+
+    if (fallback.error) {
+      console.error('[stripe] Failed to cancel subscription in DB (fallback):', fallback.error);
+    }
+  } else if (updateRes.error) {
+    console.error('[stripe] Failed to cancel subscription in DB:', updateRes.error);
+  }
+
+  await setGuildSubscriptionState(purchasedGuildId, normalizedSubscriptionId, false, env);
+}
+
 async function upsertSubscriptionFromStripe({ subscription, userId, guildId, env }) {
   const supabase = await createSupabaseClient(env);
   if (!supabase || !subscription?.id || !userId) return;
@@ -859,6 +920,18 @@ async function refreshSubscriptionForStatus({ subscription, userId, guildId, env
     const refreshedLatest = await fetchLatestSubscriptionByUserId(userId, env);
     return refreshedGuildScoped || refreshedActive || refreshedLatest || subscription;
   } catch (error) {
+    if (isMissingStripeSubscriptionError(error)) {
+      console.warn('[stripe] Subscription missing in Stripe. Marking canceled in DB:', subscription.stripe_subscription_id);
+      await cancelSubscriptionInDbByStripeId(subscription.stripe_subscription_id, env);
+
+      const refreshedGuildScoped = guildId
+        ? await fetchActiveSubscriptionByUserIdAndGuildId(userId, guildId, env)
+        : null;
+      const refreshedActive = await fetchActiveSubscriptionByUserId(userId, env);
+      const refreshedLatest = await fetchLatestSubscriptionByUserId(userId, env);
+      return refreshedGuildScoped || refreshedActive || refreshedLatest || null;
+    }
+
     console.warn('[stripe] Failed to refresh subscription for status:', error?.message || error);
     return subscription;
   }
@@ -958,6 +1031,7 @@ async function getSubscriptionStatusForDashboard(request, env) {
 
     const userId = String(user.id).trim();
     let subscription = await fetchActiveSubscriptionByUserId(userId, env);
+    subscription = await refreshSubscriptionForStatus({ subscription, userId, guildId: '', env });
     const latestPurchase = await fetchLatestPurchaseByUserId(userId, env);
 
     if (!subscription) {
@@ -1450,25 +1524,7 @@ async function handleSubscriptionUpdated(subscription, env) {
 
 async function handleSubscriptionDeleted(subscription, env) {
   console.log('Subscription deleted:', subscription.id);
-
-  const supabase = await createSupabaseClient(env);
-  if (supabase) {
-    let purchasedGuildId = null;
-
-    const { data: existing } = await supabase
-      .from('subscriptions')
-      .select('purchased_guild_id')
-      .eq('stripe_subscription_id', subscription.id)
-      .maybeSingle();
-
-    purchasedGuildId = String(existing?.purchased_guild_id || '').trim() || null;
-
-    await supabase.from('subscriptions')
-      .update({ status: 'canceled', cancel_at_period_end: false, updated_at: new Date().toISOString() })
-      .eq('stripe_subscription_id', subscription.id);
-
-    await setGuildSubscriptionState(purchasedGuildId, subscription.id, false, env);
-  }
+  await cancelSubscriptionInDbByStripeId(subscription.id, env);
 }
 
 async function getUserFromRequest(request, _env) {

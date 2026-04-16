@@ -9,18 +9,18 @@
   }
   
   body {
-    @apply text-slate-800 bg-[#f7f4ef];
+    @apply text-slate-800 bg-[#fffaf4];
     background-image:
-      radial-gradient(at 82% 12%, rgba(184, 119, 85, 0.12) 0, transparent 56%),
-      radial-gradient(at 18% 84%, rgba(95, 152, 139, 0.08) 0, transparent 52%),
-      linear-gradient(180deg, rgba(255, 255, 255, 0.78) 0%, rgba(247, 244, 239, 0.96) 100%);
+      radial-gradient(at 85% 10%, rgba(255, 126, 66, 0.18) 0, transparent 58%),
+      radial-gradient(at 15% 82%, rgba(255, 61, 138, 0.12) 0, transparent 52%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.6) 0%, rgba(255, 250, 244, 0.92) 100%);
     background-attachment: fixed;
   }
 }
 
 @layer components {
   .btn-primary {
-    @apply bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white shadow-sm hover:shadow-md hover:-translate-y-0.5 font-semibold py-3 px-6 rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand-300 disabled:opacity-60 disabled:cursor-not-allowed;
+    @apply bg-gradient-to-r from-brand-500 to-accent-500 hover:from-brand-600 hover:to-accent-600 active:from-brand-700 active:to-accent-700 text-white shadow-sm hover:shadow-lg hover:-translate-y-1 font-semibold py-3 px-6 rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand-300 disabled:opacity-60 disabled:cursor-not-allowed;
   }
   
   .btn-secondary {

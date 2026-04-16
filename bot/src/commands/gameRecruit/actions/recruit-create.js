@@ -42,9 +42,10 @@ async function hasPremiumSubscription(userId, guildId) {
   }
 }
 
-async function enforceCooldown(interaction) {
+async function enforceCooldown(interaction, skipCooldown = false) {
   try {
     if (isGuildExempt(interaction.guildId)) return true;
+    if (skipCooldown) return true;
     const remaining = await getCooldownRemaining(`rect:${interaction.guildId}`);
     if (remaining > 0) {
       const mm = Math.floor(remaining / 60);
@@ -77,8 +78,9 @@ async function notifyRecruitLimit(interaction) {
   });
 }
 
-async function ensureNoActiveRecruit(interaction, guildSettings) {
+async function ensureNoActiveRecruit(interaction, guildSettings, premiumEnabled = false) {
   if (isGuildExempt(interaction.guildId)) return true;
+  if (premiumEnabled) return true;
   if (isPremiumEnabled(guildSettings)) return true;
 
   const premiumBySubscription = await hasPremiumSubscription(interaction.user?.id, interaction.guildId);
@@ -347,14 +349,10 @@ async function updateRecruitmentMessage({
   }
 }
 
-async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettings, user, participantText, subHeaderText, followUpMessage, currentParticipants }) {
+async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettings, premiumEnabled = false, user, participantText, subHeaderText, followUpMessage, currentParticipants }) {
   const actualMessage = followUpMessage;
   const actualMessageId = actualMessage.id;
   const actualRecruitId = generateRecruitId(actualMessageId);
-
-  const premiumByGuild = isPremiumEnabled(guildSettings);
-  const premiumBySubscription = await hasPremiumSubscription(interaction.user?.id, interaction.guildId);
-  const premiumEnabled = premiumByGuild || premiumBySubscription;
 
   const finalRecruitData = prepareFinalRecruitData(recruitDataObj, actualRecruitId, interaction, actualMessageId, guildSettings, premiumEnabled);
 
@@ -393,7 +391,7 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
   });
 
   try {
-    if (!isGuildExempt(interaction.guildId)) {
+    if (!isGuildExempt(interaction.guildId) && !premiumEnabled) {
       await setCooldown(`rect:${interaction.guildId}`, 60);
     }
   } catch (e) {
@@ -862,10 +860,15 @@ async function handleRecruitModalError(interaction, error) {
 }
 
 async function validateAndPrepareRecruitCreation(interaction) {
-  if (!(await enforceCooldown(interaction))) return null;
-
   const guildSettings = await getGuildSettings(interaction.guildId);
-  if (!(await ensureNoActiveRecruit(interaction, guildSettings))) return null;
+  const premiumByGuild = isPremiumEnabled(guildSettings);
+  const premiumBySubscription = premiumByGuild
+    ? false
+    : await hasPremiumSubscription(interaction.user?.id, interaction.guildId);
+  const premiumEnabled = premiumByGuild || premiumBySubscription;
+
+  if (!(await enforceCooldown(interaction, premiumEnabled))) return null;
+  if (!(await ensureNoActiveRecruit(interaction, guildSettings, premiumEnabled))) return null;
   const participantsNum = parseParticipantsNumFromModal(interaction);
 
   if (participantsNum === null) {
@@ -875,7 +878,7 @@ async function validateAndPrepareRecruitCreation(interaction) {
     return null;
   }
 
-  return { guildSettings, participantsNum };
+  return { guildSettings, participantsNum, premiumEnabled };
 }
 
 async function gatherRecruitmentInputs(interaction, guildSettings) {
@@ -948,7 +951,7 @@ async function handleRecruitCreateModal(interaction) {
     const validation = await validateAndPrepareRecruitCreation(interaction);
     if (!validation) return;
 
-    const { guildSettings, participantsNum } = validation;
+    const { guildSettings, participantsNum, premiumEnabled } = validation;
     const inputs = await gatherRecruitmentInputs(interaction, guildSettings);
     const { panelColor, existingMembers, selectedNotificationRole, pendingData, voiceChannelName } = inputs;
 
@@ -991,7 +994,7 @@ async function handleRecruitCreateModal(interaction) {
     const { followUpMessage } = result;
 
     try {
-      await finalizePersistAndEdit({ interaction, recruitDataObj, guildSettings, user, participantText, subHeaderText, followUpMessage, currentParticipants });
+      await finalizePersistAndEdit({ interaction, recruitDataObj, guildSettings, premiumEnabled, user, participantText, subHeaderText, followUpMessage, currentParticipants });
     } catch (error) {
       logCriticalError('メッセージ取得エラー', error);
     }

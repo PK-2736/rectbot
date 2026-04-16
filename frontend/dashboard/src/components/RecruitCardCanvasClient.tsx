@@ -252,30 +252,56 @@ function renderInfoBox(
       const measure = createMeasure(size, false);
       const lineHeight = Math.max(3, Math.round(size * 1.15));
       if (lineHeight <= box.height - 6) {
-        const singleLine = truncateTextByWidth(`${label}${value}`, maxTextWidth, measure);
-        return { size, lineHeight, singleLine };
+        const gap = Math.max(2, Math.round(size * 0.4));
+        const labelText = truncateTextByWidth(String(label || ''), Math.max(6, maxTextWidth * 0.55), measure);
+        const labelWidth = Math.ceil(measure(labelText));
+        const valueAreaWidth = Math.max(6, maxTextWidth - labelWidth - gap);
+        const valueText = truncateTextByWidth(String(value || ''), valueAreaWidth, measure);
+        return { size, lineHeight, labelText, valueText, labelWidth, gap };
       }
     }
     const minSize = 2;
     const measure = createMeasure(minSize, false);
+    const gap = 2;
+    const labelText = truncateTextByWidth(String(label || ''), Math.max(6, maxTextWidth * 0.55), measure);
+    const labelWidth = Math.ceil(measure(labelText));
+    const valueAreaWidth = Math.max(6, maxTextWidth - labelWidth - gap);
+    const valueText = truncateTextByWidth(String(value || ''), valueAreaWidth, measure);
     return {
       size: minSize,
       lineHeight: 3,
-      singleLine: truncateTextByWidth(`${label}${value}`, maxTextWidth, measure),
+      labelText,
+      valueText,
+      labelWidth,
+      gap,
     };
   };
 
   const fitted = fitSingleLine();
   const startY = Math.round((box.height - fitted.lineHeight) / 2);
+  const valueX = paddingX + fitted.labelWidth + fitted.gap;
+  const valueWidth = Math.max(6, box.width - paddingX - valueX);
 
   const group = new Konva.Group({ x: box.x, y: box.y, draggable });
   group.add(new Konva.Rect({ x: 0, y: 0, width: box.width, height: box.height, cornerRadius: Math.max(3, Math.round(box.height / 4)), fill: 'rgba(0,0,0,0.75)', stroke: withAlpha(frameColor, 0.85), strokeWidth: 0.8 }));
   group.add(new Konva.Text({
     x: paddingX,
     y: startY,
-    width: Math.max(12, box.width - paddingX * 2),
+    width: Math.max(6, fitted.labelWidth + 2),
+    align: 'left',
+    text: fitted.labelText,
+    fill: withAlpha(frameColor, 0.95),
+    fontSize: fitted.size,
+    lineHeight: fitted.lineHeight / fitted.size,
+    fontStyle: 'bold',
+    fontFamily: 'CorporateRounded, Arial, sans-serif',
+  }));
+  group.add(new Konva.Text({
+    x: valueX,
+    y: startY,
+    width: valueWidth,
     align: 'center',
-    text: fitted.singleLine,
+    text: fitted.valueText,
     fill: textColor,
     fontSize: fitted.size,
     lineHeight: fitted.lineHeight / fitted.size,
@@ -472,19 +498,27 @@ export function RecruitCardCanvasImpl({
         }
 
         const participantSlots = Math.min(Math.max(participants, 1), 16);
-        const is2Rows = participantSlots > 8;
-        const circleRadius = is2Rows ? 4 : 6.5;
-        const circleSpacing = is2Rows ? 11 : 16;
-        const rowSpacing = is2Rows ? 10 : 15;
+        const paddingX = 1;
+        const paddingY = 1;
+        const minGap = 1;
+        const minRadius = 2.2;
+        const maxRadius = 6.5;
+        const usableWidth = Math.max(8, scaledParticipantsBox.width - paddingX * 2);
+        const usableHeight = Math.max(6, scaledParticipantsBox.height - paddingY * 2);
+        const radiusByCount = (usableWidth - minGap * (participantSlots - 1)) / (participantSlots * 2);
+        const radiusByHeight = usableHeight / 2;
+        const circleRadius = clamp(Math.min(radiusByCount, radiusByHeight, maxRadius), minRadius, maxRadius);
+        const trackWidth = Math.max(0, usableWidth - circleRadius * 2);
+        const circleSpacing = participantSlots > 1 ? trackWidth / (participantSlots - 1) : 0;
+        const centerY = paddingY + usableHeight / 2;
+        const plusSize = clamp(circleRadius * 0.6, 1.5, 4);
         for (let i = 0; i < participantSlots; i++) {
-          const row = Math.floor(i / 8);
-          const col = i % 8;
           drawEmptyParticipantSlot(
             participantsGroup,
-            circleRadius + col * circleSpacing,
-            circleRadius + row * rowSpacing,
+            paddingX + circleRadius + i * circleSpacing,
+            centerY,
             circleRadius,
-            is2Rows ? 2.5 : 4,
+            plusSize,
             participantsBoxFrameColor
           );
         }

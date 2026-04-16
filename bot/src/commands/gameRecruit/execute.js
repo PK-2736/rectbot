@@ -9,9 +9,13 @@ const { EXEMPT_GUILD_IDS } = require('./data/constants');
 const START_TIME_REGEX = /^\s*(\d{1,2}):(\d{2})\s*$/;
 const START_TIME_NOW_REGEX = /^\s*(今から|now)\s*$/i;
 
-async function enforceGuildCooldown(interaction) {
+async function enforceGuildCooldown(interaction, skipCooldown = false) {
   try {
     if (EXEMPT_GUILD_IDS.has(String(interaction.guildId))) {
+      return true;
+    }
+
+    if (skipCooldown) {
       return true;
     }
 
@@ -151,8 +155,12 @@ async function notifyRecruitLimitReached(interaction) {
   });
 }
 
-async function enforceActiveRecruitLimit(interaction, guildSettings) {
+async function enforceActiveRecruitLimit(interaction, guildSettings, premiumEnabled = false) {
   if (EXEMPT_GUILD_IDS.has(String(interaction.guildId))) {
+    return true;
+  }
+
+  if (premiumEnabled) {
     return true;
   }
 
@@ -538,21 +546,25 @@ function buildRecruitModal(interaction, roleOptions) {
 async function execute(interaction) {
   console.log('[gameRecruit.execute] invoked by', interaction.user?.id, 'command:', interaction.commandName, 'guild:', interaction.guildId, 'channel:', interaction.channelId);
 
-  // Guild-level cooldown pre-check (2 minutes), except exempt guilds
-  const cooldownOk = await enforceGuildCooldown(interaction);
-  if (!cooldownOk) return;
-
   try {
     // ギルド設定
     const guildSettings = await getGuildSettings(interaction.guildId);
     console.log('[gameRecruit.execute] guildSettings for', interaction.guildId, ':', guildSettings && { recruit_channel: guildSettings.recruit_channel, defaultTitle: guildSettings.defaultTitle });
 
+    const premiumByGuild = isPremiumEnabled(guildSettings);
+    const premiumBySubscription = premiumByGuild
+      ? false
+      : await hasPremiumSubscription(interaction.user?.id, interaction.guildId);
+    const premiumEnabled = premiumByGuild || premiumBySubscription;
+
+    // Guild-level cooldown pre-check (2 minutes), except exempt/premium guilds
+    const cooldownOk = await enforceGuildCooldown(interaction, premiumEnabled);
+    if (!cooldownOk) return;
+
     const isTemplateCommand = interaction.commandName === 'rect_template';
 
     if (isTemplateCommand) {
-      const premiumByGuild = isPremiumEnabled(guildSettings);
-      const premiumBySubscription = await hasPremiumSubscription(interaction.user?.id, interaction.guildId);
-      if (!(premiumByGuild || premiumBySubscription)) {
+      if (!premiumEnabled) {
         await safeReply(interaction, {
           content: '❌ `/rect_template` はサブスクリプション契約サーバーでのみ利用できます。',
           flags: MessageFlags.Ephemeral,
@@ -562,7 +574,7 @@ async function execute(interaction) {
       }
     }
 
-    const recruitLimitOk = await enforceActiveRecruitLimit(interaction, guildSettings);
+    const recruitLimitOk = await enforceActiveRecruitLimit(interaction, guildSettings, premiumEnabled);
     if (!recruitLimitOk) return;
 
     // 募集チャンネル強制（複数対応）
