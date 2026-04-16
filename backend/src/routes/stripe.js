@@ -392,6 +392,7 @@ async function createCheckoutLinkForBot(request, env) {
       client_reference_id: userId,
       allow_promotion_codes: true,
       subscription_data: {
+        trial_period_days: 14,
         metadata: {
           userId,
           guildId,
@@ -1078,6 +1079,7 @@ async function createCheckoutSession(request, env) {
       customer: customerId,
       client_reference_id: user.id,
       subscription_data: {
+        trial_period_days: 14,
         metadata: {
           userId: user.id,
           username: user.username,

@@ -14,13 +14,13 @@
   html {
     font-family: 'Inter', system-ui, sans-serif;
     background:
-      radial-gradient(circle at top right, rgba(255, 126, 66, 0.18), transparent 32%),
-      radial-gradient(circle at bottom left, rgba(255, 61, 138, 0.12), transparent 28%),
-      #fffaf4;
+      radial-gradient(circle at top right, rgba(85, 124, 162, 0.14), transparent 34%),
+      radial-gradient(circle at bottom left, rgba(63, 152, 141, 0.1), transparent 30%),
+      #f5f7fa;
   }
   
   body {
-    @apply bg-[#fffaf4] text-slate-800 antialiased;
+    @apply bg-[#f5f7fa] text-slate-800 antialiased;
   }
 
   h1,
@@ -35,7 +35,7 @@
 
 @layer components {
   .btn-primary {
-    @apply bg-gradient-to-r from-brand-500 to-accent-500 hover:from-brand-600 hover:to-accent-600 text-white font-semibold py-2 px-4 rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-300;
+    @apply bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2 px-4 rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-300;
   }
   
   .btn-secondary {

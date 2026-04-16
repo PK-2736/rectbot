@@ -35,14 +35,14 @@ export function DashboardShell({ children }: DashboardShellProps) {
   const pathname = usePathname();
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#fffaf4] text-slate-800">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(255,126,66,0.14),_transparent_40%),linear-gradient(180deg,_rgba(255,255,255,0.86),_rgba(255,250,244,0.98))]" />
+    <div className="relative min-h-screen overflow-hidden bg-[#f5f7fa] text-slate-800">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(85,124,162,0.12),_transparent_42%),linear-gradient(180deg,_rgba(255,255,255,0.9),_rgba(245,247,250,0.98))]" />
       <div className="pointer-events-none absolute left-1/2 top-0 h-72 w-72 -translate-x-1/2 rounded-full bg-brand-300/20 blur-3xl" />
 
       <header className="relative z-10 border-b border-brand-100 bg-white/75 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-4 sm:px-6 lg:px-8 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex items-center gap-4">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-accent-500 shadow-lg shadow-brand-500/20">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-brand-700 shadow-md shadow-brand-700/20">
               <span className="font-display text-lg font-bold text-white">R</span>
             </div>
             <div>
@@ -51,7 +51,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
             </div>
           </div>
 
-          <nav className="flex flex-wrap gap-2">
+          <nav className="flex flex-wrap items-center gap-2">
             {NAV_ITEMS.map((item) => {
               const active = pathname === item.href;
               const Icon = item.icon;
@@ -70,6 +70,14 @@ export function DashboardShell({ children }: DashboardShellProps) {
                 </Link>
               );
             })}
+            <a
+              href="https://recrubo.net/commands"
+              target="_blank"
+              rel="noopener"
+              className="inline-flex items-center gap-2 rounded-full border border-brand-100 bg-white/80 px-4 py-2 text-sm font-medium text-slate-600 transition-all duration-200 hover:border-brand-200 hover:bg-white hover:text-slate-900"
+            >
+              ？ コマンドヘルプ
+            </a>
           </nav>
         </div>
       </header>

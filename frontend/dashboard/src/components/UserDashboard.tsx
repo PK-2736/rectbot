@@ -149,7 +149,7 @@ export default function UserDashboard() {
               <h1 className="mt-2 font-display text-3xl font-bold text-slate-900">Recrubo Plus 決済</h1>
               <p className="mt-3 text-sm text-slate-600">ログイン中: {user?.username}</p>
             </div>
-            <button onClick={logout} className="rounded-full border border-brand-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-brand-50">
+            <button onClick={logout} className="rounded-full border border-brand-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50">
               ログアウト
             </button>
           </div>
@@ -178,7 +178,7 @@ export default function UserDashboard() {
                 <button
                   type="button"
                   onClick={() => login('/subscription')}
-                  className="mr-1 underline text-brand-700 hover:text-brand-800"
+                  className="mr-1 underline text-brand-700 hover:text-brand-900"
                 >
                   再ログイン
                 </button>
@@ -237,7 +237,7 @@ export default function UserDashboard() {
           <button
             onClick={handleSubscribe}
             disabled={loading || !effectiveGuildId || !agreed}
-            className="mt-6 w-full rounded-full bg-gradient-to-r from-brand-500 to-accent-500 px-6 py-3 text-base font-semibold text-white shadow-sm transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
+            className="mt-6 w-full rounded-full bg-brand-600 px-6 py-3 text-base font-semibold text-white shadow-sm transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {loading ? '処理中...' : 'プレミアムプランに登録'}
           </button>
