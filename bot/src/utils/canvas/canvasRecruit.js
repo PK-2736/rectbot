@@ -175,9 +175,9 @@ function getParticipantLayout(participantCount, boxX, boxY, boxWidth = 124, boxH
   const slots = Math.max(1, Math.min(Number(participantCount) || 1, 16));
   const paddingX = 1;
   const paddingY = 1;
-  const minGap = 1;
+  const minGap = 0.5;
   const minRadius = 2.2;
-  const maxRadius = 6.5;
+  const maxRadius = 7.5;
 
   const usableWidth = Math.max(8, boxWidth - paddingX * 2);
   const usableHeight = Math.max(6, boxHeight - paddingY * 2);
@@ -191,8 +191,8 @@ function getParticipantLayout(participantCount, boxX, boxY, boxWidth = 124, boxH
     circleRadius,
     circleSpacing,
     rowSpacing: 0,
-    participantAreaY: boxY + paddingY + (usableHeight / 2),
-    participantAreaX: boxX + paddingX + usableWidth - circleRadius,
+    participantAreaY: boxY + paddingY + (usableHeight / 2) - 1,
+    participantAreaX: boxX + paddingX + circleRadius,
     maxPerRow: 16
   };
 }
@@ -863,7 +863,7 @@ async function drawParticipantCircles(ctx, participantIds, participantCount, lay
   for (let i = 0; i < participantCount; i++) {
     const row = Math.floor(i / maxPerRow);
     const col = i % maxPerRow;
-    const circleX = participantAreaX - col * circleSpacing;
+    const circleX = participantAreaX + col * circleSpacing;
     const circleY = participantAreaY + row * rowSpacing;
 
     if (i < participantIds.length) {
