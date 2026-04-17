@@ -508,14 +508,14 @@ export function RecruitCardCanvasImpl({
         const radiusByCount = (usableWidth - minGap * (participantSlots - 1)) / (participantSlots * 2);
         const radiusByHeight = usableHeight / 2;
         const circleRadius = clamp(Math.min(radiusByCount, radiusByHeight, maxRadius), minRadius, maxRadius);
-        const trackWidth = Math.max(0, usableWidth - circleRadius * 2);
-        const circleSpacing = participantSlots > 1 ? trackWidth / (participantSlots - 1) : 0;
+        const circleSpacing = circleRadius * 2 + minGap;
         const centerY = paddingY + usableHeight / 2;
         const plusSize = clamp(circleRadius * 0.6, 1.5, 4);
+        const rightMostCenterX = paddingX + usableWidth - circleRadius;
         for (let i = 0; i < participantSlots; i++) {
           drawEmptyParticipantSlot(
             participantsGroup,
-            paddingX + circleRadius + i * circleSpacing,
+            rightMostCenterX - i * circleSpacing,
             centerY,
             circleRadius,
             plusSize,
