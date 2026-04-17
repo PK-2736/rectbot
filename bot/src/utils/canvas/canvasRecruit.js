@@ -175,9 +175,11 @@ function getParticipantLayout(participantCount, boxX, boxY, boxWidth = 124, boxH
   const slots = Math.max(1, Math.min(Number(participantCount) || 1, 16));
   const paddingX = 1;
   const paddingY = 1;
-  const minGap = 0.5;
-  const minRadius = 2.2;
-  const maxRadius = 7.5;
+  const minGap = 1.2;
+  const minRadius = 2.6;
+  const maxRadius = 8.5;
+  const shiftX = 1.5;
+  const shiftY = -2.5;
 
   const usableWidth = Math.max(8, boxWidth - paddingX * 2);
   const usableHeight = Math.max(6, boxHeight - paddingY * 2);
@@ -191,8 +193,8 @@ function getParticipantLayout(participantCount, boxX, boxY, boxWidth = 124, boxH
     circleRadius,
     circleSpacing,
     rowSpacing: 0,
-    participantAreaY: boxY + paddingY + (usableHeight / 2) - 1,
-    participantAreaX: boxX + paddingX + circleRadius,
+    participantAreaY: boxY + paddingY + (usableHeight / 2) + shiftY,
+    participantAreaX: boxX + paddingX + circleRadius + shiftX,
     maxPerRow: 16
   };
 }
