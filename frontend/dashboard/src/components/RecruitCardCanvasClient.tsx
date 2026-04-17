@@ -500,11 +500,11 @@ export function RecruitCardCanvasImpl({
         const participantSlots = Math.min(Math.max(participants, 1), 16);
         const paddingX = 1;
         const paddingY = 1;
-        const minGap = 1.2;
+        const minGap = 1.8;
         const minRadius = 2.6;
         const maxRadius = 8.5;
-        const shiftX = 1.5;
-        const shiftY = -2.5;
+        const shiftX = -0.8;
+        const shiftY = -3.8;
         const usableWidth = Math.max(8, scaledParticipantsBox.width - paddingX * 2);
         const usableHeight = Math.max(6, scaledParticipantsBox.height - paddingY * 2);
         const radiusByCount = (usableWidth - minGap * (participantSlots - 1)) / (participantSlots * 2);
