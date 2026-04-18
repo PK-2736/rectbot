@@ -27,6 +27,11 @@ const path = require('path');
 const { startSubscriptionRoleSync } = require('./utils/subscriptionRoleSync');
 
 console.log(`[boot] Starting bot. Node: ${process.version}, env: ${process.env.NODE_ENV || 'development'}`);
+console.log('[boot] webhook env status:', {
+  RECRUIT_WEBHOOK_URL: process.env.RECRUIT_WEBHOOK_URL ? `set(len=${process.env.RECRUIT_WEBHOOK_URL.length})` : 'unset',
+  DISCORD_WEBHOOK_URL: process.env.DISCORD_WEBHOOK_URL ? `set(len=${process.env.DISCORD_WEBHOOK_URL.length})` : 'unset',
+  DISCORD_ALERT_WEBHOOK_URL: process.env.DISCORD_ALERT_WEBHOOK_URL ? `set(len=${process.env.DISCORD_ALERT_WEBHOOK_URL.length})` : 'unset',
+});
 
 // P0修正: DISCORD_BOT_TOKEN未設定時は即座にプロセスを終了
 if (!TOKEN) {

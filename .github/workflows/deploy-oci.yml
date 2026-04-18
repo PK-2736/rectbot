@@ -51,6 +51,9 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           DISCORD_CLIENT_ID: ${{ secrets.DISCORD_CLIENT_ID }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          RECRUIT_WEBHOOK_URL: ${{ secrets.RECRUIT_WEBHOOK_URL }}
+          DISCORD_ALERT_WEBHOOK_URL: ${{ secrets.DISCORD_ALERT_WEBHOOK_URL }}
           REDIS_HOST: ${{ secrets.REDIS_HOST }}
           REDIS_PORT: ${{ secrets.REDIS_PORT }}
           # Backup 関連の環境変数
@@ -73,6 +76,9 @@ jobs:
             export DISCORD_BOT_TOKEN="'"$DISCORD_BOT_TOKEN"'" || true; \
             export DISCORD_CLIENT_ID="'"$DISCORD_CLIENT_ID"'" || true; \
             export CLIENT_ID="'$DISCORD_CLIENT_ID'" || true; \
+            export DISCORD_WEBHOOK_URL="'"$DISCORD_WEBHOOK_URL"'" || true; \
+            export RECRUIT_WEBHOOK_URL="'"$RECRUIT_WEBHOOK_URL"'" || true; \
+            export DISCORD_ALERT_WEBHOOK_URL="'"$DISCORD_ALERT_WEBHOOK_URL"'" || true; \
             export INTERNAL_SECRET="'"$INTERNAL_SECRET"'" || true; \
             export BACKEND_API_URL="'"$BACKEND_API_URL"'" || true; \
             export SUPABASE_URL="'"$SUPABASE_URL"'" || true; \
@@ -86,6 +92,12 @@ jobs:
             source ~/.nvm/nvm.sh || true; \
             cd ~/rectbot || exit 1; \
             git pull origin main || true; \
+
+            echo "Webhook env check: DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL:+set} RECRUIT_WEBHOOK_URL=${RECRUIT_WEBHOOK_URL:+set} DISCORD_ALERT_WEBHOOK_URL=${DISCORD_ALERT_WEBHOOK_URL:+set}"; \
+            if [ -z "${DISCORD_WEBHOOK_URL}" ] && [ -z "${RECRUIT_WEBHOOK_URL}" ] && [ -z "${DISCORD_ALERT_WEBHOOK_URL}" ]; then \
+              echo "ERROR: webhook env vars are all empty on OCI deploy host"; \
+              exit 1; \
+            fi; \
 
             # Bot デプロイ（ディレクトリが存在する場合のみ）
             if [ -d ~/rectbot/bot ]; then \
