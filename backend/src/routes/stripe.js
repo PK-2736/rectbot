@@ -512,6 +512,16 @@ async function createCheckoutLinkForBot(request, env) {
       return jsonResponse({ error: 'priceId is required (or set STRIPE_PREMIUM_PRICE_ID)' }, 400);
     }
 
+    const guard = await guardAlreadySubscribedGuild(guildId, env);
+    if (guard.blocked) {
+      return jsonResponse({
+        error: 'このサーバーはすでにサブスク適用済みのため、新規決済はできません。',
+        code: 'guild_already_subscribed',
+        guildId,
+        subscriptionId: guard.subscriptionId,
+      }, 409);
+    }
+
     const stripe = await createStripeClient(env);
     const alreadyUsedTrial = await hasGuildSubscriptionHistory(guildId, env);
     const customerId = await resolveOrCreateStripeCustomerId({
@@ -990,6 +1000,37 @@ async function fetchGuildSubscriptionStatus(guildId, env) {
   }
 
   return data || null;
+}
+
+function isGuildPremiumEnabled(guildSubscription) {
+  return !!(guildSubscription?.premium_enabled || guildSubscription?.enable_dedicated_channel);
+}
+
+async function guardAlreadySubscribedGuild(guildId, env) {
+  const normalizedGuildId = String(guildId || '').trim();
+  if (!normalizedGuildId) {
+    return { blocked: false, reason: null, subscriptionId: null };
+  }
+
+  const usableSubscriptionId = await getLatestActiveSubscriptionIdByGuild(normalizedGuildId, env);
+  if (usableSubscriptionId) {
+    return {
+      blocked: true,
+      reason: 'existing_usable_subscription',
+      subscriptionId: usableSubscriptionId,
+    };
+  }
+
+  const guildSubscription = await fetchGuildSubscriptionStatus(normalizedGuildId, env);
+  if (isGuildPremiumEnabled(guildSubscription)) {
+    return {
+      blocked: true,
+      reason: 'guild_premium_enabled',
+      subscriptionId: String(guildSubscription?.premium_subscription_id || '').trim() || null,
+    };
+  }
+
+  return { blocked: false, reason: null, subscriptionId: null };
 }
 
 async function setGuildSubscriptionState(guildId, subscriptionId, enabled, env) {
@@ -1653,6 +1694,19 @@ async function createCheckoutSession(request, env) {
 
     if (!priceId) {
       return jsonResponse({ error: 'priceId is required (or set STRIPE_PREMIUM_PRICE_ID)' }, 400);
+    }
+    if (!guildId || guildId === 'dm') {
+      return jsonResponse({ error: 'guildId is required for subscription purchase' }, 400);
+    }
+
+    const guard = await guardAlreadySubscribedGuild(guildId, env);
+    if (guard.blocked) {
+      return jsonResponse({
+        error: 'このサーバーはすでにサブスク適用済みのため、新規決済はできません。',
+        code: 'guild_already_subscribed',
+        guildId,
+        subscriptionId: guard.subscriptionId,
+      }, 409);
     }
 
     const stripe = await createStripeClient(env);
