@@ -119,26 +119,29 @@ export default function SubscriptionManagement({ status }: { status: Subscriptio
             ) : (
               <div className="mt-3 space-y-3">
                 {subscriptions.map((sub, idx) => (
-                  <div key={sub.stripe_subscription_id || `sub-${idx}`} className="rounded-xl border border-brand-100 bg-brand-50/40 p-3">
-                    <div className="grid gap-2 sm:grid-cols-2">
-                      <div>
-                        <p className="text-[11px] text-slate-500">対象サーバーID</p>
-                        <p className="mt-0.5 break-all text-sm font-semibold text-slate-900">{sub.purchased_guild_id || '未設定'}</p>
+                  <div key={sub.stripe_subscription_id || `sub-${idx}`} className="rounded-xl border border-brand-100 bg-brand-50/40 p-4">
+                    <div className="grid gap-2 sm:grid-cols-2 sm:gap-x-6">
+                      <div className="grid grid-cols-[96px_minmax(0,1fr)] items-start gap-2">
+                        <p className="text-[11px] leading-6 text-slate-500">対象サーバーID</p>
+                        <p className="break-all text-sm font-semibold leading-6 text-slate-900">{sub.purchased_guild_id || '未設定'}</p>
                       </div>
-                      <div>
-                        <p className="text-[11px] text-slate-500">状態</p>
-                        <p className="mt-0.5 text-sm font-semibold text-slate-900">{formatStatus(sub.status)}</p>
+                      <div className="grid grid-cols-[96px_minmax(0,1fr)] items-start gap-2">
+                        <p className="text-[11px] leading-6 text-slate-500">状態</p>
+                        <p className="text-sm font-semibold leading-6 text-slate-900">{formatStatus(sub.status)}</p>
                       </div>
-                      <div>
-                        <p className="text-[11px] text-slate-500">料金</p>
-                        <p className="mt-0.5 text-sm font-semibold text-slate-900">{formatPrice(sub.amount, sub.currency)}</p>
+                      <div className="grid grid-cols-[96px_minmax(0,1fr)] items-start gap-2">
+                        <p className="text-[11px] leading-6 text-slate-500">料金</p>
+                        <p className="text-sm font-semibold leading-6 text-slate-900">{formatPrice(sub.amount, sub.currency)}</p>
                       </div>
-                      <div>
-                        <p className="text-[11px] text-slate-500">次回更新</p>
-                        <p className="mt-0.5 text-sm font-semibold text-slate-900">{formatDate(sub.current_period_end)}</p>
+                      <div className="grid grid-cols-[96px_minmax(0,1fr)] items-start gap-2">
+                        <p className="text-[11px] leading-6 text-slate-500">次回更新</p>
+                        <p className="text-sm font-semibold leading-6 text-slate-900">{formatDate(sub.current_period_end)}</p>
                       </div>
                     </div>
-                    <p className="mt-2 text-[11px] text-slate-500 break-all">Subscription ID: {sub.stripe_subscription_id || '未設定'}</p>
+                    <div className="mt-2 grid grid-cols-[96px_minmax(0,1fr)] items-start gap-2 border-t border-brand-100 pt-2">
+                      <p className="text-[11px] leading-6 text-slate-500">Subscription ID</p>
+                      <p className="break-all text-[11px] leading-6 text-slate-500">{sub.stripe_subscription_id || '未設定'}</p>
+                    </div>
                   </div>
                 ))}
               </div>
