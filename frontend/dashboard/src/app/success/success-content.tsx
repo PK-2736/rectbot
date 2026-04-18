@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 export default function SuccessContent() {
   const router = useRouter();
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const AUTO_REDIRECT_MS = 10000;
 
   useEffect(() => {
     // クライアント側でクエリパラメータを解析
@@ -14,7 +15,7 @@ export default function SuccessContent() {
 
     const timer = setTimeout(() => {
       router.push('/subscription');
-    }, 5000);
+    }, AUTO_REDIRECT_MS);
 
     return () => clearTimeout(timer);
   }, [router]);
@@ -61,7 +62,7 @@ export default function SuccessContent() {
         </button>
 
         <p className="text-sm text-slate-500 mt-4">
-          5秒後に自動的にダッシュボードに移動します
+          10秒後に自動的にダッシュボードに移動します
         </p>
       </div>
     </div>

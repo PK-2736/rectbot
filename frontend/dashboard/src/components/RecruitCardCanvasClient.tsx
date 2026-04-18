@@ -19,6 +19,7 @@ interface RecruitCardCanvasProps {
     canvas: { width: number; height: number };
     outputWidth?: number;
     outputHeight?: number;
+    participantAvatarScale?: number;
     contentLabel: string;
     membersLabel: string;
     timeLabel: string;
@@ -70,6 +71,7 @@ const DEFAULT_LAYOUT = {
   canvas: { width: 1280, height: 720 },
   outputWidth: DEFAULT_OUTPUT_WIDTH,
   outputHeight: DEFAULT_OUTPUT_HEIGHT,
+  participantAvatarScale: 1,
   contentLabel: '募集内容',
   membersLabel: '人数：',
   timeLabel: '時間：',
@@ -431,6 +433,7 @@ export function RecruitCardCanvasImpl({
       layout.canvas,
       outputCanvas
     );
+    const participantAvatarScale = clamp(Number(layout.participantAvatarScale ?? DEFAULT_LAYOUT.participantAvatarScale), 0.5, 2.4);
     const scaledMembersBox = scaleBoxToRect(layout.membersBox || DEFAULT_LAYOUT.membersBox, layout.canvas, outputCanvas);
     const scaledTimeBox = scaleBoxToRect(layout.timeBox || DEFAULT_LAYOUT.timeBox, layout.canvas, outputCanvas);
     const scaledVoiceBox = scaleBoxToRect(layout.voiceBox || DEFAULT_LAYOUT.voiceBox, layout.canvas, outputCanvas);
@@ -501,8 +504,8 @@ export function RecruitCardCanvasImpl({
         const paddingX = 1;
         const paddingY = 1;
         const minGap = 1.8;
-        const minRadius = 2.8;
-        const maxRadius = 9.0;
+        const minRadius = 2.8 * participantAvatarScale;
+        const maxRadius = 9.0 * participantAvatarScale;
         const shiftX = -1.3;
         const shiftY = -4.3;
         const usableWidth = Math.max(8, scaledParticipantsBox.width - paddingX * 2);

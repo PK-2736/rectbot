@@ -7,6 +7,7 @@ const DEFAULT_TEMPLATE_LAYOUT = {
   outputWidth: 140,
   outputHeight: 100,
   outputScale: 5,
+  participantAvatarScale: 1,
   contentLabel: '募集内容',
   membersLabel: '人数：',
   timeLabel: '時間：',
@@ -171,13 +172,14 @@ function getParticipantCount(currentMembers, maxMembers) {
   return Math.min(Math.max(currentMembers, maxMembers), 16);
 }
 
-function getParticipantLayout(participantCount, boxX, boxY, boxWidth = 124, boxHeight = 16) {
+function getParticipantLayout(participantCount, boxX, boxY, boxWidth = 124, boxHeight = 16, avatarScale = 1) {
   const slots = Math.max(1, Math.min(Number(participantCount) || 1, 16));
   const paddingX = 1;
   const paddingY = 1;
   const minGap = 1.8;
-  const minRadius = 2.8;
-  const maxRadius = 9.0;
+  const safeAvatarScale = Math.max(0.5, Math.min(2.4, Number(avatarScale) || 1));
+  const minRadius = 2.8 * safeAvatarScale;
+  const maxRadius = 9.0 * safeAvatarScale;
   const shiftX = -1.3;
   const shiftY = -4.3;
 
@@ -291,6 +293,9 @@ function toSafeLayout(layout) {
     outputWidth: Number.isFinite(outputWidth) ? Math.max(64, Math.min(2048, Math.round(outputWidth))) : DEFAULT_TEMPLATE_LAYOUT.outputWidth,
     outputHeight: Number.isFinite(outputHeight) ? Math.max(64, Math.min(2048, Math.round(outputHeight))) : DEFAULT_TEMPLATE_LAYOUT.outputHeight,
     outputScale: Number.isFinite(outputScale) ? Math.max(2, Math.min(10, Math.round(outputScale))) : DEFAULT_TEMPLATE_LAYOUT.outputScale,
+    participantAvatarScale: Number.isFinite(Number(layout.participantAvatarScale))
+      ? Math.max(0.5, Math.min(2.4, Number(layout.participantAvatarScale)))
+      : DEFAULT_TEMPLATE_LAYOUT.participantAvatarScale,
     contentLabel: typeof layout.contentLabel === 'string' ? layout.contentLabel : DEFAULT_TEMPLATE_LAYOUT.contentLabel,
     membersLabel: typeof layout.membersLabel === 'string' ? layout.membersLabel : DEFAULT_TEMPLATE_LAYOUT.membersLabel,
     timeLabel: typeof layout.timeLabel === 'string' ? layout.timeLabel : DEFAULT_TEMPLATE_LAYOUT.timeLabel,
@@ -460,12 +465,14 @@ async function drawTemplateModeCard(ctx, recruitData, layout, canvasSize, accent
   const content = recruitData.description || recruitData.content || '';
 
   if (participantsBox.visible) {
+    const participantAvatarScale = Number(layout.participantAvatarScale ?? DEFAULT_TEMPLATE_LAYOUT.participantAvatarScale);
     const participantLayout = getParticipantLayout(
       participantCount,
       participantsBox.x,
       participantsBox.y,
       participantsBox.width,
-      participantsBox.height
+      participantsBox.height,
+      participantAvatarScale
     );
     await drawParticipantCircles(ctx, participantIds, participantCount, participantLayout, client, avatarUrls);
   }

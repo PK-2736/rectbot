@@ -36,6 +36,7 @@ type TemplateLayout = {
   outputWidth: number;
   outputHeight: number;
   outputScale: number;
+  participantAvatarScale: number;
   contentLabel: string;
   membersLabel: string;
   timeLabel: string;
@@ -95,6 +96,7 @@ const DEFAULT_LAYOUT: TemplateLayout = {
   outputWidth: 140,
   outputHeight: 100,
   outputScale: 5,
+  participantAvatarScale: 1,
   contentLabel: "募集内容",
   membersLabel: "人数：",
   timeLabel: "時間：",
@@ -182,6 +184,7 @@ function parseLayout(input: unknown): TemplateLayout {
     outputWidth: normalizeOutputDimension((raw as { outputWidth?: number }).outputWidth, DEFAULT_LAYOUT.outputWidth),
     outputHeight: normalizeOutputDimension((raw as { outputHeight?: number }).outputHeight, DEFAULT_LAYOUT.outputHeight),
     outputScale: clamp(Number((raw as { outputScale?: number }).outputScale ?? DEFAULT_LAYOUT.outputScale), 2, 10),
+    participantAvatarScale: clamp(Number((raw as { participantAvatarScale?: number }).participantAvatarScale ?? DEFAULT_LAYOUT.participantAvatarScale), 0.5, 2.4),
     contentLabel: typeof (raw as { contentLabel?: string }).contentLabel === 'string' ? (raw as { contentLabel?: string }).contentLabel || DEFAULT_LAYOUT.contentLabel : DEFAULT_LAYOUT.contentLabel,
     membersLabel: typeof (raw as { membersLabel?: string }).membersLabel === 'string' ? (raw as { membersLabel?: string }).membersLabel || DEFAULT_LAYOUT.membersLabel : DEFAULT_LAYOUT.membersLabel,
     timeLabel: typeof (raw as { timeLabel?: string }).timeLabel === 'string' ? (raw as { timeLabel?: string }).timeLabel || DEFAULT_LAYOUT.timeLabel : DEFAULT_LAYOUT.timeLabel,
@@ -861,6 +864,22 @@ export default function PlusTemplatePage() {
                       onChange={(e) => setLayout((prev) => ({ ...prev, outputScale: clamp(Number(e.target.value), 2, 10) }))}
                     />
                     <span className="sm:text-right text-xs text-stone-500">{layout.outputScale}x</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 items-center text-sm">
+                    <label>参加者アバター枠サイズ</label>
+                    <input
+                      type="range"
+                      min={50}
+                      max={240}
+                      step={5}
+                      value={Math.round((layout.participantAvatarScale || 1) * 100)}
+                      onChange={(e) => setLayout((prev) => ({
+                        ...prev,
+                        participantAvatarScale: clamp(Number(e.target.value) / 100, 0.5, 2.4),
+                      }))}
+                    />
+                    <span className="sm:text-right text-xs text-stone-500">{Math.round((layout.participantAvatarScale || 1) * 100)}%</span>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 items-center text-sm">
