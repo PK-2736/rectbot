@@ -1,6 +1,7 @@
 // backendFetch (Worker unified)
 const API_BASE = process.env.WORKER_API_BASE_URL || process.env.PUBLIC_API_BASE_URL || process.env.BACKEND_API_URL || 'https://api.recrubo.net';
 const SERVICE_TOKEN = process.env.SERVICE_TOKEN || process.env.BACKEND_SERVICE_TOKEN || '';
+const DEBUG_BACKEND_FETCH = String(process.env.DEBUG_BACKEND_FETCH || '').toLowerCase() === 'true';
 const { fetchServiceJwt } = require('../auth/serviceJwt');
 
 function buildRequestUrl(path) {
@@ -65,6 +66,8 @@ function ensureJsonContentType(headers) {
 
 function logRequest(method, url, headers) {
   console.log(`[backendFetch] ${method} ${url}`);
+  if (!DEBUG_BACKEND_FETCH) return;
+
   console.log(`[backendFetch] SERVICE_TOKEN present: ${!!SERVICE_TOKEN}, length: ${SERVICE_TOKEN ? SERVICE_TOKEN.length : 0}`);
   const safeHeaders = { ...headers };
   for (const key of Object.keys(safeHeaders)) {
@@ -106,7 +109,9 @@ async function backendFetch(path, opts = {}) {
     console.error(`[backendFetch] Request failed ${res.status}: ${text}`);
     throw buildRequestError(res, json || text);
   }
-  console.log(`[backendFetch] Response:`, json);
+  if (DEBUG_BACKEND_FETCH) {
+    console.log(`[backendFetch] Response:`, json);
+  }
   return json;
 }
 
