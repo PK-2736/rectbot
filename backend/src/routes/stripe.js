@@ -647,6 +647,45 @@ async function fetchSubscriptionsByUserId(userId, env, limit = 50) {
   return Array.isArray(base.data) ? base.data : [];
 }
 
+async function fetchSubscriptionsByCustomerId(customerId, env, limit = 100) {
+  const normalizedCustomerId = String(customerId || '').trim();
+  if (!normalizedCustomerId) return [];
+
+  const supabase = await createSupabaseClient(env);
+  if (!supabase) return [];
+
+  const safeLimit = Math.max(1, Math.min(Number(limit) || 100, 300));
+  const extended = await supabase
+    .from('subscriptions')
+    .select(EXTENDED_SUBSCRIPTION_SELECT)
+    .eq('stripe_customer_id', normalizedCustomerId)
+    .order('updated_at', { ascending: false })
+    .limit(safeLimit);
+
+  if (!extended.error) {
+    return Array.isArray(extended.data) ? extended.data : [];
+  }
+
+  if (!isMissingDbColumnError(extended.error)) {
+    console.error('[stripe] Failed to fetch subscriptions by customer:', extended.error);
+    return [];
+  }
+
+  const base = await supabase
+    .from('subscriptions')
+    .select(BASE_SUBSCRIPTION_SELECT)
+    .eq('stripe_customer_id', normalizedCustomerId)
+    .order('updated_at', { ascending: false })
+    .limit(safeLimit);
+
+  if (base.error) {
+    console.error('[stripe] Failed to fetch subscriptions by customer (fallback):', base.error);
+    return [];
+  }
+
+  return Array.isArray(base.data) ? base.data : [];
+}
+
 async function fetchSubscriptionPurchasesByUserId(userId, env, limit = 200) {
   const supabase = await createSupabaseClient(env);
   if (!supabase) return [];
@@ -667,6 +706,48 @@ async function fetchSubscriptionPurchasesByUserId(userId, env, limit = 200) {
   }
 
   return Array.isArray(data) ? data : [];
+}
+
+async function fetchSubscriptionPurchasesByCustomerId(customerId, env, limit = 200) {
+  const normalizedCustomerId = String(customerId || '').trim();
+  if (!normalizedCustomerId) return [];
+
+  const supabase = await createSupabaseClient(env);
+  if (!supabase) return [];
+
+  const safeLimit = Math.max(1, Math.min(Number(limit) || 200, 500));
+  const { data, error } = await supabase
+    .from('subscription_purchases')
+    .select('purchased_guild_id, stripe_subscription_id, stripe_customer_id, amount, currency, billing_interval, purchased_at')
+    .eq('stripe_customer_id', normalizedCustomerId)
+    .order('purchased_at', { ascending: false })
+    .limit(safeLimit);
+
+  if (error) {
+    if (!isMissingDbRelationError(error) && !isMissingDbColumnError(error)) {
+      console.warn('[stripe] Failed to fetch subscription purchases by customer:', error);
+    }
+    return [];
+  }
+
+  return Array.isArray(data) ? data : [];
+}
+
+function mergeRowsBySubscriptionId(primaryRows, additionalRows) {
+  const primary = Array.isArray(primaryRows) ? primaryRows : [];
+  const additional = Array.isArray(additionalRows) ? additionalRows : [];
+
+  const seen = new Set();
+  const merged = [];
+
+  for (const row of [...primary, ...additional]) {
+    const id = String(row?.stripe_subscription_id || '').trim();
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    merged.push(row);
+  }
+
+  return merged;
 }
 
 function shouldDisplaySubscriptionInDashboard(subscription) {
@@ -721,6 +802,46 @@ function mergeSubscriptionsWithPurchases(subscriptions, purchases) {
       const bTime = toMillis(b?.updated_at) || toMillis(b?.created_at) || 0;
       return bTime - aTime;
     });
+}
+
+async function reconcileSubscriptionsByCustomerId({ customerId, userId, env }) {
+  const normalizedCustomerId = String(customerId || '').trim();
+  const normalizedUserId = String(userId || '').trim();
+  if (!normalizedCustomerId || !normalizedUserId) return;
+
+  let stripe;
+  try {
+    stripe = await createStripeClient(env);
+  } catch (error) {
+    console.warn('[stripe] Failed to create Stripe client for customer reconciliation:', error?.message || error);
+    return;
+  }
+
+  try {
+    const listed = await stripe.subscriptions.list({
+      customer: normalizedCustomerId,
+      status: 'all',
+      limit: 100,
+    });
+
+    for (const sub of listed?.data || []) {
+      try {
+        await upsertSubscriptionFromStripe({
+          subscription: sub,
+          userId: normalizedUserId,
+          guildId: String(sub?.metadata?.guildId || '').trim() || null,
+          env,
+        });
+      } catch (error) {
+        console.warn('[stripe] Failed to upsert subscription during customer reconciliation:', {
+          subscriptionId: sub?.id,
+          message: error?.message || error,
+        });
+      }
+    }
+  } catch (error) {
+    console.warn('[stripe] Failed to reconcile subscriptions by customer:', error?.message || error);
+  }
 }
 
 async function fetchActiveSubscriptionByUserId(userId, env) {
@@ -1330,9 +1451,27 @@ async function getSubscriptionStatusForDashboard(request, env) {
       subscription = await fetchLatestSubscriptionByUserId(userId, env);
     }
 
-    const subscriptions = await fetchSubscriptionsByUserId(userId, env);
-    const purchases = await fetchSubscriptionPurchasesByUserId(userId, env);
-    const mergedSubscriptions = mergeSubscriptionsWithPurchases(subscriptions, purchases);
+    const customerId = String(
+      subscription?.stripe_customer_id || latestPurchase?.stripe_customer_id || ''
+    ).trim() || null;
+
+    if (customerId) {
+      await reconcileSubscriptionsByCustomerId({ customerId, userId, env });
+    }
+
+    const subscriptionsByUser = await fetchSubscriptionsByUserId(userId, env);
+    const subscriptionsByCustomer = customerId
+      ? await fetchSubscriptionsByCustomerId(customerId, env)
+      : [];
+    const mergedSubscriptionRows = mergeRowsBySubscriptionId(subscriptionsByUser, subscriptionsByCustomer);
+
+    const purchasesByUser = await fetchSubscriptionPurchasesByUserId(userId, env);
+    const purchasesByCustomer = customerId
+      ? await fetchSubscriptionPurchasesByCustomerId(customerId, env)
+      : [];
+    const mergedPurchaseRows = mergeRowsBySubscriptionId(purchasesByUser, purchasesByCustomer);
+
+    const mergedSubscriptions = mergeSubscriptionsWithPurchases(mergedSubscriptionRows, mergedPurchaseRows);
 
     const hasActiveSubscription = !!subscription && isUsableSubscription(subscription.status, subscription?.current_period_end);
 
