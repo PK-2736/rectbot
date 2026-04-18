@@ -339,7 +339,12 @@ function buildWebhookEmbed(guildId, payload) {
 
 async function sendWebhookNotification(guildId, payload) {
   try {
-    const webhookUrl = process.env.RECRUIT_WEBHOOK_URL || process.env.DISCORD_WEBHOOK_URL || process.env.DISCORD_ALERT_WEBHOOK_URL;
+    const webhookUrl = [
+      process.env.RECRUIT_WEBHOOK_URL,
+      process.env.DISCORD_WEBHOOK_URL,
+      process.env.DISCORD_ALERT_WEBHOOK_URL,
+      process.env.WEBHOOK_URL,
+    ].map((v) => String(v || '').trim()).find(Boolean);
     if (!webhookUrl) {
       console.warn('[webhook] webhook URL is not set (RECRUIT_WEBHOOK_URL / DISCORD_WEBHOOK_URL / DISCORD_ALERT_WEBHOOK_URL). Skip guild settings webhook notification.');
       return;
