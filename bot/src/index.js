@@ -2,6 +2,13 @@
 // P1修正: Sentry を最初に初期化してエラートラッキングの取りこぼしを防止
 require("dotenv").config();
 
+try {
+  const { setupConsoleErrorWebhookForwarder } = require('./utils/error/consoleErrorWebhook');
+  setupConsoleErrorWebhookForwarder();
+} catch (e) {
+  console.warn('[boot] error webhook forwarder init failed (non-fatal):', e?.message || e);
+}
+
 // Sentry 初期化（できるだけ早く）
 try {
   const { initSentry } = require('./utils/sentry');
@@ -47,7 +54,7 @@ function isEnvFlagEnabled(name, fallback = false) {
   return ['1', 'true', 'yes', 'on'].includes(String(raw).trim().toLowerCase());
 }
 
-const enableGuildMembersIntent = isEnvFlagEnabled('ENABLE_GUILD_MEMBERS_INTENT', false);
+const enableGuildMembersIntent = true;
 const enableMessageContentIntent = isEnvFlagEnabled('ENABLE_MESSAGE_CONTENT_INTENT', false);
 
 const intents = [
@@ -239,8 +246,6 @@ client.once('clientReady', () => {
 
   if (enableGuildMembersIntent) {
     startSubscriptionRoleSync(client);
-  } else {
-    console.warn('[subscription-role-sync] skipped because ENABLE_GUILD_MEMBERS_INTENT is disabled.');
   }
 });
 

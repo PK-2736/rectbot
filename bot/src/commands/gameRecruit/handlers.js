@@ -104,6 +104,33 @@ async function handleModalSubmit(interaction) {
 async function handleButton(interaction) {
   const messageId = interaction.message.id;
 
+  if (interaction.customId === 'open_template_recruit') {
+    try {
+      const { getTemplateButtonLink } = require('../../utils/database');
+      const { executeTemplateButton } = require('./execute');
+      const linked = await getTemplateButtonLink(messageId);
+      const templateName = String(linked?.templateName || '').trim();
+      if (!templateName) {
+        await interaction.reply({
+          content: '❌ このボタンのテンプレート紐づけが見つかりません。再送信してください。',
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+      await executeTemplateButton(interaction, templateName);
+      return;
+    } catch (error) {
+      console.error('[recruit button template open] failed:', error);
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.reply({
+          content: '❌ 募集作成モーダルを開けませんでした。',
+          flags: MessageFlags.Ephemeral,
+        });
+      }
+      return;
+    }
+  }
+
   // 専用チャンネル作成ボタン
   if (interaction.customId.startsWith('create_vc_') || interaction.customId === 'create_vc_pending') {
     let recruitId = interaction.customId.replace('create_vc_', '');

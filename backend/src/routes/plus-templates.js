@@ -137,6 +137,230 @@ function resolveInternalBotBase(env) {
   return String(env.JWT_ISSUER_URL || env.VPS_EXPRESS_URL || env.TUNNEL_URL || '').trim();
 }
 
+function sanitizeButtonStyle(value) {
+  const style = String(value || '').trim().toLowerCase();
+  if (style === 'primary' || style === 'secondary' || style === 'success' || style === 'danger') {
+    return style;
+  }
+  return 'primary';
+}
+
+function sanitizeTemplateButtonConfig(body) {
+  return {
+    templateName: trimOrNull(body?.templateName, 100),
+    buttonLabel: trimOrNull(body?.buttonLabel, 80) || '募集を作成',
+    buttonStyle: sanitizeButtonStyle(body?.buttonStyle),
+    embedTitle: trimOrNull(body?.embedTitle, 256) || '募集作成',
+    embedDescription: trimOrNull(body?.embedDescription, 4000) || '下のボタンから募集を作成できます。',
+    channelId: trimOrNull(body?.channelId, 64),
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+async function saveTemplateButtonConfigForGuild(supabase, guildId, config) {
+  const payload = {
+    guild_id: guildId,
+    template_button_config: config,
+    updated_at: new Date().toISOString(),
+  };
+
+  const { error } = await supabase
+    .from('guild_settings')
+    .upsert(payload, { onConflict: 'guild_id' });
+
+  if (error) {
+    throw error;
+  }
+}
+
+async function getTemplateButtonConfig(request, url, env, safeHeaders) {
+  const guildId = String(url.searchParams.get('guildId') || '').trim();
+  if (!guildId) {
+    return jsonResponse({ error: 'guildId is required' }, 400, safeHeaders);
+  }
+
+  const actor = await resolveTemplateActor(request, url, env, guildId);
+  if (!actor.ok) {
+    return jsonResponse({ error: 'Unauthorized for this guild' }, 403, safeHeaders);
+  }
+
+  const supabase = await createSupabaseClient(env);
+  if (!supabase) return jsonResponse({ error: 'Supabase is not configured' }, 500, safeHeaders);
+
+  const { data, error } = await supabase
+    .from('guild_settings')
+    .select('template_button_config')
+    .eq('guild_id', guildId)
+    .maybeSingle();
+
+  if (error) {
+    console.error('[plus/template-button-config] get error:', error);
+    return jsonResponse({ error: 'Failed to load config' }, 500, safeHeaders);
+  }
+
+  return jsonResponse({ config: data?.template_button_config || null }, 200, safeHeaders);
+}
+
+async function upsertTemplateButtonConfig(request, env, safeHeaders) {
+  const body = await request.json().catch(() => ({}));
+  const guildId = String(body.guildId || '').trim();
+  if (!guildId) {
+    return jsonResponse({ error: 'guildId is required' }, 400, safeHeaders);
+  }
+
+  const url = new URL(request.url);
+  const actor = await resolveTemplateActor(request, url, env, guildId);
+  if (!actor.ok) {
+    return jsonResponse({ error: 'Unauthorized for this guild' }, 403, safeHeaders);
+  }
+
+  const config = sanitizeTemplateButtonConfig(body);
+  if (!config.templateName) {
+    return jsonResponse({ error: 'templateName is required' }, 400, safeHeaders);
+  }
+
+  const supabase = await createSupabaseClient(env);
+  if (!supabase) return jsonResponse({ error: 'Supabase is not configured' }, 500, safeHeaders);
+
+  try {
+    await saveTemplateButtonConfigForGuild(supabase, guildId, config);
+  } catch (error) {
+    console.error('[plus/template-button-config] upsert error:', error);
+    return jsonResponse({ error: 'Failed to save config' }, 500, safeHeaders);
+  }
+
+  return jsonResponse({ ok: true, config }, 200, safeHeaders);
+}
+
+async function listTemplateButtonChannels(request, url, env, safeHeaders) {
+  const guildId = String(url.searchParams.get('guildId') || '').trim();
+  if (!guildId) {
+    return jsonResponse({ error: 'guildId is required' }, 400, safeHeaders);
+  }
+
+  const actor = await resolveTemplateActor(request, url, env, guildId);
+  if (!actor.ok) {
+    return jsonResponse({ error: 'Unauthorized for this guild' }, 403, safeHeaders);
+  }
+
+  const internalBase = resolveInternalBotBase(env);
+  if (!internalBase || !env.INTERNAL_SECRET) {
+    return jsonResponse({ error: 'Internal bot service is not configured' }, 503, safeHeaders);
+  }
+
+  const upstreamUrl = new URL('/internal/discord/channels', internalBase);
+  upstreamUrl.searchParams.set('guildId', guildId);
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+  let upstream;
+  try {
+    upstream = await fetch(upstreamUrl.toString(), {
+      method: 'GET',
+      headers: {
+        'x-internal-secret': env.INTERNAL_SECRET,
+      },
+      signal: controller.signal,
+    });
+  } catch (err) {
+    clearTimeout(timeoutId);
+    const msg = err?.name === 'AbortError' ? 'Channel list timeout (>10s)' : String(err?.message || err);
+    return jsonResponse({ error: 'Failed to load channels', detail: msg }, 502, safeHeaders);
+  }
+
+  clearTimeout(timeoutId);
+
+  if (!upstream.ok) {
+    const detail = await upstream.text().catch(() => 'no response');
+    return jsonResponse({ error: 'Failed to load channels', detail }, 502, safeHeaders);
+  }
+
+  const payload = await upstream.json().catch(() => ({}));
+  return jsonResponse({ channels: Array.isArray(payload?.channels) ? payload.channels : [] }, 200, safeHeaders);
+}
+
+async function sendTemplateRecruitButton(request, env, safeHeaders) {
+  const body = await request.json().catch(() => ({}));
+  const guildId = String(body.guildId || '').trim();
+  const channelId = String(body.channelId || '').trim();
+
+  if (!guildId) return jsonResponse({ error: 'guildId is required' }, 400, safeHeaders);
+  if (!channelId) return jsonResponse({ error: 'channelId is required' }, 400, safeHeaders);
+
+  const url = new URL(request.url);
+  const actor = await resolveTemplateActor(request, url, env, guildId);
+  if (!actor.ok) {
+    return jsonResponse({ error: 'Unauthorized for this guild' }, 403, safeHeaders);
+  }
+
+  const config = sanitizeTemplateButtonConfig(body);
+  config.channelId = channelId;
+  if (!config.templateName) {
+    return jsonResponse({ error: 'templateName is required' }, 400, safeHeaders);
+  }
+
+  const supabase = await createSupabaseClient(env);
+  if (!supabase) return jsonResponse({ error: 'Supabase is not configured' }, 500, safeHeaders);
+
+  const internalBase = resolveInternalBotBase(env);
+  if (!internalBase || !env.INTERNAL_SECRET) {
+    return jsonResponse({ error: 'Internal bot service is not configured' }, 503, safeHeaders);
+  }
+
+  const upstreamUrl = new URL('/internal/recruit-template-button/send', internalBase);
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+  let upstream;
+  try {
+    upstream = await fetch(upstreamUrl.toString(), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-internal-secret': env.INTERNAL_SECRET,
+      },
+      body: JSON.stringify({
+        guildId,
+        channelId,
+        templateName: config.templateName,
+        buttonLabel: config.buttonLabel,
+        buttonStyle: config.buttonStyle,
+        embedTitle: config.embedTitle,
+        embedDescription: config.embedDescription,
+      }),
+      signal: controller.signal,
+    });
+  } catch (err) {
+    clearTimeout(timeoutId);
+    const msg = err?.name === 'AbortError' ? 'Button send timeout (>15s)' : String(err?.message || err);
+    return jsonResponse({ error: 'Failed to send recruit button', detail: msg }, 502, safeHeaders);
+  }
+
+  clearTimeout(timeoutId);
+
+  if (!upstream.ok) {
+    const detail = await upstream.text().catch(() => 'no response');
+    return jsonResponse({ error: 'Failed to send recruit button', detail }, 502, safeHeaders);
+  }
+
+  const payload = await upstream.json().catch(() => ({}));
+
+  try {
+    await saveTemplateButtonConfigForGuild(supabase, guildId, config);
+  } catch (error) {
+    console.error('[plus/template-button-send] config save warning:', error);
+  }
+
+  return jsonResponse({
+    ok: true,
+    config,
+    messageId: payload?.messageId || null,
+    channelId: payload?.channelId || channelId,
+  }, 200, safeHeaders);
+}
+
 async function inferLatestTemplateAssetKey(env, guildId, templateName) {
   if (!env?.PLUS_TEMPLATES_R2 || !guildId || !templateName) return null;
 
@@ -791,6 +1015,22 @@ export async function handlePlusTemplateRoutes(request, env, { url, safeHeaders 
 
   if (url.pathname === '/api/plus/templates/preview' && request.method === 'POST') {
     return previewTemplate(request, env, safeHeaders);
+  }
+
+  if (url.pathname === '/api/plus/template-button-config' && request.method === 'GET') {
+    return getTemplateButtonConfig(request, url, env, safeHeaders);
+  }
+
+  if (url.pathname === '/api/plus/template-button-config' && request.method === 'POST') {
+    return upsertTemplateButtonConfig(request, env, safeHeaders);
+  }
+
+  if (url.pathname === '/api/plus/template-button/channels' && request.method === 'GET') {
+    return listTemplateButtonChannels(request, url, env, safeHeaders);
+  }
+
+  if (url.pathname === '/api/plus/template-button/send' && request.method === 'POST') {
+    return sendTemplateRecruitButton(request, env, safeHeaders);
   }
 
   if (url.pathname.startsWith('/api/plus/assets/') && request.method === 'GET') {

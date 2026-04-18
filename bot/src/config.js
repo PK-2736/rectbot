@@ -17,5 +17,6 @@ module.exports = {
   GMAIL_USER: process.env.GMAIL_USER,
   GMAIL_APP_PASSWORD: process.env.GMAIL_APP_PASSWORD,
   NOTIFICATION_EMAIL_TO: process.env.NOTIFICATION_EMAIL_TO,
+  ERROR_WEBHOOK_ENABLED: process.env.ERROR_WEBHOOK_ENABLED,
   // その他必要に応じて追加
 };

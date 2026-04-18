@@ -30,6 +30,14 @@ try {
 
 // 募集TTL: 3日(259200秒 = 72時間)
 const RECRUIT_TTL_SECONDS = Number(process.env.REDIS_RECRUIT_TTL_SECONDS || 259200);
+let lastLoggedRedisStatus = null;
+
+function logRedisStatusIfChanged(status) {
+  const normalized = String(status || 'unknown');
+  if (normalized === lastLoggedRedisStatus) return;
+  lastLoggedRedisStatus = normalized;
+  console.log(`Redis status: ${normalized}`);
+}
 
 async function ensureRedisConnection() {
   if (!redis) {
@@ -37,10 +45,12 @@ async function ensureRedisConnection() {
     throw new Error('Redis client is not initialized');
   }
 
-  console.log(`Redis status: ${redis.status}`);
+  logRedisStatusIfChanged(redis.status);
 
   if (redis.status !== 'ready') {
-    console.log('Redis not ready, attempting to connect...');
+    if (redis.status !== 'connecting') {
+      console.log('Redis not ready, attempting to connect...');
+    }
     try {
       await redis.connect();
       console.log('Redis connection established');

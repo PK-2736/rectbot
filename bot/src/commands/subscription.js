@@ -368,9 +368,6 @@ module.exports = {
           .setTimestamp();
 
         await safeReply(interaction, {
-          content: guildOn
-            ? '✅ このサーバー内でサブスクリプションが有効化されました。詳しくは `/subscription status` コマンドを確認してください。'
-            : undefined,
           embeds: [embed],
           flags: MessageFlags.Ephemeral,
         });

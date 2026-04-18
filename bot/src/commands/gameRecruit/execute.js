@@ -647,4 +647,104 @@ async function execute(interaction) {
   }
 }
 
-module.exports = { execute };
+async function executeTemplateButton(interaction, templateName) {
+  const requestedTemplateName = String(templateName || '').trim();
+  if (!requestedTemplateName) {
+    await safeReply(interaction, {
+      content: '❌ ボタンに紐づくテンプレートが見つかりません。再送信してください。',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  try {
+    const guildSettings = await getGuildSettings(interaction.guildId);
+    const premiumByGuild = isPremiumEnabled(guildSettings);
+    const premiumBySubscription = premiumByGuild
+      ? false
+      : await hasPremiumSubscription(interaction.user?.id, interaction.guildId);
+    const premiumEnabled = premiumByGuild || premiumBySubscription;
+
+    if (!premiumEnabled) {
+      await safeReply(interaction, {
+        content: '❌ このボタンはサブスクリプション契約サーバーでのみ利用できます。',
+        flags: MessageFlags.Ephemeral,
+        allowedMentions: { roles: [], users: [] }
+      });
+      return;
+    }
+
+    const cooldownOk = await enforceGuildCooldown(interaction, premiumEnabled);
+    if (!cooldownOk) return;
+
+    const recruitLimitOk = await enforceActiveRecruitLimit(interaction, guildSettings, premiumEnabled);
+    if (!recruitLimitOk) return;
+
+    const channelAllowed = await enforceRecruitChannel(interaction, guildSettings);
+    if (!channelAllowed) return;
+
+    const template = await getTemplateByNameWithFallback(interaction.guildId, requestedTemplateName);
+    if (!template) {
+      await safeReply(interaction, {
+        content: `❌ テンプレート「${requestedTemplateName}」が見つかりません。`,
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    let parsedOptions = {
+      titleArg: null,
+      membersArg: null,
+      startArg: null,
+      voiceArg: null,
+      voicePlaceArg: null,
+      voiceChannelId: null,
+      selectedColor: undefined,
+      templateName: requestedTemplateName,
+      template,
+    };
+
+    parsedOptions = mergeOptionsWithTemplate(parsedOptions, template);
+    if (!parsedOptions.titleArg) {
+      parsedOptions.titleArg = guildSettings?.defaultTitle || '参加者募集';
+    }
+    if (!parsedOptions.membersArg) {
+      parsedOptions.membersArg = 4;
+    }
+    if (!parsedOptions.startArg) {
+      parsedOptions.startArg = '今から';
+    }
+
+    const baseValid = await validateRecruitInputs(interaction, parsedOptions);
+    if (!baseValid) return;
+
+    const startParse = parseStartTime(parsedOptions.startArg);
+    if (!startParse.isValid) {
+      await safeReply(interaction, {
+        content: '❌ テンプレートの開始時間が不正です。テンプレートを更新してください。',
+        flags: MessageFlags.Ephemeral
+      });
+      return;
+    }
+
+    await savePendingOptions(interaction, {
+      ...parsedOptions,
+      displayStart: startParse.displayStart,
+      startAtISO: startParse.startAtISO
+    });
+
+    const roleOptions = await buildNotificationRoleOptions(interaction, guildSettings);
+    const modal = buildRecruitModal(interaction, roleOptions);
+    await interaction.showModal(modal);
+  } catch (error) {
+    console.error('[gameRecruit.executeTemplateButton] error:', error);
+    if (!interaction.replied && !interaction.deferred) {
+      await safeReply(interaction, {
+        content: '❌ ボタンからの募集作成に失敗しました。',
+        flags: MessageFlags.Ephemeral
+      });
+    }
+  }
+}
+
+module.exports = { execute, executeTemplateButton };

@@ -86,7 +86,7 @@ const DEFAULT_LAYOUT = {
   membersBox: { x: 780, y: 285, width: 420, height: 90, visible: true },
   timeBox: { x: 780, y: 429, width: 420, height: 90, visible: true },
   voiceBox: { x: 780, y: 573, width: 420, height: 90, visible: true },
-  participantsBox: { x: 155, y: 156, width: 1134, height: 158, visible: true },
+  participantsBox: { x: 155, y: 180, width: 1134, height: 158, visible: true },
   contentBoxColor: '#FFFFFF',
   imageBoxColor: '#FFFFFF',
   participantsBoxColor: '#FFFFFF',
@@ -444,49 +444,51 @@ export function RecruitCardCanvasImpl({
 
       addRectStyleTitle(layer, outputCanvasWidth, recruitData.title || '募集タイトル', accentColor, resolvedTextColor);
 
-      const contentGroup = new Konva.Group({
-        x: scaledContentBox.x,
-        y: scaledContentBox.y,
-        draggable: Boolean(onLayoutChangeRef.current),
-      });
-      if (onLayoutChangeRef.current) {
-        contentGroup.on('dragend', () => {
-          onLayoutChangeRef.current?.('contentBox', toEditorX(contentGroup.x()), toEditorY(contentGroup.y()));
+      if (scaledContentBox.visible) {
+        const contentGroup = new Konva.Group({
+          x: scaledContentBox.x,
+          y: scaledContentBox.y,
+          draggable: Boolean(onLayoutChangeRef.current),
         });
-      }
+        if (onLayoutChangeRef.current) {
+          contentGroup.on('dragend', () => {
+            onLayoutChangeRef.current?.('contentBox', toEditorX(contentGroup.x()), toEditorY(contentGroup.y()));
+          });
+        }
 
-      contentGroup.add(new Konva.Rect({
-        x: 0,
-        y: 0,
-        width: scaledContentBox.width,
-        height: scaledContentBox.height,
-        cornerRadius: 6,
-        fill: 'rgba(0,0,0,0.75)',
-        stroke: withAlpha(contentBoxFrameColor, 0.85),
-        strokeWidth: 1,
-      }));
-      contentGroup.add(new Konva.Text({
-        x: 4,
-        y: 3,
-        text: layout.contentLabel || '募集内容',
-        fill: withAlpha(contentBoxFrameColor, 0.95),
-        fontSize: 6,
-        fontStyle: 'bold',
-        fontFamily: 'CorporateRounded, Arial, sans-serif',
-      }));
-
-      const contentLines = wrapTextLines(recruitData.content || 'ガチエリア / 初心者歓迎', scaledContentBox.width - 16, createMeasure(4));
-      contentLines.slice(0, Math.floor((scaledContentBox.height - 20) / 6)).forEach((line, i) => {
+        contentGroup.add(new Konva.Rect({
+          x: 0,
+          y: 0,
+          width: scaledContentBox.width,
+          height: scaledContentBox.height,
+          cornerRadius: 6,
+          fill: 'rgba(0,0,0,0.75)',
+          stroke: withAlpha(contentBoxFrameColor, 0.85),
+          strokeWidth: 1,
+        }));
         contentGroup.add(new Konva.Text({
           x: 4,
-          y: 15 + i * 6,
-          text: line,
-          fill: resolvedTextColor,
-          fontSize: 4,
+          y: 3,
+          text: layout.contentLabel || '募集内容',
+          fill: withAlpha(contentBoxFrameColor, 0.95),
+          fontSize: 6,
+          fontStyle: 'bold',
           fontFamily: 'CorporateRounded, Arial, sans-serif',
         }));
-      });
-      layer.add(contentGroup);
+
+        const contentLines = wrapTextLines(recruitData.content || 'ガチエリア / 初心者歓迎', scaledContentBox.width - 16, createMeasure(4));
+        contentLines.slice(0, Math.floor((scaledContentBox.height - 20) / 6)).forEach((line, i) => {
+          contentGroup.add(new Konva.Text({
+            x: 4,
+            y: 15 + i * 6,
+            text: line,
+            fill: resolvedTextColor,
+            fontSize: 4,
+            fontFamily: 'CorporateRounded, Arial, sans-serif',
+          }));
+        });
+        layer.add(contentGroup);
+      }
 
       if (scaledParticipantsBox.visible) {
         const participantsGroup = new Konva.Group({

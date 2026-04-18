@@ -22,7 +22,7 @@ const DEFAULT_TEMPLATE_LAYOUT = {
   membersBox: { x: 780, y: 285, width: 420, height: 90, visible: true },
   timeBox: { x: 780, y: 429, width: 420, height: 90, visible: true },
   voiceBox: { x: 780, y: 573, width: 420, height: 90, visible: true },
-  participantsBox: { x: 155, y: 156, width: 1134, height: 158, visible: true },
+  participantsBox: { x: 155, y: 180, width: 1134, height: 158, visible: true },
   stickerImages: []
 };
 
@@ -477,16 +477,18 @@ async function drawTemplateModeCard(ctx, recruitData, layout, canvasSize, accent
     await drawParticipantCircles(ctx, participantIds, participantCount, participantLayout, client, avatarUrls);
   }
 
-  drawContentTextSection(
-    ctx,
-    contentBox.x,
-    contentBox.y,
-    contentBox.width,
-    contentBox.height,
-    content,
-    layout.contentLabel || DEFAULT_TEMPLATE_LAYOUT.contentLabel,
-    textColor
-  );
+  if (contentBox.visible) {
+    drawContentTextSection(
+      ctx,
+      contentBox.x,
+      contentBox.y,
+      contentBox.width,
+      contentBox.height,
+      content,
+      layout.contentLabel || DEFAULT_TEMPLATE_LAYOUT.contentLabel,
+      textColor
+    );
+  }
 
   const infoItems = buildInfoItems(recruitData, participantIds).map((item, index) => ({
     ...item,

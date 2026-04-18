@@ -111,7 +111,7 @@ const DEFAULT_LAYOUT: TemplateLayout = {
   membersBox: { x: 780, y: 285, width: 420, height: 90, visible: true },
   timeBox: { x: 780, y: 429, width: 420, height: 90, visible: true },
   voiceBox: { x: 780, y: 573, width: 420, height: 90, visible: true },
-  participantsBox: { x: 155, y: 156, width: 1134, height: 158, visible: true },
+  participantsBox: { x: 155, y: 180, width: 1134, height: 158, visible: true },
   contentBoxColor: "#FFFFFF",
   imageBoxColor: "#FFFFFF",
   participantsBoxColor: "#FFFFFF",
@@ -662,7 +662,10 @@ export default function PlusTemplatePage() {
             <h1 className="text-xl sm:text-2xl font-bold text-stone-900">募集画像エディタ</h1>
             <p className="text-xs sm:text-sm text-stone-600">必要な設定だけ調整して、そのままテンプレート保存できます。</p>
           </div>
-          <Link href="/subscription" className="text-sm text-brand-700 hover:text-brand-900">サブスク管理へ戻る</Link>
+          <div className="flex items-center gap-3 text-sm">
+            <Link href="/plus/templates/button" className="text-brand-700 hover:text-brand-900">2/2 募集作成ボタン設定へ</Link>
+            <Link href="/subscription" className="text-brand-700 hover:text-brand-900">サブスク管理へ戻る</Link>
+          </div>
         </div>
       </header>
 
