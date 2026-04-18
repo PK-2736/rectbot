@@ -110,25 +110,6 @@ export default function SubscriptionManagement({ status }: { status: Subscriptio
             </button>
           </div>
 
-          <div className="mt-6 grid gap-3 sm:grid-cols-2">
-            <div className="rounded-2xl border border-brand-100 bg-white p-4">
-              <p className="text-xs text-slate-500">状態</p>
-              <p className="mt-1 text-sm font-semibold text-slate-900">{status.isPremium ? 'プレミアム有効' : '非プレミアム'}</p>
-            </div>
-            <div className="rounded-2xl border border-brand-100 bg-white p-4">
-              <p className="text-xs text-slate-500">料金</p>
-              <p className="mt-1 text-sm font-semibold text-slate-900">{formatPrice(status.subscription?.amount, status.subscription?.currency)}</p>
-            </div>
-            <div className="rounded-2xl border border-brand-100 bg-white p-4">
-              <p className="text-xs text-slate-500">次回更新</p>
-              <p className="mt-1 text-sm font-semibold text-slate-900">{formatDate(status.subscription?.current_period_end)}</p>
-            </div>
-            <div className="rounded-2xl border border-brand-100 bg-white p-4">
-              <p className="text-xs text-slate-500">適用サーバーID</p>
-              <p className="mt-1 break-all text-sm font-semibold text-slate-900">{status.activeGuildId || '未設定'}</p>
-            </div>
-          </div>
-
           <div className="mt-6 rounded-2xl border border-brand-100 bg-white p-5">
             <p className="text-sm font-semibold text-slate-900">契約一覧</p>
             <p className="mt-1 text-xs text-slate-500">複数契約がある場合、ここで対象サーバーIDごとに確認できます。</p>

@@ -13,7 +13,7 @@ function corsHeadersFor(origin, env) {
   return {
     'Access-Control-Allow-Origin': origin,
     'Access-Control-Allow-Methods': 'GET,POST,DELETE,OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-service-token',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-service-token, x-template-guest-token',
     'Access-Control-Allow-Credentials': 'true'
   };
 }

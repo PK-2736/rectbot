@@ -14,13 +14,13 @@
   html {
     font-family: 'Inter', system-ui, sans-serif;
     background:
-      radial-gradient(circle at top right, rgba(255, 126, 66, 0.18), transparent 32%),
-      radial-gradient(circle at bottom left, rgba(255, 61, 138, 0.12), transparent 28%),
-      #fffaf4;
+      radial-gradient(circle at top right, rgba(255, 150, 76, 0.2), transparent 34%),
+      radial-gradient(circle at bottom left, rgba(226, 148, 69, 0.14), transparent 30%),
+      #fffaf2;
   }
   
   body {
-    @apply bg-[#fffaf4] text-slate-800 antialiased;
+    @apply bg-[#fffaf2] text-slate-800 antialiased;
   }
 
   h1,
