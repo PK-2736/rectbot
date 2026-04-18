@@ -10,14 +10,36 @@ type SubscriptionStatus = {
   isPremium: boolean;
   status: string;
   activeGuildId?: string | null;
+  subscriptions?: Array<{
+    stripe_subscription_id?: string | null;
+    purchased_guild_id?: string | null;
+    status?: string | null;
+    current_period_end?: string | null;
+    billing_interval?: string | null;
+    amount?: number | null;
+    currency?: string | null;
+  }>;
   subscription?: {
     stripe_subscription_id?: string | null;
+    purchased_guild_id?: string | null;
+    status?: string | null;
     current_period_end?: string | null;
     billing_interval?: string | null;
     amount?: number | null;
     currency?: string | null;
   } | null;
 };
+
+function formatStatus(status?: string | null) {
+  const normalized = String(status || '').toLowerCase();
+  if (normalized === 'active') return '有効';
+  if (normalized === 'trialing') return 'トライアル中';
+  if (normalized === 'canceled') return 'キャンセル済み';
+  if (normalized === 'past_due') return '支払い失敗';
+  if (normalized === 'unpaid') return '未払い';
+  if (normalized === 'incomplete') return '未完了';
+  return status || '不明';
+}
 
 function formatDate(iso?: string | null) {
   if (!iso) return '不明';
@@ -41,6 +63,7 @@ function formatPrice(amount?: number | null, currency?: string | null) {
 export default function SubscriptionManagement({ status }: { status: SubscriptionStatus }) {
   const { user, logout } = useAuth();
   const [openingPortal, setOpeningPortal] = useState(false);
+  const subscriptions = Array.isArray(status.subscriptions) ? status.subscriptions : [];
 
   const openPortal = async () => {
     try {
@@ -104,6 +127,41 @@ export default function SubscriptionManagement({ status }: { status: Subscriptio
               <p className="text-xs text-slate-500">適用サーバーID</p>
               <p className="mt-1 break-all text-sm font-semibold text-slate-900">{status.activeGuildId || '未設定'}</p>
             </div>
+          </div>
+
+          <div className="mt-6 rounded-2xl border border-brand-100 bg-white p-5">
+            <p className="text-sm font-semibold text-slate-900">契約一覧</p>
+            <p className="mt-1 text-xs text-slate-500">複数契約がある場合、ここで対象サーバーIDごとに確認できます。</p>
+
+            {subscriptions.length === 0 ? (
+              <p className="mt-3 text-sm text-slate-500">契約情報が見つかりません。</p>
+            ) : (
+              <div className="mt-3 space-y-3">
+                {subscriptions.map((sub, idx) => (
+                  <div key={sub.stripe_subscription_id || `sub-${idx}`} className="rounded-xl border border-brand-100 bg-brand-50/40 p-3">
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <div>
+                        <p className="text-[11px] text-slate-500">対象サーバーID</p>
+                        <p className="mt-0.5 break-all text-sm font-semibold text-slate-900">{sub.purchased_guild_id || '未設定'}</p>
+                      </div>
+                      <div>
+                        <p className="text-[11px] text-slate-500">状態</p>
+                        <p className="mt-0.5 text-sm font-semibold text-slate-900">{formatStatus(sub.status)}</p>
+                      </div>
+                      <div>
+                        <p className="text-[11px] text-slate-500">料金</p>
+                        <p className="mt-0.5 text-sm font-semibold text-slate-900">{formatPrice(sub.amount, sub.currency)}</p>
+                      </div>
+                      <div>
+                        <p className="text-[11px] text-slate-500">次回更新</p>
+                        <p className="mt-0.5 text-sm font-semibold text-slate-900">{formatDate(sub.current_period_end)}</p>
+                      </div>
+                    </div>
+                    <p className="mt-2 text-[11px] text-slate-500 break-all">Subscription ID: {sub.stripe_subscription_id || '未設定'}</p>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="mt-6 flex flex-col gap-3 sm:flex-row">

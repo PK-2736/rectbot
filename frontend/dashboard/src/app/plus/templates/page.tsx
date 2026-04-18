@@ -854,6 +854,21 @@ export default function PlusTemplatePage() {
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 items-center text-sm">
+                    <label>参加者アバター枠 幅</label>
+                    <input type="range" min={180} max={1200} value={layout.participantsBox.width} onChange={(e) => setBoxSize("participantsBox", "width", Number(e.target.value))} />
+                    <label className="flex items-center gap-2 sm:justify-end">
+                      <input type="checkbox" checked={layout.participantsBox.visible} onChange={(e) => setBoxVisible("participantsBox", e.target.checked)} />
+                      表示
+                    </label>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 items-center text-sm">
+                    <label>参加者アバター枠 高さ</label>
+                    <input type="range" min={120} max={620} value={layout.participantsBox.height} onChange={(e) => setBoxSize("participantsBox", "height", Number(e.target.value))} />
+                    <span className="sm:text-right text-xs text-stone-500">{layout.participantsBox.width} x {layout.participantsBox.height}</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 items-center text-sm">
                     <label>募集画像サイズ</label>
                     <input
                       type="range"

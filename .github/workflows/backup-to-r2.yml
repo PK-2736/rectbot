@@ -111,7 +111,7 @@ jobs:
       - name: Notify Discord webhook
         if: always()
         env:
-          DISCORD_WEBHOOK_URL: https://discord.com/api/webhooks/1426044588740710460/RElua00Jvi-937tbGtwv9wfq123mdff097HvaJgb-qILNsc79yzei9x8vZrM2OKYsETI
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           JOB_STATUS: ${{ job.status }}
           TARGET_ENV: ${{ github.event.inputs.target_env || 'test' }}
           RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}

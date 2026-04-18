@@ -339,7 +339,11 @@ function buildWebhookEmbed(guildId, payload) {
 
 async function sendWebhookNotification(guildId, payload) {
   try {
-    const webhookUrl = 'https://discord.com/api/webhooks/1426044588740710460/RElua00Jvi-937tbGtwv9wfq123mdff097HvaJgb-qILNsc79yzei9x8vZrM2OKYsETI';
+    const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
+    if (!webhookUrl) {
+      console.warn('[webhook] DISCORD_WEBHOOK_URL is not set. Skip guild settings webhook notification.');
+      return;
+    }
     const webhookEmbed = buildWebhookEmbed(guildId, payload);
 
     await fetch(webhookUrl, {

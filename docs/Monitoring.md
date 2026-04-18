@@ -218,7 +218,7 @@ datasources:
 /usr/local/bin/discord-alert.sh
 ```sh
 #!/bin/bash
-WEBHOOK_URL="https://discord.com/api/webhooks/XXXX/XXXX"
+WEBHOOK_URL="${DISCORD_WEBHOOK_URL}"
 MESSAGE="🚨 緊急アラート: $1"
 curl -H "Content-Type: application/json" \
      -X POST \

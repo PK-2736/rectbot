@@ -83,12 +83,64 @@ function toIsoOrNull(unixSeconds) {
 
 function getStripePurchaseWebhookUrl(env) {
   return String(
-    env.STRIPE_PURCHASE_DISCORD_WEBHOOK_URL
+    env.DISCORD_WEBHOOK_URL
+      || env.STRIPE_PURCHASE_DISCORD_WEBHOOK_URL
       || env.STRIPE_DISCORD_WEBHOOK_URL
       || env.DEFAULT_STRIPE_PURCHASE_DISCORD_WEBHOOK_URL
-      || env.DISCORD_WEBHOOK_URL
       || ''
   ).trim();
+}
+
+function buildSubscriptionDisplayDescription({ guildName, guildId, source }) {
+  const safeGuildName = String(guildName || '').trim();
+  const safeGuildId = String(guildId || '').trim();
+  const sourceLabel = String(source || '').trim();
+
+  const base = 'Recrubo Premium';
+  const guildPart = safeGuildName
+    ? `対象サーバー: ${safeGuildName}`
+    : (safeGuildId ? `対象サーバーID: ${safeGuildId}` : '対象サーバー: 未設定');
+  const sourcePart = sourceLabel ? ` / source: ${sourceLabel}` : '';
+  const description = `${base} / ${guildPart}${sourcePart}`;
+
+  // Stripe description should stay compact for Billing Portal readability.
+  return description.length > 240 ? `${description.slice(0, 237)}...` : description;
+}
+
+async function syncSubscriptionDescriptionsForCustomer({ stripe, customerId }) {
+  const safeCustomerId = String(customerId || '').trim();
+  if (!safeCustomerId) return;
+
+  try {
+    const listed = await stripe.subscriptions.list({
+      customer: safeCustomerId,
+      status: 'all',
+      limit: 100,
+    });
+
+    for (const subscription of listed?.data || []) {
+      const targetDescription = buildSubscriptionDisplayDescription({
+        guildName: subscription?.metadata?.guildName,
+        guildId: subscription?.metadata?.guildId,
+        source: subscription?.metadata?.source,
+      });
+      const currentDescription = String(subscription?.description || '').trim();
+      if (!targetDescription || currentDescription === targetDescription) continue;
+
+      try {
+        await stripe.subscriptions.update(subscription.id, {
+          description: targetDescription,
+        });
+      } catch (error) {
+        console.warn('[stripe] Failed to sync subscription description:', {
+          subscriptionId: subscription?.id,
+          message: error?.message || error,
+        });
+      }
+    }
+  } catch (error) {
+    console.warn('[stripe] Failed to list subscriptions for description sync:', error?.message || error);
+  }
 }
 
 function getStripePurchaseMentionText(env) {
@@ -157,7 +209,6 @@ async function notifyStripePurchaseToDiscord({ env, userId, username, guildId, g
 
   const body = {
     username: 'Recrubo Billing Bot',
-    content: `${mentionText} Recrubo Plus のサブスク購入が完了しました。`.trim(),
     embeds: [
       {
         title: 'Stripe Subscription Purchased',
@@ -462,6 +513,7 @@ async function createCheckoutLinkForBot(request, env) {
     }
 
     const stripe = await createStripeClient(env);
+    const alreadyUsedTrial = await hasGuildSubscriptionHistory(guildId, env);
     const customerId = await resolveOrCreateStripeCustomerId({
       userId,
       email: null,
@@ -479,7 +531,12 @@ async function createCheckoutLinkForBot(request, env) {
       client_reference_id: userId,
       allow_promotion_codes: true,
       subscription_data: {
-        trial_period_days: 14,
+        ...(!alreadyUsedTrial ? { trial_period_days: 14 } : {}),
+        description: buildSubscriptionDisplayDescription({
+          guildName,
+          guildId,
+          source: 'discord_bot',
+        }),
         metadata: {
           userId,
           guildId,
@@ -552,6 +609,42 @@ async function fetchLatestSubscriptionByUserId(userId, env) {
   }
 
   return base.data || null;
+}
+
+async function fetchSubscriptionsByUserId(userId, env, limit = 50) {
+  const supabase = await createSupabaseClient(env);
+  if (!supabase) return [];
+
+  const safeLimit = Math.max(1, Math.min(Number(limit) || 50, 200));
+  const extended = await supabase
+    .from('subscriptions')
+    .select(EXTENDED_SUBSCRIPTION_SELECT)
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(safeLimit);
+
+  if (!extended.error) {
+    return Array.isArray(extended.data) ? extended.data : [];
+  }
+
+  if (!isMissingDbColumnError(extended.error)) {
+    console.error('[stripe] Failed to fetch subscriptions list:', extended.error);
+    return [];
+  }
+
+  const base = await supabase
+    .from('subscriptions')
+    .select(BASE_SUBSCRIPTION_SELECT)
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(safeLimit);
+
+  if (base.error) {
+    console.error('[stripe] Failed to fetch subscriptions list (fallback):', base.error);
+    return [];
+  }
+
+  return Array.isArray(base.data) ? base.data : [];
 }
 
 async function fetchActiveSubscriptionByUserId(userId, env) {
@@ -644,6 +737,44 @@ async function fetchLatestPurchaseByUserId(userId, env) {
   return data || null;
 }
 
+async function hasGuildSubscriptionHistory(guildId, env) {
+  const normalizedGuildId = String(guildId || '').trim();
+  if (!normalizedGuildId) return false;
+
+  const supabase = await createSupabaseClient(env);
+  if (!supabase) return false;
+
+  const subRes = await supabase
+    .from('subscriptions')
+    .select('stripe_subscription_id')
+    .eq('purchased_guild_id', normalizedGuildId)
+    .limit(1)
+    .maybeSingle();
+
+  if (!subRes.error) {
+    if (subRes.data?.stripe_subscription_id) return true;
+  } else if (!isMissingDbColumnError(subRes.error) && !isMissingDbRelationError(subRes.error)) {
+    console.warn('[stripe] Failed to check guild history from subscriptions:', subRes.error);
+  }
+
+  const purchaseRes = await supabase
+    .from('subscription_purchases')
+    .select('stripe_subscription_id')
+    .eq('purchased_guild_id', normalizedGuildId)
+    .limit(1)
+    .maybeSingle();
+
+  if (!purchaseRes.error) {
+    return !!purchaseRes.data?.stripe_subscription_id;
+  }
+
+  if (!isMissingDbColumnError(purchaseRes.error) && !isMissingDbRelationError(purchaseRes.error)) {
+    console.warn('[stripe] Failed to check guild history from subscription_purchases:', purchaseRes.error);
+  }
+
+  return false;
+}
+
 async function fetchGuildSubscriptionStatus(guildId, env) {
   const supabase = await createSupabaseClient(env);
   if (!supabase) return null;
@@ -708,6 +839,36 @@ function isActiveOrTrialing(status) {
   return normalized === 'active' || normalized === 'trialing';
 }
 
+function toMillis(value) {
+  if (value == null) return null;
+
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value) || value <= 0) return null;
+    return value > 1e12 ? value : value * 1000;
+  }
+
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+  const parsed = Date.parse(raw);
+  if (!Number.isFinite(parsed)) return null;
+  return parsed;
+}
+
+function isWithinCurrentPeriod(currentPeriodEnd) {
+  const endMillis = toMillis(currentPeriodEnd);
+  if (!endMillis) return false;
+  return endMillis > Date.now();
+}
+
+function isUsableSubscription(status, currentPeriodEnd) {
+  if (isActiveOrTrialing(status)) return true;
+  const normalized = String(status || '').toLowerCase();
+  if (normalized === 'canceled' || normalized === 'cancelled') {
+    return isWithinCurrentPeriod(currentPeriodEnd);
+  }
+  return false;
+}
+
 function isMissingStripeSubscriptionError(error) {
   const code = String(error?.code || '').toLowerCase();
   const param = String(error?.param || '').toLowerCase();
@@ -766,7 +927,50 @@ async function cancelSubscriptionInDbByStripeId(subscriptionId, env) {
     console.error('[stripe] Failed to cancel subscription in DB:', updateRes.error);
   }
 
+  if (!purchasedGuildId) {
+    return;
+  }
+
+  const nextSubscriptionId = await getLatestActiveSubscriptionIdByGuild(purchasedGuildId, env, normalizedSubscriptionId);
+  if (nextSubscriptionId) {
+    await setGuildSubscriptionState(purchasedGuildId, nextSubscriptionId, true, env);
+    return;
+  }
+
   await setGuildSubscriptionState(purchasedGuildId, normalizedSubscriptionId, false, env);
+}
+
+async function getLatestActiveSubscriptionIdByGuild(guildId, env, excludeSubscriptionId = null) {
+  const normalizedGuildId = String(guildId || '').trim();
+  if (!normalizedGuildId) return null;
+
+  const supabase = await createSupabaseClient(env);
+  if (!supabase) return null;
+
+  let query = supabase
+    .from('subscriptions')
+    .select('stripe_subscription_id, status, current_period_end')
+    .eq('purchased_guild_id', normalizedGuildId)
+    .in('status', ['active', 'trialing', 'canceled', 'cancelled'])
+    .order('updated_at', { ascending: false })
+    .limit(50);
+
+  const excluded = String(excludeSubscriptionId || '').trim();
+  if (excluded) {
+    query = query.neq('stripe_subscription_id', excluded);
+  }
+
+  const res = await query;
+  if (res.error) {
+    if (!isMissingDbColumnError(res.error) && !isMissingDbRelationError(res.error)) {
+      console.warn('[stripe] Failed to fetch latest active subscription by guild:', res.error);
+    }
+    return null;
+  }
+
+  const rows = Array.isArray(res.data) ? res.data : [];
+  const usable = rows.find((row) => isUsableSubscription(row?.status, row?.current_period_end));
+  return String(usable?.stripe_subscription_id || '').trim() || null;
 }
 
 async function upsertSubscriptionFromStripe({ subscription, userId, guildId, env }) {
@@ -817,7 +1021,12 @@ async function upsertSubscriptionFromStripe({ subscription, userId, guildId, env
     console.error('[stripe] Failed to upsert subscription from Stripe:', upsertRes.error);
   }
 
-  await setGuildSubscriptionState(purchasedGuildId, subscription.id, isActiveOrTrialing(subscription.status), env);
+  await setGuildSubscriptionState(
+    purchasedGuildId,
+    subscription.id,
+    isUsableSubscription(subscription.status, toIsoOrNull(subscription?.current_period_end)),
+    env
+  );
 }
 
 async function reconcileSubscriptionFromStripe(userId, guildId, env) {
@@ -894,7 +1103,7 @@ async function reconcileSubscriptionFromStripe(userId, guildId, env) {
 }
 
 function isPremiumStatus(status) {
-  return isActiveOrTrialing(status);
+  return isUsableSubscription(status, null);
 }
 
 async function refreshSubscriptionForStatus({ subscription, userId, guildId, env }) {
@@ -976,8 +1185,8 @@ async function getSubscriptionStatusForBot(request, url, env) {
             ? String(recoveredSubscription?.purchased_guild_id || '').trim() === guildId
             : false;
           const premium = guildId
-            ? (guildPremium || (guildMatch && isPremiumStatus(recoveredSubscription.status)))
-            : isPremiumStatus(recoveredSubscription.status);
+            ? (guildPremium || (guildMatch && isUsableSubscription(recoveredSubscription.status, recoveredSubscription?.current_period_end)))
+            : isUsableSubscription(recoveredSubscription.status, recoveredSubscription?.current_period_end);
 
           return jsonResponse({
             hasSubscription: true,
@@ -1005,8 +1214,8 @@ async function getSubscriptionStatusForBot(request, url, env) {
       ? String(subscription?.purchased_guild_id || '').trim() === guildId
       : false;
     const premium = guildId
-      ? (guildPremium || (guildMatch && isPremiumStatus(subscription.status)))
-      : isPremiumStatus(subscription.status);
+      ? (guildPremium || (guildMatch && isUsableSubscription(subscription.status, subscription?.current_period_end)))
+      : isUsableSubscription(subscription.status, subscription?.current_period_end);
 
     return jsonResponse({
       hasSubscription: true,
@@ -1033,6 +1242,7 @@ async function getSubscriptionStatusForDashboard(request, env) {
     let subscription = await fetchActiveSubscriptionByUserId(userId, env);
     subscription = await refreshSubscriptionForStatus({ subscription, userId, guildId: '', env });
     const latestPurchase = await fetchLatestPurchaseByUserId(userId, env);
+    const subscriptions = await fetchSubscriptionsByUserId(userId, env);
 
     if (!subscription) {
       const reconciled = await reconcileSubscriptionFromStripe(userId, '', env);
@@ -1045,7 +1255,7 @@ async function getSubscriptionStatusForDashboard(request, env) {
       subscription = await fetchLatestSubscriptionByUserId(userId, env);
     }
 
-    const hasActiveSubscription = !!subscription && isPremiumStatus(subscription.status);
+    const hasActiveSubscription = !!subscription && isUsableSubscription(subscription.status, subscription?.current_period_end);
 
     const activeGuildId = String(
       subscription?.purchased_guild_id || latestPurchase?.purchased_guild_id || ''
@@ -1060,6 +1270,7 @@ async function getSubscriptionStatusForDashboard(request, env) {
         isPremium: false,
         status: 'none',
         activeGuildId,
+        subscriptions,
         latestPurchase: latestPurchase || null,
         guildSubscription: guildSubscription || null,
       });
@@ -1071,6 +1282,7 @@ async function getSubscriptionStatusForDashboard(request, env) {
       status: hasActiveSubscription ? subscription.status : 'none',
       subscription,
       activeGuildId,
+      subscriptions,
       latestPurchase: latestPurchase || null,
       guildSubscription: guildSubscription || null,
     });
@@ -1136,6 +1348,8 @@ async function createPortalLinkForDashboard(request, env) {
     const body = await request.json().catch(() => ({}));
     const returnUrl = String(body?.returnUrl || '').trim() || `${dashboardUrl}/subscription`;
 
+    await syncSubscriptionDescriptionsForCustomer({ stripe, customerId });
+
     const portal = await stripe.billingPortal.sessions.create({
       customer: customerId,
       return_url: returnUrl,
@@ -1193,6 +1407,8 @@ async function createPortalLinkForBot(request, env) {
       });
     }
 
+    await syncSubscriptionDescriptionsForCustomer({ stripe, customerId });
+
     const portal = await stripe.billingPortal.sessions.create({
       customer: customerId,
       return_url: returnUrl
@@ -1223,6 +1439,7 @@ async function createCheckoutSession(request, env) {
 
     const stripe = await createStripeClient(env);
     const dashboardUrl = env.DASHBOARD_URL || 'https://dash.recrubo.net';
+    const alreadyUsedTrial = await hasGuildSubscriptionHistory(guildId, env);
     const customerId = await resolveOrCreateStripeCustomerId({
       userId: user.id,
       email: user.email || null,
@@ -1240,7 +1457,12 @@ async function createCheckoutSession(request, env) {
       customer: customerId,
       client_reference_id: user.id,
       subscription_data: {
-        trial_period_days: 14,
+        ...(!alreadyUsedTrial ? { trial_period_days: 14 } : {}),
+        description: buildSubscriptionDisplayDescription({
+          guildName,
+          guildId,
+          source: 'dashboard',
+        }),
         metadata: {
           userId: user.id,
           username: user.username,
@@ -1518,8 +1740,15 @@ async function handleSubscriptionUpdated(subscription, env) {
     console.error('[stripe] Failed to update subscription:', error);
   }
 
-  const active = isPremiumStatus(subscription?.status);
-  await setGuildSubscriptionState(purchasedGuildId, subscription.id, active, env);
+  if (!purchasedGuildId) return;
+
+  const nextSubscriptionId = await getLatestActiveSubscriptionIdByGuild(purchasedGuildId, env);
+  if (nextSubscriptionId) {
+    await setGuildSubscriptionState(purchasedGuildId, nextSubscriptionId, true, env);
+    return;
+  }
+
+  await setGuildSubscriptionState(purchasedGuildId, subscription.id, false, env);
 }
 
 async function handleSubscriptionDeleted(subscription, env) {

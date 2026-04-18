@@ -72,10 +72,10 @@ supabase db push
 
 実行結果は指定されたDiscord Webhookに通知されます。
 
-**Webhook URL**: 
-```
-https://discord.com/api/webhooks/1426044588740710460/RElua00Jvi-937tbGtwv9wfq123mdff097HvaJgb-qILNsc79yzei9x8vZrM2OKYsETI
-```
+**GitHub Secret**: `DISCORD_WEBHOOK_URL`
+
+GitHub Repository Secrets に Discord Webhook URL を登録し、
+ワークフローから `${{ secrets.DISCORD_WEBHOOK_URL }}` として参照します。
 
 通知内容：
 - ✅ **成功時**: 緑色の埋め込みメッセージ

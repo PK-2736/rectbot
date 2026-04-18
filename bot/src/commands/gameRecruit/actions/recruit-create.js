@@ -205,7 +205,11 @@ async function persistRecruitmentData(finalRecruitData, interaction, actualMessa
 
 async function sendWebhookNotification(finalRecruitData, interaction, actualMessageId, avatarUrl) {
   try {
-    const webhookUrl = 'https://discord.com/api/webhooks/1426044588740710460/RElua00Jvi-937tbGtwv9wfq123mdff097HvaJgb-qILNsc79yzei9x8vZrM2OKYsETI';
+    const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
+    if (!webhookUrl) {
+      console.warn('[webhook] DISCORD_WEBHOOK_URL is not set. Skip recruit webhook notification.');
+      return;
+    }
     const messageUrl = `https://discord.com/channels/${interaction.guildId}/${interaction.channelId}/${actualMessageId}`;
 
     const webhookEmbed = {

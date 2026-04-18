@@ -67,10 +67,11 @@ async function resolveRecruitTtlHours(interaction, guildSettings) {
 /**
  * クールダウンを強制
  */
-async function enforceCooldown(interaction) {
+async function enforceCooldown(interaction, skipCooldown = false) {
   const { getCooldownRemaining } = require('../../../utils/database');
   try {
     if (isGuildExempt(interaction.guildId)) return true;
+    if (skipCooldown) return true;
     const remaining = await getCooldownRemaining(`rect:${interaction.guildId}`);
     if (remaining > 0) {
       const mm = Math.floor(remaining / 60);
@@ -92,12 +93,16 @@ async function enforceCooldown(interaction) {
 /**
  * アクティブな募集がないことを確認
  */
-async function ensureNoActiveRecruit(interaction) {
+async function ensureNoActiveRecruit(interaction, guildSettings = null, premiumEnabled = false) {
   if (isGuildExempt(interaction.guildId)) return true;
   const { listRecruitsFromRedis } = require('../../../utils/database');
   try {
-    const guildSettings = await getGuildSettings(interaction.guildId);
-    if (isPremiumEnabled(guildSettings)) {
+    if (premiumEnabled) {
+      return true;
+    }
+
+    const resolvedGuildSettings = guildSettings || await getGuildSettings(interaction.guildId);
+    if (isPremiumEnabled(resolvedGuildSettings)) {
       return true;
     }
 
@@ -149,10 +154,16 @@ function parseParticipantsNumFromModal(interaction) {
  * モーダル送信を検証
  */
 async function validateModalSubmission(interaction) {
-  if (!(await enforceCooldown(interaction))) return null;
-  if (!(await ensureNoActiveRecruit(interaction))) return null;
-  
   const guildSettings = await getGuildSettings(interaction.guildId);
+  const premiumByGuild = isPremiumEnabled(guildSettings);
+  const premiumBySubscription = premiumByGuild
+    ? false
+    : await hasPremiumSubscription(interaction.user?.id, interaction.guildId);
+  const premiumEnabled = premiumByGuild || premiumBySubscription;
+
+  if (!(await enforceCooldown(interaction, premiumEnabled))) return null;
+  if (!(await ensureNoActiveRecruit(interaction, guildSettings, premiumEnabled))) return null;
+
   const participantsNum = parseParticipantsNumFromModal(interaction);
   
   if (participantsNum === null) {
@@ -164,7 +175,7 @@ async function validateModalSubmission(interaction) {
     return null;
   }
   
-  return guildSettings;
+  return { guildSettings, premiumEnabled };
 }
 
 /**
@@ -172,7 +183,11 @@ async function validateModalSubmission(interaction) {
  */
 async function sendWebhookNotification(finalRecruitData, interaction, actualRecruitId, actualMessageId, avatarUrl) {
   try {
-    const webhookUrl = 'https://discord.com/api/webhooks/1426044588740710460/RElua00Jvi-937tbGtwv9wfq123mdff097HvaJgb-qILNsc79yzei9x8vZrM2OKYsETI';
+    const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
+    if (!webhookUrl) {
+      console.warn('[webhook] DISCORD_WEBHOOK_URL is not set. Skip recruit webhook notification.');
+      return;
+    }
     const messageUrl = `https://discord.com/channels/${interaction.guildId}/${interaction.channelId}/${actualMessageId}`;
 
     const webhookEmbed = {
@@ -343,12 +358,12 @@ function setupStartTimeNotification(actualRecruitId, actualMessageId, finalRecru
 /**
  * 最終化＆永続化処理（finalizePersistAndEdit）
  */
-async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettings, followUpMessage, currentParticipants }) {
+async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettings, premiumEnabled = false, followUpMessage, currentParticipants }) {
   const actualMessageId = followUpMessage.id;
   const actualRecruitId = actualMessageId.slice(-8);
   const avatarUrl = await fetchUserAvatarUrl(interaction);
 
-  const ttlHours = await resolveRecruitTtlHours(interaction, guildSettings);
+  const ttlHours = premiumEnabled ? PREMIUM_RECRUIT_TTL_HOURS : await resolveRecruitTtlHours(interaction, guildSettings);
   recruitDataObj.expiresAt = buildExpiresAtFromHours(ttlHours);
   console.log('[modal-submit-flow] recruit ttlHours=', ttlHours, 'expiresAt=', recruitDataObj.expiresAt);
 
@@ -366,7 +381,7 @@ async function finalizePersistAndEdit({ interaction, recruitDataObj, guildSettin
 
   // ステップ5: クールダウン設定
   try {
-    if (!isGuildExempt(interaction.guildId)) {
+    if (!isGuildExempt(interaction.guildId) && !premiumEnabled) {
       await setCooldown(`rect:${interaction.guildId}`, 60);
     }
   } catch (e) {

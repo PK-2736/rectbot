@@ -12,8 +12,19 @@ type SubscriptionStatus = {
   isPremium: boolean;
   status: string;
   activeGuildId?: string | null;
+  subscriptions?: Array<{
+    stripe_subscription_id?: string | null;
+    purchased_guild_id?: string | null;
+    status?: string | null;
+    current_period_end?: string | null;
+    billing_interval?: string | null;
+    amount?: number | null;
+    currency?: string | null;
+  }>;
   subscription?: {
     stripe_subscription_id?: string | null;
+    purchased_guild_id?: string | null;
+    status?: string | null;
     current_period_end?: string | null;
     billing_interval?: string | null;
     amount?: number | null;

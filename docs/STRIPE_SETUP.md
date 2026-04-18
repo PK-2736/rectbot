@@ -125,7 +125,7 @@ CREATE INDEX idx_subscriptions_stripe_subscription_id ON subscriptions(stripe_su
    - `STRIPE_SECRET_KEY` = `sk_live_...`
    - `STRIPE_WEBHOOK_SECRET` = `whsec_...`
    - `STRIPE_PREMIUM_PRICE_ID` = `price_...`
-   - `STRIPE_PURCHASE_DISCORD_WEBHOOK_URL` = Stripe購入通知用 Discord Webhook URL
+   - `DISCORD_WEBHOOK_URL` = Discord通知用 Webhook URL（Stripe購入通知でも使用）
    - `DISCORD_BOT_TOKEN` = 購入完了サーバーへ通知を送るBotトークン
    - `STRIPE_PURCHASE_DISCORD_MENTION` = 任意（例: `@here`）
    - `STRIPE_PURCHASE_DISCORD_EMBED_COLOR` = 任意（例: `#22c55e`）
@@ -138,7 +138,7 @@ gh secret set NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY -b "pk_live_xxx"
 gh secret set STRIPE_SECRET_KEY -b "sk_live_xxx"
 gh secret set STRIPE_WEBHOOK_SECRET -b "whsec_xxx"
 gh secret set STRIPE_PREMIUM_PRICE_ID -b "price_xxx"
-gh secret set STRIPE_PURCHASE_DISCORD_WEBHOOK_URL -b "https://discord.com/api/webhooks/..."
+gh secret set DISCORD_WEBHOOK_URL -b "https://discord.com/api/webhooks/..."
 gh secret set DISCORD_BOT_TOKEN -b "<your_discord_bot_token>"
 gh secret set STRIPE_PURCHASE_DISCORD_MENTION -b "@here"
 gh secret set STRIPE_PURCHASE_DISCORD_EMBED_COLOR -b "#22c55e"
@@ -152,7 +152,7 @@ cd /workspaces/rectbot/backend
 printf "%s" "sk_live_xxx" | npx wrangler secret put STRIPE_SECRET_KEY
 printf "%s" "whsec_xxx" | npx wrangler secret put STRIPE_WEBHOOK_SECRET
 printf "%s" "price_xxx" | npx wrangler secret put STRIPE_PREMIUM_PRICE_ID
-printf "%s" "https://discord.com/api/webhooks/..." | npx wrangler secret put STRIPE_PURCHASE_DISCORD_WEBHOOK_URL
+printf "%s" "https://discord.com/api/webhooks/..." | npx wrangler secret put DISCORD_WEBHOOK_URL
 ```
 
 #### Live モード整合の注意

@@ -69,7 +69,7 @@ jobs:
       - name: Send Discord Notification on Success
         if: success()
         env:
-          DISCORD_WEBHOOK_URL: https://discord.com/api/webhooks/1426044588740710460/RElua00Jvi-937tbGtwv9wfq123mdff097HvaJgb-qILNsc79yzei9x8vZrM2OKYsETI
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |
           HTTP_CODE=$(cat /tmp/http_code.txt 2>/dev/null || echo "unknown")
           TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
@@ -108,7 +108,7 @@ jobs:
       - name: Send Discord Notification on Failure
         if: failure()
         env:
-          DISCORD_WEBHOOK_URL: https://discord.com/api/webhooks/1426044588740710460/RElua00Jvi-937tbGtwv9wfq123mdff097HvaJgb-qILNsc79yzei9x8vZrM2OKYsETI
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |
           TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
           

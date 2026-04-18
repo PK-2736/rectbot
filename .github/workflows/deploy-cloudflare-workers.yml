@@ -39,7 +39,7 @@ jobs:
           STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
           STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
           STRIPE_PREMIUM_PRICE_ID: ${{ secrets.STRIPE_PREMIUM_PRICE_ID }}
-          STRIPE_PURCHASE_DISCORD_WEBHOOK_URL: ${{ secrets.STRIPE_PURCHASE_DISCORD_WEBHOOK_URL }}
+          STRIPE_PURCHASE_DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           TEMPLATE_GUEST_TOKEN_SECRET: ${{ secrets.TEMPLATE_GUEST_TOKEN_SECRET }}
         run: |
           echo "Checking GitHub Secrets for Workers..."
@@ -105,7 +105,7 @@ jobs:
           STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
           STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
           STRIPE_PREMIUM_PRICE_ID: ${{ secrets.STRIPE_PREMIUM_PRICE_ID }}
-          STRIPE_PURCHASE_DISCORD_WEBHOOK_URL: ${{ secrets.STRIPE_PURCHASE_DISCORD_WEBHOOK_URL }}
+          STRIPE_PURCHASE_DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           TEMPLATE_GUEST_TOKEN_SECRET: ${{ secrets.TEMPLATE_GUEST_TOKEN_SECRET }}
         run: |
           cd backend

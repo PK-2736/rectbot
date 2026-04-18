@@ -49,8 +49,9 @@ async function handleModalSubmit(interaction) {
 
   try {
     // ステップ1: 検証
-    const guildSettings = await validateModalSubmission(interaction);
-    if (!guildSettings) return;
+    const validation = await validateModalSubmission(interaction);
+    if (!validation) return;
+    const { guildSettings, premiumEnabled } = validation;
 
     // ステップ2: データ構築
     const recruitDataObj = await buildRecruitDataFromModal(interaction, guildSettings);
@@ -72,6 +73,7 @@ async function handleModalSubmit(interaction) {
       interaction,
       recruitDataObj,
       guildSettings,
+      premiumEnabled,
       followUpMessage,
       currentParticipants: uiData.currentParticipants
     });
