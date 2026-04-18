@@ -71,10 +71,15 @@ jobs:
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |
+          if [ -z "${DISCORD_WEBHOOK_URL:-}" ]; then
+            echo "DISCORD_WEBHOOK_URL is empty; cannot send success notification" >&2
+            exit 1
+          fi
+
           HTTP_CODE=$(cat /tmp/http_code.txt 2>/dev/null || echo "unknown")
           TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
-          
-          curl -H "Content-Type: application/json" \
+
+          DISCORD_STATUS=$(curl -sS --fail-with-body -o /tmp/discord_success_resp.txt -w "%{http_code}" -H "Content-Type: application/json" \
             -d "{
               \"embeds\": [{
                 \"title\": \"✅ Supabase Keep-Alive Success\",
@@ -103,16 +108,32 @@ jobs:
                 \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%S.000Z)\"
               }]
             }" \
-            "${DISCORD_WEBHOOK_URL}"
+            "${DISCORD_WEBHOOK_URL}")
+
+          case "$DISCORD_STATUS" in
+            200|204)
+              echo "Discord success notification sent (HTTP $DISCORD_STATUS)"
+              ;;
+            *)
+              echo "Discord success notification failed (HTTP $DISCORD_STATUS)" >&2
+              cat /tmp/discord_success_resp.txt >&2 || true
+              exit 1
+              ;;
+          esac
       
       - name: Send Discord Notification on Failure
         if: failure()
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |
+          if [ -z "${DISCORD_WEBHOOK_URL:-}" ]; then
+            echo "DISCORD_WEBHOOK_URL is empty; cannot send failure notification" >&2
+            exit 1
+          fi
+
           TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
-          
-          curl -H "Content-Type: application/json" \
+
+          DISCORD_STATUS=$(curl -sS --fail-with-body -o /tmp/discord_failure_resp.txt -w "%{http_code}" -H "Content-Type: application/json" \
             -d "{
               \"embeds\": [{
                 \"title\": \"❌ Supabase Keep-Alive Failed\",
@@ -136,4 +157,15 @@ jobs:
                 \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%S.000Z)\"
               }]
             }" \
-            "${DISCORD_WEBHOOK_URL}"
+            "${DISCORD_WEBHOOK_URL}")
+
+          case "$DISCORD_STATUS" in
+            200|204)
+              echo "Discord failure notification sent (HTTP $DISCORD_STATUS)"
+              ;;
+            *)
+              echo "Discord failure notification failed (HTTP $DISCORD_STATUS)" >&2
+              cat /tmp/discord_failure_resp.txt >&2 || true
+              exit 1
+              ;;
+          esac

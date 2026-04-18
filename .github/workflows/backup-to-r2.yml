@@ -116,6 +116,11 @@ jobs:
           TARGET_ENV: ${{ github.event.inputs.target_env || 'test' }}
           RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
+          if [ -z "${DISCORD_WEBHOOK_URL:-}" ]; then
+            echo "DISCORD_WEBHOOK_URL is empty; skip notification" >&2
+            exit 1
+          fi
+
           if [ "$JOB_STATUS" = "success" ]; then
             STATUS_ICON="✅"
             STATUS_TEXT="完了"
@@ -127,6 +132,17 @@ jobs:
           MESSAGE="$STATUS_ICON Supabase Backup ($TARGET_ENV) が$STATUS_TEXTしました\nRun: $RUN_URL"
           PAYLOAD=$(printf '{"content":"%s"}' "$MESSAGE")
 
-          curl -sS -X POST "$DISCORD_WEBHOOK_URL" \
+          HTTP_CODE=$(curl -sS --fail-with-body -o /tmp/discord_webhook_resp.txt -w "%{http_code}" -X POST "$DISCORD_WEBHOOK_URL" \
             -H "Content-Type: application/json" \
-            --data "$PAYLOAD"
+            --data "$PAYLOAD")
+
+          case "$HTTP_CODE" in
+            200|204)
+              echo "Discord webhook sent successfully (HTTP $HTTP_CODE)"
+              ;;
+            *)
+              echo "Discord webhook failed (HTTP $HTTP_CODE)" >&2
+              cat /tmp/discord_webhook_resp.txt >&2 || true
+              exit 1
+              ;;
+          esac

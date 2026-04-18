@@ -83,8 +83,8 @@ function toIsoOrNull(unixSeconds) {
 
 function getStripePurchaseWebhookUrl(env) {
   return String(
-    env.DISCORD_WEBHOOK_URL
-      || env.STRIPE_PURCHASE_DISCORD_WEBHOOK_URL
+    env.STRIPE_PURCHASE_DISCORD_WEBHOOK_URL
+      || env.DISCORD_WEBHOOK_URL
       || env.STRIPE_DISCORD_WEBHOOK_URL
       || env.DEFAULT_STRIPE_PURCHASE_DISCORD_WEBHOOK_URL
       || ''
@@ -620,7 +620,7 @@ async function fetchSubscriptionsByUserId(userId, env, limit = 50) {
     .from('subscriptions')
     .select(EXTENDED_SUBSCRIPTION_SELECT)
     .eq('user_id', userId)
-    .order('created_at', { ascending: false })
+    .order('updated_at', { ascending: false })
     .limit(safeLimit);
 
   if (!extended.error) {
@@ -636,7 +636,7 @@ async function fetchSubscriptionsByUserId(userId, env, limit = 50) {
     .from('subscriptions')
     .select(BASE_SUBSCRIPTION_SELECT)
     .eq('user_id', userId)
-    .order('created_at', { ascending: false })
+    .order('updated_at', { ascending: false })
     .limit(safeLimit);
 
   if (base.error) {
@@ -645,6 +645,82 @@ async function fetchSubscriptionsByUserId(userId, env, limit = 50) {
   }
 
   return Array.isArray(base.data) ? base.data : [];
+}
+
+async function fetchSubscriptionPurchasesByUserId(userId, env, limit = 200) {
+  const supabase = await createSupabaseClient(env);
+  if (!supabase) return [];
+
+  const safeLimit = Math.max(1, Math.min(Number(limit) || 200, 500));
+  const { data, error } = await supabase
+    .from('subscription_purchases')
+    .select('purchased_guild_id, stripe_subscription_id, amount, currency, billing_interval, purchased_at')
+    .eq('user_id', userId)
+    .order('purchased_at', { ascending: false })
+    .limit(safeLimit);
+
+  if (error) {
+    if (!isMissingDbRelationError(error) && !isMissingDbColumnError(error)) {
+      console.warn('[stripe] Failed to fetch subscription purchases list:', error);
+    }
+    return [];
+  }
+
+  return Array.isArray(data) ? data : [];
+}
+
+function shouldDisplaySubscriptionInDashboard(subscription) {
+  if (!subscription || typeof subscription !== 'object') return false;
+  const status = String(subscription?.status || '').toLowerCase();
+  if (status === 'canceled' || status === 'cancelled') {
+    return isWithinCurrentPeriod(subscription?.current_period_end);
+  }
+  return true;
+}
+
+function mergeSubscriptionsWithPurchases(subscriptions, purchases) {
+  const normalizedSubs = Array.isArray(subscriptions) ? subscriptions : [];
+  const normalizedPurchases = Array.isArray(purchases) ? purchases : [];
+
+  const seenSubscriptionIds = new Set(
+    normalizedSubs
+      .map((row) => String(row?.stripe_subscription_id || '').trim())
+      .filter(Boolean)
+  );
+
+  const merged = [...normalizedSubs];
+
+  for (const purchase of normalizedPurchases) {
+    const subId = String(purchase?.stripe_subscription_id || '').trim();
+    if (!subId || seenSubscriptionIds.has(subId)) continue;
+
+    seenSubscriptionIds.add(subId);
+    merged.push({
+      stripe_subscription_id: subId,
+      purchased_guild_id: String(purchase?.purchased_guild_id || '').trim() || null,
+      status: 'unknown',
+      current_period_end: null,
+      billing_interval: purchase?.billing_interval || null,
+      amount: purchase?.amount ?? null,
+      currency: purchase?.currency || null,
+      created_at: purchase?.purchased_at || null,
+      updated_at: purchase?.purchased_at || null,
+    });
+  }
+
+  return merged
+    .filter((row) => shouldDisplaySubscriptionInDashboard(row))
+    .sort((a, b) => {
+      const aStatus = String(a?.status || '').toLowerCase();
+      const bStatus = String(b?.status || '').toLowerCase();
+      const aUsable = isUsableSubscription(aStatus, a?.current_period_end) ? 1 : 0;
+      const bUsable = isUsableSubscription(bStatus, b?.current_period_end) ? 1 : 0;
+      if (aUsable !== bUsable) return bUsable - aUsable;
+
+      const aTime = toMillis(a?.updated_at) || toMillis(a?.created_at) || 0;
+      const bTime = toMillis(b?.updated_at) || toMillis(b?.created_at) || 0;
+      return bTime - aTime;
+    });
 }
 
 async function fetchActiveSubscriptionByUserId(userId, env) {
@@ -1242,7 +1318,6 @@ async function getSubscriptionStatusForDashboard(request, env) {
     let subscription = await fetchActiveSubscriptionByUserId(userId, env);
     subscription = await refreshSubscriptionForStatus({ subscription, userId, guildId: '', env });
     const latestPurchase = await fetchLatestPurchaseByUserId(userId, env);
-    const subscriptions = await fetchSubscriptionsByUserId(userId, env);
 
     if (!subscription) {
       const reconciled = await reconcileSubscriptionFromStripe(userId, '', env);
@@ -1254,6 +1329,10 @@ async function getSubscriptionStatusForDashboard(request, env) {
     if (!subscription) {
       subscription = await fetchLatestSubscriptionByUserId(userId, env);
     }
+
+    const subscriptions = await fetchSubscriptionsByUserId(userId, env);
+    const purchases = await fetchSubscriptionPurchasesByUserId(userId, env);
+    const mergedSubscriptions = mergeSubscriptionsWithPurchases(subscriptions, purchases);
 
     const hasActiveSubscription = !!subscription && isUsableSubscription(subscription.status, subscription?.current_period_end);
 
@@ -1270,7 +1349,7 @@ async function getSubscriptionStatusForDashboard(request, env) {
         isPremium: false,
         status: 'none',
         activeGuildId,
-        subscriptions,
+        subscriptions: mergedSubscriptions,
         latestPurchase: latestPurchase || null,
         guildSubscription: guildSubscription || null,
       });
@@ -1282,7 +1361,7 @@ async function getSubscriptionStatusForDashboard(request, env) {
       status: hasActiveSubscription ? subscription.status : 'none',
       subscription,
       activeGuildId,
-      subscriptions,
+      subscriptions: mergedSubscriptions,
       latestPurchase: latestPurchase || null,
       guildSubscription: guildSubscription || null,
     });
