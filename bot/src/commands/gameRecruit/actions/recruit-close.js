@@ -2,7 +2,6 @@ const { AttachmentBuilder, ContainerBuilder, TextDisplayBuilder, SeparatorBuilde
 const { recruitParticipants } = require('../data/state');
 const { getRecruitFromRedis, getGuildSettings, updateRecruitmentStatus, deleteRecruitmentData, deleteParticipantsFromRedis } = require('../../../utils/database');
 const { createErrorEmbed } = require('../../../utils/embedHelpers');
-const { safeReply } = require('../../../utils/safeReply');
 const { formatVoiceLabel, runInBackground } = require('../utils/handlerUtils');
 const { replyEphemeral, logError, logCriticalError } = require('../utils/reply-helpers');
 const { hexToIntColor } = require('../ui/ui-builders');
@@ -342,15 +341,20 @@ async function sendCloseNotification(interaction, data, messageId) {
 
   const finalParticipants = recruitParticipants.get(messageId) || [];
   const closeEmbed = buildCloseNotificationEmbed(data, finalParticipants);
+  const channel = interaction?.channel;
 
   try {
-    await safeReply(interaction, {
-      content: `<@${data.recruiterId}>`,
-      embeds: [closeEmbed],
-      allowedMentions: { users: [data.recruiterId] }
-    });
+    if (channel?.send) {
+      await channel.send({
+        content: `<@${data.recruiterId}>`,
+        embeds: [closeEmbed],
+        allowedMentions: { users: [data.recruiterId], roles: [] }
+      });
+    } else {
+      await replyEphemeral(interaction, { content: '🔒 募集を締め切りました。' });
+    }
   } catch (e) {
-    logError('safeReply failed during close handling', e);
+    logError('close notification send failed', e);
   }
 
   scheduleDedicatedChannelCleanup(interaction, data, messageId);

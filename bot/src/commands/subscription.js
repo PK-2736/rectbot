@@ -30,8 +30,30 @@ console.log('[subscription] Environment variables check:', {
   DASHBOARD_URL_exists: !!process.env.DASHBOARD_URL,
 });
 
-function getStatusLabel(status) {
+function toMillis(value) {
+  if (!value) return null;
+  const n = Date.parse(String(value));
+  return Number.isNaN(n) ? null : n;
+}
+
+function formatCancelUntil(value) {
+  if (!value) return null;
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' });
+}
+
+function getStatusLabel(status, subscription = null) {
   const normalized = String(status || '').toLowerCase();
+  const endMillis = toMillis(subscription?.current_period_end);
+  const withinPeriod = !!endMillis && endMillis > Date.now();
+  const pendingCancel = !!subscription?.cancel_at_period_end;
+
+  if (withinPeriod && (pendingCancel || normalized === 'canceled' || normalized === 'cancelled')) {
+    const until = formatCancelUntil(subscription?.current_period_end);
+    return until ? `解約済み（${until}まで）有効` : '解約済み（期限まで）有効';
+  }
+
   if (normalized === 'active') return '有効';
   if (normalized === 'trialing') return 'トライアル中';
   if (normalized === 'canceled') return 'キャンセル済み';
@@ -308,8 +330,8 @@ module.exports = {
 
       if (subcommand === 'status') {
         const status = await fetchSubscriptionStatus(interaction.user.id, interaction.guildId || null);
-        const label = getStatusLabel(status?.status);
         const subscription = status?.subscription || null;
+        const label = getStatusLabel(status?.status, subscription);
         const latestPurchase = status?.latestPurchase || null;
         const guildSubscription = status?.guildSubscription || null;
         const guildOn = !!(guildSubscription?.premium_enabled || guildSubscription?.enable_dedicated_channel);

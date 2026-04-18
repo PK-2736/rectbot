@@ -14,6 +14,7 @@ type SubscriptionStatus = {
     stripe_subscription_id?: string | null;
     purchased_guild_id?: string | null;
     status?: string | null;
+    cancel_at_period_end?: boolean | null;
     current_period_end?: string | null;
     billing_interval?: string | null;
     amount?: number | null;
@@ -23,6 +24,7 @@ type SubscriptionStatus = {
     stripe_subscription_id?: string | null;
     purchased_guild_id?: string | null;
     status?: string | null;
+    cancel_at_period_end?: boolean | null;
     current_period_end?: string | null;
     billing_interval?: string | null;
     amount?: number | null;
@@ -30,8 +32,30 @@ type SubscriptionStatus = {
   } | null;
 };
 
-function formatStatus(status?: string | null) {
+function toMillis(value?: string | null) {
+  if (!value) return null;
+  const n = Date.parse(value);
+  return Number.isNaN(n) ? null : n;
+}
+
+function formatDateForCancelLabel(iso?: string | null) {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' });
+}
+
+function formatStatus(status?: string | null, currentPeriodEnd?: string | null, cancelAtPeriodEnd?: boolean | null) {
   const normalized = String(status || '').toLowerCase();
+  const endMillis = toMillis(currentPeriodEnd);
+  const withinPeriod = !!endMillis && endMillis > Date.now();
+  const pendingCancel = !!cancelAtPeriodEnd;
+
+  if (withinPeriod && (pendingCancel || normalized === 'canceled' || normalized === 'cancelled')) {
+    const until = formatDateForCancelLabel(currentPeriodEnd);
+    return until ? `解約済み（${until}まで）有効` : '解約済み（期限まで）有効';
+  }
+
   if (normalized === 'active') return '有効';
   if (normalized === 'trialing') return 'トライアル中';
   if (normalized === 'canceled') return 'キャンセル済み';
@@ -127,7 +151,7 @@ export default function SubscriptionManagement({ status }: { status: Subscriptio
                       </div>
                       <div className="grid grid-cols-[96px_minmax(0,1fr)] items-start gap-2">
                         <p className="text-[11px] leading-6 text-slate-500">状態</p>
-                        <p className="text-sm font-semibold leading-6 text-slate-900">{formatStatus(sub.status)}</p>
+                        <p className="text-sm font-semibold leading-6 text-slate-900">{formatStatus(sub.status, sub.current_period_end, sub.cancel_at_period_end)}</p>
                       </div>
                       <div className="grid grid-cols-[96px_minmax(0,1fr)] items-start gap-2">
                         <p className="text-[11px] leading-6 text-slate-500">料金</p>

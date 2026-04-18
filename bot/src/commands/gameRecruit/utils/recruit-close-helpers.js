@@ -4,7 +4,6 @@
  */
 
 const { _MessageFlags, AttachmentBuilder } = require('discord.js');
-const { safeReply } = require('../../../utils/safeReply');
 const { _createErrorEmbed } = require('../../../utils/embedHelpers');
 const { generateRecruitCardQueued, generateClosedRecruitCardQueued } = require('../../../utils/imageQueue');
 
@@ -94,13 +93,14 @@ async function notifyRecruiterOfClose(interaction, recruitData, finalParticipant
   if (!recruitData?.recruiterId) return;
   
   try {
-    // DM送信は行わず、インタラクションの応答でのみ通知する
-    await safeReply(interaction, {
+    const channel = interaction?.channel;
+    if (!channel?.send) return;
+    await channel.send({
       content: `🔒 募集を締め切りました（${finalParticipants.length}/${recruitData.participants}人）`,
-      allowedMentions: { users: [] }
+      allowedMentions: { users: [], roles: [] }
     });
   } catch (e) {
-    console.warn('safeReply failed during close:', e?.message || e);
+    console.warn('close recruiter notification failed:', e?.message || e);
   }
 }
 
