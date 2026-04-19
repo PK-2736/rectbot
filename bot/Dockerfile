@@ -1,5 +1,5 @@
 # Build and run rectbot with canvas support
-FROM node:20-bookworm-slim
+FROM node:25-bookworm-slim
 
 # Install native deps for canvas
 RUN apt-get update && apt-get install -y --no-install-recommends \
